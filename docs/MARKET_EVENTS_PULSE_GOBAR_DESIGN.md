@@ -221,7 +221,11 @@ unavailable, Finnhub key not set".
 - **All quotes are fetched at once with a short time limit, then spoken as one sentence.** A slow quote is
   "unavailable"; nothing arrives after the sentence.
 - **You asked, so neither F2 nor Shift+F2 mutes it**, like the detail key.
-- One compact braille line.
+- One compact braille line. **Built 2026-11-20:** "SPX +0.4, BTC -1.2, 10Y 4.31 +3bp, Oil n/a,
+  VIX cl +2.1" on the Dot Pad's strip, one item a page (Grade 2 makes the cell count of a whole
+  line unpredictable, so a page is an item, never half a name), held through live ticks until the
+  cursor or focus moves or 60 seconds pass, pan keys stepping the pages. **And the detail read**,
+  Ctrl+Alt+P: the last reading item by item with symbol, provider, last price, start price and age.
 
 ### What changed (Alt+U, free on 2026-11-18)
 
@@ -441,7 +445,8 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      no; anything unresolved or inconsistent gives none); previous = the newest settled meeting
      within 60 days. Said as held at / raised to / cut to, with higher/lower than expected.
      `Decimals(0.25)` was 1 (a log rule) and would have said 4.25 as 4.3; it now counts decimals.
-5. **Pulse — 5a BUILT 2026-11-18, not yet heard by Cody**, then the change log and catch-up. The
+5. **Pulse — 5a BUILT 2026-11-18, not yet heard by Cody; its braille line and Ctrl+Alt+P detail
+   read BUILT 2026-11-20 (not felt or heard)**, then the change log and catch-up. The
    watchlist named "Pulse" seeded from the nine-item table and edited in Alt+M; the fixed order;
    held positions appended for the reading but never saved; one sentence with percent changes,
    basis-point yields, closed sessions, minutes-old quotes and "unavailable"; the four-second

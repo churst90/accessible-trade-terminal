@@ -77,9 +77,8 @@ None of this has been seen or heard in the app yet.
 - **Shift+F2 mutes the countdowns and read-outs; F2 does not.** They are alerts-tier speech, with
   the same market-event bell as the bar, and they become a desktop notification when the app
   window is hidden. They do not yet arrive while the browser is closed.
-- **Still to come.** Expected figures (and the surprise word), earnings and the market pulse. For
-  CPI, jobs, PPI and GDP the future dates come from FRED, so without a key the only future
-  countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
+- **Future dates.** For CPI, jobs, PPI and GDP the future dates come from FRED, so without a key
+  the only future countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
   Fed decisions.
 
 ### Headlines: company filings
@@ -140,6 +139,19 @@ None of this has been seen or heard in the app yet.
 - **Slash opens the Go bar**, as well as Alt+G.
 - Shift+comma, Shift+period and Shift+apostrophe never reached the terminal from the browser before;
   they do now, on the chart only.
+
+### The market pulse, what changed, and the Go bar
+
+- **Alt+P says the market in one sentence**: *"S&P up 0.4, Bitcoin down 1.2, ten-year 4.31, up 3
+  basis points, gold up 0.2, 4 minutes old, VIX closed, up 2.1 Friday."* It reads a watchlist
+  named Pulse (made for you on the first press, edited in Alt+M), then anything you hold.
+- **Ctrl+Alt+P reads that pulse in detail**: each item's symbol and source, last price, the start
+  its change runs from and how old it is. It never fetches.
+- **On a Dot Pad the pulse appears on the strip too**, an item at a time: *"SPX +0.4"*, pan right,
+  *"BTC -1.2"*. The chart takes the strip back when you move on it.
+- **Alt+U says what changed** while you were not listening: fills and stops, alerts, market events
+  and connection problems, with their times.
+- **Alt+G or slash opens the Go bar**: type a short code such as `PULSE`, `NEWS AAPL` or `RENKO`.
 
 ### Market events: the Fed rate
 

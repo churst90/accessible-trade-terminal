@@ -159,6 +159,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.OpenLevelReport)]
         [InlineData(SystemCommand.OpenMarketEventCalendar)]
         [InlineData(SystemCommand.MarketPulse)]
+        [InlineData(SystemCommand.MarketPulseDetail)]
         [InlineData(SystemCommand.WhatChanged)]
         [InlineData(SystemCommand.OpenGoBar)]
         [InlineData(SystemCommand.OpenNewsList)]
@@ -310,7 +311,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.SaveIndicatorTemplate, SystemCommand.ApplyIndicatorTemplate,
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
-                SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse,
+                SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse, SystemCommand.MarketPulseDetail,
                 SystemCommand.WhatChanged, SystemCommand.OpenGoBar, SystemCommand.OpenNewsList,
                 SystemCommand.ToggleChartPatterns, SystemCommand.ToggleHeadlines,
                 SystemCommand.ToggleMarketEvents,

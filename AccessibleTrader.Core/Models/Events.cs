@@ -537,6 +537,12 @@ namespace AccessibleTrader.Core.Models
     /// <summary>F4 pressed: flip braille output. Handled by TactileCanvasCoordinator,
     /// which owns the setting, the platform check, and the spoken confirmation.</summary>
     public record BrailleToggleRequestedEvent();
+    /// <summary>
+    /// A line for the tactile display's text strip that stays until the user moves on the chart
+    /// (the market pulse's compact line). Long lines are shown a page of whole items at a time,
+    /// stepped with the display's pan keys.
+    /// </summary>
+    public record TactileStripMessageEvent(string Text);
 
     // ── Strategy Events ───────────────────────────────────────────────────────
     public record StrategySignalEvent(string StrategyName, StrategySignal Signal, string InstanceId);

@@ -568,6 +568,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+G | Go bar — one text box that reaches every action by typing a name, code or alias, with an optional value in either order (`TF 4h` = `4h TF`, `GP BTC` = `BTC GP`), a setting by name (`text size`), `HELP GP` to read a command without running it, the typed money commands `BUY`, `SELL`, `FLAT` (they only fill in the ticket), and `NEWS` — every headline kept this session, newest first (`NEWS AAPL` for one symbol, `NEWS` and a word to search them). Slash opens it as well as Alt+G (2026-11-20), as in a browser or a chat app. Down lists, Tab completes, Enter runs, Escape closes |
 | `/` | Go bar, the same as Alt+G — slash, as a browser or a chat app uses it. Only where typing is not going on: in a text box it types a slash |
 | Alt+P | Market pulse — the "Pulse" watchlist spoken as one sentence (stocks, indices, crypto, forex, gold, oil, VIX, then what you hold) |
+| Ctrl+Alt+P | Market pulse detail — the last Alt+P reading item by item: symbol and source, last price, the change to two decimals from its stated start, and how old the quote is (never fetches) |
 | Alt+U | What changed — the catch-up of money, alerts, events released and connection problems since you last listened. Press again for the rest |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |

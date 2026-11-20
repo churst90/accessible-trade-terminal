@@ -376,6 +376,11 @@ namespace AccessibleTrader.Core.Services.Input
                     if (_marketPulse != null) _ = _marketPulse.SpeakAsync(_store.State);
                     return;
 
+                case SystemCommand.MarketPulseDetail:
+                    // The newest reading again, item by item; never a fetch.
+                    _marketPulse?.SpeakDetail();
+                    return;
+
                 case SystemCommand.WhatChanged:
                     // What happened while you were not listening. The catch-up owns the plan,
                     // the words and the caught-up mark; this only starts the press.

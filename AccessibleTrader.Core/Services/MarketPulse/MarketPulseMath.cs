@@ -18,7 +18,27 @@ namespace AccessibleTrader.Core.Services.MarketPulse
         private static readonly TimeSpan ForexFridayClose = new(17, 0, 0);
         private static readonly TimeSpan ForexSundayOpen = new(17, 0, 0);
 
+        /// <summary>An item with no usable answer, still carrying where it was asked.</summary>
+        public static MarketPulseQuote Unavailable(WatchlistEntry entry)
+            => Stamp(entry, Unavailable(MarketPulseDefaults.SpokenName(entry), MarketPulseDefaults.IsYield(entry)));
+
         public static MarketPulseQuote Quote(
+            WatchlistEntry entry,
+            IReadOnlyList<Ohlcv> dailyBars,
+            IReadOnlyList<Ohlcv> intradayBars,
+            DateTime nowUtc,
+            PulseCryptoStart cryptoStart)
+            => Stamp(entry, Answer(entry, dailyBars, intradayBars, nowUtc, cryptoStart));
+
+        private static MarketPulseQuote Stamp(WatchlistEntry entry, MarketPulseQuote quote)
+            => quote with
+            {
+                Short = MarketPulseDefaults.ShortName(entry),
+                Provider = entry.Provider,
+                Symbol = entry.Symbol,
+            };
+
+        private static MarketPulseQuote Answer(
             WatchlistEntry entry,
             IReadOnlyList<Ohlcv> dailyBars,
             IReadOnlyList<Ohlcv> intradayBars,
@@ -59,7 +79,8 @@ namespace AccessibleTrader.Core.Services.MarketPulse
 
             double last = intraday.Count > 0 ? intraday[^1].Close : newest.Close;
             int? minutesOld = MinutesOld(intraday, nowUtc);
-            return OpenQuote(name, isYield, last, reference, minutesOld);
+            return OpenQuote(name, isYield, last, reference, minutesOld)
+                with { Start = MarketPulseStart.PreviousClose, QuotedUtc = QuotedAt(intraday) };
         }
 
         private static MarketPulseQuote Crypto(
@@ -89,8 +110,18 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                 last = intraday.Count > 0 ? intraday[^1].Close : newest.Close;
             }
 
-            return OpenQuote(name, isYield, last, reference, MinutesOld(intraday, nowUtc));
+            return OpenQuote(name, isYield, last, reference, MinutesOld(intraday, nowUtc)) with
+            {
+                Start = start == PulseCryptoStart.Last24Hours
+                    ? MarketPulseStart.Last24Hours
+                    : MarketPulseStart.MidnightUtc,
+                QuotedUtc = QuotedAt(intraday),
+            };
         }
+
+        /// <summary>When the newest minute bar ended; null without minute bars.</summary>
+        private static DateTime? QuotedAt(IReadOnlyList<Ohlcv> intraday)
+            => intraday.Count > 0 ? AsUtc(intraday[^1].Date).AddMinutes(1) : null;
 
         private static MarketPulseQuote OpenQuote(
             string name, bool isYield, double last, double reference, int? minutesOld)
@@ -115,14 +146,18 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                     Change: basisPoints,
                     YieldLevel: last,
                     MinutesOld: minutesOld,
-                    IsYield: true);
+                    IsYield: true,
+                    Last: last,
+                    Reference: reference);
             }
 
             return new MarketPulseQuote(
                 name,
                 MarketPulseKind.Change,
                 Change: (last - reference) / reference * 100,
-                MinutesOld: minutesOld);
+                MinutesOld: minutesOld,
+                Last: last,
+                Reference: reference);
         }
 
         private static MarketPulseQuote ClosedQuote(
@@ -148,7 +183,10 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                     Change: basisPoints,
                     YieldLevel: last,
                     SessionDate: session,
-                    IsYield: true);
+                    IsYield: true,
+                    Last: last,
+                    Reference: reference,
+                    Start: MarketPulseStart.SessionBefore);
             }
 
             if (!double.IsFinite(newest.Close) || !double.IsFinite(previous.Close)
@@ -159,7 +197,10 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                 name,
                 MarketPulseKind.Closed,
                 Change: (newest.Close - previous.Close) / previous.Close * 100,
-                SessionDate: session);
+                SessionDate: session,
+                Last: newest.Close,
+                Reference: previous.Close,
+                Start: MarketPulseStart.SessionBefore);
         }
 
         private static MarketPulseQuote Unavailable(string name, bool isYield)

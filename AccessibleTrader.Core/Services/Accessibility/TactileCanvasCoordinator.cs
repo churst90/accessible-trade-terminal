@@ -75,6 +75,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // load can't silently inherit a paused-from-previous-chart state.
         private volatile bool _isPaused;
 
+        // A held strip message (the market pulse's line): one item per page, stepped with the pan
+        // keys, kept through live ticks until the user moves the cursor or changes focus, or
+        // HeldMessageFor passes. Guarded by _heldLock.
+        internal static readonly TimeSpan HeldMessageFor = TimeSpan.FromSeconds(60);
+        private readonly object _heldLock = new();
+        private IReadOnlyList<string>? _heldPages;
+        private int _heldPage;
+        private (int Cursor, string? Series, int Component) _heldAt;
+        private IDisposable? _heldTimer;
+
         public TactileCanvasCoordinator(
             ITactileDriver driver,
             IWorkspaceStore store,
@@ -123,6 +133,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 OnBrailleModeToggled(enable);
             });
             if (requestSub != null) _subs.Add(requestSub);
+
+            var messageSub = _eventBus.Subscribe<TactileStripMessageEvent>(e => HoldMessage(e.Text));
+            if (messageSub != null) _subs.Add(messageSub);
 
             // Auto-clear the pause flag whenever the user loads a new chart so a
             // paused state from a previous chart can't silently swallow the new
@@ -178,6 +191,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int prev = Interlocked.Exchange(ref _previousCursorIndex, state.CurrentDataIndex);
             bool cursorMoved = prev != UnseenCursorIndex && state.CurrentDataIndex != prev;
 
+            // A held message survives live ticks; moving on the chart lets the chart back in.
+            lock (_heldLock)
+            {
+                if (_heldPages != null)
+                {
+                    if (NavigationOf(state) == _heldAt) return;
+                    ReleaseHeldLocked();
+                }
+            }
+
             string text = BuildStripText(state, showXValue: cursorMoved);
             SafelyRenderStrip(text);
 
@@ -195,6 +218,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void RevertStripToValueMode()
         {
             if (_disposed || !_driver.IsConnected) return;
+            lock (_heldLock) { if (_heldPages != null) return; }
             try
             {
                 var current = _store.State;
@@ -218,6 +242,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void OnDriverKeyPressed(object? sender, TactileKeyEvent e)
         {
             if (_disposed) return;
+            if (e.Key is TactileKey.PanLeft or TactileKey.PanRight && StepHeldMessage(e.Key == TactileKey.PanRight))
+                return;
             try
             {
                 switch (e.Key)
@@ -962,6 +988,89 @@ namespace AccessibleTrader.Core.Services.Accessibility
             catch (Exception ex) { _logger.LogWarning(ex, "Tactile braille-strip render failed."); }
         }
 
+        // ── Held messages ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The strip's pages for a held message: one comma-separated item per page, so a name and
+        /// its number are never split across a pan; an item longer than the strip is cut into
+        /// strip-sized pieces. Character counts, not cells: Grade 2 may shorten or lengthen them.
+        /// </summary>
+        internal static IReadOnlyList<string> StripPages(string text, int cells)
+        {
+            var pages = new List<string>();
+            if (cells <= 0 || string.IsNullOrWhiteSpace(text)) return pages;
+            foreach (string raw in text.Split(", "))
+            {
+                string item = raw.Trim();
+                for (int start = 0; start < item.Length; start += cells)
+                    pages.Add(item.Substring(start, Math.Min(cells, item.Length - start)));
+            }
+            return pages;
+        }
+
+        private static (int Cursor, string? Series, int Component) NavigationOf(WorkspaceState state)
+            => (state.CurrentDataIndex, state.FocusedSeriesId, state.FocusedComponentIndex);
+
+        private void HoldMessage(string text)
+        {
+            if (_disposed || !_driver.IsConnected) return;
+            var pages = StripPages(text, _driver.BrailleCellCount);
+            if (pages.Count == 0) return;
+            lock (_heldLock)
+            {
+                _heldTimer?.Dispose();
+                _heldPages = pages;
+                _heldPage = 0;
+                _heldAt = NavigationOf(_store.State);
+                _heldTimer = Observable.Timer(HeldMessageFor).Subscribe(_ =>
+                {
+                    lock (_heldLock)
+                    {
+                        if (_heldPages == pages) ReleaseHeldLocked();
+                    }
+                });
+                SafelyRenderStrip(pages[0]);
+            }
+        }
+
+        /// <summary>
+        /// A pan key while a message is held steps its pages instead of panning the chart;
+        /// past the last page the message is let go. False when nothing is held.
+        /// </summary>
+        private bool StepHeldMessage(bool forward)
+        {
+            lock (_heldLock)
+            {
+                if (_heldPages is not { } pages) return false;
+                int next = _heldPage + (forward ? 1 : -1);
+                if (next >= pages.Count)
+                {
+                    ReleaseHeldLocked();
+                    return true;
+                }
+                _heldPage = Math.Max(0, next);
+                SafelyRenderStrip(pages[_heldPage]);
+                return true;
+            }
+        }
+
+        private void ReleaseHeldLocked()
+        {
+            _heldPages = null;
+            _heldTimer?.Dispose();
+            _heldTimer = null;
+            try
+            {
+                var current = _store.State;
+                if (current.Data is { Count: > 0 })
+                    SafelyRenderStrip(BuildStripText(current, showXValue: false));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Tactile strip release render failed.");
+            }
+        }
+
         // ── Helpers ────────────────────────────────────────────────────────────
 
         private static ChartSeries? GetFocusedSeries(WorkspaceState state)
@@ -1025,6 +1134,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             try { _driver.KeyPressed -= OnDriverKeyPressed; } catch { /* best-effort detach */ }
             try { _driver.ConnectionChanged -= OnDriverConnectionChanged; } catch { /* best-effort detach */ }
             Interlocked.Exchange(ref _xValueRevertSub, null)?.Dispose();
+            lock (_heldLock) { _heldTimer?.Dispose(); _heldTimer = null; _heldPages = null; }
             foreach (var sub in _subs) { try { sub.Dispose(); } catch { } }
             _subs.Clear();
         }

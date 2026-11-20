@@ -48,6 +48,11 @@ namespace AccessibleTrader.Core.Services.MarketPulse
         private readonly ILogger<MarketPulseService>? _logger;
 
         private int _gathering;
+        private sealed record Reading(IReadOnlyList<MarketPulseQuote> Quotes, DateTime ReadUtc);
+        private Reading? _last;
+
+        /// <summary>Ctrl+Alt+P before any Alt+P in this session.</summary>
+        public const string NoReadingYet = "No pulse read yet. Press Alt+P first.";
 
         public MarketPulseService(
             IWatchlistLibrary watchlists,
@@ -106,7 +111,11 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                     Interlocked.Exchange(ref spoken, 1);
                     gatherTimer.Dispose();
                     gatherTimer = null;
+                    Volatile.Write(ref _last, new Reading(quotes, NowUtc));
                     Publish(sentence, interrupt: true);
+                    // The Dot Pad's strip gets the compact line; a screen reader's braille
+                    // display already shows the sentence.
+                    _bus.Publish(new TactileStripMessageEvent(MarketPulseWording.BrailleLine(quotes)));
                 }
             }
             catch (Exception ex)
@@ -123,6 +132,18 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                 gatherTimer?.Dispose();
                 Volatile.Write(ref _gathering, 0);
             }
+        }
+
+        /// <summary>
+        /// Ctrl+Alt+P: the newest reading again, item by item, with its source, last price,
+        /// reference and age. It never fetches: what you hear is what Alt+P read.
+        /// </summary>
+        public void SpeakDetail()
+        {
+            var reading = Volatile.Read(ref _last);
+            Publish(reading is not null
+                ? MarketPulseWording.Detail(reading.Quotes, reading.ReadUtc, NowUtc)
+                : NoReadingYet, interrupt: true);
         }
 
         private void Publish(string message, bool interrupt)
@@ -408,10 +429,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             var quotes = new List<MarketPulseQuote>(entries.Count);
             for (int i = 0; i < work.Count; i++)
             {
-                var quote = new MarketPulseQuote(
-                    MarketPulseDefaults.SpokenName(entries[i]),
-                    MarketPulseKind.Unavailable,
-                    IsYield: MarketPulseDefaults.IsYield(entries[i]));
+                var quote = MarketPulseMath.Unavailable(entries[i]);
                 try
                 {
                     var completed = await Task.WhenAny(work[i], timedOut).ConfigureAwait(false);
@@ -468,10 +486,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             {
                 _logger?.LogDebug("Market pulse fetch failed for {Provider}: {Type}.",
                     entry.Provider, ex.GetType().Name);
-                return new MarketPulseQuote(
-                    MarketPulseDefaults.SpokenName(entry),
-                    MarketPulseKind.Unavailable,
-                    IsYield: MarketPulseDefaults.IsYield(entry));
+                return MarketPulseMath.Unavailable(entry);
             }
         }
 

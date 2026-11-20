@@ -372,6 +372,33 @@ public class MarketPulseServiceTests
     }
 
     [Fact]
+    public async Task TheReadingGoesToTheStripAndCtrlAltPReadsItAgainInDetail()
+    {
+        var rig = new Rig();
+        rig.Service.SpeakDetail();
+        Assert.Equal(MarketPulseService.NoReadingYet, rig.Announcements[^1].Message);
+
+        rig.SeedPulse(
+            new WatchlistEntry("Fmp", "XAUUSD", MarketType.Commodity),
+            new WatchlistEntry("Fmp", "^GSPC", MarketType.Index));
+        await rig.Service.SpeakAsync(rig.State);
+
+        var strip = Assert.Single(rig.Bus.Log.OfType<TactileStripMessageEvent>());
+        Assert.Equal("Gold +3.0, SPX +3.0", strip.Text);
+
+        int fetches = rig.Data.FetchCalls;
+        rig.Clock.Advance(TimeSpan.FromMinutes(3));
+        rig.Service.SpeakDetail();
+
+        Assert.Equal(fetches, rig.Data.FetchCalls);
+        Assert.Equal(
+            "Pulse read 3 minutes ago. "
+          + "gold: XAUUSD on Fmp, 103.00, up 3.00% from the previous close 100.00, last minute bar ended 3 minutes ago. "
+          + "S&P: ^GSPC on Fmp, 103.00, up 3.00% from the previous close 100.00, last minute bar ended 3 minutes ago.",
+            rig.Announcements[^1].Message);
+    }
+
+    [Fact]
     public async Task AFetchThatNeverCompletesBecomesUnavailableAfterFourSecondsAndTheSentenceStillGoesOut()
     {
         var rig = new Rig();

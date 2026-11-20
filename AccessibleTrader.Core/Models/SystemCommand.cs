@@ -31,6 +31,7 @@ namespace AccessibleTrader.Core.Models
         OpenLevelReport,    // Alt+R: respect report — which lines this market actually honours
         OpenMarketEventCalendar, // Alt+E: the market event calendar (days, filters, alerts, history)
         MarketPulse,         // Alt+P: the market pulse in one spoken sentence
+        MarketPulseDetail,   // Ctrl+Alt+P: the last pulse item by item — source, price, reference, age
         WhatChanged,        // Alt+U: what changed while you were not listening — the catch-up
         OpenGoBar,          // Alt+G: one text box that reaches every action by typing
         ReplayToggle,       // Ctrl+Alt+Shift+P: start bar replay at the cursor / stop it

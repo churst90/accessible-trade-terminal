@@ -369,10 +369,18 @@ as proposed.
   limit, the US-hours closed rule's reliance on a stale bar instead of a holiday calendar, index
   CFDs treated as closed outside 09:30–16:00, a fixed symbol-candidate table never probed live,
   and the browser-closed delivery limits above.
-- [ ] **Stage 5a follow-up: the compact braille line for the Dot Pad.** The design's one-line
-  tactile summary of the pulse is not built.
-- [ ] **Stage 5a follow-up: a detail read of the pulse.** Each item's source, reference and time
-  on demand; not built.
+- [x] **Stage 5a follow-up: the compact braille line for the Dot Pad.** BUILT 2026-11-20, not
+  felt by Cody (no Dot Pad here either): "SPX +0.4, BTC -1.2, 10Y 4.31 +3bp, Gold +0.2 4m, Oil
+  n/a, VIX cl +2.1", one item a page, held through live ticks until the cursor or focus moves
+  or 60 seconds pass; the pan keys step it and pan right past the end gives the chart back.
+  Caveats: pages are cut by characters, and Grade 2 may make an item longer or shorter than the
+  20 cells; a screen reader's own braille display already shows the spoken sentence, so this is
+  for the Dot Pad only.
+- [x] **Stage 5a follow-up: a detail read of the pulse.** BUILT 2026-11-20 as **Ctrl+Alt+P** (Go
+  bar `PULSED`), not heard: the last Alt+P reading item by item — symbol and provider, last
+  price, the change to two decimals from its named start and that start's price, and how old
+  the minute bar was. Never fetches; before any Alt+P it says so. Caveat: an item read from
+  daily bars only says "daily bars only", not a time.
 - [x] **Stage 5b: "what changed" (Alt+U).** The change log and catch-up for the four
   categories whose events exist: money (fills, stops, take-profits), alerts, market events
   released and connection problems. It keeps the latest 500 entries for seven days under

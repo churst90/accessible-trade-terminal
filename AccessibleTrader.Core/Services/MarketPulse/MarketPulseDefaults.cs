@@ -8,7 +8,8 @@ namespace AccessibleTrader.Core.Services.MarketPulse
     public sealed record MarketPulseDefaultItem(
         string Name,
         IReadOnlyList<MarketType> Markets,
-        IReadOnlyList<string> Candidates);
+        IReadOnlyList<string> Candidates,
+        string Short = "");
 
     /// <summary>
     /// A provider as the resolver sees it: whether it is usable now, which markets it supports,
@@ -55,39 +56,39 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             new MarketPulseDefaultItem(
                 "S&P",
                 new[] { MarketType.Index, MarketType.Stock },
-                new[] { "SPX", "GSPC", "US500", "SPX500USD" }),
+                new[] { "SPX", "GSPC", "US500", "SPX500USD" }, "SPX"),
             new MarketPulseDefaultItem(
                 "Nasdaq",
                 new[] { MarketType.Index },
-                new[] { "IXIC", "NDX", "COMP", "NAS100USD", "US100" }),
+                new[] { "IXIC", "NDX", "COMP", "NAS100USD", "US100" }, "NDX"),
             new MarketPulseDefaultItem(
                 "Bitcoin",
                 new[] { MarketType.Crypto },
-                new[] { "BTCUSD", "BTCUSDT" }),
+                new[] { "BTCUSD", "BTCUSDT" }, "BTC"),
             new MarketPulseDefaultItem(
                 "Ethereum",
                 new[] { MarketType.Crypto },
-                new[] { "ETHUSD", "ETHUSDT" }),
+                new[] { "ETHUSD", "ETHUSDT" }, "ETH"),
             new MarketPulseDefaultItem(
                 "ten-year",
                 new[] { MarketType.Index, MarketType.Bonds },
-                new[] { "TNX", "US10Y" }),
+                new[] { "TNX", "US10Y" }, "10Y"),
             new MarketPulseDefaultItem(
                 "dollar index",
                 new[] { MarketType.Index, MarketType.Forex },
-                new[] { "DXY", "DXYNYB", "USDX" }),
+                new[] { "DXY", "DXYNYB", "USDX" }, "DXY"),
             new MarketPulseDefaultItem(
                 "gold",
                 new[] { MarketType.Commodity, MarketType.Forex },
-                new[] { "XAUUSD", "GCUSD" }),
+                new[] { "XAUUSD", "GCUSD" }, "Gold"),
             new MarketPulseDefaultItem(
                 "oil",
                 new[] { MarketType.Commodity },
-                new[] { "WTICOUSD", "CLUSD", "USOIL", "WTIUSD" }),
+                new[] { "WTICOUSD", "CLUSD", "USOIL", "WTIUSD" }, "Oil"),
             new MarketPulseDefaultItem(
                 "VIX",
                 new[] { MarketType.Index },
-                new[] { "VIX" }),
+                new[] { "VIX" }, "VIX"),
         };
 
         /// <summary>
@@ -168,6 +169,24 @@ namespace AccessibleTrader.Core.Services.MarketPulse
                 foreach (string candidate in item.Candidates)
                     if (normalised == Normalize(candidate))
                         return item.Name;
+
+            if (entry.Market == MarketType.Crypto)
+                return BaseAsset(normalised, entry.Symbol);
+
+            return entry.Symbol;
+        }
+
+        /// <summary>
+        /// The braille line's name: the table's short form ("SPX", "10Y"), the base asset for a
+        /// crypto pair, otherwise the symbol as stored.
+        /// </summary>
+        public static string ShortName(WatchlistEntry entry)
+        {
+            string normalised = Normalize(entry.Symbol);
+            foreach (var item in Items)
+                foreach (string candidate in item.Candidates)
+                    if (normalised == Normalize(candidate))
+                        return item.Short.Length > 0 ? item.Short : item.Name;
 
             if (entry.Market == MarketType.Crypto)
                 return BaseAsset(normalised, entry.Symbol);

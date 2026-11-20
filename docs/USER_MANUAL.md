@@ -2173,6 +2173,26 @@ sentence — a late answer is dropped, not added.
 **F2 and Shift+F2 do not mute the pulse.** You asked for it by pressing Alt+P, so it is spoken on
 the interface tier and both chart and alert mutes leave it alone, like the detail key.
 
+**Ctrl+Alt+P reads the last pulse in detail** (Go bar: `PULSED`). It never fetches; it reads the
+reading Alt+P last made, item by item, with what the short sentence leaves out:
+
+> *"Pulse read 3 minutes ago. Bitcoin: BTC/USD on Coinbase, 94210.50, down 1.23% from midnight
+> UTC 95387.60, last minute bar ended 1 minute ago. ten-year: TNX on Fmp, 4.31%, up 3 basis points
+> from the previous close 4.28%, daily bars only. VIX: ^VIX on Fmp, closed; last session Friday
+> ended at 15.32, up 2.10% from the session before, 15.01. oil: WTICOUSD on Fmp, unavailable, no
+> usable quote within the four-second limit."*
+
+Changes here have two decimals and a percent sign. Before any Alt+P it says *"No pulse read yet.
+Press Alt+P first."*
+
+**On a Dot Pad, the pulse appears on the braille strip as well**, short enough to feel: *"SPX
++0.4, BTC -1.2, 10Y 4.31 +3bp, DXY 0.0, Gold +0.2 4m, Oil n/a, VIX cl +2.1"*. "cl" is closed, "4m"
+is four minutes old, "n/a" is unavailable. The strip shows one item at a time: the Dot Pad's pan
+right and pan left keys step through them instead of panning the chart, and pan right past the
+last item gives the strip back to the chart. Live ticks leave it alone; moving the cursor,
+changing the focused series or line, or 60 seconds give the strip back to the chart. A screen
+reader's own braille display already shows the spoken sentence, so this is for the Dot Pad.
+
 ### What changed (Alt+U)
 
 **Alt+U** answers "what happened while I was not listening?". It reads a log the terminal keeps

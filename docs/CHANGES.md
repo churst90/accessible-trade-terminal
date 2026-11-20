@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The market pulse on the Dot Pad's strip, and Ctrl+Alt+P for its detail, 2026-11-20 — not felt or heard, not on the VPS
+
+- **The braille line.** Each Alt+P reading also publishes `TactileStripMessageEvent` with
+  `MarketPulseWording.BrailleLine`: "SPX +0.4, BTC -1.2, 10Y 4.31 +3bp, DXY 0.0, Gold +0.2 4m,
+  Oil n/a, VIX cl +2.1, SOL +5.0" (short names from the defaults table, else the coin's base asset,
+  else the symbol; one decimal; "cl" closed; "4m" old; "n/a" unavailable; "Pulse empty").
+  `TactileCanvasCoordinator` holds it on the strip one item a page (`StripPages`; an item longer than
+  the strip is cut), through live ticks, until the cursor, focused series or focused line changes, or
+  60 seconds pass. While held, the Dot Pad's pan keys step the pages instead of panning the chart;
+  pan right past the last page gives the strip back. The x-value revert timer leaves a held message
+  alone.
+- **The detail read, Ctrl+Alt+P** (`SystemCommand.MarketPulseDetail`, Go bar `PULSED` / "pulse detail"
+  / "pulse sources"): the service keeps the last reading and its time; the key reads it item by item
+  ("Pulse read 3 minutes ago. Bitcoin: BTC/USD on Coinbase, 94210.50, down 1.23% from midnight UTC
+  95387.60, last minute bar ended 1 minute ago.") and never fetches. Before any reading: "No pulse
+  read yet. Press Alt+P first." `MarketPulseQuote` gained Short, Provider, Symbol, Last, Reference,
+  Start (`MarketPulseStart`) and QuotedUtc, set by `MarketPulseMath` for every answer, including
+  unavailable ones.
+- **Guards:** 15 sabotages, all red: ticks releasing the held line, the cursor ignored, pan keys
+  still panning, the last page never releasing, the whole line as one page, no subscription, two
+  braille decimals, long names on the strip, the age dropped, one detail decimal, no strip publish,
+  the reading not kept, a fixed crypto start, the quote time at the bar's start, and no provider.
+- **Caveats:** no Dot Pad has felt it (none here); pages are cut by characters while Grade 2 changes
+  the cell count; an item from daily bars only says "daily bars only", not a time; held positions
+  appended to the reading get the symbol as their short name.
+
 ### Market events: the Fed rate from Kalshi, 2026-11-20 — not heard, not on the VPS
 
 - **A "Fed rate" figure on Fed decisions** (`MarketEventFigureUnit.Rate`, always two decimals). Kalshi's
