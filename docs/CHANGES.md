@@ -4,7 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Website home page: new title, "What it does" in plain sentences, 2026-11-20 — not yet seen by Cody
+### Website home page: one main button, the why line, one stat, "Top traders" leaderboard, 2026-11-20 — not yet seen by Cody
+
+Cody's answers to the advice on the site's call to action. On the server only (no git there); the
+drafts are in `strategy-lab-data/site-drafts/home-1120b/` beside `.orig` copies of what was live.
+
+- **One main button at the top.** "Start paper trading free — no download" goes straight to the
+  terminal's sign-up page (`/terminal/account/register`, new tab, said in hidden text like the site's
+  other terminal links). "Download the app" is the second button. "Try the live demo" is gone from the
+  top; the demo is still in "On this page" and its own section. Once the header's script hears the
+  browser is signed in, the main button becomes "Open the terminal" (the same `data-account-in/out`
+  swap the account section uses). `.btn` sets `display`, which beat `hidden` and would have shown both
+  buttons, so `.hero__cta [hidden]` hides them; checked headless, one button each way.
+- **The why line** right under the heading, in bold: "Read the same charts sighted traders read, and
+  trade from home on your own schedule. No interview, no commute, no employer deciding what you can do."
+  The heading and the longer description under it are unchanged (both come from the site settings in
+  the database, not the file).
+- **One stat under the buttons**: "Screen-reader users pull information from online charts 61% less
+  accurately than sighted users, and take 211% longer (ACM ASSETS 2021)", with a "Why it matters" link
+  to the full block, which stays where it was at the bottom.
+- **Leaderboard**: the heading is "Top traders: paper trading leaderboard" (Cody: add "top traders";
+  kept "paper trading" so nobody reads it as real money, and the site's one-word "leaderboard" and
+  sentence-case headings); "On this page" says "Top traders leaderboard". Signed-out readers get "Prove
+  your skill before you risk a cent. Create a free account, practice with the same $100,000 as
+  everyone else, and see where you rank." and a "Create your free account" button; the how-to-join
+  sentence now starts "To show your own results" so it reads right signed in too. The empty-board text
+  adds "and prove your skill before you risk a cent".
+- Checked headless before installing: signed out and signed in, desktop and phone, light and dark; no
+  sideways scroll at 390 px; the accessibility tree reads heading, why line, description, button,
+  Download, stat, then the platform lines. Checked again on the live page after installing; `/`,
+  `/download`, `/features` 200, PHP lint clean.
+- Backups on the server: `includes/home.php.bak-20261120-cta`,
+  `includes/leaderboard-section.php.bak-20261120-cta`, `style.css.bak-20261120-cta`.
+- Caveats: nobody sighted has looked at it. Not changed, both older than this: the dark-mode main
+  button is navy on near-black, and the leaderboard caption runs off a phone screen with its table
+  (TODO). The accessibility-lead agent the hooks ask for is not installed, so there was no agent review.
+
+## Website home page: new title, "What it does" in plain sentences, 2026-11-20 — not yet seen by Cody
 
 Cody's notes on accessibletrader.com, installed on the server (`layout.php`, `includes/home.php`,
 `style.css`; each backed up beside itself as `*.bak-20261120-whatitdoes`, drafts in

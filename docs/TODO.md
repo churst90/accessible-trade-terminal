@@ -64,7 +64,17 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
   and the asset dossier but no headline feed, so the site does not claim one.
 - [ ] **Speech input**: Cody's note lists speech as a way in; the terminal speaks but does not
   listen, so the site says keyboard or touchscreen in, speech, sound or braille out.
-- [ ] Cody asked for advice on the call to action and appeal; given in chat 2026-11-20, nothing built.
+- [x] Cody's answers to the advice (2026-11-20): one main button at the top, the why line under the
+  heading, one stat line under the buttons, the leaderboard as a reason to sign up with the heading
+  "Top traders: paper trading leaderboard" (CHANGES). Skipped by Cody: replacing the feature list with
+  three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
+  (not yet).
+- [ ] **Account value on the leaderboard**: Cody asked whether to show the balance. Answered in chat
+  (recommended "Account value" = $100,000 times the return, beside Return); not built until he says.
+- [ ] Dark mode: the site's main button is navy on a near-black page (true before 2026-11-20, every
+  `btn--primary`); the white text reads fine but the button's edge barely shows. Offered, not changed.
+- [ ] Phone: the leaderboard table's caption runs off the right edge with the table (scrolls with it;
+  true before 2026-11-20).
 
 ## Accounts, leaderboard and charting asks (Cody, 2026-11-18)
 
