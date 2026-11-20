@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Website home page: new title, "What it does" in plain sentences, 2026-11-20 — not yet seen by Cody
+
+Cody's notes on accessibletrader.com, installed on the server (`layout.php`, `includes/home.php`,
+`style.css`; each backed up beside itself as `*.bak-20261120-whatitdoes`, drafts in
+`strategy-lab-data/site-drafts/home-1120/`):
+
+- The browser title reads "Accessible Trade Terminal — Making financial markets accessible for
+  everyone" (was "the only fully accessible trading platform").
+- "What it does" is eight cards of two or three plain sentences each, no bullets: Markets and
+  analytics; Charting and analysis; Feedback and accessibility; Live and paper trading; Bloomberg
+  Terminal style commands; News and fundamentals; Alerts and strategies (desktop notifications
+  included); Customization and extensibility (plug-ins, C# and Pine Script indicators, the developer
+  kit, sharing layouts, templates, sounds and strategies).
+- "Why financial literacy matters" moved from the top to just before "Why Accessible Trade Terminal
+  was needed"; the "On this page" list follows the new order.
+- On a phone the cards were 368 pixels wide on a 390-pixel screen, leaving 6 pixels on the right
+  against 16 on the left (the live page did this before today); they now shrink to fit, 16 each side.
+
+Checked headless at 1280 and 390 pixels wide (no sideways scroll, headings in order) and live after
+install (the title, all headings, and /features, /download, /quickstart, /developers still 200).
+
+Caveats: the site does not mention headlines, because the terminal has no headline feed (the
+calendar and the Alt+I dossier are what it has). Cody's note listed speech as a way to drive the
+terminal; it speaks but does not listen, so the card says keyboard or touchscreen in. "Prediction
+markets" was left out: Kalshi is in as perpetual futures, not event contracts. The audio tour is
+unchanged, as asked.
+
 ### Built charts compute their indicators on their own bars; falling wicks are red, 2026-11-20 — found in headless screenshots, not yet seen or heard by Cody
 
 Cody, 2026-11-20: "take headless screenshots yourself to make sure the new main pane chart types

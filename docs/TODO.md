@@ -50,6 +50,13 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
 `strategy-lab-data/site-drafts/`; what was changed is in CHANGES.
 - [ ] **"Take the audio tour"** needs redoing to show the different kinds of data (Cody: "leave it
   alone for now but flag for later").
+- [x] Title, "What it does" as eight plain-sentence sections, "Why financial literacy matters" moved
+  down by the story (2026-11-20, CHANGES).
+- [ ] **News headlines** for the News and fundamentals section: the terminal has the events calendar
+  and the asset dossier but no headline feed, so the site does not claim one.
+- [ ] **Speech input**: Cody's note lists speech as a way in; the terminal speaks but does not
+  listen, so the site says keyboard or touchscreen in, speech, sound or braille out.
+- [ ] Cody asked for advice on the call to action and appeal; given in chat 2026-11-20, nothing built.
 
 ## Accounts, leaderboard and charting asks (Cody, 2026-11-18)
 
