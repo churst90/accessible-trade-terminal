@@ -34,8 +34,6 @@ The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fix
 - [ ] **Q: the ATR trailing stop.** `ManagedExitRules.AtrTrailStop` is a plain mean of true range; the
   chart's ATR and (since 2026-11-20) a strategy's ATR stop are Wilder. It is shared by the backtester and
   live trading on purpose, so switching it moves every replayed trail. Cody's call.
-- [ ] **Deploy-only settings are not documented**: list every `appsettings` / environment key the hosted
-  server needs (`AccountEmail__*`, `Leaderboard__OutputPath`, …) in one place.
 - [ ] **WorkspaceStore echo tests**: `SetIdentityAction_UpdatesIdentity`, `ChangeModeAction_UpdatesMode`,
   `ToggleHeikinAshiAction_FlipsFlag` only read back the field they set; make them assert a consequence.
   `AddTabAction_AppendsSnapshotAndSwitchesToIt` asserts `>=` where equality is the point.

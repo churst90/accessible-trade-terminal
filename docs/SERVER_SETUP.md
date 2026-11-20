@@ -144,6 +144,9 @@ until it is fixed.
 | `Kestrel__Endpoints__Http__Url` | all | bind address, e.g. `http://127.0.0.1:5150` (behind nginx) |
 | `ASPNETCORE_ENVIRONMENT` | all | `Production` for deploys |
 | `Accounts__Enabled` | hosted | `true` (equivalent to `--accounts`) |
+| `Demo__Enabled` | demo | `true` (equivalent to `--demo`): the locked-down public demo under `/app/` |
+| `Launch__Disabled` | all | `true` (equivalent to `--no-launch`): do not open a browser at start. A server has none to open. |
+| `PathBase` | all (optional) | overrides the mode's path base; see *The three run modes* above |
 | `Accounts__DataRoot` | hosted | where per-user data + `auth.db` + `dp-keys` live, e.g. `/var/lib/accessible-trader-terminal` |
 | `Leaderboard__OutputPath` | hosted (optional) | where the public leaderboard JSON is written. Default `{Accounts__DataRoot}/public/leaderboard.json`; on a real server point it outside the data root — see *Public leaderboard file* below. |
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
@@ -157,7 +160,14 @@ until it is fixed.
 | `AccountEmail__Password` | hosted (optional) | **SMTP password/key — the only secret in this group.** Set it in the environment file, mode 0600. |
 | `AccountEmail__From` | hosted (optional) | sender address. Default `noreply@accessibletrader.com`. |
 | `AccountEmail__FromName` | hosted (optional) | sender display name. Default `Accessible Trader`. |
+| `Accounts__SupportEmail` | hosted (optional) | the address account emails and the forgot-password page tell people to write to. Default `support@accessibletrader.com`. |
+| `ACCESSIBLETRADER_SECURITY_EVENT_PERSIST` | all (optional) | `0` or `false` keeps security events in memory only. Default: written to disk, per user (instance-wide when no user is signed in). |
+| `ACCESSIBLETRADER_SECURITY_EVENT_DIR` | all (optional) | one directory for every security event file instead of the per-user folders, for operators shipping them to a log collector |
+| `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS` | development only | `1` or `true` loads plugin DLLs that are not in `plugins_trusted.manifest`. Never set this on a server. |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` | optional | isolate a staging instance's state from a live one |
+
+Every setting the server reads must have a row here; `ServerSetupDocumentsEverySettingTests` fails the
+build when one is read and not listed.
 | `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS` | desktop/local only | `1` opts into running custom scripts when the OS sandbox primitive is missing (bwrap / sandbox-exec / AppContainer). Default: script execution is **refused** without the sandbox. Every launch under the override is recorded to the security event log. Never set this on a server. |
 
 Bitstamp crypto needs **no** key. Real broker keys are never held server-side (hosted is
