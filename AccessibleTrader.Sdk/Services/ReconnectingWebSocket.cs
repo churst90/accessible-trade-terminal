@@ -154,6 +154,27 @@ namespace AccessibleTrader.Sdk.Services
         }
 
         /// <summary>
+        /// <see cref="ConnectAsync"/> for a caller that starts a stream and moves on. A failed
+        /// handshake throws once and is not retried (no receive loop starts, so nothing
+        /// reconnects), and a discarded task swallowed that throw: the stream simply never
+        /// spoke. This hands the failure to <paramref name="onFailure"/> instead and returns
+        /// whether the connect worked.
+        /// </summary>
+        public async Task<bool> ConnectOrReportAsync(Action<Exception> onFailure, CancellationToken ct = default)
+        {
+            try
+            {
+                await ConnectAsync(ct).ConfigureAwait(false);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                onFailure(ex);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Cancels the current token source and schedules its disposal for after the loops it
         /// governs have exited. The loops are the only holders of its token, so once both tasks
         /// complete nothing can register on it again.

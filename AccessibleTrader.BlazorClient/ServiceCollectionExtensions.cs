@@ -618,8 +618,6 @@ namespace AccessibleTrader.BlazorClient
                     AccessibleTrader.Core.Services.Strategies.StrategyPluginDirectories.Default()));
             services.AddSingleton<IStrategyRegistry, StrategyRegistry>();
 
-            services.AddSingleton<ScriptingService>();
-
             // Script-worker launcher is registered separately so per-platform
             // launchers (e.g. AndroidIsolatedProcessLauncher from
             // Platforms/Android/) can override it via a later registration.

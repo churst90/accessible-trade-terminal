@@ -82,7 +82,7 @@ see the move has no way to detect.
 
 ## Context-Aware Jump Navigation (Ctrl+Left / Ctrl+Right)
 
-`Ctrl+Left` and `Ctrl+Right` perform a context-sensitive jump whose target depends on what component is currently focused. The behavior is determined by `CommandDispatcher.HandleTrendlineCrossJump`.
+`Ctrl+Left` and `Ctrl+Right` perform a context-sensitive jump whose target depends on what component is currently focused. The behavior is determined by `IndicatorCrossingEngine.HandleCrossJump`.
 
 | Focused Component Type | Jump Target |
 |------------------------|-------------|

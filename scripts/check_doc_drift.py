@@ -264,32 +264,49 @@ def check_plugin_counts(errors: list[str]) -> None:
 # The root README is the first page a visitor reads, and its own wording escaped the guard above:
 # "34 data sources — 17 trading venues (…) and 17 analytics feeds" outlived the Kalshi plugin
 # (2026-11-14) until the 2.13 doc sweep. The venue list in the parentheses spans lines, hence DOTALL.
+# 2026-11-20: it also called all 18 provider folders "trading venues", but Finnhub, FMP, Polygon
+# and Twelve Data only serve prices. A venue is a folder with a class that implements
+# ITradingProvider; the rest are market-data feeds.
 ROOT_README_PROVIDER_RE = re.compile(
     r"(?P<total>\d+)\s+data sources\s*[—-]+\s*(?P<trading>\d+)\s+trading venues\b.*?"
+    r"(?P<feeds>\d+)\s+market-data feeds\b.*?"
     r"(?P<analytics>\d+)\s+analytics feeds",
     re.IGNORECASE | re.DOTALL,
 )
+TRADING_PROVIDER_CLASS_RE = re.compile(r"\bclass\s+\w+[^{;]*?:[^{;]*?\bITradingProvider\b", re.DOTALL)
+
+
+def _is_trading_venue(folder: Path) -> bool:
+    return any(
+        TRADING_PROVIDER_CLASS_RE.search(cs.read_text(encoding="utf-8", errors="replace"))
+        for cs in folder.rglob("*.cs")
+        if "obj" not in cs.parts and "bin" not in cs.parts
+    )
 
 
 def check_root_readme_counts(errors: list[str]) -> None:
-    actual_providers = sum(1 for p in PROVIDERS_DIR.iterdir() if p.is_dir())
+    folders = [p for p in PROVIDERS_DIR.iterdir() if p.is_dir()]
+    venues = sum(1 for p in folders if _is_trading_venue(p))
+    feeds = len(folders) - venues
     actual_analytics = sum(1 for p in ANALYTICS_DIR.iterdir() if p.is_dir())
-    actual = (actual_providers + actual_analytics, actual_providers, actual_analytics)
+    actual = (len(folders) + actual_analytics, venues, feeds, actual_analytics)
     md = ROOT_README_MD.read_text(encoding="utf-8")
     matches = list(ROOT_README_PROVIDER_RE.finditer(md))
     if not matches:
         errors.append(
-            "PLUGIN GUARD: found no \"N data sources — N trading venues … N analytics feeds\" claim in "
-            "README.md. It was removed or rephrased out of the regex's reach — fix the discovery."
+            "PLUGIN GUARD: found no \"N data sources — N trading venues … N market-data feeds … "
+            "N analytics feeds\" claim in README.md. It was removed or rephrased out of the regex's "
+            "reach — fix the discovery."
         )
     for m in matches:
-        claim = (int(m.group("total")), int(m.group("trading")), int(m.group("analytics")))
+        claim = (int(m.group("total")), int(m.group("trading")), int(m.group("feeds")),
+                 int(m.group("analytics")))
         if claim != actual:
             line = md.count("\n", 0, m.start()) + 1
             errors.append(
                 f"PLUGIN GUARD: README.md:{line} claims {claim[0]} data sources "
-                f"({claim[1]} trading venues + {claim[2]} analytics feeds); "
-                f"filesystem has {actual[0]} ({actual[1]} + {actual[2]})."
+                f"({claim[1]} trading venues + {claim[2]} market-data feeds + {claim[3]} analytics "
+                f"feeds); the code has {actual[0]} ({actual[1]} + {actual[2]} + {actual[3]})."
             )
 
 

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Code review fixes, 2026-11-20 — not yet seen or heard by Cody
+
+Cody, 2026-11-20: "from the code review, start on each of the issues you found, in the best order or smallest to largest." The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`. Smallest first:
+
+- **Docs that said what the app does not do.** The root README called all 18 provider folders "trading venues"; 14 can place orders and Finnhub, FMP, Polygon and Twelve Data only serve prices, so it now says 14 trading venues and 4 market-data feeds. Quick Start said 0 on the price pane marks the price under the cursor; since 2026-10-09 it does nothing there and says why. SHORTCUTS and the technical README named a method that does not exist (`CommandDispatcher.HandleTrendlineCrossJump`; it is `IndicatorCrossingEngine.HandleCrossJump`). The analytics notes said the AI Analyst covers news lookups; it reads only the candles and indicators it is given.
+- **The README guard now knows what a venue is.** `check_doc_drift.py` counts a provider folder as a trading venue only if a class in it implements `ITradingProvider`, and the README must give venues, market-data feeds and analytics feeds separately. Three sabotages, all red: the README back at 18, the sentence rephrased away, Kalshi's class no longer trading.
+- **Order books and the Tradier order stream no longer die silently.** A first connect that fails throws once and never retries, and Kraken's order book, MEXC's order book and Tradier's account stream started theirs on a discarded task, so the throw went nowhere and the book simply never filled. The shared socket gains `ConnectOrReportAsync`; MEXC and Tradier use it, Kraken's subscribe has a catch. Each now reports on the provider's error stream (Tradier says order status is polled instead) and forgets the dead socket, so opening the book again makes a fresh try. Tests: `StreamConnectFailureTests` (3, against a loopback port that refuses). Three sabotages, all red: Kraken's report removed, Kraken's retry removed, the helper swallowing the failure.
+- **The old in-process script runner is gone.** `ScriptingService` ran user C# with no sandbox at all, was registered in both hosts and used by nothing; the sandboxed `RoslynScriptingService` is what the custom scripts dialog uses. Its `ScriptResult` and `ScriptGlobals` types moved to `ScriptTypes.cs` because the sandboxed path uses them; the two tests that walled the old class off went with it.
+- **Two comments fixed.** The Shift+H / Shift+M note pasted twice in `WorkspaceStore`'s action list is once now; the hosted head's My Data comment no longer says it is "NOT registered in demo mode" two lines above the code that registers it.
+
+Caveats: MEXC's and Tradier's addresses are fixed in code, so their call sites are covered through the shared helper's test, not a provider-level test; Kraken's is tested end to end.
+
 ### Deployed to the hosted server with email and the leaderboard switched on, 2026-11-20 — not yet seen by Cody
 
 Server and website work only; no code changed in this entry.

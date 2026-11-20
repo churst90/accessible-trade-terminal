@@ -283,9 +283,9 @@ Sonification (a sound patch per component, with bullish/bearish or above/below-m
 Speech. **Save as Defaults** makes the next indicator of that type start this way.
 
 **0 marks the line that matters.** On an oscillator, 0 toggles the pane's declared neutral
-(50 on RSI, zero on MACD, −50 on Williams %R). On the price pane it marks the price under the
-cursor. Press 0 again on your own level to remove it. Indicator-declared levels live in
-Properties.
+(50 on RSI, zero on MACD, −50 on Williams %R). On the price pane, a drawing, or a pane with no
+neutral it does nothing and says why; use Alt+D for a horizontal line there. Indicator-declared
+levels live in Properties.
 
 **Delete** removes the focused series after confirmation. **Ctrl+Z** takes it back.
 

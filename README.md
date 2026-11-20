@@ -12,9 +12,10 @@ It is free, donation-supported, and developed in the open by a blind trader who 
 
 ## What it does
 
-- **Live and historical charts** from 35 data sources — 18 trading venues (Kraken, Coinbase,
-  Kalshi, Hyperliquid, Alpaca, Interactive Brokers, Schwab, Oanda and more) and 17 analytics feeds
-  (macro, on-chain, positioning, sentiment).
+- **Live and historical charts** from 35 data sources — 14 trading venues (Kraken, Coinbase,
+  Kalshi, Hyperliquid, Alpaca, Interactive Brokers, Schwab, Oanda and more), 4 market-data feeds
+  (Finnhub, FMP, Polygon, Twelve Data) and 17 analytics feeds (macro, on-chain, positioning,
+  sentiment).
 - **Sonification.** Indicators, candles, volume profiles and heatmaps each have their own
   voice, so you can tell them apart by timbre rather than by reading a legend.
 - **Speech that is designed, not generated.** What gets spoken, when, in what order and on

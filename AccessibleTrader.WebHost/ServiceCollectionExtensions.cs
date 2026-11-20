@@ -300,8 +300,7 @@ namespace AccessibleTrader.WebHost
             // My Data: user-imported CSV datasets. Per-circuit store (per-user
             // directory on the hosted terminal via the user-scoped path service);
             // the provider registers into DataService at startup via the
-            // IBuiltInDataProvider hook. NOT registered in demo mode — the shared
-            // public demo has no per-visitor persistence and no import UI.
+            // IBuiltInDataProvider hook. Registered in every mode; see the demo note below.
             services.AddScoped<AccessibleTrader.Core.Services.MyData.IMyDataStore,
                 AccessibleTrader.Core.Services.MyData.MyDataStore>();
             // Demo mode needs no special-case here: DemoPolicy.FilterMarkets hides
@@ -608,8 +607,6 @@ namespace AccessibleTrader.WebHost
                     sp.GetRequiredService<AccessibleTrader.Core.Services.PluginTrustPolicy>(),
                     AccessibleTrader.Core.Services.Strategies.StrategyPluginDirectories.Default()));
             services.AddScoped<IStrategyRegistry, StrategyRegistry>();
-
-            services.AddScoped<ScriptingService>();
 
             // Use Core's default launcher selector. On Linux this is the
             // LinuxBwrapLauncher (L5), which sandboxes the worker under bubblewrap

@@ -488,7 +488,7 @@ no DI registration required.
   Tardis.dev. Live order book is hard to use without HFT-grade infrastructure.
 - **Twitter / Reddit sentiment** — paid APIs in the $100s/month range, questionable
   signal-to-noise, hard to backtest.
-- **News scrapers** — fragile, often rate-limited or blocked, and the AI Analyst
-  feature already covers ad-hoc news lookups.
+- **News scrapers** — fragile, often rate-limited or blocked. (The AI Analyst does not look up
+  news; it reads only the chart and indicators it is given.)
 - **Alternative data** (satellite, credit card, foot traffic) — institutional-only,
   thousands of dollars per month, not relevant at retail scale.

@@ -333,15 +333,6 @@ namespace AccessibleTrader.Core.Services
                 or RestoreAllComponentsAction
                 // Ctrl+Alt+Shift+O: narration's counterpart to the two above (2026-09-05).
                 or ClearAllNarrationAction
-                // Shift+H / Shift+M: the THIRD action to be implemented in
-                // SeriesReducer, dispatched from CommandDispatcher, and left out of
-                // this list (found 2026-08-24, after WheelZoomAction above and
-                // ToggleEventSpeech/ToggleEarcons below). This one is the documented
-                // escape hatch that un-hides / un-mutes everything at once, so its
-                // absence made H and M a one-way door for a screen-reader user — and
-                // because RestoreAll's own announcement lives inside the reducer, the
-                // keypress was completely silent. ActionRoutingReachabilityTests now
-                // enumerates every WorkspaceAction subtype so there cannot be a fourth.
                 or AddSeriesAction or RemoveSeriesAction or AddLevelAction or RemoveLevelAction
                 or SetLevelAudibleAction
                 or UpdateSeriesAction or UpdateSeriesDataAction

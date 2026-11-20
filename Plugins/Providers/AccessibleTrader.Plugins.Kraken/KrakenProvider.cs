@@ -20,7 +20,8 @@ namespace AccessibleTrader.Plugins.Kraken
         private string? _apiSecret;
 
         private const string RestUrl  = "https://api.kraken.com";
-        private const string WsUrl    = "wss://ws.kraken.com/v2";
+        // Not const so a test can point the public socket at a port that refuses it.
+        internal string WsUrl { get; init; } = "wss://ws.kraken.com/v2";
         private const string WsAuthUrl = "wss://ws-auth.kraken.com/v2";
 
         private readonly RateLimiter _publicRateLimiter  = new(15, TimeSpan.FromSeconds(1));
@@ -716,20 +717,30 @@ namespace AccessibleTrader.Plugins.Kraken
 
             _ = Task.Run(async () =>
             {
-                await EnsureConnectedAsync();
-                if (_publicWs != null)
+                try
                 {
-                    var sub = new JObject
+                    await EnsureConnectedAsync();
+                    if (_publicWs != null)
                     {
-                        ["method"] = "subscribe",
-                        ["params"] = new JObject
+                        var sub = new JObject
                         {
-                            ["channel"] = "book",
-                            ["symbol"] = new JArray { pair },
-                            ["depth"] = 25
-                        }
-                    };
-                    await _publicWs.SendAsync(sub.ToString());
+                            ["method"] = "subscribe",
+                            ["params"] = new JObject
+                            {
+                                ["channel"] = "book",
+                                ["symbol"] = new JArray { pair },
+                                ["depth"] = 25
+                            }
+                        };
+                        await _publicWs.SendAsync(sub.ToString());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // A dead book used to be silent: the task's exception went nowhere and the
+                    // order book simply never filled. Say so, and let the next open try again.
+                    _errorStream.OnNext($"Kraken order book for {pair} could not subscribe ({ex.GetType().Name}): {ex.Message}");
+                    if (_orderBookSymbol == pair) _orderBookSymbol = null;
                 }
             });
 

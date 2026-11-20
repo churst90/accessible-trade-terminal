@@ -41,25 +41,4 @@ public class ScriptingPolicyWallTests
         var result = await svc.CompileIndicatorAsync("");
         Assert.False(result.Success);
     }
-
-    [Theory]
-    [InlineData(HostMode.Hosted)]
-    [InlineData(HostMode.Demo)]
-    public async Task HostedAndDemo_RefuseTheInProcessScriptPathToo(HostMode mode)
-    {
-        // ScriptingService runs CSharpScript IN PROCESS — no sandbox at all —
-        // so it gets the same wall.
-        var svc = new ScriptingService(new DemoPolicy(mode));
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => svc.ExecuteScriptAsync("Close.Select(x => x)", new List<Ohlcv>()));
-    }
-
-    [Fact]
-    public async Task FullMode_InProcessPath_StaysUsable()
-    {
-        var svc = new ScriptingService(new DemoPolicy(HostMode.Full));
-        var result = await svc.ExecuteScriptAsync("", new List<Ohlcv>());
-        Assert.False(result.Success);           // empty code is an ordinary refusal…
-        Assert.Contains("empty", result.ErrorMessage, StringComparison.OrdinalIgnoreCase); // …not a policy throw
-    }
 }

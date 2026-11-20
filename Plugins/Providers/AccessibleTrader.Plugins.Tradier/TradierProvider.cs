@@ -230,7 +230,14 @@ namespace AccessibleTrader.Plugins.Tradier
                     _accountStreamUp = false;
                     _errorStream.OnNext($"Tradier account stream: {err}");
                 });
-            _ = _accountWs.ConnectAsync();
+            var accountWs = _accountWs;
+            _ = accountWs.ConnectOrReportAsync(ex =>
+            {
+                _accountStreamUp = false;
+                _errorStream.OnNext($"Tradier account stream could not connect ({ex.Message}); order status is polled instead.");
+                // Let the next start try again instead of finding this dead socket in place.
+                if (ReferenceEquals(_accountWs, accountWs)) _accountWs = null;
+            });
         }
 
         internal void HandleAccountEvent(string message)

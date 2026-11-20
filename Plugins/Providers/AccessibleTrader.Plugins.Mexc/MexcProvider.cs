@@ -540,7 +540,13 @@ namespace AccessibleTrader.Plugins.Mexc
                 })
                 .OnMessage(text => SurfaceSubscribeError(text, "order book"))
                 .OnError(err => SurfaceError($"MEXC order book stream ({cleanSymbol}): {err}"));
-            _ = _orderBookWs.ConnectAsync();
+            var bookWs = _orderBookWs;
+            _ = bookWs.ConnectOrReportAsync(ex =>
+            {
+                SurfaceError($"MEXC order book stream ({cleanSymbol}) could not connect: {ex.Message}");
+                // Let the next open of the book try again instead of returning this dead socket.
+                if (ReferenceEquals(_orderBookWs, bookWs)) _orderBookWs = null;
+            });
             return _orderBookSubject.AsObservable();
         }
 
