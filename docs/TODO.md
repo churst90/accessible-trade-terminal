@@ -69,11 +69,22 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
   "Top traders: paper trading leaderboard" (CHANGES). Skipped by Cody: replacing the feature list with
   three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
   (not yet).
-- [ ] **Email signup on the website**: explained to Cody 2026-11-20 (Brevo list + double opt-in form, he
-  writes and sends from Brevo or from a Markdown file I send for him); waiting for his choice, nothing built.
-- [ ] The full FAQ at /faq (site database `faqs`) has older answers that no longer match the code: macOS
-  keys "in Keychain" (the app uses its own encrypted store), and the web account storing "nothing more"
-  than a login (it keeps settings, workspaces, the paper record and the leaderboard choice). Not changed.
+- [ ] **Email list on the website**: BUILT and live 2026-11-20 (CHANGES), but it sends nothing yet.
+  Waiting on Cody for: (1) a Brevo **API key** (Brevo > SMTP & API > API keys; not the SMTP key the
+  terminal uses) added by him to `/home/cody/site_env/.env_trade_codyhurst_com` as `BREVO_API_KEY=...`;
+  (2) a **postal address** for the foot of list emails (US CAN-SPAM; a PO box is fine), which goes in
+  `site_settings.mail_postal_address`; (3) yes to installing the 10-minute timer, which needs sudo
+  (`/home/debian/att-mail/systemd/INSTALL.txt`; my attempt was refused by the permission check). Until
+  the key is in, signups are saved as pending and get their confirmation email when the key arrives
+  (run `php /home/debian/att-mail/newsletter.php confirm-pending` if the timer is not installed). Not
+  checked: Brevo's sender and domain authentication for `noreply@accessibletrader.com` (the terminal's
+  password emails come from Brevo and arrived 11-20, so likely fine), and whether Brevo's open/click
+  tracking is on for transactional mail (Cody's choice; it is a Brevo setting).
+- [x] The full FAQ at /faq: two answers were out of date and are fixed (2026-11-20, CHANGES): the cost
+  answer pointed at a "pricing page" that now redirects to Donate, and "Where does my data go?" said the
+  web account keeps a login "and nothing more". **Correction:** this item first said the macOS
+  "Keychain" answer was stale too. It was not: the desktop app is MAUI and keeps keys through
+  `SecureStorage`, which is the Keychain on macOS and DPAPI on Windows, as the answer says.
 - [x] **Account value on the leaderboard** and the **gold edge on dark-mode main buttons**: Cody said
   yes, built 2026-11-20 (CHANGES). Market Cipher taken off the home page (Cody: not to be advertised as
   clones).

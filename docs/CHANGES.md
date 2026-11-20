@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Website: an email list (sends nothing until Cody adds a Brevo API key) and two FAQ answers brought up to date, 2026-11-20 — not yet seen by Cody
+
+Cody: "fix the FAQ out of date questions", "add the email sign up box. I'll write, you send", "add the
+blog posts section" (the last was already live: "From the blog" at the foot of the home page, only
+posts tagged trading, Accessible Trade Terminal or Accessible Trader).
+
+**FAQ** (`faqs` table, rows backed up to `/home/debian/faqs.bak-20261120-stale.json`): "How much does
+it cost?" now says nothing, links the donate page and drops the old "pricing page" link (that URL
+redirects to Donate). "Where does my data go?" now lists what the free web account keeps (email, a
+one-way hash of the password, settings and sounds, workspaces, indicator templates, strategies, the
+paper record, and a display name and leaderboard place only if chosen) and mentions the email list.
+The /faq page's search-engine data follows the table, so it changed too. The macOS Keychain answer was
+right and is unchanged (the TODO note that said otherwise was my mistake, corrected).
+
+**Email list** (live site files, backups `*.bak-20261120-signup`):
+- The home page ends with "Get the news by email": one Email address field and a "Join the email list"
+  button (also on its own page, /subscribe; listed in the home page's "On this page" links). A hidden
+  field traps bots, the form needs the page's session token, and five signups an hour per network.
+- Double opt-in: the address is saved as pending and gets a confirmation email. Its link opens a page
+  with a Confirm button; only pressing it confirms (mail scanners open links, so a link alone must not
+  sign anyone up). Signing up an address already on the list sends nothing and shows the same page, so
+  the form cannot be used to find out who is on it. Unconfirmed addresses are deleted after 30 days.
+- Every list email carries an unsubscribe link (a page with an Unsubscribe button) and the headers mail
+  apps use for their own one-click Unsubscribe, which work without the button.
+- Sending is Brevo's HTTP API from PHP (`includes/mailer.php`), reading `BREVO_API_KEY` from the site's
+  env file. **The key is not there yet, so nothing is sent**: signups are kept as pending and the
+  after-signup page says the confirmation "will follow shortly".
+- Cody writes, I send: `/home/debian/att-mail/newsletter.php` takes a file whose first line is
+  `Subject: ...` followed by Markdown. `preview` writes the HTML, `test` sends one copy to Cody, `send`
+  is a dry run until `--confirm`. Each address is recorded per issue, so a send that stops (Brevo's
+  free plan allows 300 emails a day) carries on later without sending anyone a copy twice. `send`
+  refuses until a postal address is set (US law for list mail).
+- Privacy page: new bullets for the email list (including that Brevo delivers it) and the free web
+  account; its one-line summary now says "or set up in your free account".
+- Tables `mail_subscribers` and `mail_sends` (`sql/mail_list.sql` on the server).
+
+Checked: a staging copy on the server against a fake Brevo ran signup, the confirmation email's
+contents, repeat signups, confirm by GET (asks only) and POST, a newsletter dry run, send, re-send (no
+repeats), one-click unsubscribe, rejoining (new link), Brevo refusing (pending, sent later by
+`confirm-pending`), no key (nothing sent), bad address, missing session token, the bot trap and the
+rate limit. That run caught one bug, fixed: an issue's subject swallowed the body. Headless Chromium at
+1280 and 390 wide, light and dark: no sideways scroll, the bot field is skipped by Tab, a bad address
+comes back as an alert with the field marked invalid, no duplicate ids. The live site then took one
+test signup through Apache, opened its confirm link and one-click unsubscribed it (row deleted).
+Not done: a real email (no key), the 10-minute timer that sends owed confirmations (installing it
+needs sudo and was refused; unit files and steps in `/home/debian/att-mail/systemd/`).
+
 ### Website home page: shorter intro, audio tour moved up, FAQ, From the blog, a line for VR counselors, 2026-11-20 — not yet seen by Cody
 
 Cody's answers to the "what would you add" list, installed on the live site (files in
