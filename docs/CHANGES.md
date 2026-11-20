@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Leaderboard shows open positions; two browser tests caught up with this batch, 2026-11-20 — not yet seen by Cody
+
+Cody, 2026-11-20: "if the user has an open position, make that visible in the leaderboard as well be it closed or open position."
+
+- **Each row lists the positions held now.** `PaperAccountStanding` gains `OpenPositions`: per held position its symbol, long or short, the amount, the entry price, the price it was valued at and the profit so far (money and percent of entry, before fees; a winning short is positive). With no price fetched the price and profit are null, "unknown", never zero, and the row is still flagged estimated as before. Zero-quantity rows are not positions. The published JSON carries them as `openPositions` (an empty list, not a missing field, when nothing is held).
+- **Holding a position is enough to be listed.** An opted-in account with no closed trade yet but an open position is now on the board (return counts the position at its price; trades 0, win rate none). An account that never traded is still left off.
+- **The website section** (`strategy-lab-data/site-drafts/leaderboard-section.php`, installed on the VPS by hand) gets an "Open positions" column: "Long 0.5 BTC/USDT from 60,000.00, now 62,000.00: +3.33% (+1,000.00 USD)", "price unavailable" when there is none, "none" when flat; a footnote says return counts open positions and the other columns count closed trades only. The account page hint and the user manual say open positions are shown.
+- **Browser harness, red on CI for d86f0851, fixed.** `RouteCatalogCompletenessTests` found five dialogs from this batch with no route: the Go bar (Alt+G, lands on its text box), the market event calendar (Alt+E and its toolbar button), Save and Apply indicator template (toolbar) are now routed, so every focus, Tab-trap, Escape and accessible-name theory runs on them; Brick settings is recorded as needing a built chart type. `CodysSavedSession_ResumesWithEveryIndicatorOnTheChart` expected the price series to be called "Candles", but that slot's chart is Heikin Ashi and the series is named after the chart type since 2026-11-19; it now expects "Heikin Ashi".
+
+Tests: `PaperAccountStandingTests` +2, `LeaderboardPublisherTests` +2. Four sabotages, all red: listing only accounts with a closed trade, a short's percent without its sign, an unknown profit published as zero, every side "long". The browser harness ran in full locally (Chromium 1248, muted): 274 passed, 1 skipped (the opt-in screen-reader probe), up from 246 because of the new routes.
+
+Caveats: a public row now shows what an account holds and its size; that is what was asked, and only opted-in accounts appear. The website column was rendered from sample JSON with the PHP CLI, not yet on the live site. The accessibility-lead agent the project hook asks for is not registered, so no agent review was done.
+
 ### The baseline's base kept on screen, and the mouse pans tested, 2026-11-20 — not yet seen by Cody
 
 Cody, after re-hearing the three fixes below: "fix the small issues regarding those bars being off screen, mouse wheel no tests add those".

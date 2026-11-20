@@ -42,7 +42,7 @@ internal sealed record ModalRoute(
 internal static class ModalRoutes
 {
     /// <summary>
-    /// The eight dialogs a keyboard user can reach without touching the toolbar. Chords are in
+    /// The ten dialogs a keyboard user can reach without touching the toolbar. Chords are in
     /// Playwright syntax; they are the same bindings <c>ShortcutManager.InitializeDefaultProfile</c>
     /// installs, written out by hand so a change to that table shows up here as a failure rather
     /// than being silently mirrored.
@@ -77,6 +77,12 @@ internal static class ModalRoutes
             "apikeys-title",        "Alt+K — credential store."),
         new("DrawingToolsModal",     OpenBy.Shortcut, "Alt+d",
             "drawing-tools-title",  "Alt+D — drawing tool picker."),
+        // The one dialog that opens on its input rather than its heading: the Go bar is a
+        // command line, and typing must start at once (2026-11-18).
+        new("GoBarModal",            OpenBy.Shortcut, "Alt+g",
+            "gobar-input",          "Alt+G — type a command; the text box is where the user stands."),
+        new("MarketEventCalendarModal", OpenBy.Shortcut, "Alt+e",
+            "market-event-calendar-title", "Alt+E — the market event calendar."),
     };
 
     /// <summary>
@@ -119,6 +125,11 @@ internal static class ModalRoutes
         new("SettingsModal",         OpenBy.ToolbarButton, "Settings",                "settings-title",        "heading names the dialog"),
         new("HelpModal",             OpenBy.ToolbarButton, "Help",                    "help-title",            "heading names the dialog"),
         new("MyDataModal",           OpenBy.ToolbarButton, "Import",        "mydata-title",          "heading names the dialog"),
+        new("MarketEventCalendarModal", OpenBy.ToolbarButton, "Market events", "market-event-calendar-title", "heading names the dialog"),
+        // Gated with Save/Load workspace (Demo.AllowWorkspaceSaveLoad). With no chart loaded the
+        // save dialog opens and says there is nothing to save; the apply dialog lists none.
+        new("SaveIndicatorTemplateModal",  OpenBy.ToolbarButton, "Save indicator template",  "save-indicator-template-title",  "heading names the dialog"),
+        new("ApplyIndicatorTemplateModal", OpenBy.ToolbarButton, "Apply indicator template", "apply-indicator-template-title", "heading names the dialog"),
     };
 
     /// <summary>
@@ -133,6 +144,9 @@ internal static class ModalRoutes
             ["CustomScriptsModal"] = "Alt+comma, and the scripting surface needs the script worker",
             ["LabelTextModal"]     = "prompted mid-gesture while placing a Label drawing",
             ["ThemeEditorModal"]   = "opened from the Settings appearance tab, not from the toolbar",
+            ["ChartTypeSettingsModal"] =
+                "its toolbar button (Brick settings) shows only on a built chart type (Renko, range " +
+                "bars, line break, Kagi, point and figure), which needs a chart type chosen and bars loaded",
             // Not a *Modal.razor at all — it is inline in Toolbar.razor — so the completeness test
             // would never ask about it. Listed anyway: this is the one alertdialog in the app, the
             // one the Tab trap could not see until 2026-09-02, and the sweep still cannot open it.

@@ -79,6 +79,61 @@ public sealed class PaperAccountStandingTests
     }
 
     [Fact]
+    public void Each_held_position_is_listed_with_its_side_mark_and_profit_winning_positive_on_both_sides()
+    {
+        var file = Parse("""
+            {
+              "Cash": 0.0,
+              "Positions": [
+                { "Symbol": "ETH/USDT", "Qty": -2.0, "Avg": 3000.0 },
+                { "Symbol": "BTC/USDT", "Qty": 0.5, "Avg": 100000.0 },
+                { "Symbol": "SOL/USDT", "Qty": 0.0, "Avg": 150.0 }
+              ],
+              "Collateral": []
+            }
+            """);
+
+        var standing = PaperAccountStanding.Compute(
+            file, symbol => symbol == "BTC/USDT" ? 110_000 : 2_700, 100_000);
+
+        Assert.Equal(2, standing.OpenPositions.Count);   // sorted by symbol, zero quantity left out
+
+        var btc = standing.OpenPositions[0];
+        Assert.Equal("BTC/USDT", btc.Symbol);
+        Assert.False(btc.IsShort);
+        Assert.Equal(0.5, btc.Quantity, 9);
+        Assert.Equal(100_000, btc.Entry, 9);
+        Assert.Equal(110_000, btc.Mark!.Value, 9);
+        Assert.Equal(5_000, btc.UnrealizedPnL!.Value, 6);   // 0.5 x 10,000
+        Assert.Equal(10.0, btc.UnrealizedPct!.Value, 6);
+
+        var eth = standing.OpenPositions[1];
+        Assert.True(eth.IsShort);
+        Assert.Equal(2.0, eth.Quantity, 9);
+        Assert.Equal(600, eth.UnrealizedPnL!.Value, 6);     // short 2 from 3,000 to 2,700
+        Assert.Equal(10.0, eth.UnrealizedPct!.Value, 6);   // a winning short is positive
+    }
+
+    [Fact]
+    public void A_held_position_without_a_price_has_unknown_profit_not_zero()
+    {
+        var file = Parse("""
+            {
+              "Cash": 50000.0,
+              "Positions": [ { "Symbol": "BTC/USDT", "Qty": 1.0, "Avg": 50000.0 } ],
+              "Collateral": []
+            }
+            """);
+
+        var position = Assert.Single(PaperAccountStanding.Compute(file, _ => null, 100_000).OpenPositions);
+
+        Assert.Null(position.Mark);
+        Assert.Null(position.UnrealizedPnL);
+        Assert.Null(position.UnrealizedPct);
+        Assert.Equal(50_000, position.Entry, 9);
+    }
+
+    [Fact]
     public void A_long_at_a_missing_price_is_valued_at_entry_and_flagged_stale()
     {
         var file = Parse("""

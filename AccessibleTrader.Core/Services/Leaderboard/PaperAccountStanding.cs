@@ -88,6 +88,27 @@ namespace AccessibleTrader.Core.Services.Leaderboard
     }
 
     /// <summary>
+    /// One position the account holds now, as the leaderboard shows it (Cody, 2026-11-20: "if
+    /// the user has an open position, make that visible in the leaderboard"). A short has a
+    /// negative <see cref="PaperAccountPosition.Qty"/> in the file; here it is
+    /// <see cref="IsShort"/> with a positive <see cref="Quantity"/>.
+    /// </summary>
+    /// <param name="Mark">The price it was valued at, or null when none could be fetched (then
+    /// the position is counted at its entry price and its profit is unknown, not zero).</param>
+    /// <param name="UnrealizedPnL">Money made or lost if it were closed at <paramref name="Mark"/>,
+    /// before fees; null with no mark.</param>
+    /// <param name="UnrealizedPct">The same as a percentage of the entry price, positive when
+    /// the trade is winning on either side; null with no mark.</param>
+    public sealed record OpenPositionStanding(
+        string Symbol,
+        bool IsShort,
+        double Quantity,
+        double Entry,
+        double? Mark,
+        double? UnrealizedPnL,
+        double? UnrealizedPct);
+
+    /// <summary>
     /// One account's place on the leaderboard, computed purely from its file and a price lookup.
     /// </summary>
     public sealed record PaperAccountStanding(
@@ -98,7 +119,8 @@ namespace AccessibleTrader.Core.Services.Leaderboard
         double? WinRate,
         DateTime? FirstTradeAt,
         DateTime? LastTradeAt,
-        bool MarkToMarketStale)
+        bool MarkToMarketStale,
+        IReadOnlyList<OpenPositionStanding> OpenPositions)
     {
         /// <summary>
         /// Equity = cash + each position at its mark + locked collateral. That one formula is
@@ -118,6 +140,7 @@ namespace AccessibleTrader.Core.Services.Leaderboard
 
             double equity = file.Cash;
             bool stale = false;
+            var open = new List<OpenPositionStanding>();
 
             foreach (var position in file.Positions ?? new List<PaperAccountPosition>())
             {
@@ -140,6 +163,15 @@ namespace AccessibleTrader.Core.Services.Leaderboard
                 }
 
                 equity += position.Qty * price;
+
+                bool known = mark is > 0;
+                double? pnl = known ? position.Qty * (mark!.Value - position.Avg) : null;
+                double? pct = known && position.Avg > 0
+                    ? (mark!.Value - position.Avg) / position.Avg * 100.0 * Math.Sign(position.Qty)
+                    : null;
+                open.Add(new OpenPositionStanding(
+                    position.Symbol, position.Qty < 0, Math.Abs(position.Qty), position.Avg,
+                    known ? mark : null, pnl, pct));
             }
 
             foreach (var collateral in file.Collateral ?? new List<PaperAccountCollateral>())
@@ -162,7 +194,8 @@ namespace AccessibleTrader.Core.Services.Leaderboard
                 winRate,
                 stats.FirstFillAt,
                 stats.LastFillAt,
-                stale);
+                stale,
+                open.OrderBy(p => p.Symbol, StringComparer.OrdinalIgnoreCase).ToList());
         }
     }
 }

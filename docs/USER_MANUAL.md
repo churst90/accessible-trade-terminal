@@ -5746,11 +5746,14 @@ another.
   the name and switches the leaderboard off, and the page says so.
 - **Leaderboard.** One checkbox, off by default: **Show my paper trading results on
   the public leaderboard**. The leaderboard shows your display name, return percent,
-  number of trades and win rate, never your email. Turning it on without a display
-  name is refused with "Set a display name first." The public page ranks players by
+  number of trades, win rate and the positions you hold open, never your email.
+  Turning it on without a display name is refused with "Set a display name first."
+  The public page ranks players by
   return percent and shows their display name, return percent, number of trades, win
-  rate and the date of their first trade; it is refreshed every five minutes, and
-  nobody appears unless they opt in.
+  rate, the date of their first trade, and each open position (long or short, the amount,
+  the entry price, the latest price and its profit or loss so far, before fees). You
+  appear once you have opened or closed a trade. The page is refreshed every five
+  minutes, and nobody appears unless they opt in.
 - **Change password.** Enter your current password, then the new one twice. The new
   password follows the same rule as registration: 10 to 128 characters. You stay
   signed in here; other browsers are signed out. When the email service is set up,

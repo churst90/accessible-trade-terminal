@@ -231,6 +231,62 @@ public sealed class LeaderboardPublisherTests : IDisposable
         Assert.Equal(0.0, (double)entry["returnPct"]!, 6);   // (50000 + 1*50000 - 100000)
     }
 
+    // ── Open positions (Cody, 2026-11-20: "be it closed or open position") ──
+
+    [Fact]
+    public async Task Open_positions_are_published_with_each_row_and_hold_a_place_before_any_close()
+    {
+        var holder = await SeedAsync("lb-holder@example.test", "Holder", optIn: true);
+        var idle = await SeedAsync("lb-idle@example.test", "Idle", optIn: true);
+
+        // No closed trade yet, a long and a short held. No chart, so no price: the row is
+        // published at entry, flagged stale, and the positions say their profit is unknown.
+        WriteAccount(holder, Account(
+            cash: 40_000, trades: 0, wins: 0,
+            positions: """
+                [ { "Symbol": "ETH/USDT", "Qty": -2.0, "Avg": 3000.0 },
+                  { "Symbol": "BTC/USDT", "Qty": 0.5, "Avg": 60000.0 },
+                  { "Symbol": "SOL/USDT", "Qty": 0.0, "Avg": 150.0 } ]
+                """,
+            collateral: """[ { "Symbol": "ETH/USDT", "Value": 36000.0 } ]"""));
+        // Never traded and holds nothing: still left off.
+        WriteAccount(idle, Account(cash: 100_000, trades: 0, wins: 0));
+
+        await PublishAsync();
+
+        var entry = Assert.Single((JArray)JObject.Parse(File.ReadAllText(OutputPath))["entries"]!);
+        Assert.Equal("Holder", (string?)entry["displayName"]);
+        Assert.Equal(0, (int)entry["tradeCount"]!);
+        Assert.Equal(JTokenType.Null, entry["winRate"]!.Type);
+
+        var positions = (JArray)entry["openPositions"]!;
+        Assert.Equal(2, positions.Count);   // the zero-quantity SOL row is not a position
+
+        Assert.Equal("BTC/USDT", (string?)positions[0]["symbol"]);
+        Assert.Equal("long", (string?)positions[0]["side"]);
+        Assert.Equal(0.5, (double)positions[0]["quantity"]!, 9);
+        Assert.Equal(60_000.0, (double)positions[0]["entryPrice"]!, 9);
+        Assert.Equal(JTokenType.Null, positions[0]["markPrice"]!.Type);
+        Assert.Equal(JTokenType.Null, positions[0]["unrealizedPnL"]!.Type);
+        Assert.Equal(JTokenType.Null, positions[0]["unrealizedPct"]!.Type);
+
+        Assert.Equal("ETH/USDT", (string?)positions[1]["symbol"]);
+        Assert.Equal("short", (string?)positions[1]["side"]);
+        Assert.Equal(2.0, (double)positions[1]["quantity"]!, 9);
+    }
+
+    [Fact]
+    public async Task A_row_with_nothing_held_publishes_an_empty_list_not_a_missing_field()
+    {
+        var user = await SeedAsync("lb-flat@example.test", "Flat", optIn: true);
+        WriteAccount(user, Account(cash: 101_000, trades: 3, wins: 2, realized: 1_000));
+
+        await PublishAsync();
+
+        var entry = Assert.Single((JArray)JObject.Parse(File.ReadAllText(OutputPath))["entries"]!);
+        Assert.Empty((JArray)entry["openPositions"]!);
+    }
+
     [Fact]
     public void The_hosted_head_registers_the_publisher()
     {

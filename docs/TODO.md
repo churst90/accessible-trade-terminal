@@ -51,6 +51,7 @@ and Identity already has 2FA, lockout and rate limits.
   opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real
   `<table>` with caption and column headers in the PHP page. Paper only (the hosted terminal is paper).
   **Server side done 2026-11-18 (`CHANGES.md`):** lifetime stats, the calculator and the publisher.
+  Open positions on every row, and an account listed once it holds one, done 2026-11-20 (Cody).
 - [ ] **Website leaderboard section (VPS PHP, Claude).** Render the published JSON on the
   accessibletrader.com front page: a real `<table>` with a caption and column headers, "be the first"
   under 3 entries, no email address anywhere. The file, its 0640 mode and

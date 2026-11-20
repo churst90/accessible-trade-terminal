@@ -124,8 +124,10 @@ namespace AccessibleTrader.WebHost.Services
                     continue;
                 }
 
-                // An untouched account would sit at 0% and look like a player.
-                if (file.EffectiveStats().ClosedTrades == 0) continue;
+                // An untouched account would sit at 0% and look like a player. One that holds a
+                // position is playing even before its first close (Cody, 2026-11-20: open
+                // positions are shown, "be it closed or open position").
+                if (file.EffectiveStats().ClosedTrades == 0 && !PositionsOf(file).Any()) continue;
 
                 accounts.Add((user, file));
             }
@@ -158,7 +160,15 @@ namespace AccessibleTrader.WebHost.Services
                     standing.TradeCount,
                     standing.WinRate is double rate ? Round4(rate) : null,
                     standing.FirstTradeAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                    standing.MarkToMarketStale));
+                    standing.MarkToMarketStale,
+                    standing.OpenPositions.Select(p => new PublishedPosition(
+                        p.Symbol,
+                        p.IsShort ? "short" : "long",
+                        Round8(p.Quantity),
+                        Round8(p.Entry),
+                        p.Mark is double mark ? Round8(mark) : null,
+                        p.UnrealizedPnL is double pnl ? Round2(pnl) : null,
+                        p.UnrealizedPct is double pct ? Round2(pct) : null)).ToList()));
             }
 
             var payload = new PublishedLeaderboard(
@@ -285,6 +295,13 @@ namespace AccessibleTrader.WebHost.Services
             return rounded == 0 ? 0.0 : rounded;   // never publish "-0"
         }
 
+        /// <summary>Prices and quantities: enough places for a coin worth a fraction of a cent.</summary>
+        private static double Round8(double value)
+        {
+            double rounded = Math.Round(value, 8, MidpointRounding.AwayFromZero);
+            return rounded == 0 ? 0.0 : rounded;
+        }
+
         private static double Round4(double value)
         {
             double rounded = Math.Round(value, 4, MidpointRounding.AwayFromZero);
@@ -302,6 +319,18 @@ namespace AccessibleTrader.WebHost.Services
             int TradeCount,
             double? WinRate,
             string? Since,
-            bool MarkToMarketStale);
+            bool MarkToMarketStale,
+            List<PublishedPosition> OpenPositions);
+
+        /// <summary>A held position. <c>MarkPrice</c>, <c>UnrealizedPnL</c> and
+        /// <c>UnrealizedPct</c> are null when no price could be fetched.</summary>
+        private sealed record PublishedPosition(
+            string Symbol,
+            string Side,
+            double Quantity,
+            double EntryPrice,
+            double? MarkPrice,
+            double? UnrealizedPnL,
+            double? UnrealizedPct);
     }
 }

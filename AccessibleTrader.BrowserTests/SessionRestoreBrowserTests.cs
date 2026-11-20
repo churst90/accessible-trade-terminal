@@ -97,7 +97,9 @@ public sealed class SessionRestoreBrowserTests
         File.Copy(fixture, seeded);
         File.SetLastWriteTimeUtc(seeded, DateTime.UtcNow.AddSeconds(5));   // the newest, by a margin
 
-        var expected = new[] { "Candles", "Volume", "Price", "Cipher B", MarketStructure, VolumeProfile };
+        // The slot's chart type is Heikin Ashi, and the price series is named after the chart
+        // type since 2026-11-19 (it was "Candles" whatever the type).
+        var expected = new[] { "Heikin Ashi", "Volume", "Price", "Cipher B", MarketStructure, VolumeProfile };
         try
         {
             var t = await _fixture.NewPageAsync(resumeSession: true);
