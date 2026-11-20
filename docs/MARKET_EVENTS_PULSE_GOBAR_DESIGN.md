@@ -1,7 +1,7 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2, 3a, 3b, 4a, 5a and 5b are built (2026-11-18) and 4b (2026-11-20);
+terminal does not. **Stages 1, 2, 3a, 3b, 4a, 5a and 5b are built (2026-11-18), and 4b and the Fed rate (2026-11-20);
 stage 1 has been tried by Cody and the others have not been heard yet. The rest of stage 5 (5c),
 stage 6 and the rest are not built** except where a stage below says it is. This is the plan and
 the reasons, so a later session (or a sub-agent) does not have to re-derive them.
@@ -435,8 +435,12 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      terms forbid sharing one.
    - **Token unlocks BLOCKED:** DefiLlama's emissions/unlocks API now answers "Upgrade to the
      paid API plan" (checked 2026-11-18); needs a paid source or Cody's decision.
-   - **Fed expected rate OPEN:** Kalshi has KXFED, but our Fed events carry no figures yet, so
-     stage 4a deliberately leaves them alone.
+   - **Fed expected rate BUILT 2026-11-20 (not heard):** a "Fed rate" figure (new unit Rate, two
+     decimals) on Fed events. Expected = the KXFED/FED ladder's median on a 0.25 grid (the meeting's
+     own month, up to 50 days ahead); actual = the settled ladder (last yes one step below the first
+     no; anything unresolved or inconsistent gives none); previous = the newest settled meeting
+     within 60 days. Said as held at / raised to / cut to, with higher/lower than expected.
+     `Decimals(0.25)` was 1 (a log rule) and would have said 4.25 as 4.3; it now counts decimals.
 5. **Pulse — 5a BUILT 2026-11-18, not yet heard by Cody**, then the change log and catch-up. The
    watchlist named "Pulse" seeded from the nine-item table and edited in Alt+M; the fixed order;
    held positions appended for the reading but never saved; one sentence with percent changes,

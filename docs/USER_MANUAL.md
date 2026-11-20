@@ -1770,6 +1770,19 @@ traders are not the economists whose consensus the news quotes, so the two can d
 upcoming release's expected figure moves as its market moves, and the countdown says it:
 *"CPI, expected -0.1, in 15 minutes."*
 
+**The Fed rate.** A Fed decision carries the rate as well — the upper bound of the target range,
+read from Kalshi's Fed markets (no key). Before a meeting it is what Kalshi priced, read up to
+fifty days ahead, so the calendar says *"expected 4.25%"* beside *"rate now 4.00%"*, and the
+countdown *"Fed decision, expected 4.25%, in 15 minutes."* After it, the bar says the move and
+the surprise: *"Fed decision 2 PM, held at 4.00%, as expected"*, *"raised to 4.25% from 4.00%,
+higher than expected"* or *"cut to 3.75% from 4.00%, lower than expected"*. The rate is always
+said to two decimals, because the Fed moves in quarter points. The decided rate is the one
+Kalshi's settled markets name (they settle on the rate the Fed publishes), so it arrives a few
+minutes after the 2 PM statement, not with it. "From" names the meeting before only when that
+meeting was read and is within sixty days; otherwise the bar says just *"rate 4.25%"*. Kalshi's Fed
+markets start in 2022, so earlier decisions carry no rate, and unscheduled meetings have none.
+Alt+Shift+D adds *"Rate as Kalshi settled it from the Federal Reserve's published target."*
+
 **First print.** A figure is the number as it was first published, never a later revision. The
 terminal reads the vintage that existed on the release day itself, so a 2022 bar still says what
 the 2022 release said. Revisions appear only when you navigate to the later release that published

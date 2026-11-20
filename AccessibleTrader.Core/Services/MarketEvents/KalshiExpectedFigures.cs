@@ -6,13 +6,20 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// <summary>One rung of a Kalshi ladder: the strike and P(figure &gt; strike).</summary>
     public sealed record KalshiStrikeProbability(double Strike, double Probability);
 
-    /// <summary>How one of our figure names maps onto Kalshi's series and strike grid.</summary>
+    /// <summary>
+    /// How one of our figure names maps onto Kalshi's series and strike grid.
+    /// <see cref="NamesOwnMonth"/>: the ticker names the event's own month (a Fed meeting), not
+    /// the month before it. <see cref="Settles"/>: the market's own result IS the figure (the Fed
+    /// rate), so the decided value is read from the settled ladder, not from FRED.
+    /// </summary>
     public sealed record KalshiFigureSpec(
         string Name,
         IReadOnlyList<string> Series,
         double Step,
         double StrikeScale,
-        bool UsesReleaseDate);
+        bool UsesReleaseDate,
+        bool NamesOwnMonth = false,
+        bool Settles = false);
 
     /// <summary>
     /// The Kalshi rules, pure and without I/O: the event tickers for a release, the close-date
@@ -39,17 +46,29 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 ["payrolls"] = new("payrolls", new[] { "KXPAYROLLS", "PAYROLLS" }, 1, 1000, false),
                 ["unemployment"] = new("unemployment", new[] { "KXU3", "U3" }, 0.1, 1, false),
                 ["GDP"] = new("GDP", new[] { "KXGDP", "GDP" }, 0.1, 1, true),
+                // "Above 4.00%" = the upper bound of the target range after that meeting.
+                // KXFED since 2026, FED before it (FED-22MAR and older use another shape and
+                // are left out by the "greater" filter).
+                [FedRateName] = new(FedRateName, new[] { "KXFED", "FED" }, 0.25, 1, false,
+                    NamesOwnMonth: true, Settles: true),
             };
 
-        /// <summary>The five figure names this stage reads from Kalshi.</summary>
+        /// <summary>The Fed decision's figure: the upper bound of the target range.</summary>
+        public const string FedRateName = "Fed rate";
+
+        /// <summary>The six figure names read from Kalshi.</summary>
         public static IReadOnlyCollection<string> FigureNames => (IReadOnlyCollection<string>)Specs.Keys;
 
         public static bool TryGetSpec(string figureName, out KalshiFigureSpec spec)
             => Specs.TryGetValue(figureName, out spec!);
 
         /// <summary>The unit a stored figure of this name carries; used for an expected-only row.</summary>
-        public static MarketEventFigureUnit UnitFor(string figureName)
-            => figureName == "payrolls" ? MarketEventFigureUnit.Thousands : MarketEventFigureUnit.Percent;
+        public static MarketEventFigureUnit UnitFor(string figureName) => figureName switch
+        {
+            "payrolls" => MarketEventFigureUnit.Thousands,
+            FedRateName => MarketEventFigureUnit.Rate,
+            _ => MarketEventFigureUnit.Percent,
+        };
 
         /// <summary>Which direction is hot for this figure name.</summary>
         public static MarketEventFigureDirection DirectionFor(string figureName) => figureName switch
@@ -61,12 +80,13 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         /// <summary>
         /// The candidate event tickers for a release, newest series name first. Monthly figures
-        /// name the month before the release month; GDP names the release date itself.
+        /// name the month before the release month, a Fed meeting its own month; GDP names the
+        /// release date itself.
         /// </summary>
         public static IReadOnlyList<string> EventTickers(string figureName, DateOnly releaseDate)
         {
             if (!Specs.TryGetValue(figureName, out var spec)) return Array.Empty<string>();
-            var month = spec.UsesReleaseDate ? releaseDate : releaseDate.AddMonths(-1);
+            var month = spec.UsesReleaseDate || spec.NamesOwnMonth ? releaseDate : releaseDate.AddMonths(-1);
             var tickers = new List<string>(spec.Series.Count);
             foreach (string series in spec.Series)
             {
@@ -171,12 +191,47 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             return null;
         }
 
-        /// <summary>The step's own decimals: 0 for payrolls' 1, 1 for every 0.1 figure.</summary>
+        /// <summary>
+        /// The figure a settled ladder decided: every "greater" market resolved, yes below and no
+        /// from one strike up, the first no exactly one step above the last yes. Then the value is
+        /// that first no's strike (above the yes strike, not above itself, on the step grid).
+        /// Null while anything is unresolved, when the ladder disagrees with itself, or when the
+        /// value falls off either end.
+        /// </summary>
+        public static double? SettledValue(IEnumerable<JObject> markets, double step, double strikeScale = 1)
+        {
+            var rungs = new List<(double Strike, bool Yes)>();
+            foreach (var market in markets)
+            {
+                if (!string.Equals((string?)market["strike_type"], "greater", StringComparison.Ordinal)) continue;
+                if (Number(market["floor_strike"]) is not double strike) continue;
+                string? result = (string?)market["result"];
+                if (result == "yes") rungs.Add((strike / strikeScale, true));
+                else if (result == "no") rungs.Add((strike / strikeScale, false));
+                else return null;
+            }
+            if (rungs.Count < 2) return null;
+            rungs.Sort((a, b) => a.Strike.CompareTo(b.Strike));
+
+            int firstNo = rungs.FindIndex(r => !r.Yes);
+            if (firstNo <= 0) return null;
+            if (rungs.Skip(firstNo).Any(r => r.Yes)) return null;
+            double lastYes = rungs[firstNo - 1].Strike;
+            double value = rungs[firstNo].Strike;
+            if (Math.Abs(value - lastYes - step) > 1e-9) return null;
+            return Math.Round(value, Decimals(step), MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>The step's own decimals: 0 for payrolls' 1, 1 for every 0.1 figure, 2 for
+        /// the Fed's 0.25 (a log would say 1 and turn 4.25 into 4.3).</summary>
         public static int Decimals(double step)
         {
-            if (step >= 1) return 0;
-            int decimals = (int)Math.Round(-Math.Log10(step));
-            return Math.Clamp(decimals, 0, 10);
+            for (int decimals = 0; decimals <= 10; decimals++)
+            {
+                double scaled = step * Math.Pow(10, decimals);
+                if (Math.Abs(scaled - Math.Round(scaled)) < 1e-9) return decimals;
+            }
+            return 10;
         }
 
         private static string Month(DateOnly date)

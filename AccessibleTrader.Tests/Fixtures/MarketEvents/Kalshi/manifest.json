@@ -462,5 +462,57 @@
  "/series/KXCPI/markets/KXCPI-26OCT-T1.0/candlesticks": {
   "file": "k074.json",
   "status": 200
+ },
+ "/markets?event_ticker=KXFED-26OCT": {
+  "file": "fed000.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T3.25/candlesticks": {
+  "file": "fed001.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T3.75/candlesticks": {
+  "file": "fed002.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T3.50/candlesticks": {
+  "file": "fed003.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T5.00/candlesticks": {
+  "file": "fed004.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T3.00/candlesticks": {
+  "file": "fed005.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T4.75/candlesticks": {
+  "file": "fed006.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T4.50/candlesticks": {
+  "file": "fed007.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T4.00/candlesticks": {
+  "file": "fed008.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T2.75/candlesticks": {
+  "file": "fed009.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T5.25/candlesticks": {
+  "file": "fed010.json",
+  "status": 200
+ },
+ "/series/KXFED/markets/KXFED-26OCT-T4.25/candlesticks": {
+  "file": "fed011.json",
+  "status": 200
+ },
+ "/markets?event_ticker=KXFED-26DEC": {
+  "file": "fed012.json",
+  "status": 200
  }
 }

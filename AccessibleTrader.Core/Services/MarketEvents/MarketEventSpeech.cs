@@ -122,6 +122,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             var figures = e.Figures;
             if (figures == null) return "";
             if (e.Kind == MarketEventKind.Earnings) return EarningsClause(figures);
+            if (Find(figures, KalshiExpectedFigures.FedRateName) is { } fed)
+                return fed.Actual is double decided ? FedDecision(decided, fed.Previous) : "";
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -186,6 +188,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 return Find(figures, EarningsEvents.EpsName)?.Previous is double epsPrevious
                     ? "previous quarter EPS " + PerShareValue(epsPrevious)
                     : "";
+            if (Find(figures, KalshiExpectedFigures.FedRateName) is { } fed)
+                return fed.Previous is double rateNow ? "rate now " + RateValue(rateNow) : "";
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -226,6 +230,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             var figures = e.Figures;
             if (figures == null) return "Figure: unavailable.";
             if (e.Kind == MarketEventKind.Earnings) return EarningsDetail(figures);
+            if (Find(figures, KalshiExpectedFigures.FedRateName) is { } fed) return FedDetail(fed);
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -327,6 +332,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             if (a == e) return "as expected";
             if (figure.Unit is MarketEventFigureUnit.PerShare or MarketEventFigureUnit.Money)
                 return a > e ? "beat estimates" : "missed estimates";
+            // A rate is neither hot nor strong; the Fed set it higher or lower than priced.
+            if (figure.Unit == MarketEventFigureUnit.Rate)
+                return a > e ? "higher than expected" : "lower than expected";
 
             bool higher = a > e;
             return figure.Direction switch
@@ -364,6 +372,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             MarketEventFigureUnit.Thousands => ThousandsPhrase(value),
             MarketEventFigureUnit.PerShare => PerShareValue(value),
             MarketEventFigureUnit.Money => MoneyValue(value),
+            MarketEventFigureUnit.Rate => RateValue(value),
             _ => value.ToString("0.0", CultureInfo.InvariantCulture),
         };
 
@@ -372,7 +381,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private static double Rounded(MarketEventFigureUnit unit, double value) => unit switch
         {
             MarketEventFigureUnit.Thousands => Math.Round(value, 0, MidpointRounding.AwayFromZero),
-            MarketEventFigureUnit.PerShare => Math.Round(value, 2, MidpointRounding.AwayFromZero),
+            MarketEventFigureUnit.PerShare or MarketEventFigureUnit.Rate
+                => Math.Round(value, 2, MidpointRounding.AwayFromZero),
             MarketEventFigureUnit.Money => MoneyStep(value) is var step and > 0
                 ? Math.Round(value / step, 1, MidpointRounding.AwayFromZero) * step
                 : Math.Round(value, 0, MidpointRounding.AwayFromZero),
@@ -387,6 +397,38 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         private static string PerShareValue(double value)
             => value.ToString("0.00", CultureInfo.InvariantCulture);
+
+        /// <summary>"4.25%": the Fed's quarter points need both decimals.</summary>
+        private static string RateValue(double value)
+            => value.ToString("0.00", CultureInfo.InvariantCulture) + "%";
+
+        /// <summary>"raised to 4.25% from 4.00%", "cut to 3.75% from 4.00%", "held at 4.00%",
+        /// or "rate 4.25%" when the meeting before was not read.</summary>
+        private static string FedDecision(double decided, double? previous)
+        {
+            if (previous is not double before) return "rate " + RateValue(decided);
+            double a = Math.Round(decided, 2, MidpointRounding.AwayFromZero);
+            double b = Math.Round(before, 2, MidpointRounding.AwayFromZero);
+            if (a == b) return "held at " + RateValue(decided);
+            return (a > b ? "raised to " : "cut to ") + RateValue(decided) + " from " + RateValue(before);
+        }
+
+        /// <summary>The detail key's Fed lines: the decided rate beside what was priced, the one
+        /// before, and where the rate came from.</summary>
+        private static string FedDetail(MarketEventFigure fed)
+        {
+            var parts = new List<string>(3)
+            {
+                fed.Actual is double decided
+                    ? $"Figure: Fed rate, upper bound of the target range, {FedDecision(decided, fed.Previous)}{ExpectedSuffix(fed)}."
+                    : "Figure: Fed rate unavailable" + ExpectedSuffix(fed) + ".",
+                fed.Previous is double previous
+                    ? $"Previous: {RateValue(previous)}."
+                    : "Previous: unavailable.",
+                "Rate as Kalshi settled it from the Federal Reserve's published target.",
+            };
+            return string.Join(" ", parts);
+        }
 
         /// <summary>"114.5 billion", "350.2 million", or the whole number below a million.</summary>
         private static string MoneyValue(double value)
@@ -488,7 +530,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             var figures = e.Figures;
             if (figures == null) return null;
             foreach (string name in new[] { "payrolls", "CPI", "PPI", "GDP", "unemployment", "core CPI",
-                         EarningsEvents.EpsName, EarningsEvents.RevenueName })
+                         EarningsEvents.EpsName, EarningsEvents.RevenueName, KalshiExpectedFigures.FedRateName })
             {
                 var figure = Find(figures, name);
                 if (figure != null && test(figure)) return figure;

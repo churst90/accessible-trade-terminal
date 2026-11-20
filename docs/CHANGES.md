@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events: the Fed rate from Kalshi, 2026-11-20 — not heard, not on the VPS
+
+- **A "Fed rate" figure on Fed decisions** (`MarketEventFigureUnit.Rate`, always two decimals). Kalshi's
+  KXFED ladder (FED before 2026; the ticker names the meeting's own month, unlike a release, which
+  names the month before) gives the **expected** upper bound, the median on a 0.25 grid, read up to
+  fifty days ahead (releases stay at fourteen). After the meeting, the **settled** ladder gives the
+  decided rate: the first "no" strike, only when it sits exactly one step above the last "yes" and
+  every rung has a result; anything else gives none. The **previous** is the newest settled meeting
+  of the same source within sixty days. A past meeting stays unfinished, and is read again, until
+  its ladder has settled; the settled rate is saved in the expected-figures cache.
+- **Words:** "held at 4.00%", "raised to 4.25% from 4.00%", "cut to 3.75% from 4.00%", "rate 4.25%"
+  without a previous; "higher than expected" / "lower than expected" / "as expected"; "rate now
+  4.00%" before the meeting; the countdown "Fed decision, expected 4.25%, in 15 minutes."; Alt+Shift+D
+  adds the source sentence. A release never carries the Fed figure, and a Fed event carries nothing
+  else.
+- **Bug found on the way:** `KalshiExpectedFigures.Decimals` used a log rule that gave 1 for a 0.25
+  step, which would have said 4.25 as 4.3. It now counts the step's own decimals.
+- **Data checked live, 2026-11-20:** October 2026's ladder settled at 4.00 (its last hourly candles
+  before 2 PM give a median of 4.00 too); December 2026's open ladder prices 4.25 (91% above 4.00,
+  2.5% above 4.25). Thirteen trimmed responses saved as fixtures.
+- **Guards:** 15 sabotages, all red: the log decimals, the month before, the gap rule, a yes above a
+  no, an open rung skipped (first green, because the gap rule caught the only case; an open TOP rung
+  was added), a past meeting final without its result, the actual missing from the cache, the
+  sixty-day window removed, a fourteen-day Fed horizon, the past pass Economy-only, the calendar
+  Economy-only, the Fed figure on releases, one decimal, hot/cool words for a rate, and raise/cut
+  swapped.
+- **Caveats:** the decided rate comes from Kalshi's settlement, minutes after the statement, and only
+  where Kalshi had a market (2022 on); unscheduled meetings get nothing; Kalshi's traders are not the
+  fed funds futures the news quotes; about forty past meetings share the forty-a-pass backfill budget.
+
 ### Market events stage 4b: company earnings on their own charts, 2026-11-20 — not heard, not on the VPS
 
 Cody: "Last finish up the remaining bloomberg type items." Earnings were the first.

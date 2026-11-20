@@ -87,6 +87,54 @@ public class MarketEventKalshiFeedTests
         Assert.Equal(-0.1, rig.Feed.ExpectedFor("cpi", new DateOnly(2026, 12, 10), "CPI"));
     }
 
+    private static MarketEvent Meeting(DateOnly date)
+        => MarketEventSeed.Load().Events.Single(e => e.Id == $"fomc-{date:yyyy-MM-dd}");
+
+    [Fact]
+    public async Task AFedMeetingReadsWhatWasPricedAndWhatWasDecided()
+    {
+        // Saved 2026-11-20: October 2026's settled KXFED ladder with its last hourly candles
+        // before 2 PM, and December 2026's open ladder (three weeks ahead, inside fifty days).
+        var october = new DateOnly(2026, 10, 28);
+        var december = new DateOnly(2026, 12, 9);
+        var rig = new Rig(new[] { Meeting(october), Meeting(december) });
+
+        await rig.Feed.RunPassAsync();
+
+        Assert.Equal(4.00, rig.Feed.ExpectedFor("fomc", october, KalshiExpectedFigures.FedRateName));
+        Assert.Equal((4.00, (double?)null), rig.Feed.SettledFor("fomc", october, KalshiExpectedFigures.FedRateName));
+        Assert.Equal(4.25, rig.Feed.ExpectedFor("fomc", december, KalshiExpectedFigures.FedRateName));
+        Assert.Equal(((double?)null, 4.00), rig.Feed.SettledFor("fomc", december, KalshiExpectedFigures.FedRateName));
+        // January 2027 is 91 days past October with December unread: no "previous" at all,
+        // rather than a rate two meetings old.
+        Assert.Equal(((double?)null, (double?)null),
+            rig.Feed.SettledFor("fomc", new DateOnly(2027, 1, 27), KalshiExpectedFigures.FedRateName));
+
+        // The settled rate survives a restart; a release figure never has one.
+        var reread = rig.BuildFromCache();
+        Assert.Equal((4.00, (double?)null), reread.SettledFor("fomc", october, KalshiExpectedFigures.FedRateName));
+        Assert.Equal(((double?)null, (double?)null), reread.SettledFor("cpi", october, "CPI"));
+    }
+
+    [Fact]
+    public async Task AMeetingWhoseLadderIsNotSettledYetIsReadAgain()
+    {
+        // The market closed at 1:55 PM and the result lands later; the expected rate alone must
+        // not make the answer final, or the decided rate would never be read.
+        var october = new DateOnly(2026, 10, 28);
+        var rig = new Rig(new[] { Meeting(october) }, new DateTime(2026, 10, 28, 19, 0, 0, DateTimeKind.Utc));
+        rig.Unsettle = true;
+
+        await rig.Feed.RunPassAsync();
+        Assert.Equal(4.00, rig.Feed.ExpectedFor("fomc", october, KalshiExpectedFigures.FedRateName));
+        int before = rig.Handler.Captured.Count;
+
+        rig.Unsettle = false;
+        await rig.Feed.RunPassAsync();
+        Assert.True(rig.Handler.Captured.Count > before, "the unsettled meeting was not read again");
+        Assert.Equal(4.00, rig.Feed.SettledFor("fomc", october, KalshiExpectedFigures.FedRateName).Actual);
+    }
+
     [Fact]
     public async Task ACacheReadBackGivesTheSameAnswerWithNoRequests()
     {
@@ -218,6 +266,8 @@ public class MarketEventKalshiFeedTests
         public readonly DateTime Now;
         public readonly FakeHttpMessageHandler Handler = new();
         public readonly HashSet<string> FailKeys = new(StringComparer.Ordinal);
+        /// <summary>Serve every market list with its results blanked, as before settlement.</summary>
+        public bool Unsettle;
         public readonly string CachePath;
         public readonly MarketEventKalshiFeed Feed;
 
@@ -250,10 +300,17 @@ public class MarketEventKalshiFeedTests
                 {
                     Content = new StringContent("""{"error":"not saved"}""", Encoding.UTF8, "application/json"),
                 };
+            string body = File.ReadAllText(Path.Combine(FixtureDir, file));
+            if (Unsettle && key.Contains("?event_ticker=", StringComparison.Ordinal))
+            {
+                var listing = JObject.Parse(body);
+                foreach (var market in (listing["markets"] as JArray ?? new JArray()).OfType<JObject>())
+                    market["result"] = "";
+                body = listing.ToString();
+            }
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(File.ReadAllText(Path.Combine(FixtureDir, file)),
-                    Encoding.UTF8, "application/json"),
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
         }
 

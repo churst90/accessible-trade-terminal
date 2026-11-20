@@ -18,6 +18,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
         /// <summary>Starts a background pass, gated by the events level and the ten-minute interval.</summary>
         void RequestRefresh(WorkspaceState state);
+
+        /// <summary>
+        /// For a figure the market itself settles (the Fed rate): the decided value, and the one
+        /// decided at the meeting before (within <see cref="MarketEventKalshiFeed.PreviousWithinDays"/>).
+        /// Nulls for every other figure, and in a feed that settles nothing.
+        /// </summary>
+        (double? Actual, double? Previous) SettledFor(string source, DateOnly releaseDate, string figureName)
+            => (null, null);
     }
 
     /// <summary>The settings and calendar status line for Kalshi; never a network call.</summary>
@@ -55,17 +63,26 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private static readonly DateOnly BackfillStart = new(2021, 6, 1);
         private const int PastReleasesPerPass = 40;
 
+        /// <summary>Fed meetings are six to eight weeks apart, so the next one's expected rate is
+        /// read up to fifty days ahead; releases keep the fourteen-day horizon.</summary>
+        private static readonly TimeSpan FedUpcomingHorizon = TimeSpan.FromDays(50);
+
+        /// <summary>A settled rate counts as "the one before" only this close: a meeting the feed
+        /// never read must not be skipped over silently.</summary>
+        public const int PreviousWithinDays = 60;
+
         private static readonly IReadOnlyDictionary<string, string[]> SourceFigures =
             new Dictionary<string, string[]>(StringComparer.Ordinal)
             {
                 ["cpi"] = new[] { "CPI", "core CPI" },
                 ["nfp"] = new[] { "payrolls", "unemployment" },
                 ["gdp"] = new[] { "GDP" },
+                ["fomc"] = new[] { KalshiExpectedFigures.FedRateName },
             };
 
         private sealed record AnswerKey(string Source, DateOnly Date, string Figure);
 
-        private sealed record Answer(double? Expected, bool Final, DateTime ReadUtc);
+        private sealed record Answer(double? Expected, bool Final, DateTime ReadUtc, double? Actual = null);
 
         private readonly HttpClient _http;
         private readonly ILogger<MarketEventKalshiFeed> _logger;
@@ -171,6 +188,26 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 return _answers.TryGetValue(key, out var answer) ? answer.Expected : null;
         }
 
+        /// <inheritdoc />
+        public (double? Actual, double? Previous) SettledFor(string source, DateOnly releaseDate, string figureName)
+        {
+            lock (_gate)
+            {
+                double? actual = _answers.TryGetValue(new AnswerKey(source, releaseDate, figureName), out var answer)
+                    ? answer.Actual
+                    : null;
+                double? previous = _answers
+                    .Where(pair => pair.Key.Source == source && pair.Key.Figure == figureName
+                        && pair.Key.Date < releaseDate
+                        && pair.Key.Date.DayNumber >= releaseDate.DayNumber - PreviousWithinDays
+                        && pair.Value.Actual is not null)
+                    .OrderByDescending(pair => pair.Key.Date)
+                    .Select(pair => pair.Value.Actual)
+                    .FirstOrDefault();
+                return (actual, previous);
+            }
+        }
+
         /// <summary>
         /// Called on every event read. Off means nothing at all; otherwise a background pass runs
         /// when none is running and the last one finished more than ten minutes ago.
@@ -239,14 +276,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             var all = KnownEvents();
 
             var upcoming = all
-                .Where(e => e.Kind == MarketEventKind.Economy)
+                .Where(e => e.Kind is MarketEventKind.Economy or MarketEventKind.Fed)
                 .Where(e => HasKnownFigures(e))
-                .Where(e => AsUtc(e.MomentUtc) > now && AsUtc(e.MomentUtc) <= now.AddDays(14))
+                .Where(e => AsUtc(e.MomentUtc) > now && AsUtc(e.MomentUtc) <= now + UpcomingHorizon(e))
                 .OrderBy(e => e.MomentUtc)
                 .ToList();
 
             var past = all
-                .Where(e => e.Kind == MarketEventKind.Economy)
+                .Where(e => e.Kind is MarketEventKind.Economy or MarketEventKind.Fed)
                 .Where(e => HasKnownFigures(e))
                 .Where(e => e.Date >= BackfillStart && AsUtc(e.MomentUtc) <= now)
                 .Where(e => HasPendingFinalAnswer(e))
@@ -261,7 +298,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 {
                     var key = new AnswerKey(SourceOf(e), e.Date, figure);
                     if (SkipUpcoming(key, now)) continue;
-                    double? expected = await FetchExpectedAsync(e, figure, upcoming: true)
+                    var (expected, _) = await FetchExpectedAsync(e, figure, upcoming: true)
                         .ConfigureAwait(false);
                     Apply(key, expected, final: false, now);
                 }
@@ -273,10 +310,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 {
                     var key = new AnswerKey(SourceOf(e), e.Date, figure);
                     if (HasFinalAnswer(key)) continue;
-                    double? expected = await FetchExpectedAsync(e, figure, upcoming: false)
+                    var (expected, actual) = await FetchExpectedAsync(e, figure, upcoming: false)
                         .ConfigureAwait(false);
                     bool settled = now - AsUtc(e.MomentUtc) > NoMarketSettlesAfter;
-                    Apply(key, expected, final: expected is not null || settled, now);
+                    // A rate the market decides is final only once its result is in too; the
+                    // result lands some minutes after the 2 PM statement.
+                    bool needsActual = KalshiExpectedFigures.TryGetSpec(figure, out var spec) && spec.Settles;
+                    bool complete = expected is not null && (!needsActual || actual is not null);
+                    Apply(key, expected, final: complete || settled, now, actual);
                 }
             }
         }
@@ -301,15 +342,16 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             return false;
         }
 
-        private void Apply(AnswerKey key, double? expected, bool final, DateTime now)
+        private void Apply(AnswerKey key, double? expected, bool final, DateTime now, double? actual = null)
         {
             bool changed;
             lock (_gate)
             {
                 changed = !_answers.TryGetValue(key, out var old)
                     || old.Expected != expected
-                    || old.Final != final;
-                _answers[key] = new Answer(expected, final, now);
+                    || old.Final != final
+                    || old.Actual != actual;
+                _answers[key] = new Answer(expected, final, now, actual);
             }
             if (changed)
             {
@@ -318,10 +360,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             }
         }
 
-        private async Task<double?> FetchExpectedAsync(
+        /// <summary>The expected figure, and for a figure the market settles (the Fed rate) on
+        /// a past event, the settled value as well.</summary>
+        private async Task<(double? Expected, double? Actual)> FetchExpectedAsync(
             MarketEvent e, string figureName, bool upcoming)
         {
-            if (!KalshiExpectedFigures.TryGetSpec(figureName, out var spec)) return null;
+            if (!KalshiExpectedFigures.TryGetSpec(figureName, out var spec)) return (null, null);
 
             foreach (string eventTicker in KalshiExpectedFigures.EventTickers(figureName, e.Date))
             {
@@ -350,9 +394,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     double strike = market["floor_strike"]!.Value<double>() / spec.StrikeScale;
                     ladder.Add(new KalshiStrikeProbability(strike, value));
                 }
-                return KalshiExpectedFigures.Median(ladder, spec.Step);
+                double? actual = spec.Settles && !upcoming
+                    ? KalshiExpectedFigures.SettledValue(markets, spec.Step, spec.StrikeScale)
+                    : null;
+                return (KalshiExpectedFigures.Median(ladder, spec.Step), actual);
             }
-            return null;
+            return (null, null);
         }
 
         private async Task<double?> CandleProbabilityAsync(
@@ -441,6 +488,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             return byId.Values.ToList();
         }
 
+        private static TimeSpan UpcomingHorizon(MarketEvent e)
+            => e.Kind == MarketEventKind.Fed ? FedUpcomingHorizon : TimeSpan.FromDays(14);
+
         private static bool HasKnownFigures(MarketEvent e)
             => SourceFigures.ContainsKey(SourceOf(e));
 
@@ -476,9 +526,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                         row["expected"] == null
                         ? null
                         : row["expected"]!.Value<double>();
+                    double? actual = row["actual"] is JValue { Type: JTokenType.Float or JTokenType.Integer } a
+                        ? a.Value<double>()
+                        : null;
                     bool final = row["final"]?.Value<bool>() ?? false;
                     var read = ParseUtc(row["readUtc"]?.ToString()) ?? updated ?? DateTime.MinValue;
-                    answers[new AnswerKey(source, date, figure)] = new Answer(expected, final, read);
+                    answers[new AnswerKey(source, date, figure)] = new Answer(expected, final, read, actual);
                 }
 
                 lock (_gate)
@@ -510,16 +563,22 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                         .OrderBy(pair => pair.Key.Date)
                         .ThenBy(pair => pair.Key.Source, StringComparer.Ordinal)
                         .ThenBy(pair => pair.Key.Figure, StringComparer.Ordinal)
-                        .Select(pair => new JObject
+                        .Select(pair =>
                         {
-                            ["source"] = pair.Key.Source,
-                            ["date"] = pair.Key.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                            ["figure"] = pair.Key.Figure,
-                            ["expected"] = pair.Value.Expected is double expected
-                                ? new JValue(expected)
-                                : JValue.CreateNull(),
-                            ["final"] = pair.Value.Final,
-                            ["readUtc"] = pair.Value.ReadUtc.ToString("O", CultureInfo.InvariantCulture),
+                            var row = new JObject
+                            {
+                                ["source"] = pair.Key.Source,
+                                ["date"] = pair.Key.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                                ["figure"] = pair.Key.Figure,
+                                ["expected"] = pair.Value.Expected is double expected
+                                    ? new JValue(expected)
+                                    : JValue.CreateNull(),
+                                ["final"] = pair.Value.Final,
+                                ["readUtc"] = pair.Value.ReadUtc.ToString("O", CultureInfo.InvariantCulture),
+                            };
+                            // Only a settled figure has one, so older caches read the same.
+                            if (pair.Value.Actual is double actual) row["actual"] = actual;
+                            return row;
                         }));
                     updated = _updatedUtc;
                 }

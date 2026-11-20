@@ -50,6 +50,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         PerShare,
         /// <summary>Revenue: spoken in billions or millions to one decimal.</summary>
         Money,
+        /// <summary>An interest rate level, said to two decimals with a percent sign (the Fed
+        /// rate's 4.25%); its surprise words are "higher" and "lower".</summary>
+        Rate,
     }
 
     /// <summary>

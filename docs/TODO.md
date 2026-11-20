@@ -353,8 +353,14 @@ as proposed.
   user needs their own key (Finnhub's terms allow no shared key, so the VPS cannot offer one).
 - [ ] **Token unlocks: blocked.** DefiLlama's emissions/unlocks API now answers "Upgrade to the
   paid API plan" (checked 2026-11-18), so it needs a paid source or Cody's decision.
-- [ ] **Fed expected rate.** Kalshi has KXFED, but our Fed events carry no figures; open, and
-  deliberately not in stage 4a.
+- [x] **Fed expected rate.** Kalshi's KXFED (FED before 2026) ladder for the meeting's own
+  month: the expected upper bound before, the settled one after, the meeting before within 60
+  days as "from". **Built 2026-11-20, not heard, not on the VPS.** Caveats: the decided rate comes
+  from Kalshi's settlement, not FRED, so it lands minutes after the statement and only where
+  Kalshi had a market (2022 on; FED-22MAR and older use another shape and are skipped);
+  unscheduled meetings get nothing; Kalshi's traders are not the fed funds futures the news quotes;
+  the backfill of about forty past meetings shares the forty-releases-a-pass budget, so old bars
+  fill in over several ten-minute passes.
 - [x] **Stage 5a: the market pulse (Alt+P).** The "Pulse" watchlist, seeded from the nine-item
   table and edited in Alt+M; fixed order; held positions appended for the reading only; one
   sentence with percent changes, basis-point yields, closed sessions and minutes-old quotes; the

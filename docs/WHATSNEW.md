@@ -141,6 +141,13 @@ None of this has been seen or heard in the app yet.
 - Shift+comma, Shift+period and Shift+apostrophe never reached the terminal from the browser before;
   they do now, on the chart only.
 
+### Market events: the Fed rate
+
+- **A Fed decision says the rate.** Before a meeting, what Kalshi's traders priced: *"Fed
+  decision, expected 4.25%, in 15 minutes."* After it, the move and the surprise on the bar:
+  *"held at 4.00%, as expected"*, *"raised to 4.25% from 4.00%, higher than expected"*. No key;
+  meetings from 2022 on.
+
 ### Market events: company earnings
 
 - **A company's earnings on its own charts.** With market events on and your Finnhub key in API

@@ -101,28 +101,42 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// <summary>
         /// The event with every Kalshi expected figure added, as a copy. A figure the event does
         /// not carry yet — an upcoming release with no actual row — gains an expected-only row in
-        /// its canonical unit and direction. The seed objects are never mutated.
+        /// its canonical unit and direction. A Fed decision gains its "Fed rate" row the same way,
+        /// with the rate the market settled and the one before it as its actual and previous.
+        /// The seed objects are never mutated.
         /// </summary>
         public MarketEvent ApplyExpected(MarketEvent e)
         {
-            if (_expectedFeed == null || e.Kind != MarketEventKind.Economy) return e;
+            if (_expectedFeed == null || e.Kind is not (MarketEventKind.Economy or MarketEventKind.Fed)) return e;
             string source = SourceOf(e);
             var figures = e.Figures?.Figures.ToList() ?? new List<MarketEventFigure>();
             bool changed = false;
 
             foreach (string name in KalshiExpectedFigures.FigureNames)
             {
-                if (_expectedFeed.ExpectedFor(source, e.Date, name) is not double expected) continue;
+                // A Fed meeting carries only the rate, a release never does.
+                if ((name == KalshiExpectedFigures.FedRateName) != (e.Kind == MarketEventKind.Fed)) continue;
+                double? expected = _expectedFeed.ExpectedFor(source, e.Date, name);
+                var (actual, previous) = _expectedFeed.SettledFor(source, e.Date, name);
+                if (expected is null && actual is null && previous is null) continue;
+
                 int index = figures.FindIndex(f => string.Equals(f.Name, name, StringComparison.Ordinal));
                 if (index >= 0)
                 {
-                    if (figures[index].Expected == expected) continue;
-                    figures[index] = figures[index] with { Expected = expected };
+                    var old = figures[index];
+                    var updated = old with
+                    {
+                        Expected = expected ?? old.Expected,
+                        Actual = old.Actual ?? actual,
+                        Previous = old.Previous ?? previous,
+                    };
+                    if (updated == old) continue;
+                    figures[index] = updated;
                 }
                 else
                 {
                     figures.Add(new MarketEventFigure(
-                        name, null, null,
+                        name, actual, previous,
                         KalshiExpectedFigures.UnitFor(name),
                         KalshiExpectedFigures.DirectionFor(name),
                         expected));
