@@ -725,6 +725,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (last >= state.BrickSpans.Length) return;
 
                 _earconService.PlayNewBar();
+                string? signal = state.ChartStyle == PriceChartStyle.PointAndFigure
+                    ? PnfSignalNews(state.Data, last) : null;
                 _speechRouter.Speak(
                     $"New {(span.Up ? "up" : "down")} {Charts.BuiltCharts.Noun(state.ChartStyle)}, "
                     + (state.ChartStyle == PriceChartStyle.Kagi
@@ -733,7 +735,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         ? Charts.PointFigureColumns.Words(brick, state.BrickBoxSize) + ", "
                         : "")
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
-                    + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.",
+                    + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}."
+                    + (signal == null ? "" : " " + signal + "."),
                     interrupt: false, channel: SpeechChannel.Narration);
                 if (state.ChartStyle == PriceChartStyle.PointAndFigure)
                 {
@@ -861,6 +864,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private DateTime _pnfSaidFor;
         private int _pnfSaidBoxes;
 
+        /// <summary>The point and figure column whose buy or sell signal was last said, by its
+        /// date: a column gives its signal once, however its forming bar wavers.</summary>
+        private DateTime _pnfSignalSaidFor;
+
+        /// <summary>"Buy signal, above the last X top at 105.00" the first time the column at
+        /// <paramref name="index"/> is heard past it; null when it gives none, or gave it already.</summary>
+        private string? PnfSignalNews(IReadOnlyList<Ohlcv>? columns, int index)
+        {
+            string? words = Charts.PointFigureColumns.SignalWords(columns, index);
+            if (words == null || columns![index].Date == _pnfSignalSaidFor) return null;
+            _pnfSignalSaidFor = columns[index].Date;
+            return words;
+        }
+
         private void OnIntraBarUpdate(IntraBarUpdateEvent e)
         {
             var state = _store.State;
@@ -892,7 +909,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     _pnfSaidFor = column;
                     _pnfSaidBoxes = Charts.PointFigureColumns.Boxes(state.Data![^1], state.BrickBoxSize);
-                    _speechRouter.Speak(grew, interrupt: false, channel: SpeechChannel.Narration);
+                    string? signal = PnfSignalNews(state.Data, state.Data.Count - 1);
+                    _speechRouter.Speak(signal == null ? grew : $"{grew} {signal}.",
+                        interrupt: false, channel: SpeechChannel.Narration);
                 }
                 return;
             }

@@ -68,6 +68,36 @@ namespace AccessibleTrader.Core.Services.Charts
         }
 
         /// <summary>
+        /// The buy or sell signal a point and figure column gave at the close of the bar before
+        /// the newest one: "Buy signal, above the last X top at 105.00". Null when the column that
+        /// bar moved broke no top or bottom, or had broken it already before that bar (a column
+        /// gives its signal once, as the focused chart says it once). Built from the closed bars
+        /// only, as <see cref="CompletedAtClose"/> is.
+        /// </summary>
+        public static string? PnfSignalAtClose(IReadOnlyList<Ohlcv> bars, double box, ChartIdentity? identity,
+            RenkoSettings? settings = null)
+        {
+            if (bars == null || bars.Count < 2 || !(box > 0) || double.IsInfinity(box)) return null;
+            settings ??= new RenkoSettings();
+            var closed = bars.Take(bars.Count - 1).ToArray();
+            var now = BuiltCharts.Build(PriceChartStyle.PointAndFigure, closed, settings, box,
+                BrickChartBuilder.BarLength(identity, closed));
+            if (!now.Ok || now.Spans.Length == 0 || now.Spans[^1].LastBar != closed.Length - 1) return null;
+            int k = now.Bricks.Count - 1;
+            string? words = PointFigureColumns.SignalWords(now.Bricks, k);
+            if (words == null) return null;
+
+            // The same column a bar earlier, if it was there: had it already given the signal?
+            var before = BuiltCharts.Build(PriceChartStyle.PointAndFigure, closed[..^1], settings, box,
+                BrickChartBuilder.BarLength(identity, closed));
+            if (before.Ok && before.Bricks.Count == now.Bricks.Count
+                && before.Bricks[k].Date == now.Bricks[k].Date
+                && !double.IsNaN(PointFigureColumns.SignalLevel(before.Bricks, k)))
+                return null;
+            return words;
+        }
+
+        /// <summary>
         /// The box a background Renko chart uses: the one the tab froze when Renko was chosen,
         /// else its settings against the bars. Zero when neither gives one.
         /// </summary>
@@ -87,21 +117,24 @@ namespace AccessibleTrader.Core.Services.Charts
         /// it is about the newest brick.
         /// </summary>
         public static string Sentence(ChartIdentity identity, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            string? ladder = null, PriceChartStyle style = PriceChartStyle.Renko, double box = 0)
+            string? ladder = null, PriceChartStyle style = PriceChartStyle.Renko, double box = 0,
+            string? signal = null)
         {
             string what = string.Join(" ", new[] { identity.Symbol ?? "", identity.Timeframe ?? "" }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             string lead = what.Length == 0 ? "" : what + ": ";
             string tail = string.IsNullOrWhiteSpace(ladder) ? "" : " " + ladder.Trim();
-            return lead + Summary(bricks, style, box) + "." + tail;
+            return lead + Summary(bricks, style, box, signal) + "." + tail;
         }
 
         /// <summary>"new up brick, 95,000.00 to 95,500.00" without the symbol, for a toast body
         /// whose title already names the chart. Range bars say "range bar", line break "block".
         /// A point and figure column, new or grown, says its mark and boxes and not "new":
-        /// "up column, X, 6 boxes, 100.00 to 106.00".</summary>
+        /// "up column, X, 6 boxes, 100.00 to 106.00", and the signal it gave at this close when
+        /// there is one (<see cref="PnfSignalAtClose"/>): "up column, X, 6 boxes, buy signal,
+        /// above the last X top at 105.00, 100.00 to 106.00".</summary>
         public static string Summary(IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            PriceChartStyle style = PriceChartStyle.Renko, double box = 0)
+            PriceChartStyle style = PriceChartStyle.Renko, double box = 0, string? signal = null)
         {
             if (bricks.Count == 0) return "";
             bool up = bricks[^1].Span.Up;
@@ -110,6 +143,7 @@ namespace AccessibleTrader.Core.Services.Charts
                 var column = bricks[^1].Brick;
                 return $"{(up ? "up" : "down")} {BuiltCharts.Noun(style)}, "
                      + PointFigureColumns.Words(up, PointFigureColumns.Boxes(column, box)) + ", "
+                     + (string.IsNullOrEmpty(signal) ? "" : char.ToLowerInvariant(signal[0]) + signal[1..] + ", ")
                      + $"{SpeechPriceFormatter.FormatPrice(column.Open)} to "
                      + $"{SpeechPriceFormatter.FormatPrice(column.Close)}";
             }

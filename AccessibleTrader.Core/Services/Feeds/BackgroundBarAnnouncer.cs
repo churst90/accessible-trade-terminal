@@ -154,7 +154,9 @@ namespace AccessibleTrader.Core.Services.Feeds
                 if (bricks.Count == 0) return;
                 try { _earcons.PlayNewBar(); }
                 catch (Exception ex) { _logger?.LogWarning(ex, "Background brick earcon failed."); }
-                _ = AnnounceBricksAsync(feed, bricks, brickTab.ChartStyle, box);
+                string? signal = brickTab.ChartStyle == PriceChartStyle.PointAndFigure
+                    ? Charts.BrickNews.PnfSignalAtClose(bars, box, feed.Identity, brickTab.Renko) : null;
+                _ = AnnounceBricksAsync(feed, bricks, brickTab.ChartStyle, box, signal);
                 return;
             }
 
@@ -227,14 +229,14 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// background speech is on, with the tab's ladder (computed on its bricks) after them.
         /// </summary>
         private async Task AnnounceBricksAsync(ChartFeed feed, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            PriceChartStyle style, double box)
+            PriceChartStyle style, double box, string? signal = null)
         {
             try
             {
                 string? ladder = await LadderAsync(feed).ConfigureAwait(false);
-                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks, style, box), ladder, style));
+                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks, style, box, signal), ladder, style));
                 if (SpeakEnabled())
-                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder, style, box),
+                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder, style, box, signal),
                         interrupt: false, channel: SpeechChannel.Narration);
             }
             catch (Exception ex)

@@ -421,6 +421,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                               ? ", " + Charts.PointFigureColumns.Words(up,
                                     pnfBoxes != null && i >= 0 && i < pnfBoxes.Count && double.IsFinite(pnfBoxes[i])
                                         ? (int)pnfBoxes[i] : 0)
+                                + (double.IsNaN(Charts.PointFigureColumns.SignalLevel(bars, i)) ? ""
+                                    : up ? ", buy signal" : ", sell signal")
                               : ""),
                         $"{FormatReading(bar.Open)} → {FormatReading(bar.Close)}",
                         up ? brickBull : brickBear, theme, backing),

@@ -57,7 +57,8 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Kagi => a.KagiMode == b.KagiMode && a.KagiSize == b.KagiSize
                                     && a.KagiAtrLength == b.KagiAtrLength,
             PriceChartStyle.PointAndFigure => a.PnfMode == b.PnfMode && a.PnfSize == b.PnfSize
-                                              && a.PnfAtrLength == b.PnfAtrLength && a.PnfReversal == b.PnfReversal,
+                                              && a.PnfAtrLength == b.PnfAtrLength && a.PnfReversal == b.PnfReversal
+                                              && a.PnfHighLow == b.PnfHighLow,
             _ => a.Mode == b.Mode && a.BoxSize == b.BoxSize && a.AtrLength == b.AtrLength,
         };
 
@@ -80,7 +81,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.PointAndFigure => current with
             {
                 PnfMode = typed.PnfMode, PnfSize = typed.PnfSize, PnfAtrLength = typed.PnfAtrLength,
-                PnfReversal = typed.PnfReversal,
+                PnfReversal = typed.PnfReversal, PnfHighLow = typed.PnfHighLow,
             },
             _ => current with { Mode = typed.Mode, BoxSize = typed.BoxSize, AtrLength = typed.AtrLength },
         };
@@ -116,6 +117,22 @@ namespace AccessibleTrader.Core.Services.Charts
                         refusal = PointFigureBuilder.ReversalRefusal;
                         return false;
                     }
+                    if (settings.PnfMode == RenkoBoxMode.Percent)
+                    {
+                        // TradingView's "Percentage (LTP)": a percentage of the last price,
+                        // frozen as a price when it is chosen.
+                        refusal = null;
+                        if (!(settings.PnfSize > 0 && settings.PnfSize <= PointFigureBuilder.MaxPercent))
+                        {
+                            box = 0;
+                            refusal = $"A point and figure box percentage must be above 0 and at most {PointFigureBuilder.MaxPercent}.";
+                            return false;
+                        }
+                        box = bars.Count > 0 ? PointFigureBuilder.PercentBox(bars[^1].Close, settings.PnfSize) : 0;
+                        if (box > 0) return true;
+                        refusal = "Point and figure needs a last price for a percentage box.";
+                        return false;
+                    }
                     return BrickChartBuilder.TryResolveSize(bars, settings.PnfMode, settings.PnfSize,
                         settings.PnfAtrLength, "Point and figure", "box", out box, out refusal);
                 case PriceChartStyle.LineBreak:
@@ -144,7 +161,8 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.LineBreak => LineBreakBuilder.Build(bars, settings.LineBreakLines, barLength, max),
             PriceChartStyle.Kagi => KagiBuilder.Build(bars, box, barLength, max,
                 percent: settings.KagiMode == RenkoBoxMode.Percent),
-            PriceChartStyle.PointAndFigure => PointFigureBuilder.Build(bars, box, settings.PnfReversal, barLength, max),
+            PriceChartStyle.PointAndFigure => PointFigureBuilder.Build(bars, box, settings.PnfReversal, barLength, max,
+                highLow: settings.PnfHighLow),
             _ => BrickChartBuilder.Build(bars, box, barLength, max),
         };
 

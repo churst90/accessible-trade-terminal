@@ -344,27 +344,51 @@ namespace AccessibleTrader.Core.Services.GoBar
         }
 
         /// <summary>
-        /// PNF's argument: the box in RENKO's forms ("500", "ATR", "ATR 20"), then a reversal of 1
-        /// to 20 boxes if wanted ("500 3", "ATR 20 3"). "ATR 3" is ATR 3, not a reversal: the
-        /// reversal follows a whole size. Without one the reversal is three boxes.
+        /// PNF's argument: the box in RENKO's forms ("500", "ATR", "ATR 20") or as a percentage of
+        /// the last price ("1%", "1 %", "1 percent"), then a reversal of 1 to 20 boxes if wanted ("500 3",
+        /// "ATR 20 3", "1% 3"), then "HL" for the high and low in place of the close if wanted
+        /// ("500 3 HL"). "ATR 3" is ATR 3, not a reversal: the reversal follows a whole size.
+        /// Without one the reversal is three boxes.
         /// </summary>
         public static bool TryParsePointFigure(string? text, out RenkoSettings settings)
         {
             settings = new RenkoSettings();
-            var parts = (text ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            bool atr = parts.Length > 0 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase);
-            int sizeParts = atr ? Math.Min(parts.Length, 2) : Math.Min(parts.Length, 1);
-            if (parts.Length - sizeParts > 1) return false;
+            var parts = (text ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            bool highLow = parts.Count > 0 && parts[^1].Equals("HL", StringComparison.OrdinalIgnoreCase);
+            if (highLow) parts.RemoveAt(parts.Count - 1);
 
-            if (!TryParseSize(string.Join(' ', parts.Take(sizeParts)), out var mode, out double size, out int length))
-                return false;
+            RenkoBoxMode mode;
+            double size;
+            int length = 14, sizeParts;
+            if (parts.Count > 0 && parts[0].EndsWith('%'))
+                sizeParts = 1;
+            else if (parts.Count > 1 && (parts[1] == "%" || parts[1].Equals("percent", StringComparison.OrdinalIgnoreCase)))
+                sizeParts = 2;
+            else
+                sizeParts = 0;
+
+            if (sizeParts > 0)
+            {
+                if (!TryParsePercent(string.Join(' ', parts.Take(sizeParts)), out size)) return false;
+                mode = RenkoBoxMode.Percent;
+            }
+            else
+            {
+                bool atr = parts.Count > 0 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase);
+                sizeParts = atr ? Math.Min(parts.Count, 2) : Math.Min(parts.Count, 1);
+                if (!TryParseSize(string.Join(' ', parts.Take(sizeParts)), out mode, out size, out length))
+                    return false;
+            }
+            if (parts.Count - sizeParts > 1) return false;
+
             int reversal = Charts.PointFigureBuilder.DefaultReversal;
-            if (parts.Length > sizeParts
+            if (parts.Count > sizeParts
                 && (!int.TryParse(parts[^1], NumberStyles.None, CultureInfo.InvariantCulture, out reversal)
                     || reversal < Charts.PointFigureBuilder.MinReversal
                     || reversal > Charts.PointFigureBuilder.MaxReversal))
                 return false;
-            settings = new RenkoSettings(PnfMode: mode, PnfSize: size, PnfAtrLength: length, PnfReversal: reversal);
+            settings = new RenkoSettings(PnfMode: mode, PnfSize: size, PnfAtrLength: length, PnfReversal: reversal,
+                PnfHighLow: highLow);
             return true;
         }
 

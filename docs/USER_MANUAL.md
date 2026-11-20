@@ -766,14 +766,20 @@ on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `H
   than one at 100. **Kagi settings** opens the same dialog with "Reversal amount" and a third
   option, **Percentage** (above 0, at most 100); the Go bar's `KAGI 500` sets a fixed amount,
   `KAGI 2%` (or `KAGI 2 percent`) a percentage and `KAGI ATR 20` an ATR length.
-- **Point and figure** — closes only, on a grid of boxes. A column of **X** grows a box at a time
+- **Point and figure** — on a grid of boxes, from the closes by default. A column of **X** grows a box at a time
   while closes rise, a column of **O** while they fall; it turns only when a close comes back the
   **reversal** count of boxes (three by default), and the new column starts one box in from the
-  last one's end. A move of less than a box draws nothing. The box is the ATR (14 by default) or a
-  fixed size, frozen like Renko's. **Point and figure settings** opens the same dialog with "Box"
-  and a **Reversal** field (1 to 20 boxes); the Go bar's `PNF 500` sets a fixed box,
-  `PNF ATR 20` an ATR length, and a number after either the reversal: `PNF 500 2`,
-  `PNF ATR 20 2`. (`PNF ATR 3` is an ATR length of 3, not a reversal.)
+  last one's end. A move of less than a box draws nothing. The box is the ATR (14 by default), a
+  fixed size, or a **percentage of the last price** (TradingView's "Percentage (LTP)"), each
+  frozen as a price when you choose it, like Renko's. **Point and figure settings** opens the same
+  dialog with "Box" (ATR, Fixed or Percentage of the last price, with a "Resolved box" preview),
+  a **Reversal** field (1 to 20 boxes) and a **Source**: **Close**, or **High and low**, where a
+  bar's high carries an X column on and its low an O column, and only when it does not carry the
+  column on can the other side turn it. The Go bar's `PNF 500` sets a fixed box, `PNF ATR 20`
+  an ATR length, `PNF 1%` (or `PNF 1 percent`) a percentage, a number after any of them the
+  reversal (`PNF 500 2`, `PNF ATR 20 2`, `PNF 1% 2`), and `HL` at the end the high and low
+  source (`PNF 500 3 HL`). (`PNF ATR 3` is an ATR length of 3, not a reversal.) A percentage box
+  is worked out once, at the price when you apply it; TradingView's moves with the price.
 
 Renko, range bars and line break draw only completed bars; the one still forming is left out
 until it completes. Kagi and point and figure are the exceptions: Kagi's newest line is the one
@@ -861,8 +867,9 @@ it ends.
 **Column**: *"Column. Up, X, 4 boxes. 100.00 to 104.00. 18 Nov 14:00 to 18 Nov 17:00."* The first
 price is the level the column moved from (the end of the column before), the second its newest
 box, so the boxes are the whole boxes between them. The status line says `Up column, X, 4 boxes`,
-the layout *"Point and figure chart, box 512.30 from ATR 14, reversal 3 boxes."* or *"… fixed box
-500.00, reversal 3 boxes."*, and a new column says *"New up column, X, 3 boxes, 100.00 to
+the layout *"Point and figure chart, box 512.30 from ATR 14, reversal 3 boxes."*, *"… fixed box
+500.00, reversal 3 boxes."* or *"… box 1,050.00, 1 percent of the last price, reversal 3
+boxes."* (with *", from highs and lows"* when that is the source), and a new column says *"New up column, X, 3 boxes, 100.00 to
 103.00."* While the newest column grows, each new box is said once: *"X column, 6 boxes,
 106.00."*; a box the live bar takes back and gives again is not said twice. A column pings like a
 brick, high going up and low going down, and a **taller column sounds heavier**: a one-box column
@@ -870,6 +877,15 @@ is a plain ping, ten boxes or more carry a deep weight under it. In the backgrou
 figure tab says a column that turned or grew on the bar that closed, *"BTC/USD 1h: up column, X,
 6 boxes, 100.00 to 106.00."*, titled *"BTC/USD 1h: column moved"*. The New up / New down /
 Reversal alerts fire on a new column, not each time the newest one grows.
+
+**Point and figure says its buy and sell signals.** An X column that rises above the top of the X
+column before it is the classic point and figure buy: arrowing onto it says *"Column. Up, X, 5
+boxes, buy signal, above the last X top at 103.00. 100.00 to 105.00."*, and an O column that falls
+below the last O bottom says *"…, sell signal, below the last O bottom at 100.00. …"*. The status
+line adds `buy signal` or `sell signal`. Live, the signal is said once, with the new column or the
+box that broke the level (*"X column, 4 boxes, 104.00. Buy signal, above the last X top at
+103.00."*), and a background tab says it at the close that gave it. These are separate from the
+chart formations (`;` and `,`/`.`), whose "Double top" is a top that held, not one that broke.
 
 **A Renko, range bar, line break, Kagi or point and figure tab in the background says its new
 bars, not its bar closes** (*"… 2 new up blocks, …"*, *"… new range bar"* and so on, by the type). When a bar closes on a

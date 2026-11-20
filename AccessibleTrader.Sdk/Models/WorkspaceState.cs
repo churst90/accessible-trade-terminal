@@ -49,8 +49,9 @@ namespace AccessibleTrader.Sdk.Models
     }
 
     /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.
-    /// <see cref="Percent"/> is Kagi's alone (TradingView's "Percentage" reversal): the size is a
-    /// percentage of the line's end, not a price. Saved in files, so only ever appended to.</summary>
+    /// <see cref="Percent"/> is Kagi's (TradingView's "Percentage" reversal: the size is a
+    /// percentage of the line's end, not a price) and point and figure's (TradingView's
+    /// "Percentage (LTP)": the box is that percentage of the last price when it is chosen). Saved in files, so only ever appended to.</summary>
     public enum RenkoBoxMode { Atr = 0, Fixed = 1, Percent = 2 }
 
     /// <summary>
@@ -63,7 +64,9 @@ namespace AccessibleTrader.Sdk.Models
     /// apart too (<see cref="KagiMode"/>, <see cref="KagiSize"/>, <see cref="KagiAtrLength"/>), and
     /// so is point and figure's box (<see cref="PnfMode"/>, <see cref="PnfSize"/>,
     /// <see cref="PnfAtrLength"/>), with <see cref="PnfReversal"/> the boxes a turn takes
-    /// (TradingView's default, three).
+    /// (TradingView's default, three), and <see cref="PnfHighLow"/> TradingView's "High/Low"
+    /// source in place of the close. <see cref="RenkoBoxMode.Percent"/> on <see cref="PnfMode"/>
+    /// is TradingView's "Percentage (LTP)" box: <see cref="PnfSize"/> percent of the last price.
     /// One record so every save, tab snapshot and background
     /// monitor that already carries Renko's settings carries all of them; a file saved before a
     /// field existed reads its default.
@@ -82,7 +85,8 @@ namespace AccessibleTrader.Sdk.Models
         RenkoBoxMode PnfMode = RenkoBoxMode.Atr,
         double PnfSize = 0,
         int PnfAtrLength = 14,
-        int PnfReversal = 3);
+        int PnfReversal = 3,
+        bool PnfHighLow = false);
 
     /// <summary>
     /// The real time window a brick formed in. <see cref="FirstBar"/> and

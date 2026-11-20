@@ -133,10 +133,15 @@ and Identity already has 2FA, lockout and rate limits.
      percentage of the line's end. **Point and figure** — built 2026-11-20, not yet heard by Cody
      (toolbar select, settings dialog with Box and Reversal 1–20, Go bar `PNF 500 3` /
      `PNF ATR 20`; X/O marks drawn, "Column. Up, X, 4 boxes." spoken, heavier sound for taller
-     columns, each new box said once live, background tabs say a column that grew). Questions for
-     Cody: High/Low as the source (TradingView offers it; closes only now)? Double top / double
-     bottom breakout words? A percentage box like Kagi's? Still open: which other TradingView
-     types (bars, hollow candles, columns, high-low, baseline, step line, line with markers)? The brick and box types drop
+     columns, each new box said once live, background tabs say a column that grew). Cody's three
+     answers (2026-11-20) built the same day, not heard: **High and low** as the source (dialog
+     Source, Go bar `PNF 500 3 HL`), a **percentage box** (TradingView's "Percentage (LTP)", Go
+     bar `PNF 1%`; frozen at the price when chosen, TradingView's follows it), and spoken **buy
+     and sell signals** ("Buy signal, above the last X top at 105.00"; chart formations
+     untouched). **Next (Cody's yes, 2026-11-20):** bars (OHLC), hollow candles (TradingView's:
+     colour by the close before, fill by its own open), baseline, high-low, HLC area and volume
+     candles, each heard and spoken as its own shape; step line, line with markers and columns
+     skipped. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**

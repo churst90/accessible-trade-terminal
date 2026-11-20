@@ -178,12 +178,72 @@ public sealed class RenkoToolbarTests
     }
 
     [Fact]
-    public void Percentage_is_offered_on_Kagi_alone()
+    public void Percentage_is_offered_on_Kagi_and_point_and_figure_alone()
     {
         using (var h = new BlazorTestHarness())
             Assert.Empty(OpenDialog(h, State(PriceChartStyle.Renko)).FindAll("#kagi-reversal-percent-mode"));
         using (var h = new BlazorTestHarness())
             Assert.Single(OpenDialog(h, State(PriceChartStyle.Kagi)).FindAll("#kagi-reversal-percent-mode"));
+        using (var h = new BlazorTestHarness())
+            Assert.Single(OpenDialog(h, State(PriceChartStyle.PointAndFigure)).FindAll("#kagi-reversal-percent-mode"));
+    }
+
+    [Fact]
+    public void A_point_and_figure_percentage_previews_its_box_from_the_last_price_and_applies()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure));   // last close 139
+
+        cut.Find("#kagi-reversal-percent-mode").Change(true);
+        Assert.Contains("Percentage of the last price", cut.Markup);
+        Assert.Contains("Box percentage:", cut.Markup);
+        cut.Find("#kagi-reversal-percent").Input("2");
+        cut.WaitForAssertion(() => Assert.Equal("Resolved box: 2.7800.", cut.Find("#renko-box-preview").TextContent.Trim()));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        h.WorkspaceStore.Received(1).Dispatch(Arg.Is<SetRenkoSettingsAction>(a =>
+            a.Settings.PnfMode == RenkoBoxMode.Percent && a.Settings.PnfSize == 2
+            && a.Settings.KagiMode == new RenkoSettings().KagiMode));
+    }
+
+    [Fact]
+    public void A_point_and_figure_percentage_over_100_is_refused_in_its_own_words()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure));
+
+        cut.Find("#kagi-reversal-percent-mode").Change(true);
+        cut.Find("#kagi-reversal-percent").Input("101");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        cut.WaitForAssertion(() =>
+            Assert.Contains("A point and figure box percentage must be above 0 and at most 100.", cut.Markup));
+        h.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<SetRenkoSettingsAction>());
+    }
+
+    [Fact]
+    public void Point_and_figure_asks_close_or_high_and_low_and_keeps_the_choice()
+    {
+        using (var h = new BlazorTestHarness())
+        {
+            var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure));
+            Assert.True(cut.Find("#pnf-source-close").HasAttribute("checked"));
+            Assert.False(cut.Find("#pnf-source-high-low").HasAttribute("checked"));
+
+            cut.Find("#pnf-source-high-low").Change(true);
+            cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+            h.WorkspaceStore.Received(1).Dispatch(Arg.Is<SetRenkoSettingsAction>(a => a.Settings.PnfHighLow));
+        }
+        using (var h = new BlazorTestHarness())
+        {
+            var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure) with
+            {
+                Renko = new RenkoSettings(PnfHighLow: true),
+            });
+            Assert.True(cut.Find("#pnf-source-high-low").HasAttribute("checked"));
+        }
+        using (var h = new BlazorTestHarness())
+            Assert.Empty(OpenDialog(h, State(PriceChartStyle.Kagi)).FindAll("#pnf-source-close"));
     }
 
     [Fact]
@@ -259,7 +319,8 @@ public sealed class RenkoToolbarTests
             });
             Assert.Contains("Point and figure settings", cut.Markup);
             Assert.Equal("2", cut.Find("#pnf-reversal").GetAttribute("value"));
-            Assert.Empty(cut.FindAll("#kagi-reversal-percent-mode"));
+            // A percentage box, TradingView's "Percentage (LTP)", is offered too.
+            Assert.Single(cut.FindAll("#kagi-reversal-percent-mode"));
         }
     }
 

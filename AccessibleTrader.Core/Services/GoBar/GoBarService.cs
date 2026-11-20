@@ -497,17 +497,23 @@ namespace AccessibleTrader.Core.Services.GoBar
                         return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.PnfBadArgument);
                     int pnfReversal = pnf.PnfReversal;
                     string pnfReversalWords = $"reversal {pnfReversal} box{(pnfReversal == 1 ? "" : "es")}";
-                    string pnfName = pnf.PnfMode == RenkoBoxMode.Fixed
-                        ? $"Point and figure chart, fixed box {SpeechPriceFormatter.FormatPrice(pnf.PnfSize)}, {pnfReversalWords}"
-                        : $"Point and figure chart, ATR {pnf.PnfAtrLength}, {pnfReversalWords}";
+                    string pnfName = (pnf.PnfMode switch
+                    {
+                        RenkoBoxMode.Fixed => $"Point and figure chart, fixed box {SpeechPriceFormatter.FormatPrice(pnf.PnfSize)}, {pnfReversalWords}",
+                        RenkoBoxMode.Percent => $"Point and figure chart, box {BrickChartSpeech.Percent(pnf.PnfSize)} percent of the last price, {pnfReversalWords}",
+                        _ => $"Point and figure chart, ATR {pnf.PnfAtrLength}, {pnfReversalWords}",
+                    }) + (pnf.PnfHighLow ? ", from highs and lows" : "");
                     return new GoBarSuggestion(new[]
                     {
                         new GoBarOption(
                             pnfName,
                             Action: new GoBarRenkoAction(pnf, PriceChartStyle.PointAndFigure),
-                            CanonicalText: (pnf.PnfMode == RenkoBoxMode.Fixed
-                                ? $"PNF {pnf.PnfSize.ToString("0.##########", CultureInfo.InvariantCulture)}"
-                                : $"PNF ATR {pnf.PnfAtrLength}") + $" {pnfReversal}",
+                            CanonicalText: (pnf.PnfMode switch
+                            {
+                                RenkoBoxMode.Fixed => $"PNF {pnf.PnfSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                                RenkoBoxMode.Percent => $"PNF {pnf.PnfSize.ToString("0.##########", CultureInfo.InvariantCulture)}%",
+                                _ => $"PNF ATR {pnf.PnfAtrLength}",
+                            }) + $" {pnfReversal}" + (pnf.PnfHighLow ? " HL" : ""),
                             Help: "Draw the price as point and figure columns of this box, turning on this reversal"),
                     }, pnfName + ".");
 

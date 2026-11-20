@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Point and figure: high and low, a percentage box, buy and sell signals, 2026-11-20 — not yet heard by Cody
+
+Cody, 2026-11-20, on the three P&F questions: *"1. Yes, I'd like this option."* (High/Low),
+*"don't alter the chart pattern code, simply just say buy or sell as you suggested"* (signals),
+and a percentage box *"if this is something that is offered by tv"* (it is: "Percentage (LTP)").
+
+- **High and low as the source.** `PointFigureBuilder.Build(..., highLow: true)`, TradingView's
+  "High/Low": continuation first, so an X column is extended by the bar's high and, only when the
+  high does not extend it, turned by its low (an O column the other way round). Before the first
+  column, the side that reaches further past the first close's level draws it; a tie goes the way
+  the bar closed. The first bar's close still seeds the grid. `RenkoSettings.PnfHighLow` (false
+  by default; an old file reads Close); `BuiltCharts.SameFor`/`Merge` carry it. The settings
+  dialog gains a **Source** group (**Close** / **High and low**); the Go bar takes a trailing
+  `HL` (`PNF 500 3 HL`), named *"…, from highs and lows"*. The change sentence ends *", from
+  highs and lows."*
+- **A percentage box** ("Percentage (LTP)"). `RenkoBoxMode.Percent` on P&F: `PnfSize` percent of
+  the last close, `PointFigureBuilder.PercentBox`, frozen as a price when chosen, as an ATR box
+  is. Above 0 and at most 100, else *"A point and figure box percentage must be above 0 and at
+  most 100."*; no bars, *"Point and figure needs a last price for a percentage box."* The dialog
+  offers the same **Percentage** option Kagi has, labelled *"Percentage of the last price"*,
+  field *"Box percentage:"*, with a live *"Resolved box: …"* preview. Go bar `PNF 1%`,
+  `PNF 1 %`, `PNF 1 percent 3`. Change sentence *"Point and figure chart, box 1,050.00, 1
+  percent of the last price, reversal 3 boxes."*
+- **Buy and sell signals, spoken.** `PointFigureColumns.SignalLevel`/`SignalWords`: an X column
+  whose top is above the top of the X column before it (two columns back) is *"Buy signal, above
+  the last X top at 105.00"*; an O column under the last O bottom, *"Sell signal, below the last
+  O bottom at 95.00"*. Said when arrowing (*"Column. Up, X, 5 boxes, buy signal, above the last X
+  top at 103.00. 100.00 to 105.00."*), in the bar detail summary, on the status line (`Up column,
+  X, 5 boxes, buy signal`), live once per column (with the new column, or with the box that broke
+  the level; a waver back and forth does not say it again), and by a background tab or the
+  browser-closed monitor at the close that gave it (`BrickNews.PnfSignalAtClose`, once: a column
+  that had already broken the level a bar earlier says boxes only). `ChartPatternDetector` and
+  its formations are untouched, as Cody asked; the formations' "Double top" (a top that held) is
+  a different reading from this breakout, which is why the words are "Buy signal" and not
+  "double top". No sound of its own: the words carry it, and TradingView draws no mark for it.
+- **Tests.** `PointFigureChartTests` +32 (high/low draws what closes do not, continuation before
+  a turn, first-column further/tie four ways, BuiltCharts uses it only when asked; percentage
+  resolve, two refusals, no last price; change sentences; Go bar 7 forms, 6 refusals, 2 names;
+  signal levels and words; arrowing a sell; status line; live once through a waver; background
+  once), five existing expectations now carry the buy signal; `RenkoToolbarTests` +3 (percentage
+  preview and Apply, over 100 refused, Source radios and prefill), and P&F now offers Percentage.
+  Sabotaged 18 ways, all red — two only after a fix: an X column carried on by its high while its low reached a reversal had no test (added), and a "same direction" check in `SignalLevel` could never fire (columns alternate), so it was removed.
+- **Caveats.** The percentage box is frozen at the last price when chosen; TradingView's
+  "Percentage (LTP)" follows the last price, so its grid moves as price does. No min-tick
+  rounding of the box. High/low takes a forming bar's high and low as they are, so a live column
+  can grow on a wick and the next tick cannot take it back (as on TradingView). Not seen, not
+  heard.
+
 ### Point and figure chart type, 2026-11-20 — not yet heard by Cody
 
 Cody, 2026-11-19: *"then proceed with the next chart types"* — point and figure, after Kagi.
@@ -57,7 +105,8 @@ Cody, 2026-11-19: *"then proceed with the next chart types"* — point and figur
   test could not tell marks from a bar; a sed that made a tuple did not build).
 - **Caveats and questions for Cody.** Closes only: TradingView also offers High/Low as the
   source, not built. No double-top / double-bottom breakout words (the classic P&F signals). No
-  percentage box (Kagi has one). The renderer dispatch from `DataLayer` has no test of its own
+  percentage box (Kagi has one). (All three answered and built the same day: see the entry
+  above.) The renderer dispatch from `DataLayer` has no test of its own
   (as for Kagi). Not seen, not heard.
 
 ### Kagi thickness heard, and a percentage reversal, 2026-11-20 — not yet heard by Cody

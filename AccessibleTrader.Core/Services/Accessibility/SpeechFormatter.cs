@@ -1394,6 +1394,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// thickness, which the chart draws: "Kagi line. Up, turns thick at 115.00. 110.00 to 120.00."
     /// A point and figure column adds its mark and boxes, from the series' own box counts
     /// (<see cref="Charts.PriceSeriesShape.PnfBoxesKey"/>): "Column. Up, X, 4 boxes. 100.00 to 104.00."
+    /// and, when it broke the end of the column two back, the signal: "Column. Up, X, 5 boxes, buy
+    /// signal, above the last X top at 104.00. 100.00 to 105.00."
     /// </summary>
     internal sealed class BrickStrategy : IComponentSpeechStrategy
     {
@@ -1410,7 +1412,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && ctx.DataIndex >= 0 && ctx.DataIndex < ctx.Bars.Count)
                 direction += ", " + Charts.KagiLines.Words(Charts.KagiLines.At(ctx.Bars, ctx.DataIndex));
             if (ctx.Comp.Name == Charts.PriceSeriesShape.PnfPart)
+            {
                 direction += ", " + Charts.PointFigureColumns.Words(brick.Close >= brick.Open, PnfBoxes(ctx));
+                if (Charts.PointFigureColumns.SignalWords(ctx.Bars, ctx.DataIndex) is { } signal)
+                    direction += ", " + LowerFirst(signal);
+            }
             string scale = StandardTemplateStrategy.ScaleReading(ctx, brick.Close);
             string edges = (scale.Length == 0 ? "" : scale + ", ")
                 + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to {SpeechPriceFormatter.FormatPrice(brick.Close)}";
@@ -1418,6 +1424,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return $"{direction}, {edges}";
             return $"{ctx.Comp.DisplayName}. {direction}. {edges}.";
         }
+
+        private static string LowerFirst(string s) => s.Length == 0 ? s : char.ToLowerInvariant(s[0]) + s[1..];
 
         /// <summary>The column's boxes as the series holds them; 0 (unknown) when it does not.</summary>
         internal static int PnfBoxes(ComponentFormatContext ctx) =>

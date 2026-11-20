@@ -342,7 +342,11 @@ namespace AccessibleTrader.WebHost.Services
                     var bricks = BrickNews.CompletedAtClose(
                         bars, box, new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
                         watch.ChartStyle, watch.Renko);
-                    if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null, box);
+                    string? signal = bricks.Count > 0 && watch.ChartStyle == PriceChartStyle.PointAndFigure
+                        ? BrickNews.PnfSignalAtClose(bars,
+                            box, new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), watch.Renko)
+                        : null;
+                    if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null, box, signal);
                     else if (speakLadder) AnnounceNarration(watch, ladder!);
                 }
                 else if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
@@ -1010,13 +1014,13 @@ namespace AccessibleTrader.WebHost.Services
         /// the sound, toast and speech this monitor owns for a bar close.
         /// </summary>
         private void AnnounceBricks(Watch watch, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks, string? ladder,
-            double box)
+            double box, string? signal = null)
         {
             if (_announcementsSnoozed) return;
             string title = BrickNews.Title(watch.Symbol, watch.Timeframe, watch.ChartStyle);
             string sentence = BrickNews.Sentence(
                 new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bricks, ladder,
-                watch.ChartStyle, box);
+                watch.ChartStyle, box, signal);
             _logger.LogInformation("Background bricks: {Sentence}", sentence);
             DesktopAnnouncement.Present(_presenter,
                 title, sentence, sentence, urgent: false, withSound: true, _logger);

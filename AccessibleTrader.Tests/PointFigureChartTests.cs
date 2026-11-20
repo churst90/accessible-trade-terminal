@@ -321,7 +321,7 @@ public sealed class PointFigureChartTests
     {
         var state = PnfState();
 
-        Assert.Contains("Column. Up, X, 5 boxes. 100.00 to 105.00.", Speak(state));
+        Assert.Contains("Column. Up, X, 5 boxes, buy signal, above the last X top at 103.00. 100.00 to 105.00.", Speak(state));
         Assert.Contains("Column. Down, O, 3 boxes. 103.00 to 100.00.", Speak(state with { CurrentDataIndex = 1 }));
     }
 
@@ -330,7 +330,7 @@ public sealed class PointFigureChartTests
     {
         var state = PnfState();
 
-        Assert.Equal("Up column, X, 5 boxes, 100.00 to 105.00",
+        Assert.Equal("Up column, X, 5 boxes, buy signal, above the last X top at 103.00, 100.00 to 105.00",
             BrickChartSpeech.BrickSummary(state.Data[2], state.BrickSpans[2], PriceChartStyle.PointAndFigure,
                 state.Data, 2, state.BrickBoxSize));
         Assert.Equal("Up brick, 100.00 to 105.00",
@@ -390,7 +390,8 @@ public sealed class PointFigureChartTests
 
             bus.Publish(new NewBarEvent(state.Data[^2], state.Data[^1]));
 
-            Assert.Equal("New up column, X, 4 boxes, 100.00 to 104.00.", speech.Utterances[^1].Text);
+            Assert.Equal("New up column, X, 4 boxes, 100.00 to 104.00. Buy signal, above the last X top at 103.00.",
+                speech.Utterances[^1].Text);
         }
     }
 
@@ -413,7 +414,9 @@ public sealed class PointFigureChartTests
             bus.Publish(new IntraBarUpdateEvent(at103.Data[^1], at104.Data[^1]));   // wavered down a box
             store.EmitState(at104);
             bus.Publish(new IntraBarUpdateEvent(at104.Data[^1], at103.Data[^1]));   // and back: already said
-            Assert.Equal(new[] { "New up column, X, 4 boxes, 100.00 to 104.00." }, speech.Utterances.Select(u => u.Text));
+            // The signal is said with the column, once: the growth after it is boxes alone.
+            Assert.Equal(new[] { "New up column, X, 4 boxes, 100.00 to 104.00. Buy signal, above the last X top at 103.00." },
+                speech.Utterances.Select(u => u.Text));
             speech.Utterances.Clear();
 
             store.EmitState(at105);
@@ -458,6 +461,9 @@ public sealed class PointFigureChartTests
 
         Assert.Equal("BTC/USD 1h: up column, X, 5 boxes, 100.00 to 105.00.",
             BrickNews.Sentence(Id, grew, style: PriceChartStyle.PointAndFigure, box: 1));
+        Assert.Equal("BTC/USD 1h: up column, X, 5 boxes, buy signal, above the last X top at 103.00, 100.00 to 105.00.",
+            BrickNews.Sentence(Id, grew, style: PriceChartStyle.PointAndFigure, box: 1,
+                signal: "Buy signal, above the last X top at 103.00"));
         Assert.Equal("BTC/USD 1h: column moved", BrickNews.Title("BTC/USD", "1h", PriceChartStyle.PointAndFigure));
     }
 
@@ -676,5 +682,282 @@ public sealed class PointFigureChartTests
         // Direction still colours it as a brick's does.
         Assert.Equal(three.SquareMix, five.SquareMix);
         Assert.True(Sound(state, 1).TriangleMix > five.TriangleMix);
+    }
+    // ---- High and low as the source (TradingView's "High/Low") --------------------------------
+
+    private static Ohlcv Hl(int i, double open, double high, double low, double close)
+        => new(Start.AddHours(i), open, high, low, close, 10);
+
+    [Fact]
+    public void Highs_and_lows_draw_what_the_closes_alone_do_not()
+    {
+        // The first close is 100. Bar 1's high reaches 102 though it closes at 100.5; bar 2's low
+        // comes three boxes back from 102 though it closes at 100.8.
+        var bars = new List<Ohlcv>
+        {
+            Hl(0, 100, 100, 100, 100),
+            Hl(1, 100, 102.3, 99.8, 100.5),
+            Hl(2, 100.5, 101.5, 98.6, 100.8),
+        };
+
+        Assert.Empty(PointFigureBuilder.Build(bars, 1, 3, Hour).Bricks);
+        var built = PointFigureBuilder.Build(bars, 1, 3, Hour, highLow: true);
+        Assert.Equal(new[] { (100d, 102d), (102d, 99d) }, Edges(built));
+        Assert.Equal(new[] { (0, 1), (2, 2) }, built.Spans.Select(s => (s.FirstBar, s.LastBar)));
+    }
+
+    [Fact]
+    public void Highs_and_lows_carry_a_column_on_before_they_turn_it()
+    {
+        // O column 102→99, then a bar whose low carries it on to 98 and whose high, 103.2, is
+        // also four boxes back up: the column goes on, and does not turn.
+        var bars = new List<Ohlcv>
+        {
+            Hl(0, 100, 100, 100, 100),
+            Hl(1, 100, 102.3, 99.8, 100.5),
+            Hl(2, 100.5, 101.5, 98.6, 101),
+            Hl(3, 101, 103.2, 98, 100),
+        };
+
+        var built = PointFigureBuilder.Build(bars, 1, 3, Hour, highLow: true);
+
+        Assert.Equal(new[] { (100d, 102d), (102d, 98d) }, Edges(built));
+
+        // The X column the same way: a high that carries it on to 103 and a low, 98.6, three
+        // boxes back from 102. The column goes on.
+        var up = new List<Ohlcv>
+        {
+            Hl(0, 100, 100, 100, 100),
+            Hl(1, 100, 102.3, 99.8, 100.5),
+            Hl(2, 100.5, 103.4, 98.6, 101),
+        };
+        Assert.Equal(new[] { (100d, 103d) }, Edges(PointFigureBuilder.Build(up, 1, 3, Hour, highLow: true)));
+    }
+
+    [Theory]
+    [InlineData(100.1, 103, 98, 100.2, true)]    // the high goes two boxes past, the low one: up
+    [InlineData(100.1, 102, 97, 100.2, false)]   // the low goes further: down
+    [InlineData(100.1, 102, 98, 100.2, true)]    // a tie, closed up: up
+    [InlineData(100.3, 102, 98, 100.2, false)]   // a tie, closed down: down
+    public void The_first_column_goes_the_way_that_reaches_further_and_a_tie_the_way_the_bar_closed(
+        double open, double high, double low, double close, bool up)
+    {
+        var bars = new List<Ohlcv> { Hl(0, 100, 100, 100, 100), Hl(1, open, high, low, close) };
+
+        var built = PointFigureBuilder.Build(bars, 1, 3, Hour, highLow: true);
+
+        Assert.Equal(up, Assert.Single(built.Spans).Up);
+    }
+
+    [Fact]
+    public void The_chart_uses_highs_and_lows_only_when_asked_and_a_change_of_source_is_a_change()
+    {
+        var bars = new List<Ohlcv>
+        {
+            Hl(0, 100, 100, 100, 100),
+            Hl(1, 100, 102.3, 99.8, 100.5),
+        };
+        var close = new RenkoSettings(PnfMode: RenkoBoxMode.Fixed, PnfSize: 1);
+        var highLow = close with { PnfHighLow = true };
+
+        Assert.Empty(BuiltCharts.Build(PriceChartStyle.PointAndFigure, bars, close, 1, Hour).Bricks);
+        Assert.Single(BuiltCharts.Build(PriceChartStyle.PointAndFigure, bars, highLow, 1, Hour).Bricks);
+        Assert.False(BuiltCharts.SameFor(PriceChartStyle.PointAndFigure, close, highLow));
+        Assert.True(BuiltCharts.Merge(PriceChartStyle.PointAndFigure, new RenkoSettings(), highLow).PnfHighLow);
+    }
+
+    // ---- A box that is a percentage of the last price ("Percentage (LTP)") --------------------
+
+    [Fact]
+    public void A_percentage_box_is_that_much_of_the_last_close_frozen_as_a_price()
+    {
+        var bars = Closes(Swing);   // last close 105
+        var settings = new RenkoSettings(PnfMode: RenkoBoxMode.Percent, PnfSize: 2);
+
+        Assert.True(BuiltCharts.TryResolveBox(PriceChartStyle.PointAndFigure, bars, settings, out double box, out _));
+        Assert.Equal(2.1, box, 10);
+    }
+
+    [Theory]
+    [InlineData(0, "A point and figure box percentage must be above 0 and at most 100.")]
+    [InlineData(100.5, "A point and figure box percentage must be above 0 and at most 100.")]
+    public void A_percentage_outside_0_to_100_is_refused(double percent, string refusal)
+    {
+        var settings = new RenkoSettings(PnfMode: RenkoBoxMode.Percent, PnfSize: percent);
+
+        Assert.False(BuiltCharts.TryResolveBox(PriceChartStyle.PointAndFigure, Closes(Swing), settings, out _, out var why));
+        Assert.Equal(refusal, why);
+    }
+
+    [Fact]
+    public void A_percentage_box_needs_a_last_price()
+    {
+        var settings = new RenkoSettings(PnfMode: RenkoBoxMode.Percent, PnfSize: 1);
+
+        Assert.False(BuiltCharts.TryResolveBox(PriceChartStyle.PointAndFigure, new List<Ohlcv>(), settings, out _, out var why));
+        Assert.Equal("Point and figure needs a last price for a percentage box.", why);
+    }
+
+    [Fact]
+    public void The_change_sentence_names_a_percentage_box_and_the_high_low_source()
+    {
+        var percent = PnfState() with
+        {
+            Renko = new RenkoSettings(PnfMode: RenkoBoxMode.Percent, PnfSize: 1, PnfReversal: 3),
+        };
+        Assert.Equal("Point and figure chart, box 1.00, 1 percent of the last price, reversal 3 boxes.",
+            BrickChartSpeech.ChangeSentence(percent));
+
+        var highLow = PnfState() with { Renko = PnfState().Renko with { PnfHighLow = true } };
+        Assert.Equal("Point and figure chart, fixed box 1.00, reversal 3 boxes, from highs and lows.",
+            BrickChartSpeech.ChangeSentence(highLow));
+    }
+
+    [Theory]
+    [InlineData("1%", RenkoBoxMode.Percent, 1, 3, false)]
+    [InlineData("0.5 %", RenkoBoxMode.Percent, 0.5, 3, false)]
+    [InlineData("1 percent 2", RenkoBoxMode.Percent, 1, 2, false)]
+    [InlineData("500 3 HL", RenkoBoxMode.Fixed, 500, 3, true)]
+    [InlineData("500 hl", RenkoBoxMode.Fixed, 500, 3, true)]
+    [InlineData("ATR 20 2 HL", RenkoBoxMode.Atr, 0, 2, true)]
+    [InlineData("2% 1 HL", RenkoBoxMode.Percent, 2, 1, true)]
+    public void PNF_takes_a_percentage_and_HL(string argument, RenkoBoxMode mode, double size, int reversal, bool highLow)
+    {
+        Assert.True(GoBarParser.TryParsePointFigure(argument, out var settings));
+        Assert.Equal((mode, size, reversal, highLow),
+            (settings.PnfMode, settings.PnfSize, settings.PnfReversal, settings.PnfHighLow));
+    }
+
+    [Theory]
+    [InlineData("0%")]
+    [InlineData("101%")]
+    [InlineData("HL 500")]
+    [InlineData("500 HL 3")]
+    [InlineData("1% 0")]
+    [InlineData("percent")]
+    public void A_bad_percentage_or_HL_says_point_and_figures_own_sentence(string argument)
+    {
+        Assert.False(GoBarParser.TryParsePointFigure(argument, out _));
+        Assert.Equal(BrickChartSpeech.PnfBadArgument, GoBarParser.Parse("PNF " + argument).Refusal);
+    }
+
+    [Theory]
+    [InlineData("PNF 1%", "Point and figure chart, box 1 percent of the last price, reversal 3 boxes", "PNF 1% 3")]
+    [InlineData("PNF 500 2 HL", "Point and figure chart, fixed box 500.00, reversal 2 boxes, from highs and lows", "PNF 500 2 HL")]
+    public void PNF_names_a_percentage_and_HL(string typed, string name, string canonical)
+    {
+        var bus = new EventBus();
+        using var stack = new ModalStack(bus);
+        var service = new GoBarService(Substitute.For<ICommandDispatcher>(), Substitute.For<IShortcutManager>(), bus, stack);
+
+        var option = service.Suggest(typed).Options[0];
+
+        Assert.Equal(name, option.Name);
+        Assert.Equal(canonical, option.CanonicalText);
+    }
+
+    // ---- Buy and sell signals: a column past the end of the column two back -------------------
+
+    private static Ohlcv Column(double open, double close, int i = 0)
+        => new(Start.AddHours(i), open, Math.Max(open, close), Math.Min(open, close), close, 10);
+
+    [Fact]
+    public void An_X_column_above_the_last_X_top_is_a_buy_and_an_O_column_below_the_last_O_bottom_a_sell()
+    {
+        var columns = new[]
+        {
+            Column(100, 105, 0), Column(105, 101, 1), Column(101, 106, 2),   // X above 105: buy
+            Column(106, 102, 3), Column(102, 106, 4),                        // X at 106 again: none
+            Column(106, 100, 5),                                             // O under 101... two back is the O to 102: sell
+            Column(100, 102, 6),                                             // X under 106: none
+        };
+
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 0)));
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 1)));
+        Assert.Equal(105, PointFigureColumns.SignalLevel(columns, 2));
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 3)));   // O at 102, above 101
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 4)));   // equal is not above
+        Assert.Equal(102, PointFigureColumns.SignalLevel(columns, 5));
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 6)));
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(columns, 7)));   // past the end
+        Assert.True(double.IsNaN(PointFigureColumns.SignalLevel(null, 2)));
+
+        Assert.Equal("Buy signal, above the last X top at 105.00", PointFigureColumns.SignalWords(columns, 2));
+        Assert.Equal("Sell signal, below the last O bottom at 102.00", PointFigureColumns.SignalWords(columns, 5));
+        Assert.Null(PointFigureColumns.SignalWords(columns, 4));
+    }
+
+    [Fact]
+    public void Arrowing_onto_a_sell_column_says_the_sell_signal()
+    {
+        // X 100→103, O 103→100, X 100→105, O 105→99: under the O bottom of 100.
+        var state = PnfState(Swing.Concat(new[] { 102.0, 99.0 }).ToArray());
+
+        Assert.Contains("Column. Down, O, 6 boxes, sell signal, below the last O bottom at 100.00. 105.00 to 99.00.",
+            Speak(state with { CurrentDataIndex = 3 }));
+        // The first columns have nothing two back, and say no signal.
+        Assert.Contains("Column. Down, O, 3 boxes. 103.00 to 100.00.", Speak(state with { CurrentDataIndex = 1 }));
+    }
+
+    [Fact]
+    public void The_symbol_line_marks_a_column_that_gave_a_signal()
+    {
+        var state = PnfState();
+        var ctx = new ChartStatusLine.Context(Theme(), ChartStatusLine.DefaultBackingAlpha, state.Data, Id,
+            ChartStyle: PriceChartStyle.PointAndFigure,
+            PnfBoxes: ChartStatusLine.PnfBoxesOf(state.ActiveSeries, PriceChartStyle.PointAndFigure));
+        var line = ChartStatusLine.Build("Main", Array.Empty<ChartSeries>(), 2, ctx, 400f, 4000f,
+            ChartStatusLine.LinePx, t => t.Length * 7f).Lines[0];
+
+        Assert.Equal("Up column, X, 5 boxes, buy signal", line.Values[0].Label);
+    }
+
+    [Fact]
+    public void A_column_that_grows_past_the_last_top_says_the_buy_signal_once()
+    {
+        // X 100→103, O 103→100, then X 100→103: level with the top, no signal. 104 breaks it.
+        double[] level = { 100, 100.5, 101.2, 103.7, 102, 100.9, 99.9, 103.2 };
+        var at103 = PnfState(level);
+        var at104 = PnfState(level.Append(104.1).ToArray());
+        var at105 = PnfState(level.Append(105.1).ToArray());
+        Assert.Equal((at103.Data[^1].Date, 103d, 104d), (at104.Data[^1].Date, at103.Data[^1].Close, at104.Data[^1].Close));
+
+        var (coordinator, store, speech, bus) = Coordinator();
+        using (coordinator)
+        {
+            store.EmitState(at103);
+            speech.Utterances.Clear();
+            bus.Publish(new NewBarEvent(at103.Data[^2], at103.Data[^1]));
+            store.EmitState(at104);
+            bus.Publish(new IntraBarUpdateEvent(at104.Data[^1], at103.Data[^1]));
+            store.EmitState(at103);
+            bus.Publish(new IntraBarUpdateEvent(at103.Data[^1], at104.Data[^1]));   // wavered back
+            store.EmitState(at105);
+            bus.Publish(new IntraBarUpdateEvent(at105.Data[^1], at103.Data[^1]));   // on past it
+
+            Assert.Equal(new[]
+            {
+                "New up column, X, 3 boxes, 100.00 to 103.00.",
+                "X column, 4 boxes, 104.00. Buy signal, above the last X top at 103.00.",
+                "X column, 5 boxes, 105.00.",
+            }, speech.Utterances.Select(u => u.Text));
+        }
+    }
+
+    [Fact]
+    public void A_background_column_says_its_signal_at_the_close_that_gave_it_and_not_again()
+    {
+        double[] level = { 100, 100.5, 101.2, 103.7, 102, 100.9, 99.9, 103.2 };
+        var settings = new RenkoSettings(PnfMode: RenkoBoxMode.Fixed, PnfSize: 1, PnfReversal: 3);
+
+        // The last entry is the bar that has just opened; the one before it closed.
+        Assert.Null(BrickNews.PnfSignalAtClose(Closes(level.Append(999).ToArray()), 1, Id, settings));
+        Assert.Equal("Buy signal, above the last X top at 103.00",
+            BrickNews.PnfSignalAtClose(Closes(level.Append(104.1).Append(999).ToArray()), 1, Id, settings));
+        Assert.Null(BrickNews.PnfSignalAtClose(Closes(level.Append(104.1).Append(105.1).Append(999).ToArray()), 1, Id,
+            settings));
+        // A close inside the column gives no news, and no signal.
+        Assert.Null(BrickNews.PnfSignalAtClose(Closes(level.Append(104.1).Append(103.5).Append(999).ToArray()), 1, Id,
+            settings));
     }
 }

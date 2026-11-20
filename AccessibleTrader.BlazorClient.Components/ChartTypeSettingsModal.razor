@@ -39,7 +39,7 @@
                 {
                     PriceChartStyle.RangeBars => "The range is how far price moves, high to low, in one bar. ATR follows the market's own range; a fixed size never changes.",
                     PriceChartStyle.Kagi => "The reversal amount is how far a close must come back from a line's end to turn it. ATR follows the market's own range; a fixed size never changes; a percentage is that much of the line's end, so it grows and shrinks with the price.",
-                    PriceChartStyle.PointAndFigure => "The box is the price one X or O stands for. ATR follows the market's own range; a fixed size never changes. The reversal is how many boxes a close must come back from a column's end to start a column the other way; three is the classic setting.",
+                    PriceChartStyle.PointAndFigure => "The box is the price one X or O stands for. ATR follows the market's own range; a fixed size never changes; a percentage is that much of the last price, worked out once when you apply it. The reversal is how many boxes a close must come back from a column's end to start a column the other way; three is the classic setting.",
                     _ => "The box is the price move that makes one brick. ATR follows the market's own range; a fixed size never changes.",
                 })
             </p>
@@ -58,13 +58,13 @@
                            @onchange="() => SetMode(RenkoBoxMode.Fixed)" />
                     Fixed size
                 </label>
-                @if (_style == PriceChartStyle.Kagi)
+                @if (_style is PriceChartStyle.Kagi or PriceChartStyle.PointAndFigure)
                 {
                     <label style="display: block;">
                         <input id="kagi-reversal-percent-mode" type="radio" name="renko-box-mode"
                                checked="@(_mode == RenkoBoxMode.Percent)"
                                @onchange="() => SetMode(RenkoBoxMode.Percent)" />
-                        Percentage
+                        @(_style == PriceChartStyle.PointAndFigure ? "Percentage of the last price" : "Percentage")
                     </label>
                 }
             </fieldset>
@@ -88,7 +88,7 @@
             else if (_mode == RenkoBoxMode.Percent)
             {
                 <div class="modal-row" style="margin-top: 12px;">
-                    <label for="kagi-reversal-percent">Reversal percentage:</label>
+                    <label for="kagi-reversal-percent">@(_style == PriceChartStyle.PointAndFigure ? "Box percentage:" : "Reversal percentage:")</label>
                     <input id="kagi-reversal-percent"
                            type="number"
                            min="0"
@@ -118,7 +118,8 @@
                 </div>
             }
 
-            @if (_mode == RenkoBoxMode.Atr)
+            @if (_mode == RenkoBoxMode.Atr
+                 || (_mode == RenkoBoxMode.Percent && _style == PriceChartStyle.PointAndFigure))
             {
                 <p id="renko-box-preview" role="status" style="margin-top: 8px; font-size: 0.9rem;">
                     @BoxPreview()
@@ -138,6 +139,22 @@
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
+
+                <fieldset style="margin-top: 12px; border: none; padding: 0;">
+                    <legend>Source</legend>
+                    <label style="display: block;">
+                        <input id="pnf-source-close" type="radio" name="pnf-source"
+                               checked="@(!_highLow)"
+                               @onchange="() => _highLow = false" />
+                        Close
+                    </label>
+                    <label style="display: block;">
+                        <input id="pnf-source-high-low" type="radio" name="pnf-source"
+                               checked="@_highLow"
+                               @onchange="() => _highLow = true" />
+                        High and low
+                    </label>
+                </fieldset>
             }
             }
 
@@ -162,6 +179,7 @@
     private string _percentText = "1";
     private string _linesText = "3";
     private string _reversalText = "3";
+    private bool _highLow;
 
     /// <summary>One dialog for the five charts built off the clock; it shows the settings of
     /// the type on screen. Its modal name stays "Brick settings" so the modal stack and the
@@ -215,6 +233,7 @@
         _percentText = (percent && fixedSize > 0 ? fixedSize : 1).ToString("0.##########", CultureInfo.InvariantCulture);
         _linesText = state.Renko.LineBreakLines.ToString(CultureInfo.InvariantCulture);
         _reversalText = state.Renko.PnfReversal.ToString(CultureInfo.InvariantCulture);
+        _highLow = state.Renko.PnfHighLow;
         _statusMessage = null;
         _isError = false;
         await ShowModalAsync("chart-type-settings-title");
@@ -230,6 +249,18 @@
     /// <summary>What the ATR setting would freeze right now, from the tab's real bars.</summary>
     private string BoxPreview()
     {
+        if (_mode == RenkoBoxMode.Percent)
+        {
+            if (!double.TryParse(_percentText, NumberStyles.Number, CultureInfo.InvariantCulture, out double pct)
+                || !(pct > 0) || pct > PointFigureBuilder.MaxPercent)
+                return $"Enter a percentage above 0 and at most {PointFigureBuilder.MaxPercent}.";
+            var bars = Store.State.MarketBars;
+            double resolved = bars.Count > 0 ? PointFigureBuilder.PercentBox(bars[^1].Close, pct) : 0;
+            return resolved > 0
+                ? $"Resolved box: {AccessibleTrader.BlazorClient.Services.PriceFormatter.FormatPrice(resolved)}."
+                : "This chart has no last price yet.";
+        }
+
         if (!int.TryParse(_atrLengthText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int length)
             || length < 1 || length > 200)
             return "Enter an ATR length from 1 to 200.";
@@ -286,7 +317,9 @@
             if (!double.TryParse(_percentText, NumberStyles.Number, CultureInfo.InvariantCulture, out boxSize)
                 || !double.IsFinite(boxSize) || boxSize <= 0)
             {
-                Refuse($"A Kagi reversal percentage must be above 0 and at most {KagiBuilder.MaxPercent}.", "kagi-reversal-percent");
+                Refuse(_style == PriceChartStyle.PointAndFigure
+                    ? $"A point and figure box percentage must be above 0 and at most {PointFigureBuilder.MaxPercent}."
+                    : $"A Kagi reversal percentage must be above 0 and at most {KagiBuilder.MaxPercent}.", "kagi-reversal-percent");
                 return;
             }
         }
@@ -311,6 +344,7 @@
             PriceChartStyle.PointAndFigure => state.Renko with
             {
                 PnfMode = _mode, PnfSize = boxSize, PnfAtrLength = atrLength, PnfReversal = reversal,
+                PnfHighLow = _highLow,
             },
             _ => state.Renko with { Mode = _mode, BoxSize = boxSize, AtrLength = atrLength },
         };

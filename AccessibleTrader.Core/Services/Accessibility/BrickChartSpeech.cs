@@ -21,8 +21,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public const string KagiBadArgument =
             "Kagi takes a reversal amount, like KAGI 500, a percentage, like KAGI 2%, or ATR and a length, like KAGI ATR 14.";
         public const string PnfBadArgument =
-            "Point and figure takes a box size, like PNF 500, or ATR and a length, like PNF ATR 14, "
-            + "then a reversal of 1 to 20 boxes if you want one, like PNF 500 3.";
+            "Point and figure takes a box size, like PNF 500, ATR and a length, like PNF ATR 14, "
+            + "or a percentage of the last price, like PNF 1%, "
+            + "then a reversal of 1 to 20 boxes if you want one, like PNF 500 3, "
+            + "then HL to use the highs and lows, like PNF 500 3 HL.";
 
         /// <summary>"Already a Renko chart.", "Already a Range bars chart." ...</summary>
         public static string AlreadyFor(PriceChartStyle style) =>
@@ -70,10 +72,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return $"{chart}, reversal {Percent(box)} percent.";
 
             string price = SpeechPriceFormatter.FormatPrice(box);
-            // "Point and figure chart, box 500.00 from ATR 14, reversal 3 boxes."
+            // "Point and figure chart, box 500.00 from ATR 14, reversal 3 boxes." and, from highs
+            // and lows, ", from highs and lows" after it.
             string reversal = style == PriceChartStyle.PointAndFigure
                 ? $", reversal {state.Renko.PnfReversal} box{(state.Renko.PnfReversal == 1 ? "" : "es")}"
+                  + (state.Renko.PnfHighLow ? ", from highs and lows" : "")
                 : "";
+            // "Point and figure chart, box 2.09, 1 percent of the last price, reversal 3 boxes."
+            if (style == PriceChartStyle.PointAndFigure && state.Renko.PnfMode == RenkoBoxMode.Percent)
+                return $"{chart}, box {price}, {Percent(state.Renko.PnfSize)} percent of the last price{reversal}.";
             string unit = style switch
             {
                 PriceChartStyle.RangeBars => "range",
@@ -115,7 +122,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// ("Up block" on line break). On Kagi, given the lines and the index, the line's
         /// thickness follows its name: "Up Kagi line, turns thick at 95,200.00, 95,000.00 to
         /// 95,500.00", as the chart draws it. A point and figure column, given the box, says its mark
-        /// and its boxes: "Up column, X, 4 boxes, 100.00 to 104.00".</summary>
+        /// and its boxes: "Up column, X, 4 boxes, 100.00 to 104.00", and, given the columns and the
+        /// index, the signal it gave: "Up column, X, 5 boxes, buy signal, above the last X top at
+        /// 104.00, 100.00 to 105.00".</summary>
         public static string BrickSummary(Ohlcv brick, BrickSpan span, PriceChartStyle style = PriceChartStyle.Renko,
             IReadOnlyList<Ohlcv>? drawn = null, int index = -1, double box = 0)
             => $"{(span.Up ? "Up" : "Down")} {BuiltCharts.Noun(style)}, "
@@ -123,6 +132,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                  ? KagiLines.Words(KagiLines.At(drawn, index)) + ", "
                  : style == PriceChartStyle.PointAndFigure
                  ? PointFigureColumns.Words(span.Up, PointFigureColumns.Boxes(brick, box)) + ", "
+                   + (PointFigureColumns.SignalWords(drawn, index) is { } signal
+                       ? char.ToLowerInvariant(signal[0]) + signal[1..] + ", " : "")
                  : "")
              + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
              + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}";
