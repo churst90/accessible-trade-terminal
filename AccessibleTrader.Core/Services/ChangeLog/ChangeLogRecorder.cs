@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Sdk.Alerts;
@@ -59,6 +60,18 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             }));
             _subscriptions.Add(bus.Subscribe<HeadlineEvent>(
                 e => Append(MapHeadline(e, NowUtc))));
+            _subscriptions.Add(bus.Subscribe<ChartSignalEvent>(
+                e => Append(MapSignal(e))));
+            _subscriptions.Add(bus.Subscribe<BackgroundBarClosedEvent>(e =>
+            {
+                if (MapSignal(e) is { } entry) Append(entry);
+            }));
+            _subscriptions.Add(bus.Subscribe<BackgroundBricksFormedEvent>(e =>
+            {
+                if (MapSignal(e, NowUtc) is { } entry) Append(entry);
+            }));
+            _subscriptions.Add(bus.Subscribe<UnusualMoveEvent>(
+                e => Append(MapUnusual(e))));
             _subscriptions.Add(bus.Subscribe<ConnectionStatusEvent>(e =>
             {
                 bool wasProblem = e.State is ConnectionState.Error or ConnectionState.Disconnected;
@@ -147,6 +160,42 @@ namespace AccessibleTrader.Core.Services.ChangeLog
                 e.Text,
                 e.Symbol,
                 Heard: false);
+
+        /// <summary>A browser-closed chart's ladder: already led by the chart's name.</summary>
+        public static ChangeLogEntry MapSignal(ChartSignalEvent e)
+            => new(
+                ChangeLogKeys.Chart("signal", e.Identity, e.BarUtc),
+                AsUtc(e.BarUtc, e.BarUtc),
+                ChangeLogCategory.Signal,
+                e.Text,
+                e.Identity.Symbol,
+                Heard: false);
+
+        /// <summary>A background tab's close with a ladder; null without one.</summary>
+        public static ChangeLogEntry? MapSignal(BackgroundBarClosedEvent e)
+            => string.IsNullOrWhiteSpace(e.Narration)
+                ? null
+                : MapSignal(new ChartSignalEvent(e.Identity, e.ClosedBar.Date, Led(e.Identity, e.Narration!)));
+
+        /// <summary>A background Renko tab's bricks with a ladder; keyed by the minute, since a
+        /// brick has no bar time of its own.</summary>
+        public static ChangeLogEntry? MapSignal(BackgroundBricksFormedEvent e, DateTime nowUtc)
+            => string.IsNullOrWhiteSpace(e.Narration)
+                ? null
+                : MapSignal(new ChartSignalEvent(e.Identity, nowUtc, Led(e.Identity, e.Narration!)));
+
+        public static ChangeLogEntry MapUnusual(UnusualMoveEvent e)
+            => new(
+                ChangeLogKeys.Chart("unusual", e.Identity, e.BarUtc),
+                AsUtc(e.BarUtc, e.BarUtc),
+                ChangeLogCategory.Unusual,
+                e.Text,
+                e.Identity.Symbol,
+                Heard: false);
+
+        /// <summary>"BTC/USDT 1h: ladder" — the browser-closed monitor's own lead.</summary>
+        public static string Led(ChartIdentity identity, string ladder)
+            => $"{identity.Symbol} {identity.Timeframe}: {ladder}";
 
         public static ChangeLogEntry MapConnection(ConnectionStatusEvent e, DateTime nowUtc)
         {

@@ -1,4 +1,6 @@
 using System.Globalization;
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Plugins;
@@ -27,6 +29,11 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             => $"event|{eventId}|{kind}";
 
         public static string Headline(string headlineId) => $"news|{headlineId}";
+
+        /// <summary>A chart by provider, symbol and timeframe (the market's spelling differs
+        /// between a saved tab and a live one) and the bar it is about.</summary>
+        public static string Chart(string kind, ChartIdentity identity, DateTime barUtc)
+            => $"{kind}|{identity.Provider}|{identity.Symbol}|{identity.Timeframe}|{Minute(barUtc)}";
 
         public static string Connection(string provider, ConnectionState state, DateTime nowUtc)
             => $"conn|{provider}|{state}|{Minute(nowUtc)}";

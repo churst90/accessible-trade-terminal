@@ -284,7 +284,10 @@ public sealed class HeadlessNarrationTests : IDisposable
 
         string one = Assert.Single(h.Presenter.Spoken);
         Assert.DoesNotContain("Volume", one, StringComparison.Ordinal);
-        Assert.All(h.RequestedLimits, l => Assert.Equal(LocalBackgroundMonitor.MinFetch, l));
+        // The first fetch brings the history Alt+U's unusual moves compare against (stage 5c,
+        // 2026-11-20); every poll after it is the small fetch.
+        Assert.Equal(new[] { AccessibleTrader.Core.Services.ChangeLog.UnusualMoveRules.HistoryBars, LocalBackgroundMonitor.MinFetch },
+            h.RequestedLimits);
     }
 
     [Fact]

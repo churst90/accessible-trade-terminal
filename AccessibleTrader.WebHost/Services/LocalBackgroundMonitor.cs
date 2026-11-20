@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.ChangeLog;
 using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Notifications;
@@ -287,6 +288,11 @@ namespace AccessibleTrader.WebHost.Services
                 // A Renko chart's bricks need history to go the way the tab's do (BrickNews).
                 if (target.WatchBarCloses && watch.ChartStyle.IsBrickStyle())
                     limit = Math.Max(limit, BrickNews.HistoryBars);
+                // Alt+U's unusual moves compare a watched chart's closed bar with its own usual
+                // move. The history is kept here between polls, so it is asked for once, when
+                // there is not enough of it; every later poll stays the small fetch.
+                if ((target.WatchBarCloses || target.Narrate) && !HasMoveHistory(watch))
+                    limit = Math.Max(limit, UnusualMoveRules.HistoryBars);
 
                 var bars = await FetchAsync(provider, watch, limit);
                 if (bars == null) continue;
@@ -332,6 +338,7 @@ namespace AccessibleTrader.WebHost.Services
                 // The seed costs one timestamp per chart.
                 bool closed = NoteBarClose(watch, bars);
                 bool speakLadder = ladder != null && narrateKeys.Contains(WatchKey(watch));
+                RecordForCatchUp(target, watch, bars, closed, speakLadder ? ladder : null);
 
                 if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch))
                     && watch.ChartStyle.IsBrickStyle())
@@ -1032,6 +1039,72 @@ namespace AccessibleTrader.WebHost.Services
         /// this monitor says is about a chart the user is not looking at; the bar-close sentence
         /// normally supplies that lead and here there is none.
         /// </summary>
+        /// <summary>
+        /// Alt+U's "Signals" and "Unusual moves" with the browser closed (stage 5c): the ladder
+        /// this monitor says, and a closed bar far outside the chart's usual move, published on
+        /// the headless session's bus for its change-log recorder. Recorded, never spoken here;
+        /// the key (chart and bar) makes a chart the browser also saw one entry.
+        /// </summary>
+        private void RecordForCatchUp(Target target, Watch watch, IReadOnlyList<Ohlcv> bars, bool closed, string? ladder)
+        {
+            if (bars.Count < 2) return;
+            try
+            {
+                var identity = new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe);
+                var bus = _session.Get<IEventBus>();
+                if (ladder != null)
+                    bus.Publish(new ChartSignalEvent(identity, bars[^2].Date, ChangeLogRecorder.Led(identity, ladder)));
+                if (!(target.WatchBarCloses || target.Narrate)) return;
+                var history = KeepMoveHistory(watch, bars);
+                if (closed && UnusualMoveRules.AtClose(history) is { } move)
+                    bus.Publish(new UnusualMoveEvent(identity, move.BarUtc, UnusualMoveRules.Sentence(identity, move)));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background signal or unusual move could not be recorded for {Symbol}.", watch.Symbol);
+            }
+        }
+
+        // Per chart: the bars this monitor has seen, oldest first, at most HistoryBars.
+        private readonly Dictionary<string, List<Ohlcv>> _moveHistory = new(StringComparer.OrdinalIgnoreCase);
+
+        private bool HasMoveHistory(Watch watch)
+        {
+            lock (_moveHistory)
+                return _moveHistory.TryGetValue(WatchKey(watch), out var kept)
+                    && kept.Count >= UnusualMoveRules.HistoryBars - 1;
+        }
+
+        /// <summary>Folds a poll's bars into the chart's kept history and returns it.</summary>
+        private IReadOnlyList<Ohlcv> KeepMoveHistory(Watch watch, IReadOnlyList<Ohlcv> bars)
+        {
+            lock (_moveHistory)
+            {
+                string key = WatchKey(watch);
+                _moveHistory[key] = MergeMoveHistory(_moveHistory.GetValueOrDefault(key), bars);
+                return _moveHistory[key].ToList();
+            }
+        }
+
+        /// <summary>
+        /// The kept bars with a poll's bars laid over them: a bar at a time already kept replaces
+        /// it (the forming bar moves), newer ones are added, and the oldest fall off past
+        /// <see cref="UnusualMoveRules.HistoryBars"/>. A poll that does not reach back to the
+        /// newest kept bar starts the history again, since a move across missing bars is not one
+        /// bar's move.
+        /// </summary>
+        internal static List<Ohlcv> MergeMoveHistory(IReadOnlyList<Ohlcv>? kept, IReadOnlyList<Ohlcv> bars)
+        {
+            if (bars.Count == 0) return kept?.ToList() ?? new List<Ohlcv>();
+            var merged = kept == null || kept.Count == 0 || bars[0].Date > kept[^1].Date
+                ? new List<Ohlcv>()
+                : kept.Where(b => b.Date < bars[0].Date).ToList();
+            merged.AddRange(bars);
+            if (merged.Count > UnusualMoveRules.HistoryBars)
+                merged.RemoveRange(0, merged.Count - UnusualMoveRules.HistoryBars);
+            return merged;
+        }
+
         private void AnnounceNarration(Watch watch, string ladder)
         {
             if (_announcementsSnoozed) return;

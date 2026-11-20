@@ -2207,8 +2207,19 @@ Alt+U only replays it with a time.
 **The order is fixed:** money first (fills, partial fills, stop hits, take-profit hits), then
 alerts that fired, then market events released (the read-out and the figure), then headlines
 (company filings, read as **Headlines**), then unusual moves, signals, and connection problems.
-Unusual moves and signals are reserved for a later stage and will appear where the order says when
-their producers arrive.
+
+**Unusual moves** are a bar that closed far outside that chart's own usual move: *"Unusual moves:
+14:00, BTC/USDT 1h up 4.2% in one bar, 9 times its usual move."* "Usual" is the middle size of the
+46 bar-to-bar moves before it on the same chart and timeframe, so a 2% hour is news on EUR/USD and
+not on a small coin. Five times the usual move or more counts; the "times" is rounded down. The
+terminal checks the chart you are looking at, every open background tab, and, with the browser
+closed, every saved tab the background monitor watches. Unusual moves are only kept for Alt+U;
+nothing is said when one happens.
+
+**Signals** are a watched chart's narration ladder (the series you marked with N) at a bar close:
+*"Signals: 14:00, ETH/USDT 4h: RSI crossed above 70."* They come from your open background tabs and,
+with the browser closed, from the saved tabs the monitor narrates. The same chart and bar from the
+browser and the monitor is kept once.
 
 **The top five, then ask again.** A press reads at most five items and ends with **"Press Alt+U
 again for N more."** when anything remains. The next press starts **"N more."** and continues. The
@@ -2232,8 +2243,9 @@ entry older than seven days. The same fill seen by the browser and by the backgr
 stored once. If the file is unreadable it is moved aside as a `.corrupt-*` copy and a fresh log
 starts, rather than being overwritten.
 
-Not yet recorded: unusual moves, signals and formations on watched charts, position profit and
-loss since you left, market events released while the browser is closed, and the morning brief.
+Not yet recorded: the ladder of the chart you are looking at (you hear it as it happens), chart
+formations (the `,` list), position profit and loss since you left, market events released while
+the browser is closed, and the morning brief.
 
 ### The Go bar (Alt+G)
 

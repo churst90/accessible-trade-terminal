@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alt+U: unusual moves and signals on watched charts (stage 5c), 2026-11-20 — not heard, not on the VPS
+
+- **Unusual moves** (`UnusualMoveRules`, `ChangeLogCategory.Unusual`): at a bar close, the closed
+  bar's close-to-close move against the median size of the 46 moves before it on the same chart;
+  unusual at 5 times or more. "BTC/USDT 1h up 4.2% in one bar, 9 times its usual move." (one decimal
+  from 1%, two below; times rounded down). A flat history, too little history and the forming bar
+  are never judged. `UnusualMoveWatcher` (new, force-created in `AppStartupService`, registered
+  beside `BackgroundBarAnnouncer` in both heads) checks the focused feed and live background tabs,
+  never a leased feed, never in replay. `LocalBackgroundMonitor` checks every saved tab it watches
+  with the browser closed and keeps a 49-bar history per chart (`MergeMoveHistory`: a bar already
+  kept is replaced, newer ones added, capped; a poll that does not reach the newest kept bar starts
+  again), so only the first poll fetches 49 bars; later polls stay at 3. Publishes
+  `UnusualMoveEvent`; recorded, never spoken.
+- **Signals** (`ChangeLogCategory.Signal`): `ChangeLogRecorder` files a background tab's
+  `BackgroundBarClosedEvent` / `BackgroundBricksFormedEvent` when it carries a ladder, led by the
+  chart ("ETH/USDT 4h: RSI crossed above 70."), and the monitor publishes `ChartSignalEvent` for the
+  ladder it speaks. Keys are `signal|provider|symbol|timeframe|bar minute` (bricks: the minute
+  now), so the browser and the monitor give one entry.
+- **Changed:** a saved tab watched only for its bar closes now fetches 49 bars on its first poll
+  instead of 3 (`HeadlessNarrationTests` updated to pin that).
+- **Guards:** 21 sabotages (see the commit), all red.
+- **Caveats:** the 46 / 5x numbers are not tuned on data; the focused chart's ladder and chart
+  formations are not recorded; a poll gap longer than the fetch restarts the monitor's history.
+
 ### The market pulse on the Dot Pad's strip, and Ctrl+Alt+P for its detail, 2026-11-20 — not felt or heard, not on the VPS
 
 - **The braille line.** Each Alt+P reading also publishes `TactileStripMessageEvent` with

@@ -258,6 +258,10 @@ namespace AccessibleTrader.Core.Services
             //     registered it should lose this announcement, not fail to start.
             _services.GetService<Feeds.BackgroundBarAnnouncer>();
 
+            // 4a'. Alt+U's "Unusual moves": the focused chart and live background tabs, checked at
+            //      every bar close. Subscribes in its constructor, so it is resolved here too.
+            _services.GetService<Feeds.UnusualMoveWatcher>();
+
             // 4b. In-session alerts. Start() is what creates the StateStream subscription
             //     that evaluates alerts as the chart ticks — without it the alert pipeline
             //     is fully built, fully tested, and never armed: a price alert set while

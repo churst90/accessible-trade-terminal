@@ -151,6 +151,9 @@ None of this has been seen or heard in the app yet.
   *"BTC -1.2"*. The chart takes the strip back when you move on it.
 - **Alt+U says what changed** while you were not listening: fills and stops, alerts, market events
   and connection problems, with their times.
+- **Alt+U now includes unusual moves and signals.** A bar that closed at least five times its
+  chart's usual move: *"BTC/USDT 1h up 4.2% in one bar, 9 times its usual move."* And the
+  narration ladder of your background tabs, and of saved tabs while the browser is closed.
 - **Alt+G or slash opens the Go bar**: type a short code such as `PULSE`, `NEWS AAPL` or `RENKO`.
 
 ### Market events: the Fed rate

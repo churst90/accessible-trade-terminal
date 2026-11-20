@@ -474,6 +474,21 @@ namespace AccessibleTrader.Core.Models
     /// <param name="Narration">The tab's narration ladder at the newest brick, or null.</param>
     public record BackgroundBricksFormedEvent(ChartIdentity Identity, string Summary, string? Narration = null,
         PriceChartStyle Style = PriceChartStyle.Renko);
+    /// <summary>
+    /// A watched chart's narration ladder at a bar close, said with the browser closed, for the
+    /// change log's "Signals" (stage 5c). The open browser's background tabs record theirs from
+    /// <see cref="BackgroundBarClosedEvent"/> and <see cref="BackgroundBricksFormedEvent"/>.
+    /// </summary>
+    /// <param name="BarUtc">The bar that closed; with the chart, the change log's key.</param>
+    /// <param name="Text">"BTC/USDT 1h: RSI crossed above 70."</param>
+    public record ChartSignalEvent(ChartIdentity Identity, DateTime BarUtc, string Text);
+
+    /// <summary>
+    /// A bar that closed far outside its chart's own usual move (<c>UnusualMoveRules</c>), for
+    /// the change log's "Unusual moves" (stage 5c). Recorded, never spoken.
+    /// </summary>
+    public record UnusualMoveEvent(ChartIdentity Identity, DateTime BarUtc, string Text);
+
     /// <summary>Fired on every intra-bar tick (same bar count, last bar updated in place).</summary>
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 

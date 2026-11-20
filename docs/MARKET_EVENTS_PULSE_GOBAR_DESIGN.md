@@ -243,6 +243,14 @@ unavailable, Finnhub key not set".
   offers; it never reads unasked.
 - Later, a **morning brief**: catch-up, pulse and today's events.
 
+**Built 2026-11-20 (stage 5c, part 1): unusual moves and signals.** "Usual" is the median size of
+the 46 close-to-close moves before the closed bar on that chart, unusual at 5 times (my numbers,
+not tuned; a question for Cody). Checked on the focused chart and open background tabs
+(`UnusualMoveWatcher`) and by the browser-closed monitor, which keeps its own history so it fetches
+the depth once. Signals are the ladder of background tabs and of the monitor's narrated tabs, keyed
+by chart and bar so both heads make one entry. Not recorded: the focused chart's ladder and chart
+formations.
+
 ---
 
 ## 3. The Go bar (Alt+G, free on 2026-11-18; and `/` since 2026-11-20, Cody)

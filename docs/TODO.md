@@ -391,10 +391,22 @@ as proposed.
   Caveats: the sound was never heard; a market event released while the browser is closed is
   still not recorded (the existing process-wide-owner item above); and the hosted head records
   only its alerts, with in-circuit items through the circuit recorder.
-- [ ] **Stage 5c: unusual moves.** A producer for the `Unusual` category: each asset against its
-  own normal swing over the same interval, not a fixed percent. Not built in 5b.
-- [ ] **Stage 5c: signals and formations on watched charts.** A producer for the `Signal`
-  category, which needs a background signal evaluator. Not built in 5b.
+- [x] **Stage 5c: unusual moves.** `UnusualMoveRules`: the closed bar's close-to-close move
+  against the median of the 46 moves before it on the same chart, unusual at 5 times or more,
+  "times" rounded down. `UnusualMoveWatcher` checks the focused chart and the live background tabs
+  at each close (not in replay); `LocalBackgroundMonitor` checks every saved tab it watches with
+  the browser closed, keeping its own 49-bar history so only the first poll fetches more (a bar-only
+  tab's first fetch went from 3 to 49). Recorded for Alt+U only, never spoken. **Built 2026-11-20,
+  not heard.** Caveats: the 46 / 5x numbers are my choice, not tuned on data, and a question for
+  Cody; a poll gap longer than the 3-bar fetch restarts the monitor's history, so no unusual move
+  for 46 bars after it.
+- [x] **Stage 5c: signals on watched charts.** The `Signal` category: an open background tab's
+  ladder (`BackgroundBarClosedEvent` / `BackgroundBricksFormedEvent` with narration) and, with the
+  browser closed, the ladder the monitor speaks (`ChartSignalEvent`), keyed by chart and bar so the
+  two are one entry. **Built 2026-11-20, not heard.** Caveats: the focused chart's ladder is not
+  recorded (it is spoken inside the feedback coordinator, which publishes no text); chart
+  formations (`,`) are not in the ladder, so they are not recorded; a covered chart's ladder with
+  the browser open but the tab not live is not recorded.
 - [ ] **Stage 5c: position profit and loss since you left.** The change log currently records
   money events (fills, stops, take-profits), not the mark-to-market move of open positions.
 - [ ] **Stage 5c: market events released while the browser is closed.** The same blocker as the

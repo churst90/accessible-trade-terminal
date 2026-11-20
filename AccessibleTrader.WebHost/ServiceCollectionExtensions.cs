@@ -682,6 +682,7 @@ namespace AccessibleTrader.WebHost
             // MUST be force-created (see AppStartupService): a subscriber nobody resolves is a
             // subscriber that never subscribes.
             services.AddScoped<AccessibleTrader.Core.Services.Feeds.BackgroundBarAnnouncer>();
+            services.AddScoped<AccessibleTrader.Core.Services.Feeds.UnusualMoveWatcher>();
             services.AddScoped<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,
                                AccessibleTrader.Core.Services.Workspace.BackgroundMonitoringService>();
 
