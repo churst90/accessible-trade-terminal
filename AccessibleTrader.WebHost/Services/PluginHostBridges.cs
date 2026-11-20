@@ -110,10 +110,7 @@ namespace AccessibleTrader.WebHost.Services
             // Same environment-variable contract as every other sink on both heads: an
             // explicit *_DIR override wins (operators shipping to a log collector), and
             // persistence can be switched off entirely.
-            var persistEnv = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST");
-            bool persistEnabled = string.IsNullOrEmpty(persistEnv)
-                || !(persistEnv.Equals("0", StringComparison.Ordinal)
-                  || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
+            bool persistEnabled = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventsPersisted();
 
             if (!persistEnabled)
             {
@@ -121,7 +118,7 @@ namespace AccessibleTrader.WebHost.Services
                 return;
             }
 
-            string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
+            string dir = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventDirectory()
                 ?? paths.SecurityEventDirectory;
 
             var sink = new SecurityEventFileSink(ring, dir, loggerFactory?.CreateLogger<SecurityEventFileSink>());

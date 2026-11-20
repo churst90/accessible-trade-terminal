@@ -142,10 +142,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
             {
                 var ringBuffer = sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
-                var persistEnv = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST");
-                bool persistEnabled = string.IsNullOrEmpty(persistEnv)
-                    || !(persistEnv.Equals("0", StringComparison.Ordinal)
-                      || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
+                bool persistEnabled = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventsPersisted();
                 if (!persistEnabled) return ringBuffer;
 
                 // IPlatformPathService, not GetFolderPath: the latter returns an empty string on
@@ -171,7 +168,7 @@ namespace AccessibleTrader.WebHost
                 // operator should not have to know to look in a directory whose name says it
                 // holds no user's data.
                 var instancePaths = sp.GetRequiredService<InstancePaths>();
-                var explicitDir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR");
+                var explicitDir = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventDirectory();
                 var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
 
                 return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(
@@ -255,10 +252,7 @@ namespace AccessibleTrader.WebHost
                 }
                 catch { /* missing manifest leaves an empty allow-list — refuses every plugin, which is the desired enforcing default */ }
 
-                var envAllow = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS");
-                if (!string.IsNullOrEmpty(envAllow)
-                    && (envAllow.Equals("1", StringComparison.Ordinal)
-                     || envAllow.Equals("true", StringComparison.OrdinalIgnoreCase)))
+                if (AccessibleTrader.Core.Services.Security.EnvironmentSwitches.UnverifiedPluginsAllowed())
                 {
                     policy.RequireTrusted = false;
                 }

@@ -134,16 +134,13 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Sdk.Services.ISecurityEventLog>(sp =>
             {
                 var ringBuffer = sp.GetRequiredService<AccessibleTrader.Core.Services.Security.SecurityEventLog>();
-                var persistEnv = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST");
-                bool persistEnabled = string.IsNullOrEmpty(persistEnv)
-                    || !(persistEnv.Equals("0", StringComparison.Ordinal)
-                      || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
+                bool persistEnabled = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventsPersisted();
                 if (!persistEnabled) return ringBuffer;
 
                 // IPlatformPathService, not GetFolderPath: the latter returns an empty string on
                 // Unix when the target does not exist, which would write the audit log into the
                 // process's working directory instead of app data. Same path on desktop as before.
-                string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
+                string dir = AccessibleTrader.Core.Services.Security.EnvironmentSwitches.SecurityEventDirectory()
                     ?? Path.Combine(
                         sp.GetRequiredService<IPlatformPathService>().AppDataDirectory,
                         "SecurityEvents");
@@ -209,10 +206,7 @@ namespace AccessibleTrader.BlazorClient
                 }
                 catch { /* best-effort: a missing/unreadable manifest leaves the policy enforcing an empty allow-list, which refuses every plugin — exactly what we want when the manifest is supposed to be there but isn't */ }
 
-                var envAllow = System.Environment.GetEnvironmentVariable("ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS");
-                if (!string.IsNullOrEmpty(envAllow)
-                    && (envAllow.Equals("1", StringComparison.Ordinal)
-                     || envAllow.Equals("true", StringComparison.OrdinalIgnoreCase)))
+                if (AccessibleTrader.Core.Services.Security.EnvironmentSwitches.UnverifiedPluginsAllowed())
                 {
                     policy.RequireTrusted = false;
                 }

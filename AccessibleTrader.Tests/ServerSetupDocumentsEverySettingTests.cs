@@ -21,13 +21,24 @@ namespace AccessibleTrader.Tests
         private static readonly Regex BareKey = new(@"Configuration\[""([A-Za-z][A-Za-z0-9]*)""\]");
         private static readonly Regex EnvVar = new(@"GetEnvironmentVariable\(""([A-Z][A-Z0-9_]*)""");
 
-        internal static SortedSet<string> SettingsReadBy(string webHostDir)
+        // Shared Core files the WebHost reads its switches through.
+        internal static readonly string[] SharedSettingFiles =
+        {
+            "AccessibleTrader.Core/Services/Security/EnvironmentSwitches.cs",
+        };
+
+        internal static SortedSet<string> SettingsReadBy(string webHostDir, IEnumerable<string> sharedFiles)
         {
             var found = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (var file in Directory.EnumerateFiles(webHostDir, "*.cs", SearchOption.AllDirectories))
+            var files = Directory.EnumerateFiles(webHostDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f =>
+                {
+                    string rel = Path.GetRelativePath(webHostDir, f).Replace('\\', '/');
+                    return !rel.StartsWith("obj/") && !rel.StartsWith("bin/");
+                })
+                .Concat(sharedFiles);
+            foreach (var file in files)
             {
-                string rel = Path.GetRelativePath(webHostDir, file).Replace('\\', '/');
-                if (rel.StartsWith("obj/") || rel.StartsWith("bin/")) continue;
                 string text = File.ReadAllText(file);
                 foreach (Match m in SectionKey.Matches(text))
                     if (!m.Groups[1].Value.StartsWith("Sqlite:")) found.Add(m.Groups[1].Value.Replace(":", "__"));
@@ -52,13 +63,16 @@ namespace AccessibleTrader.Tests
             string root = RepoPaths.RepoRoot();
             string webHost = Path.Combine(root, "AccessibleTrader.WebHost");
             Assert.True(File.Exists(Path.Combine(webHost, "Program.cs")), "scanned the wrong folder: " + webHost);
-            var read = SettingsReadBy(webHost);
+            var shared = SharedSettingFiles.Select(f => Path.Combine(root, f)).ToList();
+            Assert.All(shared, f => Assert.True(File.Exists(f), "shared settings file moved: " + f));
+            var read = SettingsReadBy(webHost, shared);
 
             // Vacuity: the scan must see the settings known to be read, or it proves nothing.
             Assert.Contains("Leaderboard__OutputPath", read);
             Assert.Contains("AccountEmail__Password", read);
             Assert.Contains("PathBase", read);
             Assert.Contains("ACCOUNTS_SEED_EMAIL", read);
+            Assert.Contains("ACCESSIBLETRADER_SECURITY_EVENT_PERSIST", read);
             Assert.True(read.Count >= 20, $"only {read.Count} settings found: {string.Join(", ", read)}");
 
             string table = EnvironmentTable(File.ReadAllText(Path.Combine(root, "docs", "SERVER_SETUP.md")));
