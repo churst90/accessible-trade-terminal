@@ -22,6 +22,15 @@ Cody, 2026-11-20: "from the code review, start on each of the issues you found, 
 
 Caveats: strategies with an ATR-multiple stop will place it at a slightly different distance than before, so replayed results for them can move a little. The ATR trailing stop (`ManagedExitRules.AtrTrailStop`) is still a plain mean on purpose, because the backtester and live trading share it; changing it is a question for Cody (TODO). MEXC's and Tradier's addresses are fixed in code, so their call sites are covered through the shared helper's test, not a provider-level test; Kraken's is tested end to end. The journal test of "UTC off" can only tell the clocks apart on a computer not set to UTC: it does here (Central time), not on CI.
 
+### Cody's practice account copied to the hosted server, 2026-11-20 — not yet seen by Cody
+
+Cody, 2026-11-20: "Yes, copy my trade data including the open short from my open trade to the leader board."
+
+- **His local `paper_account.json` replaced the hosted one** (`/var/lib/accessible-trader-terminal/users/49698e84…/`), with no "imported" label: cash 22,072.93, short 1 BTC/USDT from 75,993.89, 31 fills. The old hosted file (cash 95,019.33, flat, 7 fills) is backed up as `/home/debian/paper_account.vps-bak-1120-120229.json`. Owner and mode kept (debian, 0600); the checksum matches the local copy.
+- **The hosted terminal was restarted** at 12:18 UTC so no account loaded before the copy could be written back over it. Active, no restarts, no error lines, login page 200, the file unchanged after.
+
+Caveats: he is not on the leaderboard yet. His account has no display name and the opt-in is off, and the publisher lists only accounts with both; the name is public, so it is his to choose on the Account page, not written into the login database by hand. Once he is listed, the website still shows the "be one of the first" invitation until 3 people are on the board.
+
 ### Deployed to the hosted server with email and the leaderboard switched on, 2026-11-20 — not yet seen by Cody
 
 Server and website work only; no code changed in this entry.

@@ -87,9 +87,10 @@ and Identity already has 2FA, lockout and rate limits.
   repository owns. Installed 2026-11-20 as `includes/leaderboard-section.php`, after the free-account section,
   with a contents link; the open positions column lists each holding. Not yet seen with real rows:
   it needs three opted-in accounts.
-- [ ] **Seed Cody's P&L.** Replace his VPS `users/49698e84…/paper_account.json` with his local one, NO
-  "imported" label (Cody: they are his practice trades). Back up the VPS file first; confirm before
-  writing to production.
+- [x] **Seed Cody's P&L.** Cody, 2026-11-20: "Yes, copy my trade data including the open short from my
+  open trade to the leader board." Done 2026-11-20 (CHANGES). **Left, Cody:** on the hosted terminal's
+  Account page, set a display name and tick the leaderboard box; until both are set the publisher leaves
+  him off. The site shows the table only from 3 entries; under that it shows the invitation.
 - [x] **"Add label here..." in the chart's context menu (Application key / right-click).** Done
   2026-11-18: the chart menu resolves one "here" (bar, price, pane) for mouse and keyboard, places the
   label through the same prompt as Alt+Shift+L, and also adds the other context-menu items requested
