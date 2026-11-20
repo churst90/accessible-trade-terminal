@@ -23,6 +23,40 @@ The agreed order, unchanged:
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
 never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
 
+## Cody to do: turn on the website's email list (filed 2026-11-20)
+
+The list is live at accessibletrader.com (the "Get the news by email" box on the home page) and saves
+signups, but sends nothing until these are done. Only Cody can do steps 1, 2 and 5; the rest I can do
+once he says so.
+
+1. **Make a Brevo API key.** Log in at app.brevo.com, open the menu under your name at the top right,
+   choose **SMTP & API**, then the **API keys** tab, then **Generate a new API key**. Name it
+   `accessibletrader-site`. Copy it straight away; Brevo shows it once. It starts `xkeysib-`. This is
+   NOT the SMTP key the terminal's password emails use.
+2. **Put the key on the server.** `ssh debian@codyhurst.com`, then open
+   `/home/cody/site_env/.env_trade_codyhurst_com` in nano (with `sudo` if it will not save) and add one
+   line at the end: `BREVO_API_KEY=` followed by the key, no quotes, no spaces. Save. No restart is
+   needed: the site reads that file on every page.
+3. **Check it took.** On the server: `php /home/debian/att-mail/newsletter.php status`. The line
+   `sending set up:` should now say `yes`. (It never prints the key.)
+4. **A postal address for the foot of list emails.** US law (CAN-SPAM) requires one in every list
+   email; a PO box or a mailbox service is fine. Tell me what to put and I store it in the site's
+   settings (`site_settings.mail_postal_address`). Until it is set, `send` refuses; signup
+   confirmations still go out without it.
+5. **Install the 10-minute timer** that sends confirmation emails (my install was refused by the
+   permission check because it needs sudo). On the server, run these three lines, or tell me I may:
+   `sudo cp /home/debian/att-mail/systemd/att-mail-confirm.* /etc/systemd/system/`, then
+   `sudo systemctl daemon-reload`, then `sudo systemctl enable --now att-mail-confirm.timer`.
+   Without it, signups wait until I run `newsletter.php confirm-pending` by hand.
+6. **Optional, in Brevo:** turn off open and click tracking for transactional email if you do not want
+   it (it rewrites links and adds a tracking pixel). I have not checked where Brevo keeps that switch
+   today, nor whether `accessibletrader.com` shows as an authenticated domain under **Senders, domains**;
+   the terminal's password emails arrived on 11-20, which suggests it is.
+7. **Tell me.** I run `confirm-pending` (anyone who signed up meanwhile gets their confirmation), send
+   you a test issue with `newsletter.php test`, and once you have read it in your inbox, your first real
+   issue goes out with `send ISSUE.md --confirm`. You write the issue as a Markdown file starting with
+   a `Subject: ...` line and a blank line.
+
 ## Code review findings left (2026-11-20)
 
 Cody, 2026-11-20: "start on each of the issues you found, in the best order or smallest to largest."
@@ -70,6 +104,7 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
   three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
   (not yet).
 - [ ] **Email list on the website**: BUILT and live 2026-11-20 (CHANGES), but it sends nothing yet.
+  **Step by step for Cody: "Cody to do: turn on the website's email list" at the top of this file.**
   Waiting on Cody for: (1) a Brevo **API key** (Brevo > SMTP & API > API keys; not the SMTP key the
   terminal uses) added by him to `/home/cody/site_env/.env_trade_codyhurst_com` as `BREVO_API_KEY=...`;
   (2) a **postal address** for the foot of list emails (US CAN-SPAM; a PO box is fine), which goes in
