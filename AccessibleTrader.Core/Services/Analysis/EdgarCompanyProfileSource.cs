@@ -31,11 +31,15 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// <c>HttpHeaders.Add</c> throws.
     /// </para>
     /// </summary>
-    public sealed class EdgarCompanyProfileSource : ICompanyProfileSource
+    public sealed class EdgarCompanyProfileSource : ICompanyProfileSource, ICompanyFilingSource
     {
         private readonly HttpClient _http;
         private readonly ConcurrentDictionary<string, int> _cik = new(StringComparer.OrdinalIgnoreCase);
         private bool _mapLoaded;
+        private DateTime _mapFailedAtUtc = DateTime.MinValue;
+
+        /// <summary>How many filings the dossier lists and the live notices read per poll.</summary>
+        internal const int RecentCount = 20;
 
         public EdgarCompanyProfileSource(HttpClient http) => _http = http;
 
@@ -47,11 +51,42 @@ namespace AccessibleTrader.Core.Services.Analysis
             int? cik = await ResolveCikAsync(ticker, ct);
             if (cik == null) return null;
 
-            var (name, industry, insider, events) = await SubmissionsAsync(cik.Value, ct);
+            var (name, industry, insider, events, recent) = await SubmissionsAsync(cik.Value, ticker, ct);
             var eps = await ConceptAsync(cik.Value, "EarningsPerShareDiluted", ct);
             var rev = await ConceptAsync(cik.Value, "RevenueFromContractWithCustomerExcludingAssessedTax", ct);
 
-            return new CompanyProfile(ticker, name ?? ticker, industry, cik, eps, rev, insider, events);
+            return new CompanyProfile(ticker, name ?? ticker, industry, cik, eps, rev, insider, events, recent);
+        }
+
+        public async Task<bool> IsFilerAsync(string ticker, CancellationToken ct = default)
+        {
+            ticker = Normalise(ticker);
+            return ticker.Length > 0 && await ResolveCikAsync(ticker, ct) != null;
+        }
+
+        /// <summary>
+        /// The company's twenty newest filings from its EDGAR Atom feed — the small one, about
+        /// 10 KB, which is what makes polling it every minute reasonable. See
+        /// <see cref="Headlines.EdgarFilingParser"/>.
+        /// </summary>
+        public async Task<IReadOnlyList<Headlines.EdgarFiling>?> RecentFilingsAsync(
+            string ticker, CancellationToken ct = default)
+        {
+            ticker = Normalise(ticker);
+            if (ticker.Length == 0) return null;
+            int? cik = await ResolveCikAsync(ticker, ct);
+            if (cik == null) return null;
+
+            try
+            {
+                using var resp = await _http.GetAsync(
+                    "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany"
+                    + $"&CIK={cik.Value:D10}&type=&dateb=&owner=include&count={RecentCount}&output=atom", ct);
+                if (!resp.IsSuccessStatusCode) return null;
+                return Headlines.EdgarFilingParser.ParseAtom(await resp.Content.ReadAsStringAsync(ct), ticker);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch { return null; }
         }
 
         /// <summary>
@@ -72,6 +107,9 @@ namespace AccessibleTrader.Core.Services.Analysis
         {
             if (!_mapLoaded)
             {
+                // The index is about 1 MB. The headline notices ask every minute, so a failed
+                // load is not retried for ten minutes rather than on every call.
+                if (DateTime.UtcNow - _mapFailedAtUtc < TimeSpan.FromMinutes(10)) return null;
                 try
                 {
                     var json = await _http.GetStringAsync("https://www.sec.gov/files/company_tickers.json", ct);
@@ -85,19 +123,25 @@ namespace AccessibleTrader.Core.Services.Analysis
                     }
                     _mapLoaded = true;
                 }
-                catch { return null; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch
+                {
+                    _mapFailedAtUtc = DateTime.UtcNow;
+                    return null;
+                }
             }
             return _cik.TryGetValue(ticker, out var cik) ? cik : null;
         }
 
         private async Task<(string? Name, string? Industry,
-                            List<(DateTime, int)> Insider, List<(DateTime, int)> Events)>
-            SubmissionsAsync(int cik, CancellationToken ct)
+                            List<(DateTime, int)> Insider, List<(DateTime, int)> Events,
+                            IReadOnlyList<Headlines.EdgarFiling> Recent)>
+            SubmissionsAsync(int cik, string ticker, CancellationToken ct)
         {
             try
             {
                 using var resp = await _http.GetAsync($"https://data.sec.gov/submissions/CIK{cik:D10}.json", ct);
-                if (!resp.IsSuccessStatusCode) return (null, null, new(), new());
+                if (!resp.IsSuccessStatusCode) return (null, null, new(), new(), Array.Empty<Headlines.EdgarFiling>());
                 var d = JObject.Parse(await resp.Content.ReadAsStringAsync(ct));
 
                 var recent = d["filings"]?["recent"] as JObject;
@@ -122,9 +166,10 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                 return (d["name"]?.ToString(), d["sicDescription"]?.ToString(),
                         insider.Select(kv => (kv.Key, kv.Value)).ToList(),
-                        events.Select(kv => (kv.Key, kv.Value)).ToList());
+                        events.Select(kv => (kv.Key, kv.Value)).ToList(),
+                        Headlines.EdgarFilingParser.ParseSubmissions(d, ticker, RecentCount));
             }
-            catch { return (null, null, new(), new()); }
+            catch { return (null, null, new(), new(), Array.Empty<Headlines.EdgarFiling>()); }
         }
 
         private async Task<List<(DateTime, double)>> ConceptAsync(int cik, string concept, CancellationToken ct)

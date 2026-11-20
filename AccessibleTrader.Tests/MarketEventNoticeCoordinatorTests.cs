@@ -67,4 +67,39 @@ public class MarketEventNoticeCoordinatorTests
         nav.Received(1).PlayMarketEventBell(
             Arg.Any<WorkspaceState>(), MarketEventImportance.High);
     }
+
+    [Fact]
+    public void AHeadlineIsSpokenOnTheEventChannelWithItsOwnSoundNotTheBell()
+    {
+        var store = new MockWorkspaceStore();
+        var bus = new SpyEventBus();
+        var speech = new RecordingSpeechRouter();
+        var formatter = new SpeechFormatter();
+        var nav = Substitute.For<INavigationSonifier>();
+
+        using var coordinator = new AccessibilityFeedbackCoordinator(
+            store,
+            new NavigationFeedbackManager(speech, formatter),
+            speech,
+            new AudioFeedbackRouter(nav, new MockEarconService()),
+            formatter,
+            bus,
+            new MockEarconService(),
+            new SdkCandlePatternAnalyzer(),
+            new ChartPatternCache(new ChartPatternDetector(new SwingStructureAnalyzer())),
+            new ChartPatternFocus(),
+            new MockAutoNarrationService(),
+            navigationSonifier: nav);
+        store.EmitState(WorkspaceState.Initial);
+
+        bus.Publish(new HeadlineEvent(
+            "AAPL filed an 8-K: earnings results.", MarketEventImportance.High, "edgar|r", "AAPL"));
+
+        var said = Assert.Single(speech.Spoken);
+        Assert.Equal("AAPL filed an 8-K: earnings results.", said.Text);
+        Assert.Equal(SpeechChannel.Event, said.Channel);
+        Assert.False(said.Interrupt);
+        nav.Received(1).PlayHeadlineSound(Arg.Any<WorkspaceState>(), MarketEventImportance.High);
+        nav.DidNotReceive().PlayMarketEventBell(Arg.Any<WorkspaceState>(), Arg.Any<MarketEventImportance>());
+    }
 }

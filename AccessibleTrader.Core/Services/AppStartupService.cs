@@ -236,6 +236,8 @@ namespace AccessibleTrader.Core.Services
             //     QuickTradeExecutor lesson. GetService, not GetRequiredService: an older host
             //     composition without it should lose the notices, not fail to start.
             _services.GetService<MarketEvents.MarketEventLiveNotices>();
+            //     Headlines (SEC filings) poll on the same terms: resolved here or never run.
+            _services.GetService<Headlines.EdgarHeadlineLiveNotices>();
 
             // 4d. Alt+U's change log. The recorder subscribes in its constructor; on the desktop
             //     it is a singleton nothing else resolves, so without this line the desktop log

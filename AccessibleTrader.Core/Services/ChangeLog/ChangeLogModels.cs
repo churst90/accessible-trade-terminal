@@ -3,12 +3,15 @@ namespace AccessibleTrader.Core.Services.ChangeLog
     /// <summary>
     /// The order Cody decided the catch-up speaks in. Every category exists from stage 5b so
     /// stage 5c only has to add producers for <see cref="Unusual"/> and <see cref="Signal"/>.
+    /// <see cref="News"/> (headlines) was added 2026-11-20 after Events: a filing is news about
+    /// one company, read after the market-wide events. Stored by name, so inserting it is safe.
     /// </summary>
     public enum ChangeLogCategory
     {
         Money,
         Alert,
         Event,
+        News,
         Unusual,
         Signal,
         Connection,

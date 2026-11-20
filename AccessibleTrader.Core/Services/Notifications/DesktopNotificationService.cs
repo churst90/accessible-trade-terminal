@@ -128,6 +128,9 @@ namespace AccessibleTrader.Core.Services.Notifications
                 // spoken in the live region while the window is visible, and toasted only
                 // when it is not. See OnMarketEventNotice.
                 _subs.Add(bus.Subscribe<MarketEventNoticeEvent>(OnMarketEventNotice));
+                // A headline follows the same rule: spoken while the window is visible,
+                // toasted only while it is hidden.
+                _subs.Add(bus.Subscribe<HeadlineEvent>(OnHeadline));
             }
             if (Owns(DesktopNotificationCategories.NewBars))
             {
@@ -196,6 +199,16 @@ namespace AccessibleTrader.Core.Services.Notifications
         }
 
         internal const string MarketEventTitle = "Market event";
+
+        /// <summary>A live headline: the market-event rule, with its own title.</summary>
+        private void OnHeadline(HeadlineEvent e)
+        {
+            if (!_notifier.IsAvailable || !Enabled()) return;
+            if (_presence?.IsAppVisible ?? true) return;
+            Send(HeadlineTitle, e.Text);
+        }
+
+        internal const string HeadlineTitle = "Headline";
 
         /// <summary>
         /// Is this event about the chart the trader is looking AT, on a window they can

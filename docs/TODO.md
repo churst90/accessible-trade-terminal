@@ -399,6 +399,34 @@ as proposed.
   `Shift+\` is bound. `Shift+\` was free, but on German and other AltGr layouts the backslash
   needs AltGr, so it is not one key there; and Alt+G already opens the bar. Nothing to bind.
 
+## Headlines (Cody, 2026-11-20)
+
+The plan is in `docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md`, section 4. One headline store; said on
+arrival (own setting, Off by default, Shift+F2 mutes it, own sound), in the Alt+I dossier, and in
+Alt+U under Headlines; only symbols the trader touches.
+
+- [x] **Stage 1: SEC EDGAR filings.** **Built 2026-11-20, not yet heard by Cody, not on the VPS.**
+  "AAPL filed an 8-K: earnings results." within about a minute of EDGAR accepting it, for stocks on
+  open chart tabs and held stocks; the Headlines level setting; the Headline sound; the toast; the
+  Alt+U Headlines category; the dossier's Recent filings tab. Caveats: never run against live EDGAR
+  end to end (parsers pinned by fixtures captured from it on 2026-11-20; the poller tested on a fake
+  source and clock); the item and form importance table is my judgement, so Cody may want to move
+  things between levels; a stock is only known to EDGAR by its plain ticker (class shares such as
+  BRK.B and foreign listings may be missed); nothing while the browser is closed.
+- [ ] **Stage 2: Alpaca news (Benzinga) websocket.** Cody has an Alpaca live and paper key in his
+  patches/api keys folder (2026-11-20; read it from the app's key store, never print it). Real-time
+  wire headlines with tickers, stocks and crypto. Needs the cross-source dedupe, a per-symbol cap
+  per few minutes, an importance rule for wire stories (none comes with them), and the news list
+  (Go bar `NEWS`).
+- [ ] **Stage 3: Finnhub company news** (the key Cody is getting for earnings) as a second wire, and
+  headlines placed on the bar they arrived in, with apostrophe jumps.
+- [ ] **CryptoPanic: only if crypto news proves thin after stage 2** (Cody asked whether it is strictly
+  necessary: no). If added, the credit goes in the user manual, never in speech (Cody); check its
+  terms first, which may ask for a visible "Powered by CryptoPanic" by the feed.
+- [ ] **Q for Cody after hearing it:** is the importance table right (for example, should a Form 4
+  insider trade be medium for a held stock)? Should the first look at a stock also say a filing from
+  the last 15 minutes rather than 5?
+
 ## Trading not yet tried on a practice or real account
 
 Cody, 2026-11-16: everything else built up to 2.13 has been seen and heard; trading through the venues

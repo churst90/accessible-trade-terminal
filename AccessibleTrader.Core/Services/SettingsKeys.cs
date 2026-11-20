@@ -190,6 +190,12 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string ChangeLogOfferOnReturn = "changeLogOfferOnReturn";
 
+        /// <summary>
+        /// "Headlines": off (default), important only, important and medium, or all. Stage 1 is SEC
+        /// filings for the stocks on open charts and in held positions.
+        /// </summary>
+        public const string HeadlinesLevel = "narration.headlinesLevel";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

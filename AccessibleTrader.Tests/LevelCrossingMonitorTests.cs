@@ -19,6 +19,7 @@ namespace AccessibleTrader.Tests
             public void PlayCrossEarcon(int direction, float pan) { }
             public void FireMarketEventEarcon(WorkspaceState state, int index) { }
             public void PlayMarketEventBell(WorkspaceState state, MarketEventImportance importance) { }
+            public void PlayHeadlineSound(WorkspaceState state, MarketEventImportance importance) { }
 
             public void SyncNavigationSlots(WorkspaceState state) { }
             public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1) { }

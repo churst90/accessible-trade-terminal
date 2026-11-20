@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+  <feed xmlns="http://www.w3.org/2005/Atom">
+    <author>
+      <email>webmaster@sec.gov</email>
+      <name>Webmaster</name>
+    </author>
+    <company-info>
+      <addresses>
+        <address type="mailing">
+          <city>CUPERTINO</city>
+          <state>CA</state>
+          <street1>ONE APPLE PARK WAY</street1>
+          <zip>95014</zip>
+        </address>
+        <address type="business">
+          <city>CUPERTINO</city>
+          <phone>(408) 996-1010</phone>
+          <state>CA</state>
+          <street1>ONE APPLE PARK WAY</street1>
+          <zip>95014</zip>
+        </address>
+      </addresses>
+      <assigned-sic>3571</assigned-sic>
+      <assigned-sic-desc>ELECTRONIC COMPUTERS</assigned-sic-desc>
+      <assigned-sic-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;SIC=3571&amp;owner=include&amp;count=10</assigned-sic-href>
+      <cik>0000320193</cik>
+      <cik-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000320193&amp;owner=include&amp;count=10</cik-href>
+      <conformed-name>Apple Inc.</conformed-name>
+      <fiscal-year-end>0925</fiscal-year-end>
+      <formerly-names count="3">
+        <names>
+          <date>2007-01-04</date>
+          <name>APPLE COMPUTER INC</name>
+        </names>
+        <names>
+          <date>1997-07-28</date>
+          <name>APPLE COMPUTER INC/ FA</name>
+        </names>
+        <names>
+          <date>2019-08-05</date>
+          <name>APPLE INC</name>
+        </names>
+      </formerly-names>
+      <state-location>CA</state-location>
+      <state-location-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;State=CA&amp;owner=include&amp;count=10</state-location-href>
+      <state-of-incorporation>CA</state-of-incorporation>
+    </company-info>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="4" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-044952</accession-number>
+        <filing-date>2026-11-19</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126044952/0001140361-26-044952-index.htm</filing-href>
+        <filing-type>4</filing-type>
+        <form-name>Statement of changes in beneficial ownership of securities</form-name>
+        <size>4 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-044952</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126044952/0001140361-26-044952-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-19 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-044952  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 4 KB</summary>
+      <title>4  - Statement of changes in beneficial ownership of securities</title>
+      <updated>2026-11-19T18:30:21-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="4" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-044773</accession-number>
+        <filing-date>2026-11-18</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126044773/0001140361-26-044773-index.htm</filing-href>
+        <filing-type>4</filing-type>
+        <form-name>Statement of changes in beneficial ownership of securities</form-name>
+        <size>8 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-044773</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126044773/0001140361-26-044773-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-18 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-044773  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 8 KB</summary>
+      <title>4  - Statement of changes in beneficial ownership of securities</title>
+      <updated>2026-11-18T18:30:10-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="144" />
+      <content type="text/xml">
+        <accession-number>0001921094-26-001188</accession-number>
+        <act>33</act>
+        <file-number>001-36743</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=001-36743&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-16</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000192109426001188/0001921094-26-001188-index.htm</filing-href>
+        <filing-type>144</filing-type>
+        <film-number>261562284</film-number>
+        <form-name>Report of proposed sale of securities</form-name>
+        <size>4 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001921094-26-001188</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000192109426001188/0001921094-26-001188-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-16 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001921094-26-001188  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 4 KB</summary>
+      <title>144  - Report of proposed sale of securities</title>
+      <updated>2026-11-16T16:49:16-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="4" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-043484</accession-number>
+        <filing-date>2026-11-12</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126043484/0001140361-26-043484-index.htm</filing-href>
+        <filing-type>4</filing-type>
+        <form-name>Statement of changes in beneficial ownership of securities</form-name>
+        <size>4 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-043484</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126043484/0001140361-26-043484-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-12 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-043484  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 4 KB</summary>
+      <title>4  - Statement of changes in beneficial ownership of securities</title>
+      <updated>2026-11-12T18:58:20-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="25-NSE" />
+      <content type="text/xml">
+        <accession-number>0001354457-26-001062</accession-number>
+        <act>34</act>
+        <file-number>000-10030</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=000-10030&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-09</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000135445726001062/0001354457-26-001062-index.htm</filing-href>
+        <filing-type>25-NSE</filing-type>
+        <film-number>261536843</film-number>
+        <form-name>Notification filed by national security exchange to report the removal from listing and registration of matured, redeemed or retired securities</form-name>
+        <size>3 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001354457-26-001062</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000135445726001062/0001354457-26-001062-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-09 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001354457-26-001062  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 3 KB</summary>
+      <title>25-NSE  - Notification filed by national security exchange to report the removal from listing and registration of matured, redeemed or retired securities</title>
+      <updated>2026-11-09T17:00:55-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="8-K" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-042798</accession-number>
+        <act>34</act>
+        <file-number>001-36743</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=001-36743&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-09</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126042798/0001140361-26-042798-index.htm</filing-href>
+        <filing-type>8-K</filing-type>
+        <film-number>261536464</film-number>
+        <form-name>Current report</form-name>
+        <items-desc>items 8.01 and 9.01</items-desc>
+        <size>1 MB</size>
+        <xbrl_href>https://www.sec.gov/cgi-bin/viewer?action=view&amp;amp;cik=320193&amp;amp;accession_number=0001140361-26-042798&amp;amp;xbrl_type=f</xbrl_href>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-042798</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126042798/0001140361-26-042798-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-09 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-042798  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 1 MB&amp;lt;br&amp;gt;Item 8.01: Other Events&amp;lt;br&amp;gt;Item 9.01: Financial Statements and Exhibits</summary>
+      <title>8-K  - Current report</title>
+      <updated>2026-11-09T16:30:40-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="424B2" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-042505</accession-number>
+        <act>33</act>
+        <file-number>333-282937</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=333-282937&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-06</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126042505/0001140361-26-042505-index.htm</filing-href>
+        <filing-type>424B2</filing-type>
+        <film-number>261532487</film-number>
+        <form-name>Prospectus [Rule 424(b)(2)]</form-name>
+        <size>930 KB</size>
+        <xbrl_href>https://www.sec.gov/cgi-bin/viewer?action=view&amp;amp;cik=320193&amp;amp;accession_number=0001140361-26-042505&amp;amp;xbrl_type=v</xbrl_href>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-042505</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126042505/0001140361-26-042505-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-06 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-042505  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 930 KB</summary>
+      <title>424B2  - Prospectus [Rule 424(b)(2)]</title>
+      <updated>2026-11-06T16:30:47-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="FWP" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-042173</accession-number>
+        <act>34</act>
+        <file-number>333-282937</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=333-282937&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-06</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126042173/0001140361-26-042173-index.htm</filing-href>
+        <filing-type>FWP</filing-type>
+        <film-number>261529143</film-number>
+        <form-name>Filing under Securities Act Rules 163/433 of free writing prospectuses</form-name>
+        <size>112 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-042173</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126042173/0001140361-26-042173-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-06 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-042173  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 112 KB</summary>
+      <title>FWP  - Filing under Securities Act Rules 163/433 of free writing prospectuses</title>
+      <updated>2026-11-05T21:54:06-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="4" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-042149</accession-number>
+        <filing-date>2026-11-05</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126042149/0001140361-26-042149-index.htm</filing-href>
+        <filing-type>4</filing-type>
+        <form-name>Statement of changes in beneficial ownership of securities</form-name>
+        <size>4 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-042149</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126042149/0001140361-26-042149-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-05 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-042149  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 4 KB</summary>
+      <title>4  - Statement of changes in beneficial ownership of securities</title>
+      <updated>2026-11-05T18:30:13-05:00</updated>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="424B2" />
+      <content type="text/xml">
+        <accession-number>0001140361-26-042046</accession-number>
+        <act>33</act>
+        <file-number>333-282937</file-number>
+        <file-number-href>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;filenum=333-282937&amp;owner=include&amp;count=10</file-number-href>
+        <filing-date>2026-11-05</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/320193/000114036126042046/0001140361-26-042046-index.htm</filing-href>
+        <filing-type>424B2</filing-type>
+        <film-number>261524953</film-number>
+        <form-name>Prospectus [Rule 424(b)(2)]</form-name>
+        <size>660 KB</size>
+      </content>
+      <id>urn:tag:sec.gov,2008:accession-number=0001140361-26-042046</id>
+      <link href="https://www.sec.gov/Archives/edgar/data/320193/000114036126042046/0001140361-26-042046-index.htm" rel="alternate" type="text/html" />
+      <summary type="html">&amp;lt;b&amp;gt;Filed:&amp;lt;/b&amp;gt; 2026-11-05 &amp;lt;b&amp;gt;AccNo:&amp;lt;/b&amp;gt; 0001140361-26-042046  &amp;lt;b&amp;gt;Size:&amp;lt;/b&amp;gt; 660 KB</summary>
+      <title>424B2  - Prospectus [Rule 424(b)(2)]</title>
+      <updated>2026-11-05T08:14:16-05:00</updated>
+    </entry>
+    <id>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000320193</id>
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000320193&amp;owner=include&amp;start=0&amp;count=10" rel="alternate" type="text/html" />
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000320193&amp;owner=include&amp;start=0&amp;count=10&amp;output=atom" rel="self" type="application/atom+xml" />
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000320193&amp;type=&amp;datea=&amp;dateb=&amp;owner=include&amp;count=10&amp;output=atom&amp;start=10" rel="next" type="application/atom+xml" />
+    <title>Apple Inc. (0000320193)</title>
+    <updated>2026-11-20T13:05:17-05:00</updated>
+</feed>

@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Headlines, stage 1: a company's SEC filings said the minute they are public, 2026-11-20 — not yet heard by Cody, not on the VPS
+
+Cody: "start with EDGAR, then file the headlines plan in TODO ... edgar first step with headlines,
+yes." The whole plan (EDGAR, then Alpaca's Benzinga wire with Cody's key, then Finnhub; CryptoPanic
+only if crypto proves thin, its credit in the manual and never spoken) is in
+`docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md` section 4 and in TODO under Headlines.
+
+- **Said on arrival.** For every stock on an open chart tab and every held stock (paper or venue),
+  EDGAR's per-company Atom feed is read once a minute while EDGAR accepts filings (weekdays 6 AM to
+  10 PM New York) and every 15 minutes otherwise. A new filing is said on the alerts tier (Shift+F2
+  mutes it): *"AAPL filed an 8-K: earnings results."*, one sentence per stock per read, the rest
+  counted (*"2 more filings."*), the age added past ten minutes (*"Accepted 25 minutes ago."*), and
+  nothing said more than two hours late. The first read of a stock is a baseline (except a filing
+  from the last five minutes), so opening a chart reads nothing out.
+- **What counts.** An item and form table in `EdgarFilingWords`: earnings (8-K 2.02), bankruptcy,
+  cybersecurity incidents, write-downs, delisting notices, auditor changes, non-reliance, change in
+  control, tender offers and merger proxies are Important; 10-Q/10-K, officer changes, other 8-K
+  items, 13D, S-1 and late-filing notices are Medium; insider Forms 3/4/5/144, 13G and proxies are
+  Low. Prospectus supplements, free-writing prospectuses, extra proxy material and 25-NSE are never
+  said.
+- **Setting:** Settings, Narration, **Headlines level** (Off by default, Important only, Important and
+  medium, All); Off fetches nothing. Searchable in Settings. Kept with the other narration
+  preferences, out of saved workspaces.
+- **Sound:** its own short rising triangle-wave blip (two notes, three when Important), not the
+  market-event bell; Shift+F3 silences it; the Sound Designer lists **Headline** for a patch.
+- **Also:** a desktop notification titled "Headline" when the window is hidden; Alt+U keeps each one
+  under a new **Headlines** category, read after Events; the asset dossier (Alt+I) on a US stock
+  has a **Recent filings** tab (twenty newest, New York acceptance time, words, and whether it would
+  be announced), from the submissions document it already fetched.
+- **Code:** `Core/Services/Headlines/` (parser, words, tracker and wording, `EdgarHeadlineLiveNotices`),
+  `HeadlineEvent`, `ICompanyFilingSource` on `EdgarCompanyProfileSource` (which now also backs off
+  ten minutes after a failed ticker-index load), `IHeldPositionReader` on `MarketEventLiveNotices`,
+  registered on both heads and resolved by `AppStartupService`. 59 new tests with fixtures captured
+  from EDGAR on 2026-11-20 (Apple's Atom feed and a trimmed submissions document; the two shapes
+  agree filing for filing); ten sabotages each turned their guard red.
+- **Caveats:** never run against live EDGAR end to end (the poller was tested on a fake source and
+  clock); the importance table is my judgement; tickers are matched as EDGAR spells them, so class
+  shares such as BRK.B may be missed; nothing while the browser is closed (the same gap as market
+  events); not heard by Cody; not deployed.
+
 ### Website: an email list (sends nothing until Cody adds a Brevo API key) and two FAQ answers brought up to date, 2026-11-20 — not yet seen by Cody
 
 Cody: "fix the FAQ out of date questions", "add the email sign up box. I'll write, you send", "add the

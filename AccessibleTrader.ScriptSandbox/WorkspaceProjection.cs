@@ -178,6 +178,9 @@ public static class WorkspaceProjection
         // Whether coming back after five minutes offers an Alt+U catch-up. A host narration
         // preference; a strategy's signals must not change because the user ticked a prompt box.
         nameof(WorkspaceState.ChangeLogOfferOnReturn),
+        // How many headlines are said aloud. A host narration preference; a strategy's signals
+        // must not change because the user turned on SEC filing headlines.
+        nameof(WorkspaceState.HeadlinesLevel),
         // A brick chart's real bars and the spans that built its bricks. The projection sends
         // MarketBars as Data (scripts trade, so they must never see a brick's box edge as the
         // market price); these fields are the drawing machinery behind that.

@@ -119,6 +119,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Offer the Alt+U catch-up when the user comes back after five minutes.</summary>
         bool ChangeLogOfferOnReturn { get; set; }
 
+        /// <summary>"Headlines": off, important only, important and medium, or all.</summary>
+        string HeadlinesLevel { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -514,6 +517,18 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.ChangeLogOfferOnReturn, true);
             set => Set(SettingsKeys.ChangeLogOfferOnReturn, value);
+        }
+
+        /// <summary>
+        /// "Headlines": off, important only, important and medium, or all. Default OFF, like the
+        /// market events — nothing is fetched until the user picks a level.
+        /// </summary>
+        public string HeadlinesLevel
+        {
+            get => GetString(SettingsKeys.HeadlinesLevel) is { Length: > 0 } value
+                ? value
+                : Services.MarketEvents.MarketEventLevels.Off;
+            set => Set(SettingsKeys.HeadlinesLevel, value);
         }
 
         /// <summary>

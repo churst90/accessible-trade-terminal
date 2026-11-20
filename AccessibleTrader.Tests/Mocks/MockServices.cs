@@ -261,6 +261,7 @@ namespace AccessibleTrader.Tests.Mocks
         public void PlayCrossEarcon(int direction, float pan) { }
         public void FireMarketEventEarcon(WorkspaceState state, int index) { }
         public void PlayMarketEventBell(WorkspaceState state, AccessibleTrader.Core.Services.MarketEvents.MarketEventImportance importance) { }
+        public void PlayHeadlineSound(WorkspaceState state, AccessibleTrader.Core.Services.MarketEvents.MarketEventImportance importance) { }
         public Task FireClusterTicksAsync(WorkspaceState state, int dataIndex, string excludeSeriesId, int excludeComponentIndex, bool crossSeriesMode = false) => Task.CompletedTask;
     }
 

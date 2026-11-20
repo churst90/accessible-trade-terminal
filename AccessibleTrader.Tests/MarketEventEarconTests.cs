@@ -321,6 +321,36 @@ public class MarketEventEarconTests
     private sealed record VoiceCall(int Slot, double Frequency, float Volume, double Duration);
 
     [Fact]
+    public void TheHeadlineSoundIsARisingTriangleBlipNotTheBell()
+    {
+        var driver = new SpyDriver();
+        var sonifier = Sonifier(driver);
+
+        sonifier.PlayHeadlineSound(State(), MarketEventImportance.High);
+        var high = sonifier.LastHeadlineNotes;
+        Assert.Equal(new[] { NavigationSonifier.HeadlineA5, NavigationSonifier.HeadlineE6, NavigationSonifier.HeadlineA6 },
+            high.Select(n => n.Frequency));
+        Assert.Equal(new[] { 0.0, 70.0, 140.0 }, high.Select(n => n.DelayMs));
+        Assert.Empty(sonifier.LastMarketEventBellNotes);
+
+        sonifier.PlayHeadlineSound(State(), MarketEventImportance.Low);
+        Assert.Equal(2, sonifier.LastHeadlineNotes.Count);
+        Assert.True(sonifier.LastHeadlineNotes[0].Volume < high[0].Volume);
+    }
+
+    [Fact]
+    public void TheHeadlineSoundHonoursShiftF3ButNotTheEventBarBox()
+    {
+        var sonifier = Sonifier(new SpyDriver());
+
+        sonifier.PlayHeadlineSound(State(earcons: false), MarketEventImportance.High);
+        Assert.Empty(sonifier.LastHeadlineNotes);
+
+        sonifier.PlayHeadlineSound(State(sound: false), MarketEventImportance.High);
+        Assert.NotEmpty(sonifier.LastHeadlineNotes);
+    }
+
+    [Fact]
     public void TheLiveNoticeBellIsTheSameBellWithoutABar()
     {
         var driver = new SpyDriver();

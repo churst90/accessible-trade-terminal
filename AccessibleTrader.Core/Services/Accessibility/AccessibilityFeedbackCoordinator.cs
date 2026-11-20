@@ -178,6 +178,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _speechRouter.Speak(e.Text, interrupt: false, channel: SpeechChannel.Event);
             }));
 
+            // Live headlines (stage 1: SEC filings). The same Event tier for the same reason,
+            // with their own sound so a filing is not mistaken for a market event.
+            _subscriptions.Add(_eventBus.Subscribe<HeadlineEvent>(e =>
+            {
+                _navigationSonifier?.PlayHeadlineSound(_store.State, e.Importance);
+                _speechRouter.Speak(e.Text, interrupt: false, channel: SpeechChannel.Event);
+            }));
+
             _subscriptions.Add(_eventBus.Subscribe<NewBarEvent>(OnNewBar));
             _subscriptions.Add(_eventBus.Subscribe<IntraBarUpdateEvent>(OnIntraBarUpdate));
 

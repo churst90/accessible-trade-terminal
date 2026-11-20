@@ -126,6 +126,23 @@ public class DesktopNotificationServiceTests
         Assert.Empty(h.Notifier.Shown);
     }
 
+    [Fact]
+    public void AHeadlineIsToastedOnlyWhileTheWindowIsHidden()
+    {
+        var hidden = new Harness(notify: true, presence: new Presence(canReach: true, visible: false));
+        var visible = new Harness(notify: true, presence: new Presence(canReach: true, visible: true));
+        var e = new HeadlineEvent("AAPL filed an 8-K: earnings results.",
+            MarketEventImportance.High, "edgar|r", "AAPL");
+
+        hidden.Bus.Publish(e);
+        visible.Bus.Publish(e);
+
+        var shown = Assert.Single(hidden.Notifier.Shown);
+        Assert.Equal("Headline", shown.Title);
+        Assert.Equal("AAPL filed an 8-K: earnings results.", shown.Body);
+        Assert.Empty(visible.Notifier.Shown);
+    }
+
     // ── THE RULE: the chart in front of the trader is never toasted ──────────
 
     /// <summary>

@@ -28,7 +28,10 @@ namespace AccessibleTrader.Core.Services.Analysis
         IReadOnlyList<(DateTime Filed, double Value)> Eps,
         IReadOnlyList<(DateTime Filed, double Value)> Revenue,
         IReadOnlyList<(DateTime Date, int Count)> InsiderFilings,
-        IReadOnlyList<(DateTime Date, int Count)> MaterialEvents);
+        IReadOnlyList<(DateTime Date, int Count)> MaterialEvents,
+        // The newest filings, for the dossier's "Recent filings" list. Null from a source that
+        // does not read them.
+        IReadOnlyList<Headlines.EdgarFiling>? RecentFilings = null);
 
     public interface ICryptoProfileSource
     {
@@ -39,6 +42,19 @@ namespace AccessibleTrader.Core.Services.Analysis
     public interface ICompanyProfileSource
     {
         Task<CompanyProfile?> GetAsync(string ticker, CancellationToken ct = default);
+    }
+
+    /// <summary>
+    /// A company's newest SEC filings, for the live headline notices. Null when the symbol is not
+    /// an EDGAR filer (crypto, most ETFs, non-US listings) or the list could not be read; the
+    /// caller tells those apart only by trying again later.
+    /// </summary>
+    public interface ICompanyFilingSource
+    {
+        Task<IReadOnlyList<Headlines.EdgarFiling>?> RecentFilingsAsync(string ticker, CancellationToken ct = default);
+
+        /// <summary>Whether the symbol is in EDGAR's ticker index. Loads the index once.</summary>
+        Task<bool> IsFilerAsync(string ticker, CancellationToken ct = default);
     }
 
     // ── Crypto ──────────────────────────────────────────────────────────────────

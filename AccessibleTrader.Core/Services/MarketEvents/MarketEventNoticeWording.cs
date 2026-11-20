@@ -17,6 +17,13 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         double? StopPrice,
         MarketType? Market);
 
+    /// <summary>Reads the positions the trader holds, on paper or at every connected venue.
+    /// <see cref="MarketEventLiveNotices"/> is the one implementation.</summary>
+    public interface IHeldPositionReader
+    {
+        Task<IReadOnlyList<MarketEventHeldPosition>> ReadHeldPositionsAsync();
+    }
+
     /// <summary>One live update from the focused chart, kept with its own time and symbol.</summary>
     public sealed record MarketEventPriceSample(DateTime AtUtc, string Symbol, double Close);
 

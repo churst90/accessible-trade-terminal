@@ -38,6 +38,10 @@ namespace AccessibleTrader.Core.Services.Audio
         /// same private core.
         /// </summary>
         void PlayMarketEventBell(WorkspaceState state, MarketEventImportance importance);
+
+        /// <summary>A live headline's own sound (not the bell); honours Shift+F3 and the Sound
+        /// Designer's Headline override.</summary>
+        void PlayHeadlineSound(WorkspaceState state, MarketEventImportance importance);
         // SonifySeries/SonifyComponent were removed on 2026-08-25. They were a second way to
         // write voice slot 0, exported all the way up through IAudioFeedbackRouter and
         // ISonificationManager, and called by nothing in production. SyncNavigationSlots is
@@ -654,6 +658,66 @@ namespace AccessibleTrader.Core.Services.Audio
             if (!state.MarketEventsSoundOnEventBars) return;
             if (!state.IsEarconsEnabled) return;
             PlayBellCore(state, importance, pan: 0, delay: 0);
+        }
+
+        internal const double HeadlineA5 = 880.0;
+        internal const double HeadlineE6 = 1318.51;
+        internal const double HeadlineA6 = 1760.0;
+
+        /// <summary>
+        /// The headline sound: a quick rising blip in a triangle wave, nothing like the market
+        /// event's sine bell, so a filing and a CPI countdown are told apart before a word is
+        /// said. Two notes; an important headline adds a third, higher one. Quieter at lower
+        /// importance, scaled by the chart volume like the bell.
+        /// </summary>
+        internal static IReadOnlyList<MarketEventBellNote> HeadlineNotes(
+            MarketEventImportance importance, float chartVolume)
+        {
+            float v = importance switch
+            {
+                MarketEventImportance.High => 0.12f,
+                MarketEventImportance.Medium => 0.09f,
+                _ => 0.06f,
+            };
+            v = Math.Clamp(v * chartVolume, 0f, 1f);
+            var notes = new List<MarketEventBellNote>(3)
+            {
+                new(HeadlineA5, 0.06, v, 0),
+                new(HeadlineE6, 0.06, v, 70),
+            };
+            if (importance == MarketEventImportance.High)
+                notes.Add(new MarketEventBellNote(HeadlineA6, 0.08, v, 140));
+            return notes;
+        }
+
+        /// <summary>What the last <see cref="PlayHeadlineSound"/> played, for tests. Empty when
+        /// it was gated off or a Sound Designer patch played instead.</summary>
+        internal IReadOnlyList<MarketEventBellNote> LastHeadlineNotes { get; private set; }
+            = Array.Empty<MarketEventBellNote>();
+
+        /// <summary>
+        /// A live headline's sound, centred. Honours Shift+F3 (earcons) and the Sound Designer's
+        /// Headline override; there is no separate box for it, the level setting is the switch.
+        /// </summary>
+        public void PlayHeadlineSound(WorkspaceState state, MarketEventImportance importance)
+        {
+            LastHeadlineNotes = Array.Empty<MarketEventBellNote>();
+            if (!state.IsEarconsEnabled) return;
+
+            float scale = importance switch
+            {
+                MarketEventImportance.High => 1.0f,
+                MarketEventImportance.Medium => 0.75f,
+                _ => 0.5f,
+            };
+            if (EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
+                    EarconPatchPlayer.HeadlineKey, scale, 0))
+                return;
+
+            var notes = HeadlineNotes(importance, state.ChartVolume);
+            LastHeadlineNotes = notes;
+            foreach (var note in notes)
+                PlayNote(note.Frequency, note.Duration, "triangle", note.Volume, 0, note.DelayMs);
         }
 
         /// <summary>The one bell: override first, then the notes, shared by both entry points.</summary>

@@ -32,7 +32,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// kept in <see cref="_fired"/> for the life of the service instance.
     /// </para>
     /// </summary>
-    public sealed class MarketEventLiveNotices : IDisposable
+    public sealed class MarketEventLiveNotices : IDisposable, IHeldPositionReader
     {
         private const int MaxSamples = 5000;
         private static readonly TimeSpan SampleRetention = TimeSpan.FromMinutes(70);
@@ -470,6 +470,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     p.Symbol, p.Quantity, venue, StopPriceFor(p.Symbol, p.Quantity, orders), market));
             }
         }
+
+        /// <summary>A fresh read of every held position, for the headline notices. Not cached:
+        /// the caller decides how often (every few minutes).</summary>
+        public async Task<IReadOnlyList<MarketEventHeldPosition>> ReadHeldPositionsAsync()
+            => (await ReadHeldAsync(_store.State).ConfigureAwait(false)).Positions;
 
         private static double? StopPriceFor(
             string symbol, double quantity, IReadOnlyList<OpenOrder> orders)

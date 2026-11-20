@@ -93,6 +93,7 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             ChangeLogCategory.Money => "Money",
             ChangeLogCategory.Alert => "Alerts",
             ChangeLogCategory.Event => "Events",
+            ChangeLogCategory.News => "Headlines",
             ChangeLogCategory.Unusual => "Unusual moves",
             ChangeLogCategory.Signal => "Signals",
             ChangeLogCategory.Connection => "Connection",

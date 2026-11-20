@@ -417,6 +417,9 @@ namespace AccessibleTrader.Sdk.Models
         // Offer the Alt+U catch-up prompt when coming back after five minutes. A host
         // narration preference; never carried into the script sandbox.
         bool ChangeLogOfferOnReturn = true,
+        // "Headlines": off (default), importantOnly, importantAndMedium or all. A host narration
+        // preference, read by the headline notices; never carried into the script sandbox.
+        string HeadlinesLevel = "off",
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null
@@ -474,6 +477,7 @@ namespace AccessibleTrader.Sdk.Models
             MarketEventsWatched: Array.Empty<string>(),
             MarketPulseCryptoStart: "midnightUtc",
             ChangeLogOfferOnReturn: true,
+            HeadlinesLevel: "off",
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

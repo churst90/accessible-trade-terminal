@@ -378,11 +378,52 @@ namespace AccessibleTrader.Core.Services.Analysis
                     events90 > 0 ? DossierStatus.Ok : DossierStatus.NoData, "8-K."),
             }, now));
 
+            sections.Add(RecentFilingsSection(c.RecentFilings, now));
+
             flags.Add(new DossierFlag("No recent financial filing",
                 c.Eps.Count == 0 || c.Eps.Max(e => e.Filed) < DateTime.UtcNow.AddDays(-200),
                 c.Eps.Count == 0 ? "No EPS values on record."
                     : $"Most recent EPS filing {c.Eps.Max(e => e.Filed):yyyy-MM-dd}.",
                 "SEC EDGAR"));
+        }
+
+        /// <summary>
+        /// The newest filings in words, newest first, each with its acceptance time in New York —
+        /// the same words the live headline notices use, so a headline heard earlier can be found
+        /// again here. A filing the notices never announce (a prospectus supplement, say) is listed
+        /// by its form name with no importance note.
+        /// </summary>
+        internal static DossierSection RecentFilingsSection(
+            IReadOnlyList<Headlines.EdgarFiling>? filings, DateTime now)
+        {
+            const string title = "Recent filings";
+            if (filings == null)
+                return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
+                    "The filing list could not be read.");
+            if (filings.Count == 0)
+                return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
+                    "EDGAR lists no filings.");
+
+            var fields = filings
+                .OrderByDescending(f => f.AcceptedUtc)
+                .Select(f =>
+                {
+                    var imp = Headlines.EdgarFilingWords.Importance(f.Form, f.Items);
+                    string note = imp switch
+                    {
+                        MarketEvents.MarketEventImportance.High => "Important",
+                        MarketEvents.MarketEventImportance.Medium => "Medium",
+                        MarketEvents.MarketEventImportance.Low => "Low",
+                        _ => "Not announced",
+                    };
+                    return F(
+                        ExchangeTime.ToEasternString(f.AcceptedUtc, "yyyy-MM-dd h:mm tt") + " New York",
+                        Headlines.EdgarFilingWords.Label(f.Form, f.Items),
+                        "SEC EDGAR", DossierStatus.Ok, note);
+                })
+                .ToList();
+            return new DossierSection(title, DossierStatus.Ok, fields, now,
+                "Times are when EDGAR accepted the filing, which is when it became public.");
         }
 
         private static void AddSeries(List<DossierField> into, string label,

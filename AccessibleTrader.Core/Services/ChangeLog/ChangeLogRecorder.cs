@@ -57,6 +57,8 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             {
                 if (MapMarketEvent(e, NowUtc) is { } entry) Append(entry);
             }));
+            _subscriptions.Add(bus.Subscribe<HeadlineEvent>(
+                e => Append(MapHeadline(e, NowUtc))));
             _subscriptions.Add(bus.Subscribe<ConnectionStatusEvent>(e =>
             {
                 bool wasProblem = e.State is ConnectionState.Error or ConnectionState.Disconnected;
@@ -135,6 +137,16 @@ namespace AccessibleTrader.Core.Services.ChangeLog
                 Symbol: null,
                 Heard: false);
         }
+
+        /// <summary>A headline that was said: kept under News, with its symbol.</summary>
+        public static ChangeLogEntry MapHeadline(HeadlineEvent e, DateTime nowUtc)
+            => new(
+                ChangeLogKeys.Headline(e.Id),
+                nowUtc,
+                ChangeLogCategory.News,
+                e.Text,
+                e.Symbol,
+                Heard: false);
 
         public static ChangeLogEntry MapConnection(ConnectionStatusEvent e, DateTime nowUtc)
         {

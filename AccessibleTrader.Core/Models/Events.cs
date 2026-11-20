@@ -296,6 +296,19 @@ namespace AccessibleTrader.Core.Models
         // existing construction (and every test that builds one by hand) meaning read-out.
         Services.MarketEvents.MarketEventNoticeKind Kind = Services.MarketEvents.MarketEventNoticeKind.ReadOut);
 
+    /// <summary>
+    /// One live headline about a symbol the trader touches — an open chart or a held position.
+    /// Stage 1 publishes SEC filings only (<c>EdgarHeadlineLiveNotices</c>). Spoken on the Event
+    /// tier like a market-event notice (Shift+F2 mutes it) with its own sound, toasted only while
+    /// the window is hidden, and kept in the change log under News. <see cref="Id"/> is stable
+    /// per headline ("edgar|accession") so two producers make one change-log entry.
+    /// </summary>
+    public record HeadlineEvent(
+        string Text,
+        MarketEventImportance Importance,
+        string Id,
+        string Symbol);
+
     // ── UI Modal Events ───────────────────────────────────────────────────────
     /// <summary>Alt+J opens the empty form. Optional fields let the chart menu open it with a
     /// price alert at the clicked value, or an indicator alert on a named series/component.</summary>

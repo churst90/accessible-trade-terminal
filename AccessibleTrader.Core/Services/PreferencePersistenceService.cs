@@ -84,7 +84,8 @@ namespace AccessibleTrader.Core.Services
             bool MarketEventsSoundOnEventBars = true, string MarketEventsCountdowns = "15,1",
             IReadOnlyList<string>? MarketEventsWatched = null,
             string MarketPulseCryptoStart = "midnightUtc",
-            bool ChangeLogOfferOnReturn = true);
+            bool ChangeLogOfferOnReturn = true,
+            string HeadlinesLevel = "off");
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -96,7 +97,7 @@ namespace AccessibleTrader.Core.Services
             s.MarketEventsLevel, s.MarketEventsEconomy, s.MarketEventsFed,
             s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings,
             s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns, s.MarketEventsWatched,
-            s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn);
+            s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn, s.HeadlinesLevel);
 
         public void Initialize()
         {
@@ -146,6 +147,7 @@ namespace AccessibleTrader.Core.Services
                     MarketEventsWatched = _settings.MarketEventsWatched,
                     MarketPulseCryptoStart = _settings.MarketPulseCryptoStart,
                     ChangeLogOfferOnReturn = _settings.ChangeLogOfferOnReturn,
+                    HeadlinesLevel = _settings.HeadlinesLevel,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -194,6 +196,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.MarketEventsWatched = p.MarketEventsWatched ?? Array.Empty<string>();
                         _settings.MarketPulseCryptoStart = p.MarketPulseCryptoStart;
                         _settings.ChangeLogOfferOnReturn = p.ChangeLogOfferOnReturn;
+                        _settings.HeadlinesLevel = p.HeadlinesLevel;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

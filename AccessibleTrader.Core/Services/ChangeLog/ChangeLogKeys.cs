@@ -26,6 +26,8 @@ namespace AccessibleTrader.Core.Services.ChangeLog
         public static string Event(string eventId, MarketEventNoticeKind kind)
             => $"event|{eventId}|{kind}";
 
+        public static string Headline(string headlineId) => $"news|{headlineId}";
+
         public static string Connection(string provider, ConnectionState state, DateTime nowUtc)
             => $"conn|{provider}|{state}|{Minute(nowUtc)}";
 

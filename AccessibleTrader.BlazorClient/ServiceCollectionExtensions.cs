@@ -727,6 +727,14 @@ namespace AccessibleTrader.BlazorClient
             // and starts its own timer; AppStartupService resolves it so the clock is running
             // before the first chart is loaded.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // Headlines, stage 1: SEC filings for touched stocks. The filing source IS the
+            // dossier's EDGAR source (one ticker index, one HTTP client); the held positions come
+            // from the market-event service's reader. Resolved by AppStartupService (4c).
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketEvents.IHeldPositionReader>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>());
+            services.AddSingleton<ICompanyFilingSource>(sp =>
+                (ICompanyFilingSource)sp.GetRequiredService<ICompanyProfileSource>());
+            services.AddSingleton<AccessibleTrader.Core.Services.Headlines.EdgarHeadlineLiveNotices>();
             // Alt+P. Singleton on this head because the Pulse watchlist is per-user singleton
             // here; on the WebHost it is scoped beside the per-circuit watchlists.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();

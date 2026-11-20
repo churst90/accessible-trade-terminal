@@ -869,6 +869,33 @@
                         </div>
                     </fieldset>
 
+                    @* Headlines, stage 1: SEC filings. Off by default like the market events;
+                       nothing is fetched until a level is picked. *@
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin:16px 0 0 0;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Headlines</legend>
+
+                        <div class="modal-row">
+                            <label for="s-headlines-level">Headlines level</label>
+                            <select id="s-headlines-level"
+                                    aria-describedby="s-headlines-level-hint"
+                                    value="@_headlinesLevel"
+                                    @onchange="e => _headlinesLevel = e.Value?.ToString() ?? _headlinesLevel">
+                                <option value="off" selected="@(_headlinesLevel == "off")">Off</option>
+                                <option value="importantOnly" selected="@(_headlinesLevel == "importantOnly")">Important only</option>
+                                <option value="importantAndMedium" selected="@(_headlinesLevel == "importantAndMedium")">Important and medium</option>
+                                <option value="all" selected="@(_headlinesLevel == "all")">All</option>
+                            </select>
+                        </div>
+                        <p id="s-headlines-level-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            Off by default. Says a US company's SEC filings the minute they are
+                            public, for the stocks on your open charts and in your positions:
+                            "AAPL filed an 8-K: earnings results." Important is results, bankruptcy,
+                            a change of auditor or control, and the like; medium adds quarterly and
+                            annual reports and other 8-Ks; all adds insider trades. Muted by
+                            Shift+F2, not F2. Alt+I lists each company's recent filings.
+                        </p>
+                    </fieldset>
+
                     @* Alt+P's one sentence. The Pulse list is a watchlist (Alt+M); this only
                        chooses where a crypto change starts, because midnight UTC and a rolling
                        24 hours answer different questions and both are defensible. *@
@@ -1531,6 +1558,7 @@
     private string _marketEventsCountdowns = "15,1";
     private string _marketPulseCryptoStart = "midnightUtc";
     private bool _changeLogOfferOnReturn = true;
+    private string _headlinesLevel = "off";
     private string _marketEventStatus = "";
     private string _marketEventKalshiStatus = "";
 
@@ -2180,6 +2208,7 @@
         _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
         _marketPulseCryptoStart = Store.State.MarketPulseCryptoStart;
         _changeLogOfferOnReturn = Store.State.ChangeLogOfferOnReturn;
+        _headlinesLevel = Store.State.HeadlinesLevel;
         _marketEventStatus = NoKeyMarketEventStatus();
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
@@ -2544,6 +2573,7 @@
             MarketEventsCountdowns = _marketEventsCountdowns,
             MarketPulseCryptoStart = _marketPulseCryptoStart,
             ChangeLogOfferOnReturn = _changeLogOfferOnReturn,
+            HeadlinesLevel = _headlinesLevel,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

@@ -708,6 +708,13 @@ namespace AccessibleTrader.WebHost
             // One per circuit: its countdowns belong to this browser session, and its timer
             // stops when the circuit is disposed. AppStartupService resolves it on start.
             services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>();
+            // Headlines, stage 1: SEC filings for touched stocks, one poller per circuit like the
+            // market-event notices. The filing source is the dossier's EDGAR source.
+            services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.IHeldPositionReader>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.MarketEventLiveNotices>());
+            services.AddScoped<ICompanyFilingSource>(sp =>
+                (ICompanyFilingSource)sp.GetRequiredService<ICompanyProfileSource>());
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.EdgarHeadlineLiveNotices>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal

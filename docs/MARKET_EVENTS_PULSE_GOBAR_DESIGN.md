@@ -263,6 +263,57 @@ unavailable, Finnhub key not set".
 
 ---
 
+## 4. Headlines (Cody, 2026-11-20)
+
+Cody: "what remains for the bloomberg type work....headlines? ... can headlines be announced as soon
+as they are received? Not on bar closes ... Could it be an extension of the alt I dossier?" Then:
+"start with EDGAR ... edgar first step with headlines, yes."
+
+### One store, four ways to reach it
+
+A headline is a short sentence about one symbol, with an importance (the market events' three
+levels), a stable id and the time it became public. Each source produces them; one place decides
+what is new and what is said. They reach the trader four ways:
+
+- **Said on arrival**, on the alerts tier (Shift+F2 mutes it, F2 does not), with its own sound,
+  not the market-event bell; toasted when the window is hidden. Its own setting, **Headlines
+  level**, Off by default, with the market events' four levels.
+- **The Alt+I dossier**, as a section for the asset on the chart (stage 1: Recent filings).
+- **Alt+U's change log**, as the **News** category (read as "Headlines"), after Events.
+- **Later:** a news list (Go bar `NEWS`), and headlines placed on the bar they arrived in, with
+  the apostrophe jumps the market events use.
+
+### What makes a headline worth saying
+
+Not "any headline": only symbols the trader **touches** (a stock on an open chart tab, a position
+held on paper or at a venue), a per-source importance table, one sentence per symbol per poll (the
+most important said in full, the rest counted), a first look that is a baseline rather than a
+read-out, and nothing said more than two hours late. Wire sources will add a dedupe across sources
+(the same story from two wires is one headline) and a per-symbol cap per few minutes.
+
+### The sources, in order
+
+1. **SEC EDGAR — BUILT 2026-11-20, not yet heard by Cody.** No key, no account; the filing itself is
+   the primary source, minutes before a wire rewrites it. See stage 7 below.
+2. **Alpaca news (Benzinga) — next.** A websocket of wire headlines with tickers attached, stocks
+   and crypto, real time. Cody has an Alpaca live and paper key (2026-11-20), so it can be built
+   and tried. Needs: the key read from the app's key store (never shown or logged), the dedupe and
+   per-symbol cap above, and the news list.
+3. **Finnhub company news — after that**, with the key Cody is getting for earnings: a second wire
+   to fill gaps, polled. Plus on-bar placement.
+4. **CryptoPanic — only if crypto coverage proves thin.** It is not needed: Alpaca's feed carries
+   crypto tickers and Finnhub has a crypto category. If it is ever added, its credit goes in the
+   manual and never in speech (Cody, 2026-11-20); its terms may ask for a visible "Powered by
+   CryptoPanic" next to the feed, which a list screen can carry, so check the terms or ask them.
+
+### Robustness
+
+Every source fails on its own: a failed read is not an empty list (it teaches the "what is new"
+tracker nothing, so a filing accepted during an outage is still said within two hours), and a
+source with no key or no network is silent rather than an error in speech. **Known gap**, shared
+with the market events: nothing is said while no window is open; the browser-closed delivery item
+in TODO covers both.
+
 ## Stages
 
 Each stage is one or more DeepSeek runs from a handoff; Claude reviews, re-runs the tests and the
@@ -462,3 +513,27 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
       first-word-only (the one exception to either order), `FLAT` takes no symbol, and the
       several-position sentence names the count before the first position's sentence. The box has
       not been heard by Cody.
+
+7. **Headlines, stage 1: SEC filings — BUILT 2026-11-20 by Claude, not yet heard by Cody.** The
+   per-company EDGAR Atom feed (`browse-edgar?action=getcompany&output=atom&count=20`, about 10 KB;
+   the submissions JSON the dossier already reads is 160 KB uncompressed and the host's HTTP client
+   asks for no compression) is read for each touched stock every minute while EDGAR accepts filings
+   (weekdays 06:00 to 22:00 New York) and every 15 minutes otherwise, at most two reads per
+   five-second tick; a symbol EDGAR does not know is asked about hourly. The pieces:
+   `EdgarFilingParser` (both shapes, pinned by fixtures captured 2026-11-20, which agree filing for
+   filing), `EdgarFilingWords` (the item and form table; forms with no row such as 424B2, FWP,
+   DEFA14A and 25-NSE are never announced), `EdgarHeadlineTracker` (baseline on first look except
+   the last 5 minutes; nothing older than 2 hours; forgets symbols no longer touched),
+   `EdgarHeadlineWording` (one sentence, "N more filings", "Accepted N minutes ago." past 10
+   minutes), and `EdgarHeadlineLiveNotices` (the clock, the reads, `HeadlineEvent`). The filing
+   source is the dossier's `EdgarCompanyProfileSource` (one ticker index, one HTTP client); held
+   positions come through a new `IHeldPositionReader` that `MarketEventLiveNotices` implements.
+   Singleton on MAUI, scoped per circuit on the WebHost, resolved by `AppStartupService`. The
+   dossier's **Recent filings** section reads the twenty newest from the submissions document it
+   already fetched, so it costs no request.
+   **Differences from the plan:** the change-log category is named `News` in code and read as
+   "Headlines"; the headline sound has no box of its own (the level is the switch; Shift+F3 and a
+   Sound Designer `Headline` patch apply); the settings value is kept out of saved workspaces like
+   the other narration preferences. **Not tried against live EDGAR end to end** (the parsers were
+   checked against live responses captured the same day, the poller only against a fake source);
+   not heard by Cody; not on the VPS.

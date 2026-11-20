@@ -1838,6 +1838,53 @@ browser itself is closed yet.
 For CPI, jobs, PPI and GDP the future dates come from FRED, so **without a key the only future
 countdowns are Fed decisions**, which the shipped seed carries into 2027.
 
+### Headlines: company filings (SEC EDGAR)
+
+A US company's filings with the SEC are said the minute EDGAR makes them public, for the stocks you
+are looking at or holding: *"AAPL filed an 8-K: earnings results."* This is the first kind of
+headline; news wires are planned (see below). It needs no key and no account.
+
+**Turning it on.** Settings, Narration, **Headlines**, **Headlines level**: **Off** (the default),
+**Important only**, **Important and medium**, or **All**. Off means nothing is fetched at all.
+
+**Which stocks.** Every open chart tab whose market is a stock, and every stock you hold a position
+in (paper or at a venue), each once. A crypto pair, a currency or most ETFs are not SEC filers and
+are skipped; a symbol EDGAR does not know is asked about again only once an hour.
+
+**How soon.** Each of those stocks is checked once a minute while EDGAR accepts filings (weekdays,
+6 AM to 10 PM New York time) and every 15 minutes otherwise. A filing is therefore said within about
+a minute of becoming public, between bar closes, not at them.
+
+**What is said, and what is not.** One sentence per stock per check. The most important new filing
+is said in full and the rest are counted: *"AAPL filed an 8-K: earnings results. 2 more filings."*
+How important a filing is:
+
+| Important | Medium | Low (said only at **All**) |
+| --- | --- | --- |
+| 8-K with earnings results, bankruptcy, a cybersecurity incident, a completed acquisition or sale, debt repayment brought forward, a write-down, a delisting notice, an auditor change, past statements no longer reliable, a change in control; tender offers and the company's answer; merger proxies | 8-K with a new or ended material agreement, new debt, job-cut costs, an unregistered share sale, a change to shareholder rights, a director or officer change, a public disclosure or "other events"; 10-Q, 10-K, 20-F, 40-F; late-filing notices; 13D (a stake over 5 percent that may seek influence); S-1, F-1; deregistration (Form 15) | Insider trades (Forms 3, 4, 5) and planned insider sales (144); 13G (a passive stake); 6-K; S-3; proxy statements; the other 8-K items |
+
+An 8-K is as important as its most important item. Prospectus supplements (424B), free-writing
+prospectuses, extra proxy material and exchange notices (25-NSE) are **never** announced: a large
+company files them by the dozen for its bonds and notes. They still appear in the dossier's list.
+
+**When it starts.** The first check of a stock only takes note of what is already there, so opening
+a chart does not read out its last twenty filings — except a filing from the last five minutes,
+which is still news. A filing found more than ten minutes after EDGAR accepted it ends with its age:
+*"Accepted 25 minutes ago."* One found more than two hours late (the computer slept, the network was
+down) is not said at all; it is in the dossier. Closing a stock's last chart forgets it, and turning
+the level Off forgets everything, so neither reads out the gap afterwards.
+
+**How it sounds.** Spoken on the alerts tier, like market events: **Shift+F2 mutes it and F2 does
+not**. Each headline plays its own short sound, a quick rising two-note blip (three notes when it is
+important), so it is not mistaken for the market-event bell; Shift+F3 silences it, and the Sound
+Designer lists it as **Headline** for your own patch. When the app window is hidden it becomes a
+desktop notification titled "Headline". Every headline said is kept by **What changed (Alt+U)**
+under **Headlines**. As with market events, nothing arrives while the browser itself is closed.
+
+**Where to read more.** The asset dossier (Alt+I) on a US stock has a **Recent filings** tab: the
+twenty newest filings, newest first, each with the time EDGAR accepted it in New York time, its
+words, and whether headlines would announce it.
+
 ### The calendar screen (Alt+E)
 
 **Alt+E**, or the **Market events** toolbar button, opens a calendar of the days ahead. It opens
@@ -1971,9 +2018,10 @@ Alt+U only replays it with a time.
 > up 0.3, hotter than expected. Connection: 10:12, MEXC disconnected. Press Alt+U again for 2 more."*
 
 **The order is fixed:** money first (fills, partial fills, stop hits, take-profit hits), then
-alerts that fired, then market events released (the read-out and the figure), then unusual moves,
-signals, and connection problems. Stage 5b records the first four; the last two are reserved for a
-later stage and will appear where the order says when their producers arrive.
+alerts that fired, then market events released (the read-out and the figure), then headlines
+(company filings, read as **Headlines**), then unusual moves, signals, and connection problems.
+Unusual moves and signals are reserved for a later stage and will appear where the order says when
+their producers arrive.
 
 **The top five, then ask again.** A press reads at most five items and ends with **"Press Alt+U
 again for N more."** when anything remains. The next press starts **"N more."** and continues. The
@@ -3039,7 +3087,7 @@ thing. So you get:
 
 | Crypto | Equities |
 | --- | --- |
-| Chart read · Identity · Supply and dilution · Development · Disclosure · Checks | Chart read · Company · Financials · Filing activity · Checks |
+| Chart read · Identity · Supply and dilution · Development · Disclosure · Checks | Chart read · Company · Financials · Filing activity · Recent filings · Checks |
 
 Every individual field still names its own source. The **chart read never needs a network** and is
 always the first tab, so the dossier is useful even with every remote source down.

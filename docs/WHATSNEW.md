@@ -82,6 +82,20 @@ None of this has been seen or heard in the app yet.
   countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
   Fed decisions.
 
+### Headlines: company filings
+
+- **A US company's SEC filings are said the minute they are public**, for the stocks on your open
+  charts and the stocks you hold: "AAPL filed an 8-K: earnings results." Between bar closes, not at
+  them. No key needed.
+- **Off by default.** Settings, Narration, "Headlines level": important only, important and medium,
+  or all. Earnings, bankruptcies, auditor changes and takeover filings are important; quarterly and
+  annual reports and officer changes are medium; insider trades are low. Bond paperwork is never
+  said.
+- **One sentence per stock**, the most important filing first and the rest counted ("2 more
+  filings"). Shift+F2 mutes it, it has its own short sound, a desktop notification when the window is
+  hidden, and Alt+U keeps it under Headlines.
+- **The asset dossier (Alt+I)** has a new "Recent filings" tab with the twenty newest, in New York time.
+
 ### Chart types and price scales
 
 - **The chart type changes the price series itself, name and all.** Choose Line or Area and the
