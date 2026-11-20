@@ -630,7 +630,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>A range end as the bar rule names it: the day alone on a daily chart (its
         /// time is the same midnight on every bar), day and clock time intraday.</summary>
         private static string RangeStampFormat(WorkspaceState state)
-            => PlaybackNarration.BarSeconds(state) >= 86400 ? "MMM d yyyy" : "MMM d HH:mm";
+            => SpeechTimeFormatter.ShortStampFormat(PlaybackNarration.BarSeconds(state));
 
         /// <summary>
         /// Walk every drawing series in the workspace and find the nearest anchor handle

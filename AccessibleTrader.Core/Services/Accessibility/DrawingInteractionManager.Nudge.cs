@@ -541,7 +541,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string order = state.SpeechOrder ?? "";
             int barSeconds = PlaybackNarration.BarSeconds(state);
             // A daily bar has no time of day: "time only" names its date (see SpeechFormatter.NavigationTimestamp).
-            string format = order.Contains("TimeOnly") ? (barSeconds >= 86400 ? SpeechTimeFormatter.DateFormat : SpeechTimeFormatter.TimeFormat)
+            string format = order.Contains("TimeOnly") ? (SpeechTimeFormatter.IsDaily(barSeconds) ? SpeechTimeFormatter.DateFormat : SpeechTimeFormatter.TimeFormat)
                           : order.Contains("DateOnly") ? SpeechTimeFormatter.DateFormat
                           : SpeechTimeFormatter.DateTimeFormat;
             string text = SpeechTimeFormatter.FormatBar(stamp, barSeconds, format);

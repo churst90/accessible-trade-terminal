@@ -899,7 +899,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // tactile-readable on a 20-cell strip and avoids relying on the
                 // Grade-2 translator's capitalization indicator.
                 return SpeechTimeFormatter.FormatBar(state.Data[idx].Date, PlaybackNarration.BarSeconds(state),
-                                                     PlaybackNarration.BarSeconds(state) >= 86400 ? "MMM d yyyy" : "MMM d HH:mm")
+                                                     SpeechTimeFormatter.ShortStampFormat(PlaybackNarration.BarSeconds(state)))
                                           .ToLowerInvariant();
             }
 

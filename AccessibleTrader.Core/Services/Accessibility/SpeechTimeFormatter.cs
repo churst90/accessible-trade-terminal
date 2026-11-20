@@ -46,6 +46,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>Date with a year, for viewport and layout descriptions.</summary>
         public const string LongDateFormat = "MMMM d yyyy";
 
+        /// <summary>Short stamp of a daily bar, for a drawing's range end and the tactile strip: "Nov 18 2026".</summary>
+        public const string ShortDateFormat = "MMM d yyyy";
+
+        /// <summary>Short stamp of an intraday bar, for a drawing's range end and the tactile strip: "Nov 18 14:00".</summary>
+        public const string ShortDateTimeFormat = "MMM d HH:mm";
+
+        /// <summary>
+        /// Whether a chart with <paramref name="barSeconds"/> between bars is daily or coarser, so
+        /// its bars are named by date with no clock. The one place the threshold lives; until
+        /// 2026-11-20 six readouts wrote <c>barSeconds &gt;= 86400</c> out themselves (code review).
+        /// </summary>
+        public static bool IsDaily(int barSeconds) => barSeconds >= SecondsPerDay;
+
+        /// <summary>The short stamp format for this chart: the date alone when daily, date and clock intraday.</summary>
+        public static string ShortStampFormat(int barSeconds) => IsDaily(barSeconds) ? ShortDateFormat : ShortDateTimeFormat;
+
         /// <summary>Short date and clock, for a brick's real time window: "18 Nov 14:00".</summary>
         public const string BrickDateTimeFormat = "d MMM HH:mm";
 

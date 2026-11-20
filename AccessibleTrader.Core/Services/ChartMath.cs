@@ -387,7 +387,7 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public static string FormatCrosshairDate(DateTime d, int barSeconds)
             => Accessibility.SpeechTimeFormatter.FormatBar(d, barSeconds,
-                barSeconds >= 86400 ? "MMM d, yyyy" : "MMM d, yyyy HH:mm");
+                Accessibility.SpeechTimeFormatter.IsDaily(barSeconds) ? "MMM d, yyyy" : "MMM d, yyyy HH:mm");
 
         public static int BarSecondsOf(IReadOnlyList<Ohlcv> bars)
         {

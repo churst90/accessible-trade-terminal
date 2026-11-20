@@ -439,7 +439,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // stamp in the local zone — every daily bar "18:00" in Chicago (19:00 in summer), a
             // time no daily bar has. A daily bar has no time to tell, so it is named by its date.
             if (state.SpeechOrder.Contains("TimeOnly"))
-                return barSeconds >= 86400
+                return SpeechTimeFormatter.IsDaily(barSeconds)
                     ? SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.DateFormat)
                     : SpeechTimeFormatter.FormatTime(stamp);
             if (state.SpeechOrder.Contains("DateOnly"))
@@ -449,7 +449,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool dayChanged = _lastSpokenBarDay != day;
             _lastSpokenBarDay = day;
 
-            if (barSeconds >= 86400)
+            if (SpeechTimeFormatter.IsDaily(barSeconds))
                 return SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.LongDateFormat);
 
             return dayChanged || state.SpeakDateOnEveryBar
