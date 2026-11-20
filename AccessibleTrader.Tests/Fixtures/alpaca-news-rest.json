@@ -1,31 +1,35 @@
 {
   "news": [
     {
-      "id": 24843171,
-      "headline": "Apple Leader in Phone Sales in China for Second Straight Month in November With 23.6% Share, According to Market Research Data",
-      "author": "Charles Gross",
-      "created_at": "2022-01-05T22:00:37Z",
-      "updated_at": "2022-01-05T22:00:38Z",
-      "summary": "This headline-only article is meant to show you why a stock is moving, the most difficult aspect of stock trading",
-      "content": "<p>This headline-only article is meant to show you why a stock is moving, the most difficult aspect of stock trading....</p>",
-      "url": "https://www.benzinga.com/news/22/01/24843171/apple-leader-in-phone-sales-in-china-for-second-straight-month-in-november-with-23-6-share-according",
+      "author": "",
+      "content": "",
+      "created_at": "2026-11-20T13:01:25Z",
+      "headline": "Apple Developer Academy Showcase in Pohang",
+      "id": 127411699,
       "images": [],
-      "symbols": ["AAPL"],
-      "source": "benzinga"
+      "source": "fiscal.ai",
+      "summary": "Apple held its annual showcase for the Apple Developer Academy in Pohang, South Korea, featuring apps developed by students.",
+      "symbols": [
+        "AAPL"
+      ],
+      "updated_at": "2026-11-20T13:01:25Z",
+      "url": "https://www.koreaherald.com/article/10944423"
     },
     {
-      "id": 24843100,
-      "headline": "Apple &amp; Google Face New EU Probe",
-      "author": "Benzinga Newsdesk",
-      "created_at": "2022-01-05T20:15:00Z",
-      "updated_at": "2022-01-05T20:15:00Z",
-      "summary": "",
+      "author": "",
       "content": "",
-      "url": "https://www.benzinga.com/news/22/01/24843100",
+      "created_at": "2026-11-20T12:31:54Z",
+      "headline": "Apple Developing Autonomous AI Agent",
+      "id": 127398827,
       "images": [],
-      "symbols": ["AAPL", "GOOGL"],
-      "source": "benzinga"
+      "source": "fiscal.ai",
+      "summary": "Apple is reportedly developing an autonomous AI agent capable of performing multistep tasks, including writing code, browsing the web, and controlling applications.",
+      "symbols": [
+        "AAPL"
+      ],
+      "updated_at": "2026-11-20T12:31:54Z",
+      "url": "https://www.moomoo.com/stock/AAPL-US?chain_id=Name1K9-3FXPhg.1lg030g&global_content=%7B%22promote_id%22%3A13764%2C%22sub_promote_id%22%3A57%2C%22f%22%3A%22www.moomoo.com%2Fstock%2FPDD-US%22%7D"
     }
   ],
-  "next_page_token": "MTY0MTQyMDAzNzAwMDAwMDAwMHwyNDg0MzE3MQ=="
+  "next_page_token": "MTc5NTExNDg3ODAwMDAwMDAwMHwxMjY3ODE4OTQ="
 }

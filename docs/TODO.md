@@ -413,20 +413,29 @@ Alt+U under Headlines; only symbols the trader touches.
   source and clock); the item and form importance table is my judgement, so Cody may want to move
   things between levels; a stock is only known to EDGAR by its plain ticker (class shares such as
   BRK.B and foreign listings may be missed); nothing while the browser is closed.
-- [x] **Stage 2: Alpaca news (Benzinga) websocket.** **Built 2026-11-20, never connected, not heard,
-  not on the VPS.** Wire stories for touched stocks and coins on the Headlines level, the "Include
+- [x] **Stage 2: Alpaca news websocket.** **Built 2026-11-20, checked live that evening (read
+  only), retuned on real stories; not heard, not on the VPS.** On a free account the stories are
+  fiscal.ai's, in batches about every half hour, stocks only (no coin stories) — a slow second
+  source, which is why Finnhub (stage 3) matters. Wire stories for touched stocks and coins on the Headlines level, the "Include
   news wire stories" switch (default on; nothing without an Alpaca key), a 3-second gather and a
   1-minute cap per symbol, dedupe by story id, the dossier's Recent news tab. Caveats below.
-  - [ ] **Cody: put a working Alpaca key in the app's API Keys.** Both pairs in
-    `patches/api keys/alpaca-api-key.txt` were refused (401) on 2026-11-20; the file is from August
-    and says to rotate. Then: turn a level on, open AAPL and BTC charts, and listen during market
-    hours.
-  - [ ] **Capture real frames and a REST answer** once a key works, and replace the two fixtures
-    (they are Alpaca's documentation examples). Check: the crypto symbol form (`BTCUSD` assumed),
-    that the feed is free on a basic account, and the error codes.
-  - [ ] **Q for Cody after hearing it:** is the wire importance rule right? It is my judgement
-    (results, takeovers, approvals, halts important; upgrades, dividends, deals medium; filler and
-    roundups low). Is a minute per symbol the right cap?
+  - [x] **Key verified, frames captured (2026-11-20 evening).** Cody's new live pair works for news
+    (used read-only, never for orders); the fixtures are now real captures (a stream frame and two
+    AAPL REST stories, article text cut short); the 20:01 UTC batch matched REST story for story.
+    The importance rule was retuned on the day's 688 stories (Low 526, Medium 91, High 71) and
+    every new part of it is pinned by a real headline (21 sabotages, each red).
+  - [ ] **Cody: put the PAPER Alpaca pair in the app's API Keys** (the Alpaca slot also drives the
+    Alpaca trading venue, so never the live pair there). The paper pair in
+    `patches/api keys/alpaca-api-key.txt` still has no secret: regenerate it on the paper dashboard.
+    Then turn a level on, open stock charts, and listen around :01 and :31 past the hour.
+  - [ ] **Unchecked:** the crypto symbol form (`BTCUSD` assumed — no coin story came all day), and
+    the 402/406/409 error codes (none seen).
+  - [ ] **Q for Cody after hearing it:** is the wire importance rule right? It is my judgement,
+    retuned on real fiscal.ai headlines (results, guidance, takeovers, listing notices, FDA, hacks
+    important; upgrades, officer changes, contracts, probes, dividend rises medium; result dates,
+    law-firm ads, holdings notices, price targets and plain dividend declarations low). Plain
+    "declares quarterly dividend" moved from medium to low — right? Is a minute per symbol the
+    right cap?
   - [ ] **WebHost: one socket per browser circuit.** Alpaca allows one news connection per account,
     so a second window gets 406 and waits five minutes, then tries again. A per-user shared socket
     fixes it if Cody uses two windows.

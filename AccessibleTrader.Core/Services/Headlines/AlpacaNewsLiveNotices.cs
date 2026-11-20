@@ -71,7 +71,7 @@ namespace AccessibleTrader.Core.Services.Headlines
     }
 
     /// <summary>
-    /// Headlines, stage 2: the news wire. Alpaca's news stream (Benzinga's feed) is subscribed to
+    /// Headlines, stage 2: the news wire. Alpaca's news stream (fiscal.ai's stories on a free account) is subscribed to
     /// whole, and a story is said when it is about a stock or coin the trader touches — an open
     /// chart or a held position — and its importance (<see cref="NewsStoryWords"/>) passes the
     /// Headlines level. <see cref="NewsHeadlineGate"/> gathers bursts and caps each symbol.

@@ -9,7 +9,9 @@ using Newtonsoft.Json.Linq;
 namespace AccessibleTrader.Core.Services.Headlines
 {
     /// <summary>
-    /// One news-wire story as Alpaca's news API sends it (Benzinga's feed). <see cref="Id"/> is
+    /// One news-wire story as Alpaca's news API sends it. <see cref="Source"/> names whose story it
+    /// is: on Cody's free account (2026-11-20) every story was "fiscal.ai", though Alpaca's
+    /// documentation still says Benzinga. <see cref="Id"/> is
     /// Alpaca's id and is what "already said" is keyed on: an edited story is sent again with the
     /// same id and a newer <see cref="UpdatedUtc"/>, and is not said twice.
     /// <see cref="CreatedUtc"/> is when it was published.
@@ -35,9 +37,9 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// <c>{"news":[...],"next_page_token":...}</c> with the same story fields and no <c>"T"</c>.
     ///
     /// <para>
-    /// <b>Written from Alpaca's documentation, not from a captured response</b> (2026-11-20: both
-    /// key pairs in Cody's patches folder were refused, so nothing could be captured). The fixtures
-    /// are the documented shapes; capture real ones when a working key is at hand.
+    /// Checked against Alpaca itself on 2026-11-20 with Cody's key: the handshake, a stream story
+    /// frame and the REST list are as above, and the test fixtures are those captures. A stream
+    /// story has no <c>images</c> field; the REST one has.
     /// </para>
     /// </summary>
     public static class AlpacaNewsParser
@@ -110,7 +112,7 @@ namespace AccessibleTrader.Core.Services.Headlines
                 Clean((string?)m["source"]), created, updated, symbols, (string?)m["url"] ?? "");
         }
 
-        /// <summary>Benzinga headlines carry HTML entities ("&amp;amp;", "&amp;#39;") and the odd
+        /// <summary>A headline may carry HTML entities ("&amp;amp;", "&amp;#39;") and the odd
         /// run of spaces; a screen reader would say them.</summary>
         internal static string Clean(string? text)
             => Regex.Replace(WebUtility.HtmlDecode(text ?? ""), @"\s+", " ").Trim();
@@ -133,18 +135,26 @@ namespace AccessibleTrader.Core.Services.Headlines
 
     /// <summary>
     /// How much a wire story matters. Alpaca sends no importance, so this is a rule on the
-    /// headline's words — <b>Claude's judgement, 2026-11-20, for Cody to correct</b>:
+    /// headline's words — <b>Claude's judgement for Cody to correct</b>, first written
+    /// 2026-11-20 from Benzinga's documented style, then retuned the same day on 688 real stories
+    /// from Cody's account, every one of them from <c>fiscal.ai</c> (one company per story,
+    /// "Morgan Stanley Adjusts Price Target on X to $92 From $85" style).
     ///
     /// <list type="number">
     /// <item>A story tagged with more than <see cref="RoundupSymbols"/> symbols is a roundup
     /// ("12 stocks moving in Tuesday's session"): Low.</item>
-    /// <item>Benzinga's generated filler — options-activity notes, "why shares are trading
-    /// higher", movers lists, earnings previews, "if you invested $1000": Low.</item>
-    /// <item>Results, guidance, takeovers, bankruptcy, delisting, regulator decisions, halts,
-    /// offerings, a CEO leaving, a hack: High.</item>
-    /// <item>Upgrades and downgrades, dividends, buybacks, deals and contracts, lawsuits, job
-    /// cuts, officer appointments: Medium.</item>
-    /// <item>Everything else, including a price-target change without a rating change: Low.</item>
+    /// <item>Routine: generated filler, dates of coming results, conferences, law-firm
+    /// "investigation" adverts, holdings and insider-trade notices, advisers to a deal, routine
+    /// buyback reports, meetings, bond and loan deals: Low.</item>
+    /// <item>Analysts: an upgrade, downgrade or new coverage is Medium; every other rating or
+    /// price-target note is Low, even when it follows results.</item>
+    /// <item>Talk about a deal (opposed, proposed, weighed, in talks): Medium.</item>
+    /// <item>Results, guidance, takeovers, bankruptcy, a listing notice or delisting, FDA or ETF
+    /// decisions, halts, share offerings, a CEO leaving, a hack, a restatement: High.</item>
+    /// <item>Other officers leaving, dividend increases, new buybacks, contracts and orders,
+    /// strategic partnerships, lawsuits and official probes, job cuts, short-seller attacks,
+    /// trial data and other FDA news: Medium.</item>
+    /// <item>Everything else, including a plain "partners with" and a routine dividend: Low.</item>
     /// </list>
     /// </summary>
     public static class NewsStoryWords
@@ -153,8 +163,10 @@ namespace AccessibleTrader.Core.Services.Headlines
 
         private const RegexOptions Opt = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
 
-        private static readonly Regex Filler = new(string.Join("|", new[]
-        {
+        private static Regex Any(params string[] parts) => new(string.Join("|", parts), Opt);
+
+        private static readonly Regex Filler = Any(
+            // Benzinga's generated notes
             @"\boptions? (activity|trades?|alert)\b",
             @"\bwhales?\b",
             @"\bsmart money\b",
@@ -173,50 +185,154 @@ namespace AccessibleTrader.Core.Services.Headlines
             @"\bahead of (its |the )?(earnings|q[1-4]|results)\b",
             @"\bwhat to expect\b",
             @"\banalyst ratings?\b",
-        }), Opt);
+            // the date of coming results, conferences: "Docusign Announces Date for Third
+            // Quarter Fiscal 2027 Financial Results", "Genesco to Report ... on December 3"
+            @"\b(earnings|results|reporting|release) (release )?dates?\b",
+            @"\bdate for\b",
+            @"\bto (report|announce|release)\b.*\bresults\b",
+            @"\bconference call for\b",
+            @"\bto (speak|present|participate|attend|webcast|host)\b",
+            @"\bparticipat\w* in\b.*\b(conferences?|events?)\b",
+            @"\binvestor (conferences?|events?|day|webinar|webcast)\b",
+            // law firms advertising for plaintiffs
+            @"\b(securities|shareholder) (investigations?|fraud|class action)\b",
+            @"\binvestigates\b.*\b(merger|potential|on behalf)\b",
+            @"\blaw firms?\b",
+            @"\b(levi & korsinsky|halper sadeh|robbins llp|rosen law|pomerantz|bragar eagel|glancy|kessler topaz|faruqi|bronstein|schall law|johnson fistel|kirby mcinerney|rigrodsky|ademi|monteverde)\b",
+            // holdings and insider trades (EDGAR says the US ones as filings)
+            @"\binsiders?\b",
+            @"\bdirector (dealing|transaction)",
+            @"\bform 8\.3\b",
+            @"\bvoting rights\b",
+            @"\bdealing disclosure\b",
+            @"\bdiscloses\b",
+            @"\b(regulatory|shareholding) disclosure\b",
+            @"\b(increases|reduces|raises|cuts) (its )?(stake|holding|position|investment)s? in\b",
+            @"\b(sells?|sold|purchases?|buys?|acquires|repurchases)\b( \S+){0,4} (shares|stock)\b",
+            @"\bshare (sale|purchase)\b",
+            @"\bearly warning report\b",
+            @"\bnotified of\b",
+            @"\btreasury shares\b",
+            @"\b(share|stock option|inducement) (awards?|grants?)\b",
+            @"\bgrants? of (stock options|inducement)",
+            @"\binducement (equity )?(awards?|grants?)\b",
+            @"\bstabili[sz]ation notice\b",
+            @"\bfinancial instrument transactions\b",
+            // advisers to someone else's deal
+            @"\b(serves?|served|acts?|acted) as\b",
+            @"\badvis(es|ed|or|ors|er|ers)\b",
+            @"\barranger\b",
+            // the day-to-day running of a buyback already announced
+            @"\b(continues|progress on|update on|executes|reports further)\b.*\b(buy-?back|repurchase)",
+            @"\bbuy-?back transaction\b",
+            @"\bissuer bid\b",
+            // meetings
+            @"\b(annual|special|general) (general |and special )?meeting\b",
+            @"\bnomination committee\b",
+            @"\bproxy\b",
+            @"\bbylaws\b",
+            // bonds and loans
+            @"\b(senior|subordinated|secured|unsecured|green|convertible|floating rate)( \S+){0,4} notes\b",
+            @"\bnotes (offering|linked|due)\b",
+            @"\bissues notes\b",
+            @"\bbonds?\b",
+            @"\bdebentures\b",
+            @"\btier 2\b",
+            @"\bbank loans?\b",
+            @"\bloan facility\b",
+            @"\bdebt (sale|funding|financing|settlement)\b",
+            @"\brefinancing\b",
+            @"\btender offer for\b.*\b(notes|securities|bonds|debentures)\b");
 
-        private static readonly Regex High = new(string.Join("|", new[]
-        {
-            @"\breports? (q[1-4]|fy|first|second|third|fourth|full[- ]year|quarterly|annual)\b",
+        private static readonly Regex AnalystMove = Any(
+            @"\b(up|down)grade[sd]?\b(?!\s+to\b)",
+            @"\binitiates? coverage\b");
+
+        private static readonly Regex AnalystNote = Any(
+            @"\banalysts?\b",
+            @"\bprice target\b",
+            @"\btarget price\b",
+            @"\bratings?\b",
+            @"\bcoverage\b",
+            @"\b(updates|increases|lowers|raises|cuts)( \S+){0,3} estimates\b");
+
+        private static readonly Regex Deal = Any(
+            @"\b(to acquire|acquires|acquired by|to be acquired|acquisition of|merger|to merge|merges|buyout|takeover|tender offer|business combination)\b",
+            @"\bgo(ing)?[- ]private\b",
+            @"\btake\b( \S+){1,2} private\b",
+            @"\bdefinitive (merger )?agreement\b");
+
+        private static readonly Regex DealTalk = Any(
+            @"\b\d+(\.\d+)?% stake\b",
+            @"\b(proposed|oppos\w+|conditions|comments?|apologi\w+|evidence|weighs|mulls|in talks|reportedly|eyeing|rumou?r\w*)\b");
+
+        private static readonly Regex High = Any(
+            // results
+            @"\b(financial|operating|operational|quarter(ly)?|q[1-4]|fiscal|fy|full[- ]year|annual|year[- ]end|interim|half[- ]year|h[12]|9m|nine[- ]month|first|second|third|fourth|preliminary)\b.*\bresults\b",
+            @"\bresults\b.*\b(q[1-4]|quarter|fiscal|(three|six|nine) months|ended)\b",
             @"\b(q[1-4]|fy)( \d{4})? (adj(usted)?\.? )?(eps|earnings|results|revenue|sales)\b",
             @"\b(beats?|miss(es)?)\b.*\bestimates?\b",
-            @"\b(raises|lowers|cuts|boosts|reaffirms|withdraws|suspends|issues)\b.*\b(guidance|outlook|forecast)\b",
+            @"\b(trading|financial) update\b",
+            @"\b(reports?|posts)\b.*\b(growth|profit|loss|revenue|sales)\b.*\b(q[1-4]|quarter|nine months|half|year)\b",
+            // guidance, but not "Issues Guidance on Flood-Damaged Vehicles"
+            @"\b(raises|lowers|cuts|boosts|reaffirms|withdraws|suspends|removes|issues|revises|revised|initiates)\b.*\b(guidance|outlook|forecast)\b(?!\s+(on|regarding|for consumers)\b)",
             @"\bsees (q[1-4]|fy)\b",
-            @"\b(to acquire|acquires|acquired by|to be acquired|acquisition of|merger|to merge|merges|buyout|takeover|tender offer|go(ing)? private|definitive agreement)\b",
+            // the company's survival and listing
             @"\b(bankruptcy|chapter (11|7)|going concern|delist(s|ed|ing)?)\b",
+            @"\b(non-?compliance|deficiency|continued listing)\b.*\bnotice\b",
+            @"\b(trading )?halt(ed|s)?\b",
+            @"\bresumes trading\b",
+            @"\brestat(es|ed|ement)\b",
+            @"\berrors in\b.*\bfinancial statements\b",
+            // regulators
             @"\bfda\b.*\b(approv\w*|reject\w*|clear\w*|complete response|crl)\b",
             @"\bcomplete response letter\b",
             @"\b(sec|doj|ftc) (charges|sues|probe|investigation)\b",
             @"\bsubpoena\b",
-            @"\b(trading )?halt(ed|s)?\b",
-            @"\bresumes trading\b",
-            @"\b(hack(ed|s)?|exploit(ed)?|stolen|drained)\b",
             @"\betfs?\b.*\b(approv\w*|reject\w*|den(y|ies|ied))\b",
             @"\b(approv\w*|reject\w*|den(y|ies|ied))\b.*\betfs?\b",
-            @"\b(public|secondary|stock|share|equity) offering\b",
-            @"\bprices? .*\boffering\b",
-            @"\bceo\b.*\b(resigns?|steps? down|to step down|departs?|ousted|fired)\b",
+            // hacks
+            @"\b(hack(ed|s)?|hackers|exploit(ed)?|stolen|drained|cyberattack|data breach|security incident|unauthori[sz]ed access|ransomware)\b",
+            // new shares
+            @"\b(public|secondary|stock|share|equity|bought deal|registered direct)\b.*\boffering\b",
+            @"\b(common stock|equity) financing\b",
+            @"\bceo\b.*\b(resigns?|steps? down|to step down|departs?|to depart|ousted|fired|retires?|to retire|leaves)\b",
+            @"\bceo succession\b",
             @"\brecalls?\b",
-            @"\b(cuts|suspends|eliminates|slashes) (its )?(quarterly )?dividend\b",
-            @"\bstock split\b",
-        }), Opt);
+            @"\b(cuts|suspends|eliminates|slashes|omits) (its )?(quarterly |monthly )?(dividend|distribution)\b",
+            @"\bno (cash )?(dividend|distribution)\b",
+            @"\bstock split\b");
 
-        private static readonly Regex Medium = new(string.Join("|", new[]
-        {
-            @"\b(upgrades?|upgraded|downgrades?|downgraded|initiates? coverage)\b",
-            @"\bdividend\b",
-            @"\b(buyback|repurchase)\b",
-            @"\b(partnership|partners with|collaboration|contract|awarded|deal with|agreement with)\b",
-            @"\b(lawsuit|sues|sued|settles?|settlement|investigation|probe)\b",
-            @"\b(layoffs?|job cuts|restructuring)\b",
-            @"\b(appoints|names)\b.*\b(ceo|cfo|president|chair\w*)\b",
-        }), Opt);
+        private static readonly Regex Medium = Any(
+            @"\b(dividend|distribution) (increase|hike)\b",
+            @"\b(increases|raises|boosts|hikes|initiates|special)\b.*\b(dividend|distribution)\b",
+            @"\b(authori[sz]\w*|approves|announces|launches|new|increases|expands|additional)\b.*\b(buy-?back|repurchase)",
+            @"\b(contract|awarded)\b",
+            @"\b(secures?|receives?|wins|lands|books)\b.*\b(orders?|deal)\b",
+            @"\bstrategic (partnership|collaboration|alliance)\b",
+            @"\bjoint venture\b",
+            @"\b(supply|license|licensing|distribution|collaboration) agreement\b",
+            @"\b(lawsuit|sues|sued|settles?|settlement|litigation|verdict)\b",
+            @"\b(probe|investigation (into|of))\b",
+            @"\b(layoffs?|job cuts|restructuring|voluntary departure|plant closure|workforce (reduction|consultations?))\b",
+            @"\bcuts?( \S+){0,2} [\d,]+ jobs\b",
+            @"\b(short[- ]sellers?|allegations?)\b",
+            @"\b(appoints|names|named)\b.*\b(ceo|cfo|coo|president|chair\w*|chief \w+ officer)\b",
+            @"\b(cfo|coo|cto|president|chair(man|woman|person)?|chief \w+ officer)\b.*\b(resigns?|retires?|to retire|steps? down|departs?|to depart|leaves|ousted)\b",
+            @"\b(leadership|management|executive) (changes?|transition|appointments?)\b",
+            @"\bfda\b",
+            @"\bpdufa\b",
+            @"\bphase (1|2|3|4|i|ii|iii)[ab]?\b.*\b(results|data|trial|study)\b",
+            @"\btopline\b");
 
         public static MarketEventImportance Importance(NewsStory story)
         {
             if (story.Symbols.Count > RoundupSymbols) return MarketEventImportance.Low;
             string h = story.Headline;
             if (Filler.IsMatch(h)) return MarketEventImportance.Low;
+            if (AnalystMove.IsMatch(h)) return MarketEventImportance.Medium;
+            if (AnalystNote.IsMatch(h)) return MarketEventImportance.Low;
+            if (Deal.IsMatch(h)) return DealTalk.IsMatch(h) ? MarketEventImportance.Medium : MarketEventImportance.High;
             if (High.IsMatch(h)) return MarketEventImportance.High;
             if (Medium.IsMatch(h)) return MarketEventImportance.Medium;
             return MarketEventImportance.Low;
@@ -278,7 +394,7 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// the clock asks what is due.
     ///
     /// <list type="bullet">
-    /// <item><b>Said once.</b> A story id already offered is ignored, so Benzinga's edits (same id,
+    /// <item><b>Said once.</b> A story id already offered is ignored, so an edited story (same id,
     /// newer time) are not said again.</item>
     /// <item><b>Gathered.</b> A symbol's first new story waits <see cref="Gather"/> for the others
     /// that wire desks send in a burst ("Q4 EPS beats", "Q4 sales beat", "sees Q1"), so they are

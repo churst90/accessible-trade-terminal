@@ -17,10 +17,12 @@ using Newtonsoft.Json.Linq;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// Headlines, stage 2 (the Alpaca news wire). The two fixtures are the examples in Alpaca's own
-/// documentation, NOT captured responses: on 2026-11-20 both key pairs in Cody's patches folder
-/// were refused, so nothing could be captured. Replace them with captures when a key works. The
-/// stream runs on a fake socket and a fake clock: no network, no speech, no sound.
+/// Headlines, stage 2 (the Alpaca news wire). The two fixtures were captured from Alpaca on
+/// 2026-11-20 with Cody's key (a stream frame from the 20:01 UTC batch, and the newest two AAPL
+/// stories from the REST endpoint); only the article text in "content" is cut short. Every story
+/// on that account comes from fiscal.ai, not Benzinga. The importance cases are real headlines
+/// from that day. The stream runs on a fake socket and a fake clock: no network, no speech, no
+/// sound.
 /// </summary>
 public class AlpacaNewsTests
 {
@@ -30,17 +32,17 @@ public class AlpacaNewsTests
     private static readonly DateTime Now = new(2026, 11, 2, 21, 31, 0, DateTimeKind.Utc);
 
     private static NewsStory Story(long id, string headline, DateTime createdUtc, params string[] symbols)
-        => new(id, headline, "Benzinga Newsdesk", "benzinga", createdUtc, createdUtc, symbols, "https://x");
+        => new(id, headline, "", "fiscal.ai", createdUtc, createdUtc, symbols, "https://x");
 
     private static string Frame(long id, string headline, DateTime createdUtc, params string[] symbols)
         => JsonConvert.SerializeObject(new[]
         {
             new
             {
-                T = "n", id, headline, summary = "", author = "Benzinga Newsdesk",
+                T = "n", id, headline, summary = "", author = "",
                 created_at = createdUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 updated_at = createdUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                url = "https://x", content = "", symbols, source = "benzinga",
+                url = "https://x", content = "", symbols, source = "fiscal.ai",
             },
         });
 
@@ -56,12 +58,13 @@ public class AlpacaNewsTests
 
         Assert.Empty(controls);
         var s = Assert.Single(stories);
-        Assert.Equal(24918784, s.Id);
-        Assert.Equal("Corsair Reports Purchase Of Majority Ownership In iDisplay, No Terms Disclosed", s.Headline);
-        Assert.Equal(new DateTime(2022, 1, 5, 22, 0, 37, DateTimeKind.Utc), s.CreatedUtc);
+        Assert.Equal(127778840, s.Id);
+        Assert.Equal("S&P Global Ratings Maintains Credit Rating for Boston Mayflower Finance PLC", s.Headline);
+        Assert.Equal(new DateTime(2026, 11, 20, 20, 1, 49, DateTimeKind.Utc), s.CreatedUtc);
         Assert.Equal(DateTimeKind.Utc, s.CreatedUtc.Kind);
-        Assert.Equal(new[] { "CRSR" }, s.Symbols);
-        Assert.Equal("benzinga", s.Source);
+        Assert.Equal(new[] { "SPGI" }, s.Symbols);
+        Assert.Equal("fiscal.ai", s.Source);
+        Assert.Equal("", s.Author);
     }
 
     [Fact]
@@ -89,13 +92,24 @@ public class AlpacaNewsTests
     }
 
     [Fact]
-    public void TheRestListIsReadAndItsEntitiesDecoded()
+    public void TheRestListIsRead()
     {
         var stories = AlpacaNewsParser.ParseRest(Fixture("alpaca-news-rest.json"));
 
-        Assert.Equal(new long[] { 24843171, 24843100 }, stories.Select(s => s.Id));
-        Assert.Equal("Apple & Google Face New EU Probe", stories[1].Headline);
-        Assert.Equal(new[] { "AAPL", "GOOGL" }, stories[1].Symbols);
+        Assert.Equal(new long[] { 127411699, 127398827 }, stories.Select(s => s.Id));
+        Assert.Equal("Apple Developing Autonomous AI Agent", stories[1].Headline);
+        Assert.Equal(new DateTime(2026, 11, 20, 12, 31, 54, DateTimeKind.Utc), stories[1].CreatedUtc);
+        Assert.Equal(new[] { "AAPL" }, stories[1].Symbols);
+        Assert.Equal("fiscal.ai", stories[1].Source);
+    }
+
+    [Fact]
+    public void HtmlEntitiesAndRunsOfSpacesAreTakenOutOfAHeadline()
+    {
+        var stories = AlpacaNewsParser.ParseRest("{\"news\":[{\"id\":1,\"headline\":\"Apple &amp; Google  Face New EU Probe\","
+            + "\"created_at\":\"2026-11-20T12:31:54Z\",\"symbols\":[\"AAPL\",\"GOOGL\"]}]}");
+
+        Assert.Equal("Apple & Google Face New EU Probe", Assert.Single(stories).Headline);
     }
 
     // ── Importance (Claude's rule; Cody to correct) ────────────────────────
@@ -111,13 +125,57 @@ public class AlpacaNewsTests
     [InlineData("Exchange Says Hackers Drained $20M From Hot Wallet", MarketEventImportance.High)]
     [InlineData("Boeing CEO To Step Down At Year End", MarketEventImportance.High)]
     [InlineData("Morgan Stanley Upgrades Apple To Overweight", MarketEventImportance.Medium)]
-    [InlineData("Apple Declares $0.25 Quarterly Dividend", MarketEventImportance.Medium)]
+    [InlineData("Apple Declares $0.25 Quarterly Dividend", MarketEventImportance.Low)]
     [InlineData("Apple & Google Face New EU Probe", MarketEventImportance.Medium)]
     [InlineData("Why Apple Shares Are Trading Lower After Q4 Results", MarketEventImportance.Low)]
     [InlineData("Apple's Options Activity: What's Going On?", MarketEventImportance.Low)]
     [InlineData("Apple Earnings Preview: What to Expect", MarketEventImportance.Low)]
     [InlineData("Goldman Sachs Maintains Buy on Apple, Raises Price Target to $250", MarketEventImportance.Low)]
     [InlineData("Apple Leader in Phone Sales in China for Second Straight Month", MarketEventImportance.Low)]
+    // Real fiscal.ai headlines from 2026-11-20, each the case for one part of the rule.
+    [InlineData("IES Holdings Reports Fiscal 2026 Fourth Quarter and Full Year Results; Board Authorizes Additional $350 Million for Share Repurchase Program", MarketEventImportance.High)]
+    [InlineData("Smith & Wesson Brands, Inc. Announces Second Quarter Fiscal 2027 Financial Results and Conference Call", MarketEventImportance.High)]
+    [InlineData("Revival Gold Reports Financial Results for the Quarter Ended September 30, 2026", MarketEventImportance.High)]
+    [InlineData("Valkea Resources Reports Results for Three Months Ended September 2026 and Provides Exploration Update", MarketEventImportance.High)]
+    [InlineData("Rambus Issues Mixed Guidance with Lowered Expectations", MarketEventImportance.High)]
+    [InlineData("Bending Spoons to Acquire Mailchimp from Intuit", MarketEventImportance.High)]
+    [InlineData("Invesque Shareholders Approve Go-Private Transaction", MarketEventImportance.High)]
+    [InlineData("Cable One Receives NYSE Continued Listing Standards Notice", MarketEventImportance.High)]
+    [InlineData("N-able Confirms Security Incident Involving Unauthorized Access to Hosted Email Server", MarketEventImportance.High)]
+    [InlineData("Yesway, Inc. Announces Pricing of Secondary Offering of Class A Common Stock", MarketEventImportance.High)]
+    [InlineData("San Juan Basin Royalty Trust Declares No Cash Distribution for November 2026", MarketEventImportance.High)]
+    [InlineData("KKR in Talks to Acquire EdgeCore", MarketEventImportance.Medium)]
+    [InlineData("Hub Group Opposes Proposed Union Pacific-Norfolk Southern Merger", MarketEventImportance.Medium)]
+    [InlineData("Tripadvisor Shares Rise After Czech Investment Firm Acquires 7.4% Stake", MarketEventImportance.Medium)]
+    [InlineData("Jefferies Initiates Coverage on Moderna with Hold Rating", MarketEventImportance.Medium)]
+    [InlineData("Karman Space & Defense Wins $31 Million US Navy Contract", MarketEventImportance.Medium)]
+    [InlineData("PHINIA CFO Chris Gropp to Retire; Gordon Muir Appointed as Successor", MarketEventImportance.Medium)]
+    [InlineData("Lufthansa to Cut 1,000 Jobs at Core Airline Division", MarketEventImportance.Medium)]
+    [InlineData("Jack Henry & Associates Announces 2026 Dividend Increase", MarketEventImportance.Medium)]
+    [InlineData("Danaher Announces Strategic Partnership with Microsoft for Intelligent Laboratory Solutions", MarketEventImportance.Medium)]
+    [InlineData("California Attorney General Launches Investigation into NVIDIA", MarketEventImportance.Medium)]
+    [InlineData("IC Group Announces Q3 2026 Earnings Release Date and Investor Webinar", MarketEventImportance.Low)]
+    [InlineData("Rent the Runway to Report Third Quarter 2026 Financial Results on December 10, 2026", MarketEventImportance.Low)]
+    [InlineData("Analysts Update Ratings and Price Targets for Saipem Following Q3 Results", MarketEventImportance.Low)]
+    [InlineData("Berenberg Maintains Buy Rating on Ithaca Energy Following Q3 Results", MarketEventImportance.Low)]
+    [InlineData("Mercury Insurance Issues Guidance on Flood-Damaged Vehicles", MarketEventImportance.Low)]
+    [InlineData("Andersen Served as Advisor to Rock Gate Partners in Acquisition of Blast Deflectors, Inc.", MarketEventImportance.Low)]
+    [InlineData("Director Transaction: Shervin J. Korangy Acquires Shares in Fresenius Medical Care AG", MarketEventImportance.Low)]
+    [InlineData("HSBC Holdings plc Announces Results of Cash Tender Offer for Contingent Convertible Securities", MarketEventImportance.Low)]
+    [InlineData("Halper Sadeh LLC Investigates Merger Between Werewolf Therapeutics and Ambros Therapeutics", MarketEventImportance.Low)]
+    [InlineData("Levi & Korsinsky Announces Securities Investigation into Cellebrite DI Ltd.", MarketEventImportance.Low)]
+    [InlineData("Levi & Korsinsky Announces Investigation into Liquidity Services", MarketEventImportance.Low)]
+    // The next two are real headlines reworded (prefix dropped; words reordered) to reach the one
+    // pattern each guards.
+    [InlineData("Shervin J. Korangy Acquires Shares in Fresenius Medical Care AG", MarketEventImportance.Low)]
+    [InlineData("Kincora Copper Announces Annual General and Special Meeting Results", MarketEventImportance.Low)]
+    [InlineData("Sonoro Gold Completes Geotechnical Investigation and Initiates Advanced Engineering for Cerro Caliche", MarketEventImportance.Low)]
+    [InlineData("Carrier Connect Data Solutions Inc. Upgrades to OTCQX Best Market", MarketEventImportance.Low)]
+    [InlineData("UGG Partners with Bloomingdale's and Forty Carrots for Holiday 'UGG Parlor' Activation", MarketEventImportance.Low)]
+    [InlineData("Kincora Copper Announces Results of Annual General and Special Meeting", MarketEventImportance.Low)]
+    [InlineData("Butterfield Announces Pricing of $600 Million Subordinated Notes Offering", MarketEventImportance.Low)]
+    [InlineData("M.P. Evans Group PLC Announces Share Buyback Transaction", MarketEventImportance.Low)]
+    [InlineData("Moog Declares Quarterly Dividend", MarketEventImportance.Low)]
     public void WireStoriesAreRankedByTheirWords(string headline, MarketEventImportance expected)
         => Assert.Equal(expected, NewsStoryWords.Importance(Story(1, headline, Now, "AAPL")));
 
@@ -575,7 +633,7 @@ public class AlpacaNewsTests
             section.Fields.Select(f => f.Label));
         Assert.Equal("Apple Reports Q4 Results, Beats Estimates", section.Fields[0].Value);
         Assert.Equal(new[] { "Important", "Medium" }, section.Fields.Select(f => f.Note));
-        Assert.Equal("Benzinga", section.Fields[0].Source);
+        Assert.Equal("Fiscal.ai", section.Fields[0].Source);
     }
 
     [Theory]

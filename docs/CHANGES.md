@@ -4,7 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Headlines, stage 2: the news wire (Alpaca/Benzinga), 2026-11-20 — not heard, not on the VPS, never run against live Alpaca
+### Headlines, stage 2 checked live: Alpaca's stories are fiscal.ai's, half-hourly, stocks only; importance retuned on 688 real headlines, 2026-11-20 — not heard, not on the VPS
+
+Cody made a new Alpaca key pair ("try now"), then chose option A: "begin A now". The live pair was
+used read-only for news, never for orders, and its keys were never printed, logged or committed.
+
+- **What the live feed is.** The handshake, story frames and REST list are as documented (a stream
+  frame holds one story and has no `images` field). The 20:01 UTC batch was ten stories; the stream
+  and REST agreed story for story, none missed, each delivered within a second of its time. But on
+  this free account **every story (688 that day) was fiscal.ai's**, one symbol each, no author, not
+  Benzinga's; they arrive **in batches about every half hour** (:01–:05 and :31–:33 UTC), so a story
+  can be up to half an hour behind its event; and **not one was about a coin**. Said on arrival
+  still holds, but arrival is the batch, so this is a slow second source, not a real-time wire.
+- **Importance retuned** (`NewsStoryWords`). The Benzinga-shaped rule ranked results-date notices,
+  law-firm ads and price-target notes up. Retuned on the day's 688 headlines: Low 526, Medium 91,
+  High 71, each read by me. Now Low first: results dates and conference calls, conference
+  appearances, law-firm notices, holdings and director-dealing notices, advisers, routine buyback
+  reports, meetings and proxies, bonds/notes/loans, price-target and ratings notes, and a plain
+  dividend declaration (was Medium). Medium: upgrades/downgrades (but not "upgrades to OTCQX") and
+  new coverage, takeover talk ("in talks", "opposes", "proposed", a "% stake"), officer changes,
+  contracts and orders, partnerships and joint ventures, lawsuits and probes ("investigation
+  into/of", not a geotechnical investigation), job cuts, dividend rises, trial data. High: results
+  (including "results for the quarter ended"), guidance (but not "guidance on flood-damaged
+  vehicles"), agreed takeovers and go-privates, listing and non-compliance notices, FDA decisions,
+  offerings, hacks, a CEO leaving, no cash distribution.
+- **Fixtures are real captures** now (a stream frame, the two newest AAPL REST stories; article text
+  cut short), and the entity decoding has its own inline test. 42 new test cases, 39 of them real
+  headlines from the day (two reworded to reach one pattern each, marked in the test). Twenty-one
+  sabotages of the rule each turned the tests red; five were green at first because another
+  pattern covered the same headline, and a headline only that part catches was added for each.
+- **Wording.** The settings hint, the manual, WHATSNEW, the design doc and code comments no longer
+  say Benzinga or real time; they say fiscal.ai on a free account, half-hourly, no coins. Settings
+  search finds "fiscal.ai" too. The dossier's Recent news source shows "Fiscal.ai".
+- **Caveats:** the rule is still my judgement (dividend declarations moving to Low is the change to
+  check); known miss: "Take-Two GTA VI $2.36B first-day sales" is Low; the coin symbol form and the
+  402/406/409 codes stay unchecked (no coin story, no error); the paper pair in Cody's key file still
+  has no secret, and the app's Alpaca slot also drives the Alpaca trading venue, so it wants the
+  PAPER pair, never the live one.
+
+### Headlines, stage 2: the news wire (Alpaca/Benzinga), 2026-11-20 — not heard, not on the VPS (checked live the same evening: see the entry above)
 
 Cody: "ok start stage 2 with alpaca." Both Alpaca key pairs in his patches folder were refused
 (401) the same day, so this was built from Alpaca's documented message shapes and has never

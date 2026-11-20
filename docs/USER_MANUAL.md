@@ -1887,10 +1887,17 @@ words, and whether headlines would announce it.
 
 ### Headlines: the news wire (Alpaca)
 
-With an Alpaca key, the wire stories about your stocks and coins are said the moment they are
-published: *"AAPL: Apple Reports Q4 Results, Beats Estimates."* The stories are Benzinga's, carried
-by Alpaca's news service; a free Alpaca account is enough (sign up on Alpaca's site, make an API key,
-and add it in **API Keys** under Alpaca). Without a key nothing is fetched and nothing is said.
+With an Alpaca key, news stories about your stocks are said the moment Alpaca publishes them:
+*"AAPL: Apple Reports Q4 Results, Beats Estimates."* A free Alpaca account is enough (sign up on
+Alpaca's site, make a **paper** API key, and add it in **API Keys** under Alpaca — the same slot is
+used by the Alpaca trading venue, so a paper key keeps that on paper). Without a key nothing is
+fetched and nothing is said.
+
+**How fresh.** On a free account the stories are written by fiscal.ai and Alpaca publishes them in
+batches, at about one to five minutes past the hour and half past, so a story can be up to half an
+hour behind the event it describes. There are no coin stories on a free account (none came in a
+whole day of testing), so in practice this is for stocks; the coin matching below is there if they
+ever come.
 
 **Turning it on.** It follows the same **Headlines level** as the filings, so it is off until you pick
 a level. Under the level is **Include news wire stories**, ticked by default; untick it to keep the
@@ -1905,7 +1912,7 @@ headline's words:
 
 | Important | Medium | Low (said only at **All**) |
 | --- | --- | --- |
-| Results and earnings per share, beats and misses, guidance, takeovers and mergers, bankruptcy, delisting, FDA decisions, ETF approvals and rejections, trading halts and resumptions, share offerings, SEC, Justice Department or FTC charges and subpoenas, a chief executive leaving, recalls, a cut dividend, a stock split, a hack or stolen funds | Analyst upgrades, downgrades and new coverage, dividends, buybacks, deals, partnerships and contracts, lawsuits, settlements and investigations, job cuts and restructuring, a new chief executive, finance chief, president or chair | Everything else, including price-target changes. Always low, whatever the words: options-activity and "whale" notes, "why the shares are moving" and "what's going on" notes, movers lists, pre-market, mid-day and after-hours notes, "if you had invested" notes, earnings previews and "what to expect", analyst-ratings digests, and any story about more than four symbols |
+| Results and earnings per share, beats and misses, trading updates, guidance given, raised, cut or withdrawn, takeovers and mergers (agreed, or with no talk of terms), going private, bankruptcy, delisting, exchange listing and non-compliance notices, FDA approvals and rejections, ETF approvals and rejections, trading halts and resumptions, restatements, share offerings, SEC, Justice Department or FTC charges and subpoenas, a chief executive leaving, recalls, a cut or skipped dividend, a stock split, a hack, data breach or stolen funds | Analyst upgrades, downgrades and new coverage, takeover talk (in talks, proposed, opposed, a percentage stake), a dividend rise, a new buyback, contracts and orders won, strategic partnerships, joint ventures, supply and licence deals, lawsuits, settlements and investigations, job cuts and closures, short sellers, a new or departing finance chief, operating chief, president or chair, FDA dates and trial data | Everything else. Always low, whatever the words: results dates and conference-call notices, conference appearances, law-firm investigation notices, share-holding and director-dealing notices, advisers to a deal, routine buyback reports, meetings and proxies, bonds, notes and loans, price targets and ratings notes, a plain dividend declaration, options-activity and "whale" notes, "why the shares are moving" notes, movers lists, earnings previews, and any story about more than four symbols |
 
 **What is said.** A symbol's first story waits three seconds for the others wire desks send in a
 burst, then one sentence is said: the most important story in full and the rest counted, *"AAPL:

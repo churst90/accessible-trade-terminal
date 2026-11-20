@@ -98,13 +98,15 @@ None of this has been seen or heard in the app yet.
 
 ### Headlines: the news wire
 
-- **With an Alpaca key in API Keys, news-wire stories are said too**, for your stocks and coins,
-  the moment they cross the wire: "AAPL: Apple Reports Q4 Results, Beats Estimates." A free Alpaca
-  account works. Same level and same sound as the filings, and a new "Include news wire stories"
+- **With an Alpaca key in API Keys, news stories are said too**, for your stocks: "AAPL: Apple
+  Reports Q4 Results, Beats Estimates." A free Alpaca account works, but its stories come in batches
+  about every half hour (so up to 30 minutes after the event) and there are none for coins. Same level and same sound as the filings, and a new "Include news wire stories"
   box beside the level (on, but it does nothing without a key).
-- **Important** is results, guidance, takeovers, bankruptcy, approvals, halts and hacks; **medium**
-  is analyst upgrades and downgrades, dividends, deals and lawsuits; **all** adds the rest. Options
-  chatter, "why the stock is moving" notes and roundups of many stocks are always low.
+- **Important** is results, guidance, takeovers, bankruptcy, listing notices, FDA decisions, share
+  offerings, halts and hacks; **medium** is analyst upgrades and downgrades, takeover talk, officer
+  changes, contracts, lawsuits and probes, and dividend rises; **all** adds the rest. Results dates,
+  law-firm notices, share-holding notices, price targets, plain dividend declarations and roundups
+  of many stocks are always low.
 - **One sentence per symbol a minute at most**: a burst of stories is gathered for three seconds and
   the rest counted ("2 more headlines"); an edited story is not said again.
 - **The asset dossier (Alt+I)** has a "Recent news" tab with the twenty newest stories, stocks and

@@ -295,13 +295,14 @@ read-out, and nothing said more than two hours late. Wire sources will add a ded
 
 1. **SEC EDGAR — BUILT 2026-11-20, not yet heard by Cody.** No key, no account; the filing itself is
    the primary source, minutes before a wire rewrites it. See stage 7 below.
-2. **Alpaca news (Benzinga) — BUILT 2026-11-20, not yet tried with a working key.** A websocket of
-   wire headlines with tickers attached, stocks and crypto, real time. See stage 8 below. The news
-   list (Go bar `NEWS`) is stage 2b.
+2. **Alpaca news — BUILT 2026-11-20, checked live the same evening.** A websocket of headlines
+   with tickers attached. On Cody's free account they are fiscal.ai's (not Benzinga's as Alpaca's
+   documentation says), in half-hourly batches, stocks only — so it is a slow second source, not a
+   real-time wire. See stage 8 below. The news list (Go bar `NEWS`) is stage 2b.
 3. **Finnhub company news — after that**, with the key Cody is getting for earnings: a second wire
    to fill gaps, polled. Plus on-bar placement.
-4. **CryptoPanic — only if crypto coverage proves thin.** It is not needed: Alpaca's feed carries
-   crypto tickers and Finnhub has a crypto category. If it is ever added, its credit goes in the
+4. **CryptoPanic — only if crypto coverage proves thin.** Alpaca's free feed turned out to carry no
+   coin stories at all (2026-11-20), so this now rests on Finnhub's crypto category. If it is ever added, its credit goes in the
    manual and never in speech (Cody, 2026-11-20); its terms may ask for a visible "Powered by
    CryptoPanic" next to the feed, which a list screen can carry, so check the terms or ask them.
 
@@ -536,7 +537,7 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    the other narration preferences. **Not tried against live EDGAR end to end** (the parsers were
    checked against live responses captured the same day, the poller only against a fake source);
    not heard by Cody; not on the VPS.
-8. **Headlines, stage 2: the Alpaca news wire — BUILT 2026-11-20 by Claude, never connected.** One
+8. **Headlines, stage 2: the Alpaca news wire — BUILT 2026-11-20 by Claude, checked live that evening.** One
    socket to `wss://stream.data.alpaca.markets/v1beta1/news`: on Alpaca's "connected" the key is
    checked out from API Keys and sent as `auth` (then dropped, never kept or logged); on
    "authenticated" it subscribes to `news: ["*"]` and matches every story itself, because touched
@@ -559,8 +560,20 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    **Differences from the plan:** no cross-source dedupe yet — EDGAR and the wire say different
    things ("filed an 8-K" and "reports Q4 results") and both are worth hearing, so it waits for a
    second wire (Finnhub) where the same story really does arrive twice; the news list is stage 2b.
-   **Not verified:** every Alpaca shape is from Alpaca's documentation (both key pairs in Cody's
-   patches folder were refused with 401 on 2026-11-20, so nothing was captured); the importance
-   rule is Claude's; on the WebHost each browser circuit opens its own socket, and Alpaca allows one
+   **Checked live, 2026-11-20 evening** (Cody's new key, read-only): the handshake, the story
+   frames (one story per frame, no `images` field) and the REST list are as documented, and the
+   fixtures are now those captures. The 20:01 UTC batch was ten stories, the stream and REST agreed,
+   none missed, each delivered within a second of its `created_at`. But every story that day (688)
+   was **fiscal.ai**'s with one symbol and no author, they came in **batches about every half hour**
+   (:01–:05 and :31–:33), and **none was about a coin**. The first importance rule, written for
+   Benzinga, misfired on them (results-date notices, law-firm ads and price-target notes ranked
+   up), so it was **retuned on those 688**: Low 526, Medium 91, High 71. Results-date and schedule
+   notices, law firms, holdings and insider notices, advisers, routine buyback reports, meetings,
+   bond and loan news, price targets and ratings notes, and plain dividend declarations are Low;
+   upgrades/downgrades (not "upgrades to OTCQX") and new coverage, officer changes, contracts,
+   probes, trial data, dividend rises and takeover talk ("in talks", "opposes", "proposed", a
+   "% stake") are Medium; results, guidance, takeovers, listing notices, FDA decisions, offerings,
+   hacks and a CEO leaving are High. Known miss: "Take-Two GTA VI $2.36B first-day sales" is Low.
+   **Still not verified:** the rule is Claude's judgement; on the WebHost each browser circuit opens its own socket, and Alpaca allows one
    news connection per account, so a second window waits on 406 (a shared per-user socket is the
    fix if it matters). Not heard by Cody; not on the VPS.
