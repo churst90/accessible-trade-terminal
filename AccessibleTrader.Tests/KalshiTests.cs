@@ -102,6 +102,33 @@ namespace AccessibleTrader.Tests
                 Convert.FromBase64String(Header(req, "KALSHI-ACCESS-SIGNATURE")), HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
         }
 
+        /// <summary>
+        /// Code review, 2026-11-20: Kalshi parsed its private key once at Configure and kept it for
+        /// the life of the app, where the other venues ask the key store at each signed request. A
+        /// key changed in the store after Configure must be the one that signs the next request.
+        /// </summary>
+        [Fact]
+        public async Task Each_signed_request_checks_the_key_out_of_the_store()
+        {
+            var (first, firstPub) = Ed25519Key();
+            var (second, secondPub) = Ed25519Key();
+            var (p, h) = Build();   // configured with the rig's key, which neither check-out uses
+            h.Get(@"/margin/enabled$", """{"enabled":true}""");
+
+            using (new Fakes.FakeApiKeyCheckout { Key = "store-key-1", Secret = first }.Install())
+                await p.ValidateApiKeyAsync();
+            using (new Fakes.FakeApiKeyCheckout { Key = "store-key-2", Secret = second }.Install())
+                await p.ValidateApiKeyAsync();
+
+            Assert.Equal(2, h.Captured.Count);
+            string message = $"{Now}GET/trade-api/v2/margin/enabled";
+            Assert.Equal("store-key-1", Header(h.Captured[0], "KALSHI-ACCESS-KEY"));
+            Assert.True(VerifyEd25519(firstPub, message, Header(h.Captured[0], "KALSHI-ACCESS-SIGNATURE")));
+            Assert.Equal("store-key-2", Header(h.Captured[1], "KALSHI-ACCESS-KEY"));
+            Assert.True(VerifyEd25519(secondPub, message, Header(h.Captured[1], "KALSHI-ACCESS-SIGNATURE")),
+                "the second request must be signed with the key the store holds now, not one kept from before");
+        }
+
         /// <summary>A key pasted into a one-line box loses its line breaks, or keeps them as the
         /// two characters \n; it must still sign.</summary>
         [Theory]

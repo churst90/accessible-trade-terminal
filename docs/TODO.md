@@ -29,8 +29,6 @@ Cody, 2026-11-20: "start on each of the issues you found, in the best order or s
 The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fixed is in CHANGES
 ("Code review fixes, 2026-11-20"). Left, smallest first:
 
-- [ ] **Kalshi keeps its private key in a plain field**, parsed once at `Configure`
-  (`KalshiProvider.cs`), where Kraken checks the secret out at sign time and zeroes it after.
 - [ ] **Duplicate helpers into one place**: price rounding, the date ternary, symbol splitting,
   bar-by-date lookup, the environment-variable helper. Check each copy for a deliberate difference first.
 - [ ] **Q: the ATR trailing stop.** `ManagedExitRules.AtrTrailStop` is a plain mean of true range; the

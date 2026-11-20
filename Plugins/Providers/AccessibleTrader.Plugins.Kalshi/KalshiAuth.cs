@@ -15,7 +15,7 @@ namespace AccessibleTrader.Plugins.Kalshi
     /// "BEGIN PRIVATE KEY" file, signed as is) and RSA (a PKCS#1 "BEGIN RSA PRIVATE KEY" file,
     /// signed RSA-PSS with SHA-256 and a 32-byte salt). The signature travels base64.
     /// </summary>
-    internal sealed class KalshiSigner
+    internal sealed class KalshiSigner : IDisposable
     {
         private readonly Ed25519PrivateKeyParameters? _ed;
         private readonly RSA? _rsa;
@@ -75,6 +75,9 @@ namespace AccessibleTrader.Plugins.Kalshi
             int q = pathAndQuery.IndexOf('?');
             return timestampMs + method.ToUpperInvariant() + (q >= 0 ? pathAndQuery[..q] : pathAndQuery);
         }
+
+        /// <summary>Releases the RSA key; an Ed25519 key is plain managed memory.</summary>
+        public void Dispose() => _rsa?.Dispose();
 
         public string Sign(string message)
         {

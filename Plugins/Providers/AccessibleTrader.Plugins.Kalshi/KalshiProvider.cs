@@ -75,7 +75,9 @@ namespace AccessibleTrader.Plugins.Kalshi
         private string _apiKey = "";
         private string _apiSecret = "";
         private bool _useDemo;
-        private KalshiSigner? _signer;
+        // Whether the private key given at Configure reads, and if not why. The parsed key itself is
+        // not kept: each signed request checks the key out, signs and disposes it (SignerAsync).
+        private bool _hasPrivateKey;
         private string? _keyError;
 
         /// <summary>The clock the signature is stamped with. Kalshi refuses a stamp more than 30
@@ -145,11 +147,11 @@ namespace AccessibleTrader.Plugins.Kalshi
             if (config.TryGetValue("ApiSecret", out var s)) _apiSecret = s;
             // Anything not explicitly Live is practice, and Kalshi has a practice venue.
             _useDemo = !ProviderConfigKeys.IsLive(config);
-            _signer = null;
+            _hasPrivateKey = false;
             _keyError = null;
             if (!string.IsNullOrEmpty(_apiSecret))
             {
-                try { _signer = KalshiSigner.Parse(_apiSecret); }
+                try { using var _ = KalshiSigner.Parse(_apiSecret); _hasPrivateKey = true; }
                 catch (FormatException ex) { _keyError = ex.Message; }
             }
         }
@@ -163,7 +165,7 @@ namespace AccessibleTrader.Plugins.Kalshi
         {
             if (string.IsNullOrEmpty(_apiKey)) return (true, "No API key provided (public market data only)");
             if (_keyError != null) return (false, _keyError);
-            if (_signer == null) return (false, "Kalshi needs the private key as well as the Key ID");
+            if (!_hasPrivateKey) return (false, "Kalshi needs the private key as well as the Key ID");
             string venue = _useDemo ? "Kalshi's demo venue" : "Kalshi";
             try
             {
@@ -473,7 +475,7 @@ namespace AccessibleTrader.Plugins.Kalshi
         {
             if (string.IsNullOrEmpty(_apiKey)) return "ORDER_FAILED:no Kalshi API key configured";
             if (_keyError != null) return $"ORDER_FAILED:{_keyError}";
-            if (_signer == null) return "ORDER_FAILED:Kalshi needs the private key as well as the Key ID";
+            if (!_hasPrivateKey) return "ORDER_FAILED:Kalshi needs the private key as well as the Key ID";
 
             // Everything Kalshi cannot do is refused here, before a single request.
             if (signal.Type is OrderType.StopLimit or OrderType.TakeProfitLimit)
@@ -1125,17 +1127,47 @@ namespace AccessibleTrader.Plugins.Kalshi
             return json ?? throw new HttpRequestException($"Kalshi answered {path} with a non-JSON body (HTTP {(int)status}).");
         }
 
+        /// <summary>
+        /// Sign-time key checkout, as Kraken and Coinbase do: the host's key store is asked for the
+        /// Key ID and private key at each signed request, the key is parsed, used once and disposed.
+        /// Until 2026-11-20 the parsed key lived on the provider from Configure for the life of the
+        /// app (code review). With no host bridge (tests, the command line) the key given to
+        /// Configure is used, the same fallback the other venues keep.
+        /// </summary>
+        private async Task<(string KeyId, KalshiSigner Signer)> SignerAsync()
+        {
+            string keyId, pem;
+            var host = PluginHostServices.ApiKeys;
+            if (host != null)
+            {
+                var checkout = await host.CheckoutAsync(Name).ConfigureAwait(false);
+                if (!checkout.HasCredentials)
+                    throw new UnauthorizedAccessException("Kalshi: no active API key configured.");
+                keyId = checkout.Key.Trim();
+                pem = checkout.Secret;
+            }
+            else
+            {
+                keyId = _apiKey;
+                pem = _apiSecret;
+            }
+            if (string.IsNullOrEmpty(pem)) throw new UnauthorizedAccessException(_keyError ?? "No Kalshi private key configured");
+            try { return (keyId, KalshiSigner.Parse(pem)); }
+            catch (FormatException ex) { throw new UnauthorizedAccessException(ex.Message); }
+        }
+
         private async Task<(HttpStatusCode Status, JObject? Json, string Raw)> SendPrivateAsync(
             HttpMethod method, string pathAndQuery, string? jsonBody)
         {
-            if (_signer == null) throw new UnauthorizedAccessException(_keyError ?? "No Kalshi private key configured");
+            var (keyId, signer) = await SignerAsync().ConfigureAwait(false);
+            using var _ = signer;
             await (method == HttpMethod.Get ? _readLimiter : _writeLimiter).WaitAsync().ConfigureAwait(false);
             // Stamped after the wait, so a queued request does not age past Kalshi's 30 seconds.
             string ts = NowMs().ToString(CultureInfo.InvariantCulture);
             using var req = new HttpRequestMessage(method, TradeBase + pathAndQuery);
-            req.Headers.Add("KALSHI-ACCESS-KEY", _apiKey);
+            req.Headers.Add("KALSHI-ACCESS-KEY", keyId);
             req.Headers.Add("KALSHI-ACCESS-TIMESTAMP", ts);
-            req.Headers.Add("KALSHI-ACCESS-SIGNATURE", _signer.Sign(KalshiSigner.Message(ts, method.Method, SignRoot + pathAndQuery)));
+            req.Headers.Add("KALSHI-ACCESS-SIGNATURE", signer.Sign(KalshiSigner.Message(ts, method.Method, SignRoot + pathAndQuery)));
             if (jsonBody != null) req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
             using var res = await _http.SendAsync(req).ConfigureAwait(false);
             string raw = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
