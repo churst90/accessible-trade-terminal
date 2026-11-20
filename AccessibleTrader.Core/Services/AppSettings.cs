@@ -124,6 +124,7 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>"Headlines": include news stories (Finnhub's and Alpaca's) as well as filings.</summary>
         bool HeadlinesNewsWire { get; set; }
+        bool HeadlinesAlpaca { get; set; }
 
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
@@ -543,6 +544,17 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.HeadlinesNewsWire, true);
             set => Set(SettingsKeys.HeadlinesNewsWire, value);
+        }
+
+        /// <summary>
+        /// "Headlines": also read Alpaca's news wire. Default OFF since 2026-11-20: on a free
+        /// Alpaca account it is fiscal.ai's stories in half-hourly batches, stocks only, which
+        /// Finnhub (about a minute, stocks and coins) already covers. Needs the news wire switch too.
+        /// </summary>
+        public bool HeadlinesAlpaca
+        {
+            get => GetBool(SettingsKeys.HeadlinesAlpaca, false);
+            set => Set(SettingsKeys.HeadlinesAlpaca, value);
         }
 
         /// <summary>

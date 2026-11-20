@@ -43,10 +43,15 @@ public class MarketEventKeyBindingTests
             .Where(s => s.Key == "'" || s.Key == "OEM7")
             .ToList();
 
-        Assert.Equal(4, apostropheBindings.Count);
+        // Two spellings each of apostrophe, Shift+apostrophe and (since 2026-11-20)
+        // Ctrl+Alt+Shift+apostrophe, which turns market events on or off.
+        Assert.Equal(6, apostropheBindings.Count);
         Assert.All(apostropheBindings, s =>
-            Assert.True(s.Command is SystemCommand.NavEventNext or SystemCommand.NavEventPrev,
+            Assert.True(s.Command is SystemCommand.NavEventNext or SystemCommand.NavEventPrev
+                    or SystemCommand.ToggleMarketEvents,
                 $"apostrophe is also bound to {s.Command}"));
+        Assert.All(apostropheBindings.Where(s => s.Command == SystemCommand.ToggleMarketEvents),
+            s => Assert.True(s.Ctrl && s.Alt && s.Shift));
         Assert.Contains(apostropheBindings, s => s.Command == SystemCommand.NavEventNext && !s.Shift);
         Assert.Contains(apostropheBindings, s => s.Command == SystemCommand.NavEventPrev && s.Shift);
     }

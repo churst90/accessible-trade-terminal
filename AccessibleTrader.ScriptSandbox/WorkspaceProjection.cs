@@ -182,6 +182,7 @@ public static class WorkspaceProjection
         // must not change because the user turned on SEC filing headlines.
         nameof(WorkspaceState.HeadlinesLevel),
         nameof(WorkspaceState.HeadlinesNewsWire),
+        nameof(WorkspaceState.HeadlinesAlpaca),
         // A brick chart's real bars and the spans that built its bricks. The projection sends
         // MarketBars as Data (scripts trade, so they must never see a brick's box edge as the
         // market price); these fields are the drawing machinery behind that.

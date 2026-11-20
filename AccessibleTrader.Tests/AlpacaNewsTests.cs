@@ -391,16 +391,17 @@ public class AlpacaNewsTests
         public readonly List<HeadlineEvent> Said = new();
         public readonly AlpacaNewsLiveNotices Service;
 
-        public Rig(string level = "all", bool wire = true)
+        public Rig(string level = "all", bool wire = true, bool alpaca = true, NewsHeadlineGate? gate = null)
         {
             Store.EmitState(WorkspaceState.Initial with
             {
                 Identity = new ChartIdentity("Stock|Spot", "Alpaca", "AAPL", "1h"),
                 HeadlinesLevel = level,
                 HeadlinesNewsWire = wire,
+                HeadlinesAlpaca = alpaca,
             });
             Bus.Subscribe<HeadlineEvent>(Said.Add);
-            Service = new AlpacaNewsLiveNotices(Store, Bus, Keys, Sockets, null, Clock, Presence);
+            Service = new AlpacaNewsLiveNotices(Store, Bus, Keys, Sockets, null, Clock, Presence, gate: gate);
         }
 
         public async Task TickAt(DateTime now)
@@ -588,6 +589,68 @@ public class AlpacaNewsTests
         public void SaveSettings() { }
         public void ResetToDefaults() { }
         public void Reload() { }
+    }
+
+    // ── Alpaca's own switch (off by default since 2026-11-20) ──────────────────
+
+    [Fact]
+    public async Task WithAlpacaOffNoSocketIsOpenedEvenWithTheWireOn()
+    {
+        using var rig = new Rig(alpaca: false);
+        await rig.TickAt(Now);
+        await rig.TickAt(Now.AddMinutes(1));
+        Assert.Empty(rig.Sockets.Made);
+    }
+
+    [Fact]
+    public async Task TurningAlpacaOffClosesItsSocket()
+    {
+        using var rig = new Rig();
+        var s = await rig.Subscribe();
+        rig.Set(st => st with { HeadlinesAlpaca = false });
+        await rig.TickAt(Now.AddSeconds(5));
+        Assert.True(s.Disposed);
+        Assert.False(rig.Service.HasSocket);
+    }
+
+    [Fact]
+    public async Task AlpacaOffLeavesTheGateItSharesWithFinnhubAlone()
+    {
+        // Finnhub queued a story in the shared gate; Alpaca, off, ticks every second. Forgetting
+        // the gate there would drop Finnhub's story unsaid and wipe its dedupe every second.
+        var gate = new NewsHeadlineGate();
+        Assert.True(gate.Offer(Story(7, "Apple Reports Q4 Results", Now, "AAPL"), new[] { Aapl },
+            MarketEventImportance.High, Now));
+        using var rig = new Rig(alpaca: false, gate: gate);
+        await rig.TickAt(Now.AddSeconds(1));
+        await rig.TickAt(Now.AddSeconds(2));
+        Assert.Equal(1, gate.PendingCount);
+        Assert.False(gate.Offer(Story(7, "Apple Reports Q4 Results", Now, "AAPL"), new[] { Aapl },
+            MarketEventImportance.High, Now.AddSeconds(2)));          // still remembered as seen
+    }
+
+    [Fact]
+    public void TheAlpacaSwitchDefaultsOffAndSurvivesASaveAndReload()
+    {
+        Assert.False(WorkspaceState.Initial.HeadlinesAlpaca);
+        Assert.False(new AppSettings(new DictSettings()).HeadlinesAlpaca);
+
+        var settings = new AppSettings(new DictSettings()) { HeadlinesAlpaca = true };
+        var store = new MockWorkspaceStore();
+        var clock = new System.Reactive.Concurrency.HistoricalScheduler();
+        using var svc = new PreferencePersistenceService(store, settings,
+            NullLogger<PreferencePersistenceService>.Instance, clock);
+        svc.Initialize();
+
+        var seeded = store.DispatchedActions.OfType<UpdateSettingsAction>()
+            .Select(a => a.Updater(WorkspaceState.Initial))
+            .Last();
+        Assert.True(seeded.HeadlinesAlpaca);
+
+        store.EmitState(seeded);
+        store.EmitState(seeded with { HeadlinesAlpaca = false });
+        clock.AdvanceBy(TimeSpan.FromSeconds(2));
+        Assert.False(settings.HeadlinesAlpaca);
     }
 
     [Fact]

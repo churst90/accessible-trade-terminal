@@ -233,12 +233,13 @@ namespace AccessibleTrader.Core.Services.Headlines
                     : targets.Where(t => !t.Coin && NewsStoryWords.StockKey(t.Label) == NewsStoryWords.StockKey(job)
                                          && NewsStoryWords.NamesCompany(story.Headline, job, name)).ToList();
                 if (hits.Count == 0) continue;
+                var importance = NewsStoryWords.Importance(story);
+                _gate.Note(story, hits, importance);
                 if (first && story.CreatedUtc < now - EdgarHeadlineTracker.FirstLookReach)
                 {
                     _gate.MarkSeen(story);
                     continue;
                 }
-                var importance = NewsStoryWords.Importance(story);
                 if (!MarketEventLevels.Includes(level, importance))
                 {
                     _gate.MarkSeen(story);

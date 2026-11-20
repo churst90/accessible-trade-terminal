@@ -56,6 +56,8 @@ namespace AccessibleTrader.Core.Services.GoBar
         private readonly IBrowserSpeechOutput? _browserSpeech;
         private readonly IIndicatorTemplateService? _templates;
         private readonly IWorkspaceInitializer? _workspaceInit;
+        private readonly Headlines.HeadlineHistory? _headlines;
+        private readonly Headlines.HeadlineNavigator? _headlineNavigator;
         private GoBarOption? _pending;
 
         public GoBarService(
@@ -77,7 +79,9 @@ namespace AccessibleTrader.Core.Services.GoBar
             IRuntimePlatform? platform = null,
             IBrowserSpeechOutput? browserSpeech = null,
             IIndicatorTemplateService? templates = null,
-            IWorkspaceInitializer? workspaceInit = null)
+            IWorkspaceInitializer? workspaceInit = null,
+            Headlines.HeadlineHistory? headlines = null,
+            Headlines.HeadlineNavigator? headlineNavigator = null)
         {
             _dispatcher = dispatcher;
             _shortcuts = shortcuts;
@@ -98,6 +102,8 @@ namespace AccessibleTrader.Core.Services.GoBar
             _browserSpeech = browserSpeech;
             _templates = templates;
             _workspaceInit = workspaceInit;
+            _headlines = headlines;
+            _headlineNavigator = headlineNavigator;
             _modalStack.Changed += OnModalStackChanged;
         }
 
@@ -374,6 +380,9 @@ namespace AccessibleTrader.Core.Services.GoBar
 
         private GoBarSuggestion ResolveBareVerb(GoBarParseResult parsed)
         {
+            // NEWS alone is the whole list, not a prompt for a value.
+            if (parsed.Verb == GoBarVerb.News) return ResolveNews("");
+
             var spec = parsed.Verb is { } verb ? GoBarVerbs.For(verb) : null;
 
             if (spec?.Entry is { } command)
@@ -420,6 +429,9 @@ namespace AccessibleTrader.Core.Services.GoBar
 
                 case GoBarVerb.Template:
                     return ResolveTemplate(parsed.Argument);
+
+                case GoBarVerb.News:
+                    return ResolveNews(parsed.Argument);
 
                 case GoBarVerb.Renko:
                     if (!GoBarParser.TryParseRenko(parsed.Argument, out var renko))
@@ -742,6 +754,65 @@ namespace AccessibleTrader.Core.Services.GoBar
             return new GoBarSuggestion(options, SentenceFor(options));
         }
 
+        /// <summary>
+        /// How many lines NEWS lists at most. The history keeps more; a symbol or a word after
+        /// NEWS narrows it.
+        /// </summary>
+        internal const int NewsListCap = 200;
+
+        /// <summary>
+        /// NEWS: every headline the terminal has seen, said or not, newest first (stage 2b).
+        /// <c>NEWS AAPL</c> keeps one symbol's; any other word keeps the headlines containing it.
+        /// Enter takes the chart to the bar the headline arrived in when it is this chart's.
+        /// </summary>
+        private GoBarSuggestion ResolveNews(string argument)
+        {
+            if (_headlines == null)
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(), "Headlines are unavailable.");
+
+            string word = (argument ?? "").Trim();
+            var all = _headlines.Newest();
+            var lines = word.Length == 0
+                ? all
+                : all.Where(r => string.Equals(r.Symbol, word, StringComparison.OrdinalIgnoreCase)).ToList() is { Count: > 0 } bySymbol
+                    ? bySymbol
+                    : all.Where(r => r.Text.Contains(word, StringComparison.OrdinalIgnoreCase)
+                                  || r.Source.Contains(word, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (lines.Count == 0)
+            {
+                string why = word.Length > 0
+                    ? $"No headlines for {word}."
+                    : _store != null && MarketEventLevels.Parse(_store.State.HeadlinesLevel) == MarketEventLevel.Off
+                        ? "No headlines yet. Headlines are off; Control Alt Shift period turns them on."
+                        : "No headlines yet.";
+                return new GoBarSuggestion(Array.Empty<GoBarOption>(), why);
+            }
+
+            var options = lines.Take(NewsListCap).Select(r => new GoBarOption(
+                Headlines.HeadlineSpeech.ListLine(r),
+                Action: new GoBarHeadlineAction(r),
+                CanonicalText: word.Length == 0 ? "NEWS" : $"NEWS {word}",
+                Help: "Enter goes to the bar it arrived in, on this chart")).ToList();
+
+            string count = lines.Count == 1 ? "1 headline" : $"{lines.Count} headlines";
+            string shown = lines.Count > NewsListCap ? $", the newest {NewsListCap} listed" : "";
+            return new GoBarSuggestion(options, $"{count}{shown}, newest first. {options[0].Name}");
+        }
+
+        private void ExecuteHeadline(GoBarHeadlineAction action)
+        {
+            var record = action.Record;
+            if (_headlineNavigator != null && _headlineNavigator.JumpTo(record)) return;
+
+            var state = _store?.State;
+            var target = state == null ? null : Headlines.HeadlineChart.TargetOf(state);
+            string where = target != null && string.Equals(target.Label, record.Symbol, StringComparison.OrdinalIgnoreCase)
+                ? "It is not on this chart's bars."
+                : $"It is for {record.Symbol}, not this chart. GP {record.Symbol} opens it.";
+            Speak($"{record.Text} {where}", interrupt: true);
+        }
+
         private GoBarSuggestion ResolveFind(string argument)
         {
             var names = PatternNames()
@@ -882,6 +953,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                 "Type a symbol after GP, like GP BTC.", "GP "),
             SystemCommand.ChangeProvider => new(
                 "Type a provider after PROV, like PROV Kraken.", "PROV "),
+            // Completing to NEWS lists every headline at once; a symbol after it narrows.
+            SystemCommand.OpenNewsList => new(
+                "Every headline, newest first. Type a symbol after NEWS to narrow it.", "NEWS"),
             _ => null,
         };
 
@@ -971,6 +1045,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                         break;
                     case GoBarEventAction marketEvent:
                         ExecuteEvent(marketEvent);
+                        break;
+                    case GoBarHeadlineAction headline:
+                        ExecuteHeadline(headline);
                         break;
                     case GoBarFindAction find:
                         ExecuteFind(find);

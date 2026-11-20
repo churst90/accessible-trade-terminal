@@ -765,6 +765,13 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.Headlines.AlpacaNewsLiveNotices>();
             // Headlines, stage 3: Finnhub's news, polled (its news socket is paid-only).
             services.AddSingleton<AccessibleTrader.Core.Services.Headlines.FinnhubNewsLiveNotices>();
+            // Headlines on the bars they arrived in (period jumps, the arrow clause, Alt+Shift+D) and
+            // the Go bar's NEWS list: one history the three wires and the chart's backfill fill.
+            services.AddSingleton<AccessibleTrader.Core.Services.Headlines.HeadlineHistory>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Headlines.HeadlineBackfill>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Headlines.IHeadlineBarMap,
+                AccessibleTrader.Core.Services.Headlines.HeadlineBarMap>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Headlines.HeadlineNavigator>();
             // Alt+P. Singleton on this head because the Pulse watchlist is per-user singleton
             // here; on the WebHost it is scoped beside the per-circuit watchlists.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();

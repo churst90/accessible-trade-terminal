@@ -86,7 +86,8 @@ namespace AccessibleTrader.Core.Services
             string MarketPulseCryptoStart = "midnightUtc",
             bool ChangeLogOfferOnReturn = true,
             string HeadlinesLevel = "off",
-            bool HeadlinesNewsWire = true);
+            bool HeadlinesNewsWire = true,
+            bool HeadlinesAlpaca = false);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -99,7 +100,7 @@ namespace AccessibleTrader.Core.Services
             s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings,
             s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns, s.MarketEventsWatched,
             s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn, s.HeadlinesLevel,
-            s.HeadlinesNewsWire);
+            s.HeadlinesNewsWire, s.HeadlinesAlpaca);
 
         public void Initialize()
         {
@@ -151,6 +152,7 @@ namespace AccessibleTrader.Core.Services
                     ChangeLogOfferOnReturn = _settings.ChangeLogOfferOnReturn,
                     HeadlinesLevel = _settings.HeadlinesLevel,
                     HeadlinesNewsWire = _settings.HeadlinesNewsWire,
+                    HeadlinesAlpaca = _settings.HeadlinesAlpaca,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -201,6 +203,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.ChangeLogOfferOnReturn = p.ChangeLogOfferOnReturn;
                         _settings.HeadlinesLevel = p.HeadlinesLevel;
                         _settings.HeadlinesNewsWire = p.HeadlinesNewsWire;
+                        _settings.HeadlinesAlpaca = p.HeadlinesAlpaca;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

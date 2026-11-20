@@ -62,6 +62,8 @@ namespace AccessibleTrader.Core.Services.Headlines
         private int _ticking;
         private bool _disposed;
 
+        private readonly HeadlineHistory? _history;
+
         public EdgarHeadlineLiveNotices(
             IWorkspaceStore store,
             IEventBus bus,
@@ -69,8 +71,10 @@ namespace AccessibleTrader.Core.Services.Headlines
             IHeldPositionReader? held = null,
             TimeProvider? timeProvider = null,
             IUserPresence? presence = null,
-            ILogger<EdgarHeadlineLiveNotices>? logger = null)
+            ILogger<EdgarHeadlineLiveNotices>? logger = null,
+            HeadlineHistory? history = null)
         {
+            _history = history;
             _store = store;
             _bus = bus;
             _source = source;
@@ -154,11 +158,21 @@ namespace AccessibleTrader.Core.Services.Headlines
             // A failed read teaches the tracker nothing: the next read is compared with the last
             // good one, so a filing accepted during an outage is still said (within LateReach).
             if (filings == null) return;
+            if (_history != null)
+                foreach (var f in filings.Where(f => f.AcceptedUtc >= now - HeadlineBackfill.Reach))
+                    _history.Add(ticker, f);
 
             var fresh = _tracker.Observe(ticker, filings, now);
             if (fresh.Count == 0) return;
             if (EdgarHeadlineWording.Compose(ticker, fresh, level, now) is { } headline)
+            {
                 _bus.Publish(new HeadlineEvent(headline.Text, headline.Importance, headline.Id, headline.Symbol));
+                // Said in full or counted in the sentence: every fresh filing the level lets through.
+                if (_history != null)
+                    foreach (var f in fresh)
+                        if (EdgarFilingWords.Importance(f.Form, f.Items) is { } imp && MarketEventLevels.Includes(level, imp))
+                            _history.MarkSaid("edgar|" + f.Accession);
+            }
         }
 
         /// <summary>How long until a filer is read again: a minute while EDGAR accepts filings

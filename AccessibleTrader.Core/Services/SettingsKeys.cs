@@ -199,6 +199,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"Headlines": include news stories from Finnhub and Alpaca (default on; needs either key).</summary>
         public const string HeadlinesNewsWire = "narration.headlinesNewsWire";
 
+        /// <summary>"Headlines": read Alpaca's news wire as well (default off since 2026-11-20).</summary>
+        public const string HeadlinesAlpaca = "narration.headlinesAlpaca";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

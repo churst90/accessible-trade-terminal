@@ -1101,6 +1101,10 @@ public class GoBarArgumentTests
         var wrong = new List<string>();
         foreach (var entry in GoBarRegistry.All)
         {
+            // NEWS is the one command whose own words do it in place: the headlines are listed
+            // in the box itself, not behind a "Headlines list" line to press Enter on first
+            // (HeadlineNewsListTests pins what NEWS lists).
+            if (entry.Command == SystemCommand.OpenNewsList) continue;
             var words = new[] { entry.Name }.Concat(entry.Codes);
             if (entry.Kind != GoBarKind.Money) words = words.Concat(entry.Aliases);
 

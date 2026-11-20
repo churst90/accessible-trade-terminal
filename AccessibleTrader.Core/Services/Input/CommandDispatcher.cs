@@ -55,6 +55,11 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly IndicatorCrossingEngine _crossingEngine;
         private readonly Analysis.ChartPatternNavigator? _patternNavigator;
         private readonly MarketEvents.MarketEventNavigator _marketEventNavigator;
+        private readonly Headlines.HeadlineNavigator? _headlineNavigator;
+        // The level a list had when Ctrl+Alt+Shift+period / apostrophe last turned it off, so the
+        // same chord turns it back on as it was.
+        private string _headlinesLevelBeforeOff = MarketEvents.MarketEventLevels.ImportantOnly;
+        private string _marketEventsLevelBeforeOff = MarketEvents.MarketEventLevels.ImportantOnly;
         private readonly MarketPulse.MarketPulseService? _marketPulse;
         private readonly ChangeLog.ChangeLogCatchUpService? _changeLog;
         private readonly DemoPolicy? _demo;
@@ -99,7 +104,8 @@ namespace AccessibleTrader.Core.Services.Input
             MarketEvents.MarketEventNavigator? marketEventNavigator = null,
             MarketPulse.MarketPulseService? marketPulse = null,
             ChangeLog.ChangeLogCatchUpService? changeLog = null,
-            DemoPolicy? demo = null)
+            DemoPolicy? demo = null,
+            Headlines.HeadlineNavigator? headlineNavigator = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -120,6 +126,8 @@ namespace AccessibleTrader.Core.Services.Input
             // heads register the service. Without it the key is inert, which HostParity cannot
             // catch because the registration itself is present.
             _marketPulse = marketPulse;
+            // Optional for the same reason; without it period says headlines are unavailable.
+            _headlineNavigator = headlineNavigator;
             _changeLog = changeLog;
             _demo = demo;
             _quickTrade = quickTrade;
@@ -361,6 +369,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.OpenLevelReport: _eventBus.Publish(new OpenLevelReportEvent()); return;
                 case SystemCommand.OpenMarketEventCalendar: _eventBus.Publish(new OpenMarketEventCalendarEvent()); return;
                 case SystemCommand.OpenGoBar: _eventBus.Publish(new OpenGoBarEvent()); return;
+                case SystemCommand.OpenNewsList: _eventBus.Publish(new OpenGoBarEvent("NEWS")); return;
                 case SystemCommand.MarketPulse:
                     // One sentence, gathered off the dispatcher's thread. A second press while
                     // it gathers is the service's to answer.
@@ -598,6 +607,27 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ToggleSonification: _store.Dispatch(new ToggleSonificationAction()); return;
                 case SystemCommand.ToggleEventSpeech: _store.Dispatch(new ToggleEventSpeechAction()); return;
                 case SystemCommand.ToggleEarcons: _store.Dispatch(new ToggleEarconsAction()); return;
+                case SystemCommand.ToggleChartPatterns:
+                {
+                    bool on = !_store.State.DescribeChartPatterns;
+                    _store.Dispatch(new UpdateSettingsAction(s => s with { DescribeChartPatterns = on }));
+                    Say(on ? "Describe chart patterns on." : "Describe chart patterns off.");
+                    return;
+                }
+                case SystemCommand.ToggleHeadlines:
+                {
+                    var next = NextLevel(_store.State.HeadlinesLevel, ref _headlinesLevelBeforeOff);
+                    _store.Dispatch(new UpdateSettingsAction(s => s with { HeadlinesLevel = next }));
+                    Say("Headlines " + LevelWords(next));
+                    return;
+                }
+                case SystemCommand.ToggleMarketEvents:
+                {
+                    var next = NextLevel(_store.State.MarketEventsLevel, ref _marketEventsLevelBeforeOff);
+                    _store.Dispatch(new UpdateSettingsAction(s => s with { MarketEventsLevel = next }));
+                    Say("Market events " + LevelWords(next));
+                    return;
+                }
                 case SystemCommand.ToggleBraille: _eventBus.Publish(new BrailleToggleRequestedEvent()); return;
                 // Braille device settings live on their own tab in the Settings dialog, and this
                 // key opens the dialog ON that tab. A dedicated picker modal stays TODO until
@@ -806,6 +836,17 @@ namespace AccessibleTrader.Core.Services.Input
                 if (command is SystemCommand.NavEventNext or SystemCommand.NavEventPrev)
                 {
                     _marketEventNavigator.Jump(command == SystemCommand.NavEventNext);
+                    return;
+                }
+
+                // Period / Shift+period: the next / previous bar with a headline.
+                if (command is SystemCommand.NavHeadlineNext or SystemCommand.NavHeadlinePrev)
+                {
+                    if (_headlineNavigator == null)
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Boundary, "Headline navigation is unavailable."));
+                    else
+                        _headlineNavigator.Jump(command == SystemCommand.NavHeadlineNext);
                     return;
                 }
 
@@ -1263,6 +1304,9 @@ namespace AccessibleTrader.Core.Services.Input
                 // text box.
                 case SystemCommand.NavEventNext:
                 case SystemCommand.NavEventPrev:
+                // Period / Shift+period, for the same reason.
+                case SystemCommand.NavHeadlineNext:
+                case SystemCommand.NavHeadlinePrev:
                 // Quick trade is chart-scoped: the stop and the limit both come from the bar
                 // under the cursor, so these mean nothing without chart focus — and Shift+Enter
                 // must stay available to every form control in the application.
@@ -1534,6 +1578,29 @@ namespace AccessibleTrader.Core.Services.Input
         }
 
         internal const string NothingIsPlaying = "Nothing is playing.";
+
+        private void Say(string text)
+            => _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, text, true, Channel: SpeechChannel.Interface));
+
+        /// <summary>
+        /// Off when on (remembering the level), else back to the remembered level. The Settings
+        /// dialog keeps its four levels; the chord only switches between Off and the last one.
+        /// </summary>
+        private static string NextLevel(string current, ref string beforeOff)
+        {
+            var level = MarketEvents.MarketEventLevels.Parse(current);
+            if (level == MarketEvents.MarketEventLevel.Off) return beforeOff;
+            beforeOff = MarketEvents.MarketEventLevels.ToSetting(level);
+            return MarketEvents.MarketEventLevels.Off;
+        }
+
+        private static string LevelWords(string setting)
+        {
+            var level = MarketEvents.MarketEventLevels.Parse(setting);
+            return level == MarketEvents.MarketEventLevel.Off
+                ? "off."
+                : "on, " + MarketEvents.MarketEventLevels.Label(level).ToLowerInvariant() + ".";
+        }
 
         private void TogglePlayback(PlaybackScope scope)
         {

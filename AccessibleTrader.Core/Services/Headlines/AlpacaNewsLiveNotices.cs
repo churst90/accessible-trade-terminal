@@ -178,12 +178,16 @@ namespace AccessibleTrader.Core.Services.Headlines
             {
                 var state = _store.State;
                 var level = MarketEventLevels.Parse(state.HeadlinesLevel);
-                if (level == MarketEventLevel.Off || !state.HeadlinesNewsWire)
+                bool wireOff = level == MarketEventLevel.Off || !state.HeadlinesNewsWire;
+                if (wireOff || !state.HeadlinesAlpaca)
                 {
                     await CloseAsync().ConfigureAwait(false);
                     _failures = 0;
                     _nextConnectUtc = DateTime.MinValue;
-                    lock (_lock) _gate.Forget();
+                    // The gate is shared with Finnhub: only when every wire is off is there
+                    // nothing left to remember. Alpaca alone off (its default) keeps Finnhub's
+                    // dedupe and pacing intact.
+                    if (wireOff) lock (_lock) _gate.Forget();
                     return;
                 }
 
@@ -298,6 +302,7 @@ namespace AccessibleTrader.Core.Services.Headlines
                     var hits = NewsStoryWords.Matches(story, _targets);
                     if (hits.Count == 0) continue;
                     var importance = NewsStoryWords.Importance(story);
+                    _gate.Note(story, hits, importance);
                     if (!MarketEventLevels.Includes(_level, importance)) continue;
                     _gate.Offer(story, hits, importance, now);
                 }

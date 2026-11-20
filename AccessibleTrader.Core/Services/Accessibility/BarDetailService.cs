@@ -37,12 +37,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly MarketEvents.IMarketEventBarMapCache _marketEvents;
 
+        /// <summary>The bar-to-headline map; without it Alt+Shift+D reads no headlines.</summary>
+        private readonly Headlines.IHeadlineBarMap? _headlines;
+
         public BarDetailService(
             IEventBus eventBus,
             IChartPatternCache? patterns = null,
             ISdkCandlePatternAnalyzer? analyzer = null,
-            MarketEvents.IMarketEventBarMapCache? marketEvents = null)
+            MarketEvents.IMarketEventBarMapCache? marketEvents = null,
+            Headlines.IHeadlineBarMap? headlines = null)
         {
+            _headlines = headlines;
             _eventBus = eventBus;
             _patterns = patterns;
             _analyzer = analyzer ?? new SdkCandlePatternAnalyzer();
@@ -132,6 +137,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 string events = MarketEventDetail(state, idx, bar);
                 if (!string.IsNullOrEmpty(events)) blocks.Add(events);
+
+                // Every headline on the bar whatever the level, as events are read whatever
+                // theirs: this key is a direct question.
+                if (_headlines != null)
+                {
+                    string headlines = Headlines.HeadlineSpeech.Detail(
+                        _headlines.For(state).Where(p => p.BarIndex == idx));
+                    if (headlines.Length > 0) blocks.Add(headlines);
+                }
             }
 
             // Nothing shown and nothing focused: a bare date would sound like a broken key.

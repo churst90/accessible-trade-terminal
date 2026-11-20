@@ -49,6 +49,8 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 | Backslash (\) | Jump to the latest (live) bar | Bar data at live edge |
 | ' | Jump to the next bar carrying a market event that passes the setting | The event, or "No later market events." |
 | Shift+' | Jump to the previous bar carrying a market event | The event, or "No earlier market events." |
+| . (period) | Jump to the next bar carrying a headline for this stock or coin that passes the Headlines level | The bar, then "Headline: …", or "No later headlines." |
+| Shift+. | Jump to the previous bar carrying a headline | The bar and its headline, or "No earlier headlines." |
 | [ | Pan viewport left (older bars come into view) | "Viewing X bars from..." |
 | ] | Pan viewport right (newer bars come into view) | "Viewing X bars from..." |
 | Shift+[ | Decrease pan step size | — |
@@ -57,6 +59,21 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 | = (equals) | Zoom in (fewer bars visible) | "Viewing X bars from..." |
 
 Market events are off by default; turn them on under Settings (F12) → Narration → Market events on the chart. With the level off the key says so rather than doing nothing.
+
+Headlines are off by default too (Settings → Narration → Headlines level). A headline sits on the bar
+it arrived in — one that arrived between bars (overnight, a weekend) on the next bar — so the arrow
+keys read it there as "Headline: …", `Alt+Shift+D` reads every headline on the bar with its time and
+source, and the Go bar's `NEWS` lists every headline kept this session, said or not (Enter goes to its
+bar). Brick charts (Renko, Kagi, Point and Figure and the rest) carry none: a brick has no clock.
+
+One key family per kind of thing, the shifted key going back (Cody, 2026-11-20): **`,` formations,
+`.` headlines, `'` market events.** Each kind's switch is the same key with Ctrl+Alt+Shift:
+
+| Key | Action | Speech Feedback |
+|-----|--------|-----------------|
+| Ctrl+Alt+Shift+, | Describe chart patterns on or off | "Describe chart patterns on." / "…off." |
+| Ctrl+Alt+Shift+. | Headlines on or off. Back on returns the level they had; from off, important only | "Headlines on, important and medium." / "Headlines off." |
+| Ctrl+Alt+Shift+' | Market events on or off, the same way | "Market events on, important only." / "Market events off." |
 
 ---
 
@@ -115,23 +132,25 @@ lines are Market Cipher B's overbought and oversold for the two waves, where the
 
 ---
 
-## Chart Formation Navigation (`,` and `.`)
+## Chart Formation Navigation (`,` and `Shift+,`)
 
-Bare comma and period step between **chart formations** — double tops, head and shoulders,
+Comma and Shift+comma step between **chart formations** — double tops, head and shoulders,
 triangles, wedges, flags. They are unmodified keys because this is something you press repeatedly
 while reading a chart, and they are chart-scoped, so they remain typable everywhere else.
 
 They step through formations only. An indicator's own drawing — Cipher C's cycle arc — is not a
 stop: it belongs to its component, which names it when you land there and says what it shows
 (Cody, 2026-10-22: one owner per key family; Arrows move by bar, Ctrl+Left/Right through the
-focused component's events, comma and period through formations).
+focused component's events, comma through formations). Until 2026-11-20 the pair was `,` back and
+`.` forward; period now walks headlines, and a saved shortcut profile still on the old pair is moved
+when it loads (a pair you rebound yourself is left alone).
 
 | Key | Action |
 |-----|--------|
-| `,` | Previous formation edge |
-| `.` | Next formation edge |
+| `,` | Next formation edge |
+| `Shift+,` | Previous formation edge |
 
-| `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside. The choice stays until changed (even after a restart), is what `,` `.`, Home, End, `\` and the arrows read on every bar it is on, and is drawn first labelled "chosen:"; off its bars it is never mentioned |
+| `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside. The choice stays until changed (even after a restart), is what `,` `Shift+,`, Home, End, `\` and the arrows read on every bar it is on, and is drawn first labelled "chosen:"; off its bars it is never mentioned |
 | `Shift+;` | The same, backwards: the first press goes to the last. With two formations, `;` and `Shift+;` both swap them |
 
 Both keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
@@ -151,7 +170,7 @@ the chosen formation is not in play, the default order reads — still forming f
 not newest — and your choice leads again when you come back to its bars. Nothing is hidden either
 way: the others are still counted and `Alt+Shift+D` still reads them all.
 
-**`,` and `.` always walk every formation's edges**, whatever `;` chose. (Until 2026-11-13 a choice
+**`,` and `Shift+,` always walk every formation's edges**, whatever `;` chose. (Until 2026-11-13 a choice
 confined them to the chosen formation's two edges until `Shift+;` released it.)
 
 **Landing inside nested formations names the nesting.** When a jump — or `\` into the chart — lands
@@ -546,7 +565,8 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Levels**) |
 | Alt+E | Market event calendar — days as headings, filters, "alert me before" and release history (toolbar: **Market events**) |
-| Alt+G | Go bar — one text box that reaches every action by typing a name, code or alias, with an optional value in either order (`TF 4h` = `4h TF`, `GP BTC` = `BTC GP`), a setting by name (`text size`), `HELP GP` to read a command without running it, and the typed money commands `BUY`, `SELL`, `FLAT` (they only fill in the ticket). Down lists, Tab completes, Enter runs, Escape closes |
+| Alt+G | Go bar — one text box that reaches every action by typing a name, code or alias, with an optional value in either order (`TF 4h` = `4h TF`, `GP BTC` = `BTC GP`), a setting by name (`text size`), `HELP GP` to read a command without running it, the typed money commands `BUY`, `SELL`, `FLAT` (they only fill in the ticket), and `NEWS` — every headline kept this session, newest first (`NEWS AAPL` for one symbol, `NEWS` and a word to search them). Slash opens it as well as Alt+G (2026-11-20), as in a browser or a chat app. Down lists, Tab completes, Enter runs, Escape closes |
+| `/` | Go bar, the same as Alt+G — slash, as a browser or a chat app uses it. Only where typing is not going on: in a text box it types a slash |
 | Alt+P | Market pulse — the "Pulse" watchlist spoken as one sentence (stocks, indices, crypto, forex, gold, oil, VIX, then what you hold) |
 | Alt+U | What changed — the catch-up of money, alerts, events released and connection problems since you last listened. Press again for the rest |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |

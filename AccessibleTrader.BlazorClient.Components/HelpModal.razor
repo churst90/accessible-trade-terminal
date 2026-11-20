@@ -251,8 +251,12 @@
                         <tr><td>Alt+Page Up / Alt+Page Down</td><td>Move to the previous / next pane — the next Y axis up or down the chart</td><td>Series name, then the pane name at the end</td></tr>
                         <tr><td>Ctrl+↑ / Ctrl+↓</td><td>Walk the components of the strip you are in, across every series in the pane</td><td>Component value</td></tr>
                         <tr><td>Alt+Shift+/</td><td>Describe this pane: what each axis measures, its range, and the step between gridlines</td><td>"Main pane, 1 of 3. Y axis, price: 94,000 to 98,000…"</td></tr>
-                        <tr><td>, / .</td><td>Step to the previous / next chart-formation edge</td><td>Edge name and bar data</td></tr>
+                        <tr><td>, / Shift+,</td><td>Step to the next / previous chart-formation edge (until 2026-11-20 this was comma back, period forward)</td><td>Edge name and bar data</td></tr>
+                        <tr><td>. / Shift+.</td><td>Jump to the next / previous bar with a headline for this stock or coin that passes the Headlines level. Off by default (Settings, Narration); a headline sits on the bar it arrived in, and Alt+Shift+D reads every one on the bar with its time and source</td><td>"Headline: Apple Reports Fourth Quarter Results." or "No later headlines."</td></tr>
                         <tr><td>' / Shift+'</td><td>Jump to the next / previous bar with a market event. Off by default (Settings, Narration); the bar reading says what the event is and when</td><td>"CPI 8:30", "market closed Thursday, Thanksgiving", or "No later market events."</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+,</td><td>Toggle describe chart patterns on or off, the formations comma walks</td><td>"Describe chart patterns on."</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+.</td><td>Toggle headlines on or off; back on returns the level they had, from off important only</td><td>"Headlines on, important only."</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+'</td><td>Toggle market events on or off, the same way</td><td>"Market events off."</td></tr>
                         <tr><td>; / Shift+;</td><td>Next / previous of the formations at this bar leads the readout, and stays chosen until you pick another, even after a restart; it is what every move reads and draws first on the bars it is on</td><td>"Leading with bull flag, 2 of 3…"</td></tr>
                         <tr><td>Ctrl+Alt+Shift+C</td><td>Focus chart area and speak context summary</td><td>Symbol + context summary</td></tr>
                         <tr><td>Alt+Z</td><td>Toggle focus mode: hide the toolbar, tabs and indicator bar so the chart gets the whole window</td><td>"Focus mode on/off"</td></tr>
@@ -323,7 +327,8 @@
                         <tr><td>Alt+D</td><td>Open Drawing Tools panel</td></tr>
                         <tr><td>Alt+J</td><td>Open Alerts manager</td></tr>
                         <tr><td>Alt+E</td><td>Open the market event calendar</td></tr>
-                        <tr><td>Alt+G</td><td>Open the Go bar — type any command by name, code or alias, with an optional value in either order ("TF 4h", "GP BTC", "ALERT 95000", "GOTO 2024-03-01", "FIND hammer"), a setting by name ("text size"), a chart type ("CANDLE", "LINE", "AREA", "RENKO", "heikin ashi chart"), a price scale ("REG", "PCT", "IDX"), or "HELP GP" to read a command without running it; typed BUY, SELL and FLAT only fill in the trading ticket (Down lists, Tab completes, Enter runs, Escape closes)</td></tr>
+                        <tr><td>Alt+G</td><td>Open the Go bar — type any command by name, code or alias, with an optional value in either order ("TF 4h", "GP BTC", "ALERT 95000", "GOTO 2024-03-01", "FIND hammer"), a setting by name ("text size"), a chart type ("CANDLE", "LINE", "AREA", "RENKO", "heikin ashi chart"), a price scale ("REG", "PCT", "IDX"), "NEWS" for every headline kept this session newest first ("NEWS AAPL" for one symbol; Enter goes to its bar), or "HELP GP" to read a command without running it; typed BUY, SELL and FLAT only fill in the trading ticket (Down lists, Tab completes, Enter runs, Escape closes)</td></tr>
+                        <tr><td>/</td><td>Open the Go bar, the same as Alt+G, from anywhere you are not typing</td></tr>
                         <tr><td>Alt+P</td><td>Hear the market pulse — your Pulse watchlist in one sentence</td></tr>
                         <tr><td>Alt+U</td><td>Hear what changed while you were away — money, alerts, events released and connection problems</td></tr>
                         <tr><td>Alt+W</td><td>Open Sound Designer (patch library)</td></tr>

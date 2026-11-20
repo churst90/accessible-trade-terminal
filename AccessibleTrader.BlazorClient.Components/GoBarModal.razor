@@ -101,7 +101,7 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        _eventSub = EventBus.Subscribe<OpenGoBarEvent>(_ => InvokeAsync(ShowAsync));
+        _eventSub = EventBus.Subscribe<OpenGoBarEvent>(e => InvokeAsync(() => ShowAsync(e.Text)));
         _closeSub = EventBus.Subscribe<CloseGoBarRequestEvent>(_ => InvokeAsync(() =>
         {
             if (_isVisible) CloseModal();
@@ -117,7 +117,7 @@
         }));
     }
 
-    private async Task ShowAsync()
+    private async Task ShowAsync(string? text = null)
     {
         _input = "";
         _suggestion = new GoBarSuggestion(Array.Empty<GoBarOption>(), "");
@@ -127,6 +127,15 @@
         _focused = false;
         CancelPoliteRead();
         await ShowModalAsync("gobar-title");
+
+        // Opened with text already typed (NEWS from its own command): list it and read the
+        // sentence, exactly as when a bare verb completes.
+        if (!string.IsNullOrEmpty(text))
+        {
+            _input = text;
+            RefreshMatches();
+            StartPoliteRead();
+        }
 
         // The user opened this to type. The heading names the box for the screen reader; the
         // input is where the hands belong.

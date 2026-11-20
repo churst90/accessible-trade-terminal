@@ -630,6 +630,21 @@ namespace AccessibleTrader.Core.Services.Headlines
         private readonly Dictionary<string, List<(DateTime AtUtc, HashSet<string> Words)>> _recent = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, (DateTime FirstUtc, List<Item> Items)> _pending = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _lastSaidUtc = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HeadlineHistory? _history;
+
+        /// <param name="history">Where every matched story is kept, said or not (the NEWS list and
+        /// the chart's bars). Optional so a gate can stand alone in a test.</param>
+        public NewsHeadlineGate(HeadlineHistory? history = null) => _history = history;
+
+        /// <summary>The history this gate notes into, if any.</summary>
+        public HeadlineHistory? History => _history;
+
+        /// <summary>A story that names a touched symbol, whatever happens to it next: kept in the
+        /// history so the NEWS list and the chart show it even when it is not said.</summary>
+        public void Note(NewsStory story, IReadOnlyList<NewsTarget> targets, MarketEventImportance importance)
+        {
+            if (targets.Count > 0) _history?.Add(story, targets, importance);
+        }
 
         /// <summary>Queues a matched story that passes the level. False when it was already
         /// seen or is too old.</summary>
@@ -698,6 +713,8 @@ namespace AccessibleTrader.Core.Services.Headlines
                 if (live.Count == 0) continue;
                 due.Add(NewsHeadlineWording.Compose(
                     live.Select(i => (i.Story, i.Targets, i.Importance)).ToList(), nowUtc));
+                if (_history != null)
+                    foreach (var i in live) _history.MarkSaid(i.Story.Key);
                 _lastSaidUtc[key] = nowUtc;
             }
             return due;

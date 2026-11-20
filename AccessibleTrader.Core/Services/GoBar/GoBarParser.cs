@@ -28,6 +28,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         Buy,
         Sell,
         Flat,
+        News,
     }
 
     /// <summary>One verb and every word it answers to, plus the 6a entry it belongs to.</summary>
@@ -75,6 +76,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
                 new[] { "FIND" }, null),
+            new GoBarVerbSpec(GoBarVerb.News,
+                new[] { "NEWS", "HEADLINES" }, SystemCommand.OpenNewsList),
             new GoBarVerbSpec(GoBarVerb.Settings,
                 new[] { "SET" }, SystemCommand.OpenSettings),
             new GoBarVerbSpec(GoBarVerb.Help,

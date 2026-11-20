@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Headlines on the bars, the NEWS list, the keys rearranged and Alpaca made optional, 2026-11-20 — not heard, not on the VPS
+
+Cody: "finish the last headline items. for the keyboard shortcuts we may need to change them up
+because they're inconsistent … , and shift , should navigate chart patterns, . and shift . navigate
+headlines and ' and shift ' navigate events … why not have / open the command bar. Is alpaca really
+needed now as a backup if we're using finhub?" and then "ctrl+alt+shift+, . and ' should … toggle
+those settings".
+
+- **Headlines kept, said or not** (`HeadlineHistory`). Every story the gate matched to a symbol is
+  kept (up to 3000), whether it was said or held back by the per-symbol minute, plus every SEC filing
+  with an importance. The same story from the second wire, in other words within two hours, is kept
+  once per symbol, as the gate already says it once.
+- **Each headline on the bar it arrived in** (`HeadlineChart.Place`): the bar whose span holds its
+  time; between bars (overnight, weekends) the next bar; after the newest bar ended, the newest bar;
+  before the chart, nowhere. Stocks and coins only; brick charts carry none (a brick has no clock).
+  - Arrowing onto such a bar adds "Headline: Apple Reports Q4 Results. 2 more headlines." — the most
+    important first, only the ones the Headlines level lets through, nothing with the level off.
+  - `Alt+Shift+D` reads every headline on the bar, whatever the level: "2 headlines on this bar:
+    Nov 20 14:02 UTC, Yahoo, important: …".
+  - **Period / Shift+period** jump to the next / previous bar with a headline at the level, read as
+    the arrows read it (`HeadlineNavigator`). With the level off they say so.
+  - **The chart's own past** (`HeadlineBackfill`): on first look at a stock or coin chart, Finnhub's
+    company news for it (only stories that name it) and its SEC filings back to the chart's first bar
+    or 30 days, read again every half hour, two minutes after a failure, never with headlines off.
+    A coin gets only Finnhub's newest hundred or so crypto stories (no older list on a free key).
+- **The Go bar's `NEWS` list** (also `HEADLINES`): every kept headline, newest first, the newest 200
+  listed: "AAPL: Apple Reports Q4 Results. Important, Yahoo, Nov 20 14:02 UTC, not said." `NEWS AAPL`
+  is one symbol's, other words search them. Enter goes to its bar on this chart or says which symbol
+  it is for ("GP MSFT opens it"). An empty list says why: none yet, or headlines off and the key that
+  turns them on. New codes `HDLN`, `EVTS`, `CPAT` reach the three settings (`news` no longer finds
+  the economic calendar).
+- **Keys: one family per kind of thing, the shifted key going back.** `,` / `Shift+,` chart formations
+  (were `,` back and `.` forward), `.` / `Shift+.` headlines, `'` / `Shift+'` market events.
+  `Ctrl+Alt+Shift` with the same key switches each on or off: "Describe chart patterns on.",
+  "Headlines off.", "Market events on, important and medium." Back on returns the level it had; from
+  off (or the first press after a restart) it turns on at important only. `/` opens the Go bar too.
+  - **A saved shortcut profile is moved to the new keys when it loads,** only where it still has the
+    old defaults: the formation pair is moved only while `Shift+,` is free, slash is added only while
+    the Go bar is still on `Alt+G`, and each new command gets its default only if the key is free.
+  - **Found and fixed: `Shift+,`, `Shift+.`, `'`, `Shift+'` and `/` were not in the page's trapped-key
+    list.** On the chart they could reach .NET only through the chart's own fallback handler, which
+    does not stop the browser, so Firefox's quick find opened over the chart on apostrophe; away from
+    the chart slash reached nothing. With Alt held, a layout can report another
+    character for the key, so the punctuation is now read from the physical key there. All of them
+    fire only with the chart focused; slash only outside a text box, where it types a slash.
+  - Spoken key names: `OEM7` is "Apostrophe" (the toolbar and menu would have said "OEM7").
+- **Alpaca's wire is now optional, off by default** (Settings → Narration → "Also read Alpaca's news
+  wire"). Cody asked whether it is still needed: no. Finnhub's free key covers the same stocks sooner
+  and has coins; Alpaca's free feed is fiscal.ai in half-hourly batches, stocks only. Switching it off
+  closes its socket but leaves the dedupe it shares with Finnhub alone — clearing it, as the wire-off
+  path does, would have made Finnhub say its held stories again.
+- **`SymbolAssets.Split` no longer reads XBTUSD as XB priced in TUSD.** The longest quote wins unless
+  it leaves a base under three letters: XBT/USD, DOT/USD, BAT/USD; BTCFDUSD stays BTC/FDUSD and OPUSDT
+  OP/USDT. Its callers include the sector hint and the COT lookup.
+- **Not done:** the Finnhub key cannot go on the VPS for everyone to share — Finnhub's terms forbid
+  redistributing its data or sharing a key without its written approval (the hosted site's users can
+  enter their own free key; EDGAR filings work for everyone with no key). Nothing is drawn on the bar
+  for a headline yet (speech and the detail key only). The kept list is in memory: a restart empties
+  it. Finnhub's listing delay is still unmeasured (needs US weekday hours).
+- Tests: `HeadlineNewsListTests` (new) and additions to the Alpaca, key-binding, keyboard-scope and
+  symbol-split tests; `BarListKeyBrowserTests` (new, real Chromium): each of the six keys answered
+  exactly once on the chart and cancelled there, and slash opening the Go bar from the chart and from
+  a toolbar button. 33 sabotages, each red (listed in the commit). Two keyboard.js sabotages were
+  green against the first version of the browser test, which only counted answers: the chart's
+  fallback handler answers these keys with or without the trap, so the test now pins what only the
+  trap gives — the keydown cancelled, and slash working off the chart.
+
 ### Headlines, stage 3: Finnhub news for stocks and coins, said once with Alpaca's, 2026-11-20 — not heard, not on the VPS
 
 Cody: "Do C finhub and then assess whether B is needed" (B being companies' press-release feeds),

@@ -156,8 +156,10 @@ This is where it is won or lost. Cody's rule (decision 1): **the bar of the day 
   can be noticed with speech muted. Playback (Space) sounds it as it passes.
 - **Alt+Shift+D** adds "Events on this bar" with the time on your F12 clock, actual, expected and its
   source, previous and revision, and what price did over that bar ("price fell 1.8% by this bar's close").
-- **Apostrophe / Shift+apostrophe** jump to the next / previous event bar, the way `.` and `,` move
-  between formations. (Both keys were free on 2026-11-18.)
+- **Apostrophe / Shift+apostrophe** jump to the next / previous event bar, the way `,` / `Shift+,`
+  move between formations and `.` / `Shift+.` between headlines (Cody's arrangement, 2026-11-20;
+  formations were `,` back and `.` forward until then). `Ctrl+Alt+Shift+'` switches events off and
+  back on at the level they had.
 - **Off by default** (decision 3). Settings → Narration: off, important only, important and medium, all;
   a tick box per kind (economy, Fed, earnings, unlocks, expiries, holidays). The default set when turned
   on follows the market: crypto gets US economy, Fed, the coin's unlocks and crypto options expiry; stocks
@@ -239,7 +241,7 @@ unavailable, Finnhub key not set".
 
 ---
 
-## 3. The Go bar (Alt+G, free on 2026-11-18; the only opener, Cody 2026-11-18)
+## 3. The Go bar (Alt+G, free on 2026-11-18; and `/` since 2026-11-20, Cody)
 
 - **One registry behind it.** Every action the terminal has (about 140 key bindings on 2026-11-18) gets a
   name, Bloomberg-style short codes and plain aliases, one line of help, its arguments, and the
@@ -280,8 +282,12 @@ what is new and what is said. They reach the trader four ways:
   level**, Off by default, with the market events' four levels.
 - **The Alt+I dossier**, as a section for the asset on the chart (stage 1: Recent filings).
 - **Alt+U's change log**, as the **News** category (read as "Headlines"), after Events.
-- **Later:** a news list (Go bar `NEWS`), and headlines placed on the bar they arrived in, with
-  the apostrophe jumps the market events use.
+- **The news list (Go bar `NEWS`) and headlines on the bar they arrived in — BUILT 2026-11-20,
+  not heard.** `HeadlineHistory` keeps every matched headline, said or not; `HeadlineChart.Place`
+  puts each on the bar whose span holds it (between bars: the next); the arrows read the clause,
+  Alt+Shift+D every headline on the bar, `.` / `Shift+.` jump (`HeadlineNavigator`), and
+  `HeadlineBackfill` reads the focused stock's or coin's own past (Finnhub stories that name it,
+  SEC filings; 30 days, every half hour).
 
 ### What makes a headline worth saying
 
@@ -298,11 +304,13 @@ read-out, and nothing said more than two hours late. Wire sources will add a ded
 2. **Alpaca news — BUILT 2026-11-20, checked live the same evening.** A websocket of headlines
    with tickers attached. On Cody's free account they are fiscal.ai's (not Benzinga's as Alpaca's
    documentation says), in half-hourly batches, stocks only — so it is a slow second source, not a
-   real-time wire. See stage 8 below. The news list (Go bar `NEWS`) is stage 2b.
+   real-time wire. See stage 8 below. Since 2026-11-20 off by default behind its own switch
+   (Cody asked whether it is still needed: no).
 3. **Finnhub news — BUILT 2026-11-20, not heard.** Company news per stock and the crypto list,
    polled (the news socket is paid-only), said only when the headline names the symbol, through a
    gate shared with Alpaca so a story is said once. See stage 9 below. On-bar placement with
-   apostrophe jumps is still to do.
+   period jumps built the same day. Not on the VPS for everyone: Finnhub's terms forbid sharing a
+   key or passing its data on without written approval, so each user brings a free key.
 4. **CryptoPanic — only if crypto coverage proves thin.** Alpaca's free feed turned out to carry no
    coin stories at all (2026-11-20), so this now rests on Finnhub's crypto category. If it is ever added, its credit goes in the
    manual and never in speech (Cody, 2026-11-20); its terms may ask for a visible "Powered by
@@ -506,9 +514,10 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
       optional limit price fill the dashboard ticket, and FLAT opens Positions and focuses the
       chart symbol's first open position. Money only ever fills in or focuses: Submit is still the
       only send, and the existing live read-back review is untouched.
-      **Second opener:** closed by Cody on 2026-11-18 — **Alt+G is the only opener.** The
-      backtick and `Shift+\` were both dropped (`Shift+\` is not one key on AltGr layouts such as
-      German, and Alt+G already does the job).
+      **Second opener:** closed by Cody on 2026-11-18 — Alt+G only (the backtick and `Shift+\`
+      were dropped; `Shift+\` is not one key on AltGr layouts). **Reopened by Cody on 2026-11-20:
+      `/` opens it too**, from anywhere but a text box, and a saved profile gets slash only while
+      its Go bar is still on Alt+G.
       **Differences found while building:** the handoff's `SET speech rate` example has no
       destination in this build — there is no speech-rate control and the registry has no such
       row — so it refuses with "No setting matches speech rate."; the money verb is deliberately

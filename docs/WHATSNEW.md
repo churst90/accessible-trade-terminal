@@ -98,10 +98,11 @@ None of this has been seen or heard in the app yet.
 
 ### Headlines: the news wire
 
-- **With an Alpaca key in API Keys, news stories are said too**, for your stocks: "AAPL: Apple
-  Reports Q4 Results, Beats Estimates." A free Alpaca account works, but its stories come in batches
-  about every half hour (so up to 30 minutes after the event) and there are none for coins. Same level and same sound as the filings, and a new "Include news wire stories"
-  box beside the level (on, but it does nothing without a key).
+- **With an Alpaca key in API Keys and "Also read Alpaca's news wire" ticked, news stories are said
+  too**, for your stocks: "AAPL: Apple Reports Q4 Results, Beats Estimates." Off by default: Finnhub
+  (below) covers the same stocks sooner, and a free Alpaca account's stories come in batches about
+  every half hour (so up to 30 minutes after the event), none for coins. Same level and same sound
+  as the filings, and a new "Include news wire stories" box beside the level for every wire.
 - **Important** is results, guidance, takeovers, bankruptcy, listing notices, FDA decisions, share
   offerings, halts and hacks; **medium** is analyst upgrades and downgrades, takeover talk, officer
   changes, contracts, lawsuits and probes, and dividend rises; **all** adds the rest. Results dates,
@@ -124,6 +125,21 @@ None of this has been seen or heard in the app yet.
 - Explainers, questions, "Here's why" pieces, call transcripts, market wraps and every Seeking
   Alpha opinion piece are low; subpoenas are important; probes, outages and signed deals are medium.
 - The dossier's "Recent news" lists both services together, a week of each stock's stories.
+
+### Headlines on the chart, the NEWS list, and the keys
+
+- **Each headline sits on the bar it arrived in** (between bars, the next one), on stock and coin
+  charts: the arrows add "Headline: Apple Reports Q4 Results.", Alt+Shift+D reads every one on the
+  bar with its time and source, and **period / Shift+period jump between them**. A chart's own last
+  30 days of news and filings are read in when you open it. Nothing is drawn yet.
+- **Type NEWS in the Go bar** for every headline this session, newest first, said or not; `NEWS AAPL`
+  for one stock. Enter goes to its bar.
+- **The keys, one per kind of thing, Shift going back:** comma for chart formations (it was comma
+  back, period forward), period for headlines, apostrophe for market events. **Ctrl+Alt+Shift with
+  the same key** turns each on or off. A saved shortcut set is moved over unless you rebound them.
+- **Slash opens the Go bar**, as well as Alt+G.
+- Shift+comma, Shift+period and Shift+apostrophe never reached the terminal from the browser before;
+  they do now, on the chart only.
 
 ### Chart types and price scales
 

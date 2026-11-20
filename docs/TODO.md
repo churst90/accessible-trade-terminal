@@ -395,9 +395,12 @@ as proposed.
   moved to Core and `OpenSettingsEvent` can focus a named control. **Built 2026-11-18, not yet
   heard by Cody.** Caveats: the money verb is first-word-only, `FLAT` takes no symbol, and the
   handoff's `speech rate` example has no setting to reach in this build.
-- [x] **Second Go bar opener — closed, Cody 2026-11-18: Alt+G only.** Neither the backtick nor
-  `Shift+\` is bound. `Shift+\` was free, but on German and other AltGr layouts the backslash
-  needs AltGr, so it is not one key there; and Alt+G already opens the bar. Nothing to bind.
+- [x] **Second Go bar opener: slash (Cody, 2026-11-20).** Alt+G stays; `/` opens the bar too, from
+  anywhere but a text box (where it types a slash). On 2026-11-18 Cody had closed this as "Alt+G
+  only" (the backtick and `Shift+\` were the candidates; `Shift+\` is not one key on AltGr layouts).
+  Slash is one key on US layouts; on German it is Shift+7, which reaches the browser as `/` and opens
+  the bar the same way — unverified on a German keyboard. A saved shortcut profile gets slash only
+  while its Go bar is still on Alt+G.
 
 ## Headlines (Cody, 2026-11-20)
 
@@ -436,14 +439,28 @@ Alt+U under Headlines; only symbols the trader touches.
     law-firm ads, holdings notices, price targets and plain dividend declarations low). Plain
     "declares quarterly dividend" moved from medium to low — right? Is a minute per symbol the
     right cap?
-  - [ ] **WebHost: one socket per browser circuit.** Alpaca allows one news connection per account,
-    so a second window gets 406 and waits five minutes, then tries again. A per-user shared socket
-    fixes it if Cody uses two windows.
-  - [ ] **Found, not fixed: `SymbolAssets.Split("XBTUSD")` reads XB priced in TUSD** (the longest
-    quote wins, and TUSD is longer than USD). The news matching no longer uses it; the sector hint,
-    COT and other callers still do. Unverified whether any venue in the app gives a slashless
-    XBTUSD symbol.
-- [ ] **Stage 2b: the news list (Go bar `NEWS`)**, every headline said or not, newest first.
+  - [x] **Alpaca is now a second source, off by default (Cody asked 2026-11-20 whether it is still
+    needed: no).** Finnhub covers the same stocks sooner and has coins; free Alpaca is fiscal.ai,
+    half-hourly, stocks only. Its own switch, Settings → Narration → "Also read Alpaca's news wire",
+    off by default; the dossier's Recent news still reads Alpaca's REST when a key is there. Turning
+    it off leaves the gate it shares with Finnhub alone (tested: clearing it would make Finnhub say
+    its stories again).
+  - [ ] **WebHost: one socket per browser circuit** (only with the Alpaca switch on). Alpaca allows
+    one news connection per account, so a second window gets 406 and waits five minutes, then tries
+    again. A per-user shared socket fixes it. Finnhub is polled per window, which spends that key's
+    60 a minute faster with two windows open (each window at most 15 a minute).
+  - [x] **`SymbolAssets.Split("XBTUSD")` fixed 2026-11-20:** the longest quote still wins unless it
+    leaves a base under three letters, so XBTUSD is XBT/USD, DOTUSD DOT/USD, BATUSD BAT/USD, and
+    BTCFDUSD stays BTC/FDUSD; OPUSDT (a real two-letter coin) still splits OP/USDT, from the shorter
+    quote when only a short base is left. Pinned by six cases.
+- [x] **Stage 2b: the news list (Go bar `NEWS`), built 2026-11-20, not heard.** Every headline kept
+  this session, said or not (up to 3000, the newest 200 listed), newest first, one line each:
+  "AAPL: headline. Important, Yahoo, Nov 20 14:02 UTC, not said." `NEWS AAPL` lists one symbol;
+  `NEWS` and other words search the headlines. Enter goes to the headline's bar when it is on this
+  chart, otherwise says which symbol it is for and `GP SYM`. Also `HDLN` (the headlines setting),
+  `EVTS` (market events) and `CPAT` (describe chart patterns) reach the settings by code.
+  - [ ] Kept in memory only: a restart starts an empty list (the backfill below refills the
+    focused chart's own).
 - [x] **Cross-source dedupe** (built with stage 3, 2026-11-20): one gate for both wires, keyed by
   wire and id, and per symbol a headline sharing 60 percent of its words with one already offered is
   the same story. EDGAR and the wire say different things and both stay.
@@ -468,7 +485,24 @@ Alt+U under Headlines; only symbols the trader touches.
   ahead of the 8-K at best, needs a feed per company or a whole-wire firehose to match, and the free
   wire feeds are mostly small companies. Revisit only if Finnhub's measured listing delay is long, or
   Cody hears a release he wanted that neither the filing nor the news caught.
-- [ ] **Headlines placed on the bar they arrived in, with apostrophe jumps** (was part of stage 3).
+- [x] **Headlines placed on the bar they arrived in, with period jumps — built 2026-11-20, not heard,
+  nothing looked at on screen.** A headline is on the bar whose time span holds it; one between bars
+  (overnight, weekends) on the next bar; after the last bar on the last bar; before the chart not at
+  all. The arrows read "Headline: X. 2 more headlines." (the most important first, at the Headlines
+  level); `Alt+Shift+D` reads every one with time, source and importance whatever the level; period
+  and Shift+period jump between them. Not on brick charts (no clock), forex, indices or futures.
+  Filled from what this session heard plus, on first look at a stock or coin chart, the chart's own
+  last 30 days (at most) of Finnhub company news that names it and its SEC filings, read again every
+  half hour (two minutes after a failure). Caveats: nothing is DRAWN on the bar yet (sound and speech
+  only); a coin's backfill is only Finnhub's newest hundred or so crypto stories; a headline's time
+  is the wire's time, and Alpaca's is its half-hourly batch time.
+- [x] **Keys rearranged (Cody, 2026-11-20): `,` formations, `.` headlines, `'` market events, Shift
+  for previous; Ctrl+Alt+Shift with the same key switches each on or off.** Formations were `,` back
+  and `.` forward. A saved profile still on the old pair is moved when it loads; a pair the user
+  rebound is left alone (tested). The browser never sent `Shift+,` `Shift+.` `Shift+'` or a bare
+  `'`, so none of those could have worked from a key before (apostrophe reached .NET only through the
+  chart's own handler, and Firefox's quick find opened as well): all are trapped now, on the chart
+  only. Unverified on a real browser with a screen reader: the browser tests drive Chromium only.
 - [ ] **CryptoPanic: only if crypto news proves thin after stage 3** (Finnhub's crypto list:
   Cointelegraph and CoinDesk, about 90 stories over two days) (Cody asked whether it is strictly
   necessary: no). If added, the credit goes in the user manual, never in speech (Cody); check its

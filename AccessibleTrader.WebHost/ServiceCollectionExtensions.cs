@@ -745,6 +745,13 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.AlpacaNewsLiveNotices>();
             // Headlines, stage 3: Finnhub's news, polled (its news socket is paid-only).
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.FinnhubNewsLiveNotices>();
+            // Headlines on the bars they arrived in (period jumps, the arrow clause, Alt+Shift+D) and
+            // the Go bar's NEWS list: one history the three wires and the chart's backfill fill.
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.HeadlineHistory>();
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.HeadlineBackfill>();
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.IHeadlineBarMap,
+                AccessibleTrader.Core.Services.Headlines.HeadlineBarMap>();
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.HeadlineNavigator>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal

@@ -63,17 +63,18 @@ namespace AccessibleTrader.Core.Models
         NavRightJump,  // Ctrl+Right: jump to next trendline/price crossing
 
         /// <summary>
-        /// Comma — step back to the previous chart-formation edge (the start of a formation, or
-        /// the bar one resolved on).
+        /// Shift+comma — step back to the previous chart-formation edge (the start of a formation,
+        /// or the bar one resolved on). Bare comma until 2026-11-20.
         /// <para>
-        /// Bare comma and period, not a chord: a chart can hold dozens of formations and this is a
-        /// key the user presses repeatedly while reading. Both were free — the unshifted single
-        /// characters already bound are H, M, 0, P, bracket, minus, equals and backslash.
+        /// Bare keys, not chords: a chart can hold dozens of formations and this is a key the user
+        /// presses repeatedly while reading. Since 2026-11-20 each of the three bar lists has one
+        /// key, plain for next and Shift for previous (Cody): comma formations, period headlines,
+        /// apostrophe market events.
         /// </para>
         /// </summary>
         NavPatternPrev,
 
-        /// <summary>Period — step forward to the next chart-formation edge.</summary>
+        /// <summary>Comma — step forward to the next chart-formation edge (period until 2026-11-20).</summary>
         NavPatternNext,
 
         /// <summary>
@@ -85,6 +86,35 @@ namespace AccessibleTrader.Core.Models
 
         /// <summary>Shift+apostrophe — jump to the previous bar carrying a passing market event.</summary>
         NavEventPrev,
+
+        /// <summary>
+        /// Period — jump to the next bar carrying a headline for the chart's stock or coin that
+        /// passes the Headlines level (Cody, 2026-11-20: comma for formations, period for headlines,
+        /// apostrophe for market events). Shift+period goes back one.
+        /// </summary>
+        NavHeadlineNext,
+
+        /// <summary>Shift+period — jump to the previous bar carrying a passing headline.</summary>
+        NavHeadlinePrev,
+
+        /// <summary>
+        /// The Go bar's NEWS list: every headline seen, said or not, newest first. No key of its
+        /// own; it opens the Go bar with NEWS typed, so a user may bind one.
+        /// </summary>
+        OpenNewsList,
+
+        /// <summary>Ctrl+Alt+Shift+comma — turn "Describe chart patterns" on or off.</summary>
+        ToggleChartPatterns,
+
+        /// <summary>
+        /// Ctrl+Alt+Shift+period — turn headlines off, or back on at the level they had before
+        /// (Important only when there was none). The same three keys as the jumps, with every
+        /// modifier: the jump key's list switched on and off (Cody, 2026-11-20).
+        /// </summary>
+        ToggleHeadlines,
+
+        /// <summary>Ctrl+Alt+Shift+apostrophe — turn market events off, or back on at their last level.</summary>
+        ToggleMarketEvents,
 
         /// <summary>
         /// Semicolon — cycle which of the overlapping formations at this bar leads the readout.

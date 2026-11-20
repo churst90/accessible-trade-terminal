@@ -49,6 +49,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // The bar-to-market-event map. Built once per chart data/setting and reused on every
         // arrow key, exactly as _patternCache does for formations.
         private readonly MarketEvents.IMarketEventBarMapCache _marketEventMap;
+        private readonly Headlines.IHeadlineBarMap? _headlineMap;
         // Optional so the many existing constructions keep working; DI supplies the one
         // sonifier every other sound goes through. Used only for the live-notice bell.
         private readonly Audio.INavigationSonifier? _navigationSonifier;
@@ -124,8 +125,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IDrawingInteractionManager? drawings = null,
             IAppSettings? appSettings = null,
             MarketEvents.IMarketEventBarMapCache? marketEventMap = null,
-            Audio.INavigationSonifier? navigationSonifier = null)
+            Audio.INavigationSonifier? navigationSonifier = null,
+            Headlines.IHeadlineBarMap? headlineMap = null)
         {
+            _headlineMap = headlineMap;
             _logger = logger;
             _navigationSonifier = navigationSonifier;
             _drawings = drawings;
@@ -1456,10 +1459,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         internal string ChartAndMarketEventContext()
         {
-            string patterns = ChartPatternContext();
-            string events = MarketEventContext();
-            if (events.Length == 0) return patterns;
-            return patterns.Length == 0 ? events : patterns + " " + events;
+            var parts = new[] { ChartPatternContext(), MarketEventContext(), HeadlineContext() };
+            return string.Join(" ", parts.Where(p => p.Length > 0));
+        }
+
+        /// <summary>
+        /// The headlines clause for the bar under the cursor, or "": the most important that
+        /// passes the Headlines level, then how many more. Read last, after the formations and the
+        /// market events.
+        /// </summary>
+        internal string HeadlineContext()
+        {
+            if (_headlineMap == null) return "";
+            var state = _store.State;
+            var level = MarketEvents.MarketEventLevels.Parse(state.HeadlinesLevel);
+            if (level == MarketEvents.MarketEventLevel.Off) return "";
+
+            var data = state.Data;
+            int idx = state.CurrentDataIndex;
+            if (data == null || idx < 0 || idx >= data.Count) return "";
+
+            var onBar = _headlineMap.For(state).Where(p => p.BarIndex == idx);
+            return Headlines.HeadlineSpeech.Clause(Headlines.HeadlineSpeech.Passing(onBar, level));
         }
 
         /// <summary>The events clause for the bar under the cursor, or "".</summary>

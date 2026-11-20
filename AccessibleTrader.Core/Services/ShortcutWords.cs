@@ -85,6 +85,7 @@ namespace AccessibleTrader.Core.Services
                 "OEMPERIOD" => "Period",
                 "OEMSEMICOLON" => "Semicolon",
                 "OEMQUOTES" => "Apostrophe",
+                "OEM7" => "Apostrophe",
                 "OEM2" => "Slash",
                 "OEM3" => "Backtick",
                 "OEM4" => "Left Bracket",

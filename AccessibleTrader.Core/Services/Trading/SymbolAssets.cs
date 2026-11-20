@@ -63,14 +63,23 @@ namespace AccessibleTrader.Core.Services.Trading
             }
 
             string s = symbol.Trim().ToUpperInvariant();
+            Pair? longest = null;
             foreach (string q in Quotes)
             {
                 // The base must be non-empty: "USDT" alone is not USDT priced in nothing.
                 if (s.Length > q.Length && s.EndsWith(q, StringComparison.Ordinal))
-                    return new Pair(s[..^q.Length], q, true);
+                {
+                    var pair = new Pair(s[..^q.Length], q, true);
+                    // The longest quote that leaves a base of three letters or more. Plain longest
+                    // match read XBTUSD, DOTUSD and BATUSD as XB, DO and BA priced in TUSD; a coin
+                    // priced in TUSD is rare and a two-letter one rarer. A short base alone still
+                    // splits: OPUSDT is OP in USDT.
+                    if (pair.Base.Length >= 3) return pair;
+                    longest ??= pair;
+                }
             }
 
-            return new Pair(s, "", false);
+            return longest ?? new Pair(s, "", false);
         }
 
         /// <summary>

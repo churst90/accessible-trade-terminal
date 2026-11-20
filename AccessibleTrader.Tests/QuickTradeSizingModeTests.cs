@@ -137,6 +137,23 @@ public class QuickTradeSizingModeTests
     public void TheLongestQuoteMatchWins()
         => Assert.Equal("USDT", SymbolAssets.Split("BTCUSDT").Quote);
 
+    /// <summary>A longer quote that leaves a base of under three letters loses to a shorter
+    /// one: XBTUSD is Kraken's bitcoin in dollars, not "XB" in TUSD (found 2026-11-20).</summary>
+    [Theory]
+    [InlineData("XBTUSD", "XBT", "USD")]
+    [InlineData("DOTUSD", "DOT", "USD")]
+    [InlineData("BATUSD", "BAT", "USD")]
+    [InlineData("BTCFDUSD", "BTC", "FDUSD")]
+    [InlineData("OPUSDT", "OP", "USDT")]
+    [InlineData("OPUSD", "OP", "USD")]
+    public void AShortBaseGivesWayToAShorterQuote(string symbol, string expectedBase, string expectedQuote)
+    {
+        var p = SymbolAssets.Split(symbol);
+        Assert.True(p.Recognised);
+        Assert.Equal(expectedBase, p.Base);
+        Assert.Equal(expectedQuote, p.Quote);
+    }
+
     /// <summary>An unknown symbol gets neutral wording — a wrong unit is worse than a vague one.</summary>
     [Fact]
     public void AnUnrecognisedSymbolFallsBackToUnits()

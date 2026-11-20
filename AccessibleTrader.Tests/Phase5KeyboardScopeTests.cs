@@ -37,10 +37,13 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.NavComponentInPanePrev)]
         [InlineData(SystemCommand.SelectNextSeries)]
         [InlineData(SystemCommand.SelectPrevSeries)]
-        // Chart-formation jump. Chart-scoped is not a style choice here: bare comma and period are
-        // ordinary printable characters, and a global binding would swallow them in every text box.
+        // Chart-formation, headline and event jumps. Chart-scoped is not a style choice here:
+        // comma, period and apostrophe are ordinary printable characters, and a global binding
+        // would swallow them in every text box.
         [InlineData(SystemCommand.NavPatternPrev)]
         [InlineData(SystemCommand.NavPatternNext)]
+        [InlineData(SystemCommand.NavHeadlineNext)]
+        [InlineData(SystemCommand.NavHeadlinePrev)]
         [InlineData(SystemCommand.CyclePatternFocus)]
         [InlineData(SystemCommand.ClearPatternFocus)]
         [InlineData(SystemCommand.NavEventNext)]
@@ -158,7 +161,12 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.MarketPulse)]
         [InlineData(SystemCommand.WhatChanged)]
         [InlineData(SystemCommand.OpenGoBar)]
+        [InlineData(SystemCommand.OpenNewsList)]
         [InlineData(SystemCommand.OpenAssetDossier)]
+        // The Ctrl+Alt+Shift switches: a three-modifier chord is never typed text.
+        [InlineData(SystemCommand.ToggleChartPatterns)]
+        [InlineData(SystemCommand.ToggleHeadlines)]
+        [InlineData(SystemCommand.ToggleMarketEvents)]
         // Bar replay transport — global so the keys work while focus sits in a side panel.
         [InlineData(SystemCommand.ReplayToggle)]
         [InlineData(SystemCommand.ReplayStepForward)]
@@ -237,6 +245,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.NavPatternPrev, SystemCommand.NavPatternNext,
                 SystemCommand.CyclePatternFocus, SystemCommand.ClearPatternFocus,
                 SystemCommand.NavEventNext, SystemCommand.NavEventPrev,
+                SystemCommand.NavHeadlineNext, SystemCommand.NavHeadlinePrev,
                 SystemCommand.QuickArmRisk1, SystemCommand.QuickArmRisk2, SystemCommand.QuickArmRisk3,
                 SystemCommand.QuickSetStop, SystemCommand.QuickPlaceLimit, SystemCommand.QuickPlaceMarket,
                 SystemCommand.QuickDisarm, SystemCommand.QuickArmStatus,
@@ -302,7 +311,9 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ToggleEventSpeech, SystemCommand.ToggleEarcons, SystemCommand.OpenMyData,
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse,
-                SystemCommand.WhatChanged, SystemCommand.OpenGoBar,
+                SystemCommand.WhatChanged, SystemCommand.OpenGoBar, SystemCommand.OpenNewsList,
+                SystemCommand.ToggleChartPatterns, SystemCommand.ToggleHeadlines,
+                SystemCommand.ToggleMarketEvents,
                 SystemCommand.TypedBuy, SystemCommand.TypedSell, SystemCommand.TypedFlat,
                 SystemCommand.OpenAssetDossier,
                 SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,

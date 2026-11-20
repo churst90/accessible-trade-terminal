@@ -943,7 +943,7 @@ below the last O bottom says *"…, sell signal, below the last O bottom at 100.
 line adds `buy signal` or `sell signal`. Live, the signal is said once, with the new column or the
 box that broke the level (*"X column, 4 boxes, 104.00. Buy signal, above the last X top at
 103.00."*), and a background tab says it at the close that gave it. These are separate from the
-chart formations (`;` and `,`/`.`), whose "Double top" is a top that held, not one that broke.
+chart formations (`;` and `,`/`Shift+,`), whose "Double top" is a top that held, not one that broke.
 
 **A Renko, range bar, line break, Kagi or point and figure tab in the background says its new
 bars, not its bar closes** (*"… 2 new up blocks, …"*, *"… new range bar"* and so on, by the type). When a bar closes on a
@@ -1716,9 +1716,12 @@ close. This key reads the events whatever **Level** is set to, because you asked
 still apply, and a bar with no events gets no section.
 
 **Apostrophe and Shift+apostrophe** (`'` and `Shift+'`) jump to the next and previous bar with an
-event, the way comma and period move between chart formations. Both keys need **Level** on; with it
-off the terminal says *"Market events are off. Turn them on in Settings, Narration."* At the end of
-the data it says *"No later market events."* or *"No earlier market events."* — never nothing.
+event, the way comma moves between chart formations and period between headlines. Both keys need
+**Level** on; with it off the terminal says *"Market events are off. Turn them on in Settings,
+Narration."* At the end of the data it says *"No later market events."* or *"No earlier market
+events."* — never nothing. **Ctrl+Alt+Shift+apostrophe** (`Ctrl+Alt+Shift+'`) turns market events off, and on again at
+the level they had: *"Market events on, important and medium."* (from off, or the first press after a
+restart, at important only).
 
 **What the figure sounds like.** When the bar carries exactly one event that passes your Level and
 kind boxes — and the chart is shorter than weekly — the clause also reads the release's figure, after
@@ -1899,9 +1902,11 @@ hour behind the event it describes. There are no coin stories on a free account 
 whole day of testing), so in practice this is for stocks; the coin matching below is there if they
 ever come.
 
-**Turning it on.** It follows the same **Headlines level** as the filings, so it is off until you pick
-a level. Under the level is **Include news wire stories**, ticked by default; untick it to keep the
-filings and drop the wire.
+**Turning it on.** Since 2026-11-20 Alpaca is a second source, off by default: tick **Also read
+Alpaca's news wire** under the **Headlines level** in Settings → Narration. Finnhub (next section)
+covers the same stocks sooner and has coins, so most people need only Finnhub's free key. Alpaca
+also follows the **Headlines level** and **Include news wire stories** (ticked by default; untick it
+to keep the filings and drop every wire).
 
 **Which symbols.** The stocks the filings use (open stock charts and held stocks), plus every coin
 on an open crypto chart and every coin you hold, by the coin itself: a chart of BTC/USDT, XBT/USD or
@@ -1941,7 +1946,7 @@ With a Finnhub key, Finnhub's news is said too: stories from Yahoo Finance, CNBC
 Seeking Alpha for your stocks, and from Cointelegraph and CoinDesk for your coins. A free Finnhub
 account is enough; it is the same key as the Finnhub price data and the earnings dates, in **API
 Keys** under Finnhub. It uses the same **Headlines level** and the same **Include news wire stories**
-switch as Alpaca, and sounds exactly the same. With both keys you hear both, and a story told by both
+switch as Alpaca (no switch of its own: the key is the switch), and sounds exactly the same. With both keys you hear both, and a story told by both
 (or by two publishers in nearly the same words) is said once.
 
 **How fresh.** Finnhub's free key has no live news feed, so the terminal asks: each of your stocks
@@ -1978,6 +1983,44 @@ footnote says which services answered. The source column names the publisher.
 **Not covered.** Finnhub's general market news is not said, only stories about your own symbols.
 A big event can bring many differently worded stories (twelve about one short-seller report on
 2026-11-20); each is said separately, at most one sentence a minute per symbol.
+
+### Headlines on the chart, and the NEWS list
+
+Each headline for a stock or coin is also placed on the chart, on the bar it arrived in: the bar
+whose time holds it, or the next bar when it arrived between bars (overnight, at a weekend). One
+that arrived after the newest bar ended sits on the newest bar. Brick charts (Renko, Kagi, Point and
+Figure, range bars and the other built types) carry none, because a brick has no time of its own; a
+forex, index or futures chart has no headlines either.
+
+- **The arrow keys** add the headline to the bar reading: *"Headline: Apple Reports Q4 Results.
+  2 more headlines."* The most important one is read, and only the ones your **Headlines level** lets
+  through; with the level off nothing is added.
+- **Alt+Shift+D** reads every headline on the bar, whatever the level, with its time, source and
+  importance: *"2 headlines on this bar: Nov 20 14:02 UTC, Yahoo, important: Apple Reports Q4
+  Results."*
+- **Period** (`.`) jumps to the next bar with a headline and **Shift+period** (`Shift+.`) to the previous one, at your
+  level. With headlines off they say so; at either end, *"No later headlines."* or *"No earlier
+  headlines."*
+- **Ctrl+Alt+Shift+period** (`Ctrl+Alt+Shift+.`) turns headlines off, and on again at the level they had (from off, at
+  important only): *"Headlines on, important only."*
+
+**Which headlines.** Every headline matched to one of your symbols this session, said or not — one
+held back by the minute per symbol, or below your level, is still there. And on your first look at a
+stock or coin chart the terminal reads that chart's own past: Finnhub's stories that name it and its
+SEC filings, back to the chart's first bar or 30 days, whichever is shorter, again every half hour.
+A coin gets only Finnhub's newest hundred or so crypto stories, which on a free key is all there is.
+Nothing is drawn on the bar yet; you hear it.
+
+**The NEWS list.** Type `NEWS` in the Go bar (`/` or Alt+G) for every headline kept this session,
+newest first: *"AAPL: Apple Reports Q4 Results. Important, Yahoo, Nov 20 14:02 UTC, not said."*
+*Not said* marks one you never heard. `NEWS AAPL` lists one symbol's; `NEWS` with any other words
+searches the headlines. Enter on a line goes to its bar when it is on this chart, otherwise tells
+you which symbol it is for: *"It is for MSFT, not this chart. GP MSFT opens it."* The list is kept
+until you close the terminal (up to 3,000 headlines; the newest 200 are listed).
+
+**On the hosted version.** Each person enters their own free Finnhub key in API Keys. A shared key
+on the server is not offered: Finnhub's terms do not allow its news to be passed on to others without
+its written permission. The SEC filings need no key and work for everyone.
 
 ### The calendar screen (Alt+E)
 
@@ -2144,9 +2187,11 @@ loss since you left, market events released while the browser is closed, and the
 
 ### The Go bar (Alt+G)
 
-**Alt+G** opens one text box that reaches every action in the terminal by typing, so you do not
-have to remember the key chord for something you use once a week. Type a name (`market pulse`),
-a plain alias (`calendar`, `news`) or a short code (`ECO`), and press Enter.
+**Alt+G**, or **`/`** (slash, since 2026-11-20, anywhere you are not typing in a box), opens one
+text box that reaches every action in the terminal by typing, so you do not have to remember the key
+chord for something you use once a week. Type a name (`market pulse`), a plain alias (`calendar`) or
+a short code (`ECO`), and press Enter. (`news` used to find the calendar; it is now the headline
+list, `NEWS`.)
 
 **What you type finds, in this fixed order:**
 
@@ -2164,6 +2209,10 @@ every label match. Plain text lists settings after the commands. Case does not m
 | `ECO` | Market events calendar (the same screen as Alt+E) |
 | `PULSE` | Market pulse (Alt+P) |
 | `CHANGES` | What changed (Alt+U) |
+| `NEWS` | Every headline this session, newest first (`headlines`); `NEWS AAPL` for one symbol |
+| `HDLN` | The Headlines level setting |
+| `EVTS` | The market events level setting |
+| `CPAT` | The Describe chart patterns setting |
 | `DES` | Describe the chart layout — axes, scales, panes and what is hidden |
 | `CANDLE` | Draw the price as candlesticks (`candles`, `candlestick`) |
 | `LINE` | Draw the price as a line through the closes (`line chart`) |
@@ -2840,10 +2889,13 @@ if the word changed with your direction of travel, the same bar would describe i
 differently depending on how you got there, and you could not build a picture of the chart
 by moving around in it.
 
-Press **`,`** and **`.`** to jump between formation edges — the start of each shape and the
-bar its story ended. Two keys walk you through every formation on the chart in the order
-they happened. They only work while formation description is on; with it off they say so
-rather than moving you somewhere without explaining why.
+Press **`,`** to jump to the next formation edge and **`Shift+,`** to the previous one — the
+start of each shape and the bar its story ended. The two walk you through every formation on the
+chart in the order they happened. They only work while formation description is on; with it off
+they say so rather than moving you somewhere without explaining why. **`Ctrl+Alt+Shift+,`** turns
+formation description on or off from the chart: *"Describe chart patterns on."* (Until 2026-11-20
+comma went back and period forward; period now walks headlines. A saved shortcut set still on the
+old pair is moved when it loads, unless you had rebound them yourself.)
 
 Press **Alt+Shift+D** on any bar for the full list, including every overlapping formation
 with its own levels. If nothing is live where you are standing, it tells you what finished
@@ -2934,13 +2986,13 @@ own and one that is a detail of a shape still in play. Where shapes nest three d
 formations at the current bar, and **`Shift+;`** to cycle backwards (with only two, both keys
 swap them). The one you pick stays chosen until you pick another, wherever you go on the
 chart, and it is still chosen after you close and reopen the terminal. On every bar the chosen formation is on, it is
-what you hear: a `,` or `.` stop, `Home`, `End`, `\` and an arrow step onto any formation's start or
+what you hear: a `,` or `Shift+,` stop, `Home`, `End`, `\` and an arrow step onto any formation's start or
 end all read it. Any other formation starting or ending at that bar is then named — *"Also starts
-here: possible falling wedge."*, *"Also ends here: double bottom."* — so a `,` or `.` stop inside your
+here: possible falling wedge."*, *"Also ends here: double bottom."* — so a `,` or `Shift+,` stop inside your
 choice says which formation it stopped for; the one it sits in is named as such, and anything else
 there is counted ("Plus 2 more formations here"). Where it is not on the bar it is never mentioned: a stop names the formation that
 starts there, else the one that ends there. An arrow step onto a start or end always says exactly
-what `,` or `.` would say there; between them it is silent. `;` always moves off the formation you
+what `,` or `Shift+,` would say there; between them it is silent. `;` always moves off the formation you
 just heard.
 With formation visuals on, the chart fully labels the formation you are hearing, and the chosen
 formation's line label starts "chosen:", so what is on screen matches what you hear. Without a choice, the default
@@ -2957,7 +3009,7 @@ press moves to the *second* formation, because the first is the one already bein
 announcement names the larger formation the one you picked sits inside. Only formations you can
 reach with `;` at that bar are named as the larger one. A choice survives new bars arriving and older history loading.
 
-**`,` and `.` always go to the next start or end of any formation**, whatever `;` chose.
+**`,` and `Shift+,` always go to the next start or end of any formation**, whatever `;` chose.
 Choosing only changes what is said.
 
 **Landing inside nested formations names the nesting.** When `\` takes you into the chart, or a

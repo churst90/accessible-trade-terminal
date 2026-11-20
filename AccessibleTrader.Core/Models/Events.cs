@@ -384,7 +384,8 @@ namespace AccessibleTrader.Core.Models
     public record OpenMarketEventCalendarEvent();
 
     /// <summary>Alt+G — the Go bar: one text box that reaches every action by typing.</summary>
-    public record OpenGoBarEvent();
+    /// <param name="Text">Typed into the box as it opens (NEWS), or nothing.</param>
+    public record OpenGoBarEvent(string? Text = null);
 
     /// <summary>
     /// The Go bar has chosen an entry and asks its box to close. The service dispatches the

@@ -45,6 +45,8 @@ const ARROW_WIDGET_SELECTOR =
  * rebinding capture: until 2026-09-24 the capture sent the raw e.key, so a command rebound to
  * Space was stored as " " while the trap sent "SPACE", and the new binding could never fire.
  */
+const PUNCTUATION_BY_CODE = { Comma: ',', Period: '.', Quote: "'", Slash: '/', Semicolon: ';' };
+
 function normalizeKeyName(e, isAltGr) {
     let key = e.key;
     // With Alt held, macOS (Option) reports the TRANSFORMED character: Option+Shift+G
@@ -56,6 +58,12 @@ function normalizeKeyName(e, isAltGr) {
     if (e.altKey && !isAltGr && typeof key === 'string' && key.length === 1 && !/^[A-Za-z0-9]$/.test(key)
         && typeof e.code === 'string' && /^(Key[A-Z]|Digit[0-9])$/.test(e.code)) {
         key = e.code;
+    }
+    // The same for the punctuation keys the bar lists sit on: Option+Shift+comma is '¯' on a
+    // US Mac, so Ctrl+Alt+Shift+comma (formations on or off) would match nothing.
+    else if (e.altKey && !isAltGr && typeof key === 'string' && key.length === 1 && !/^[A-Za-z0-9]$/.test(key)
+        && typeof e.code === 'string' && PUNCTUATION_BY_CODE[e.code] !== undefined) {
+        key = PUNCTUATION_BY_CODE[e.code];
     }
     if (key === 'ArrowLeft') key = 'LEFT';
     else if (key === 'ArrowRight') key = 'RIGHT';
@@ -513,6 +521,15 @@ window.accessibleTrader = {
                 // 2026-09-19, so both returned here and never reached .NET — documented, bound,
                 // tested on the .NET side, and unreachable from the browser.
                 ';', ':',
+                // The three bar lists since 2026-11-20 (Cody): comma formations, period headlines,
+                // apostrophe market events, each with Shift for previous. Shift+comma is '<',
+                // Shift+period '>' and Shift+apostrophe '"' as a browser reports them; none was in
+                // this list, so Shift+comma/period could never step back, and apostrophe reached
+                // .NET only through ChartArea's own handler — without preventDefault, so
+                // Firefox's apostrophe quick-find opened over the chart as well.
+                "'", '"', '<', '>',
+                // Slash opens the Go bar from anywhere outside a text box (Cody, 2026-11-20).
+                '/',
                 // Single-letter chart commands: H (hide), M (mute), N (narrate), P (properties).
                 // These are also trapped so they reach .NET even without a modifier.
                 // The form-control guard below (isFormControl && !isModified) still
@@ -652,6 +669,11 @@ window.accessibleTrader = {
             const isSingleLetter = !isModified && !isShifted &&
                 e.key.length === 1 && /^[a-zA-Z0-9,.;]$/.test(e.key);
             if (isSingleLetter && !self._chartFocused) return;
+            // The bar-list punctuation with Shift (back one formation, headline, event; Shift+;
+            // back one formation at the bar) and apostrophe itself: chart keys too, printable
+            // everywhere else. Slash is not here: it opens the Go bar from any panel.
+            const isChartPunctuation = !isModified && e.key.length === 1 && /^[<>"':]$/.test(e.key);
+            if (isChartPunctuation && !self._chartFocused) return;
 
             // For modifier chords (Ctrl/Alt/Ctrl+Shift), hard-stop the event so the WebView
             // doesn't route it to reserved browser shortcuts (reopen tab / new incognito / etc).

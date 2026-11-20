@@ -134,6 +134,7 @@ namespace AccessibleTrader.Core.Services
                     var profile = JsonConvert.DeserializeObject<ShortcutProfile>(json);
                     if (profile != null)
                     {
+                        UpgradeSavedProfile(profile, _profile!);
                         ApplyProfile(profile);
                     }
                 }
@@ -169,6 +170,52 @@ namespace AccessibleTrader.Core.Services
 
             foreach (var t in retired) t.Remove();
             return root.ToString(Formatting.None);
+        }
+
+        /// <summary>
+        /// Brings a profile saved by an older build up to the current defaults without touching
+        /// anything the user chose.
+        /// <list type="bullet">
+        /// <item>The formation keys moved on 2026-11-20 (comma next, Shift+comma previous; period is
+        /// now headlines). A profile still holding the OLD defaults exactly — bare period next,
+        /// bare comma previous — is moved with them; any other binding is the user's and stays.</item>
+        /// <item>A command the saved file has never heard of gets its default keys, when nothing in
+        /// the profile already holds them. Without this every command added after the file was
+        /// written had no key at all for anyone who had once saved a rebind.</item>
+        /// </list>
+        /// </summary>
+        internal static void UpgradeSavedProfile(ShortcutProfile saved, ShortcutProfile defaults)
+        {
+            var list = saved.Shortcuts;
+            int oldNext = list.FindIndex(b => b.Command == SystemCommand.NavPatternNext && IsBare(b, "."));
+            int oldPrev = list.FindIndex(b => b.Command == SystemCommand.NavPatternPrev && IsBare(b, ","));
+            if (oldNext >= 0 && oldPrev >= 0
+                && !list.Any(b => LookupKey(b.Key, b.Shift, b.Ctrl, b.Alt) == LookupKey(",", true, false, false)))
+            {
+                list[oldNext] = list[oldNext] with { Key = "," };
+                list[oldPrev] = list[oldPrev] with { Key = ",", Shift = true };
+            }
+
+            // Slash opens the Go bar since 2026-11-20 — given to a saved profile only while the
+            // Go bar still has its own Alt+G, so a user who rebound the Go bar is not handed a
+            // second key on every start.
+            if (list.Any(b => b.Command == SystemCommand.OpenGoBar && b.Alt && !b.Ctrl && !b.Shift
+                              && string.Equals(b.Key, "G", StringComparison.OrdinalIgnoreCase))
+                && !list.Any(b => LookupKey(b.Key, b.Shift, b.Ctrl, b.Alt) == LookupKey("OEM2", false, false, false)))
+                list.Add(new ShortcutDefinition(SystemCommand.OpenGoBar, "OEM2"));
+
+            var bound = new HashSet<SystemCommand>(list.Select(b => b.Command));
+            var taken = new HashSet<string>(list.Select(b => LookupKey(b.Key, b.Shift, b.Ctrl, b.Alt)));
+            foreach (var d in defaults.Shortcuts)
+            {
+                if (bound.Contains(d.Command)) continue;
+                if (!taken.Add(LookupKey(d.Key, d.Shift, d.Ctrl, d.Alt))) continue;
+                list.Add(d);
+            }
+
+            static bool IsBare(ShortcutDefinition b, string key)
+                => !b.Shift && !b.Ctrl && !b.Alt
+                   && Input.KeyNormalizationService.NormalizeKey(b.Key) == key;
         }
 
         /// <summary>
@@ -253,6 +300,9 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         private string GenerateLookupKey(string key, bool shift, bool ctrl, bool alt)
+            => LookupKey(key, shift, ctrl, alt);
+
+        private static string LookupKey(string key, bool shift, bool ctrl, bool alt)
         {
             string normalized = Input.KeyNormalizationService.NormalizeKey(key);
             return $"{normalized.ToUpperInvariant()}|S:{shift}|C:{ctrl}|A:{alt}";
@@ -508,11 +558,16 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.NavLeftJump,  "LEFT",  Ctrl: true));
             s.Add(new(SystemCommand.NavRightJump, "RIGHT", Ctrl: true));
 
-            // Comma / period: step between chart-formation edges. Bare keys, because this is
-            // pressed repeatedly while reading a chart. Alt+comma (custom scripts) is a different
-            // binding and is unaffected — the lookup matches on modifiers too.
-            s.Add(new(SystemCommand.NavPatternPrev, ","));
-            s.Add(new(SystemCommand.NavPatternNext, "."));
+            // The three bar lists, one key each, plain for next and Shift for previous (Cody,
+            // 2026-11-20): comma = chart formations, period = headlines, apostrophe = market
+            // events. Bare keys, because they are pressed repeatedly while reading a chart. Alt+comma
+            // (custom scripts) is a different binding and is unaffected — the lookup matches on
+            // modifiers too. Shift+comma arrives as "<" and Shift+period as ">";
+            // KeyNormalizationService folds them back.
+            s.Add(new(SystemCommand.NavPatternNext, ","));
+            s.Add(new(SystemCommand.NavPatternPrev, ",", Shift: true));
+            s.Add(new(SystemCommand.NavHeadlineNext, "."));
+            s.Add(new(SystemCommand.NavHeadlinePrev, ".", Shift: true));
 
             // Apostrophe: jump between bars carrying a market event. Bound both as the character
             // a browser reports and as the OEM spelling, exactly as backslash is (OEM5 + "\").
@@ -521,6 +576,14 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.NavEventNext, "'"));
             s.Add(new(SystemCommand.NavEventPrev, "OEM7", Shift: true));
             s.Add(new(SystemCommand.NavEventPrev, "'", Shift: true));
+
+            // The same three keys with every modifier switch their list on or off (Cody,
+            // 2026-11-20). Ctrl+Alt+Shift because the chords are global — they work from any
+            // panel — and no text box types anything for them.
+            s.Add(new(SystemCommand.ToggleChartPatterns, ",", Shift: true, Ctrl: true, Alt: true));
+            s.Add(new(SystemCommand.ToggleHeadlines, ".", Shift: true, Ctrl: true, Alt: true));
+            s.Add(new(SystemCommand.ToggleMarketEvents, "OEM7", Shift: true, Ctrl: true, Alt: true));
+            s.Add(new(SystemCommand.ToggleMarketEvents, "'", Shift: true, Ctrl: true, Alt: true));
 
             // Semicolon sits beside comma and period on a QWERTY keyboard, which puts the whole
             // formation vocabulary under one hand.
@@ -616,6 +679,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.MarketPulse, "P", Alt: true)); // Alt+P: the market pulse in one sentence
             s.Add(new(SystemCommand.WhatChanged, "U", Alt: true)); // Alt+U: what changed while you were not listening
             s.Add(new(SystemCommand.OpenGoBar, "G", Alt: true)); // Alt+G: one text box that reaches every action
+            // Slash opens it too (Cody, 2026-11-20), as on GitHub and YouTube. keyboard.js keeps it
+            // out of text boxes, where a slash is a slash.
+            s.Add(new(SystemCommand.OpenGoBar, "OEM2"));
             s.Add(new(SystemCommand.OpenAssetDossier,  "I",     Alt: true)); // Alt+I: asset dossier (I for Instrument/Info)
 
             // Bar replay — practise reading a market forward without hindsight.

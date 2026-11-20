@@ -52,6 +52,9 @@ namespace AccessibleTrader.Core.Services.GoBar
     /// <summary>Take the chart to the latest placed bar for a market event.</summary>
     public sealed record GoBarEventAction(string EventId, string Name) : GoBarAction;
 
+    /// <summary>A NEWS line: take the chart to the bar this headline arrived in.</summary>
+    public sealed record GoBarHeadlineAction(Headlines.HeadlineRecord Record) : GoBarAction;
+
     /// <summary>Find the next candle pattern or chart formation right of the cursor.</summary>
     public sealed record GoBarFindAction(string Name, bool IsFormation) : GoBarAction;
 
