@@ -29,8 +29,6 @@ Cody, 2026-11-20: "start on each of the issues you found, in the best order or s
 The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fixed is in CHANGES
 ("Code review fixes, 2026-11-20"). Left, smallest first:
 
-- [ ] **Duplicate helpers into one place**: price rounding, the date ternary, symbol splitting,
-  bar-by-date lookup, the environment-variable helper. Check each copy for a deliberate difference first.
 - [ ] **Q: the ATR trailing stop.** `ManagedExitRules.AtrTrailStop` is a plain mean of true range; the
   chart's ATR and (since 2026-11-20) a strategy's ATR stop are Wilder. It is shared by the backtester and
   live trading on purpose, so switching it moves every replayed trail. Cody's call.
