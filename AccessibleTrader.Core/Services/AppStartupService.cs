@@ -240,6 +240,8 @@ namespace AccessibleTrader.Core.Services
             _services.GetService<Headlines.EdgarHeadlineLiveNotices>();
             //     So does the news wire (Alpaca), which opens no socket until it is wanted.
             _services.GetService<Headlines.AlpacaNewsLiveNotices>();
+            //     And Finnhub's news (stage 3), which sends no request until it is wanted.
+            _services.GetService<Headlines.FinnhubNewsLiveNotices>();
 
             // 4d. Alt+U's change log. The recorder subscribes in its constructor; on the desktop
             //     it is a singleton nothing else resolves, so without this line the desktop log

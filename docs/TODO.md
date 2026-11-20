@@ -444,11 +444,33 @@ Alt+U under Headlines; only symbols the trader touches.
     COT and other callers still do. Unverified whether any venue in the app gives a slashless
     XBTUSD symbol.
 - [ ] **Stage 2b: the news list (Go bar `NEWS`)**, every headline said or not, newest first.
-- [ ] **Cross-source dedupe**, when a second wire (Finnhub) arrives: the same story from two wires
-  is one headline. EDGAR and the wire say different things and both stay.
-- [ ] **Stage 3: Finnhub company news** (the key Cody is getting for earnings) as a second wire, and
-  headlines placed on the bar they arrived in, with apostrophe jumps.
-- [ ] **CryptoPanic: only if crypto news proves thin after stage 2** (Cody asked whether it is strictly
+- [x] **Cross-source dedupe** (built with stage 3, 2026-11-20): one gate for both wires, keyed by
+  wire and id, and per symbol a headline sharing 60 percent of its words with one already offered is
+  the same story. EDGAR and the wire say different things and both stay.
+- [x] **Stage 3: Finnhub news. Built 2026-11-20, checked live read-only with Cody's key; not heard,
+  not on the VPS.** Polled (the news socket is paid-only): each touched stock's company news and the
+  crypto list once for all coins, every minute, at most 15 requests a minute; said only when the
+  headline names the stock, company or coin; a baseline first look; the dossier lists both wires.
+  Coins are covered here (Alpaca's free feed has none).
+  - [ ] **Measure Finnhub's listing delay** (a story's `datetime` to the moment it appears in the
+    list) during US hours: the 2026-11-20 recorder ran after Friday's close and caught almost
+    nothing new. Walmart's results: 8-K accepted 11:58:52 UTC on 11-19, first Yahoo story dated
+    12:00 — the stories are prompt, but when Finnhub listed them is unknown.
+  - [ ] **Q for Cody after hearing it:** too many stories per event? (Twelve differently worded
+    stories about one AMD short-seller report on 2026-11-20 — each says, at most one sentence a
+    minute.) If so, a per-symbol cap of a few per quarter hour, or Medium and up only from Finnhub.
+  - [ ] **Unchecked:** class shares (BRK.B) asked by their own symbol; the company names of
+    foreign listings (20-F filers) in EDGAR's list.
+- [ ] **B, companies' own press releases (RSS): assessed after stage 3, not needed now.** The
+  releases that move a stock (results, takeovers, guidance) are filed as an 8-K, which stage 1
+  says within a minute of EDGAR accepting it, and Finnhub's stories followed within minutes (Walmart,
+  2026-11-19: 8-K 11:58:52 UTC, Yahoo story 12:00). A press wire's feed might be a minute or two
+  ahead of the 8-K at best, needs a feed per company or a whole-wire firehose to match, and the free
+  wire feeds are mostly small companies. Revisit only if Finnhub's measured listing delay is long, or
+  Cody hears a release he wanted that neither the filing nor the news caught.
+- [ ] **Headlines placed on the bar they arrived in, with apostrophe jumps** (was part of stage 3).
+- [ ] **CryptoPanic: only if crypto news proves thin after stage 3** (Finnhub's crypto list:
+  Cointelegraph and CoinDesk, about 90 stories over two days) (Cody asked whether it is strictly
   necessary: no). If added, the credit goes in the user manual, never in speech (Cody); check its
   terms first, which may ask for a visible "Powered by CryptoPanic" by the feed.
 - [ ] **Q for Cody after hearing it:** is the importance table right (for example, should a Form 4

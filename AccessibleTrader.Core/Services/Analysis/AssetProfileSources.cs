@@ -57,6 +57,13 @@ namespace AccessibleTrader.Core.Services.Analysis
         Task<bool> IsFilerAsync(string ticker, CancellationToken ct = default);
     }
 
+    /// <summary>A company's name from its ticker ("Apple Inc." for AAPL), so a news headline can be
+    /// checked for being about it (headlines, stage 3). Null when the ticker is not known.</summary>
+    public interface ICompanyNameSource
+    {
+        Task<string?> CompanyNameAsync(string ticker, CancellationToken ct = default);
+    }
+
     // ── Crypto ──────────────────────────────────────────────────────────────────
 
     /// <summary>

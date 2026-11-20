@@ -637,12 +637,13 @@ public class AlpacaNewsTests
     }
 
     [Theory]
-    [InlineData(NewsReadStatus.NoKey, DossierStatus.NoData, "Add an Alpaca key in API Keys")]
+    [InlineData(NewsReadStatus.NoKey, DossierStatus.NoData, "Add a Finnhub or Alpaca key in API Keys")]
     [InlineData(NewsReadStatus.Refused, DossierStatus.Unavailable, "Alpaca refused the key")]
     [InlineData(NewsReadStatus.Failed, DossierStatus.Unavailable, "could not be read")]
+    [InlineData(NewsReadStatus.RateLimited, DossierStatus.Unavailable, "could not be read")]
     public void TheDossierSaysWhyThereIsNoNews(NewsReadStatus status, DossierStatus expected, string words)
     {
-        var section = AssetDossierService.RecentNewsSection(NewsReadResult.Of(status), Now);
+        var section = AssetDossierService.RecentNewsSection(NewsReadResult.Of(status, "Alpaca"), Now);
         Assert.Equal(expected, section.Status);
         Assert.Contains(words, section.StatusNote);
     }

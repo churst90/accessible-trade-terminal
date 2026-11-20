@@ -1,0 +1,46 @@
+[
+ {
+  "category": "company",
+  "datetime": 1795200540,
+  "headline": "Apple “Has No Idea What It’s Doing” in AI. Oh, and It’s Building Its Own AI Agent Too",
+  "id": 143990865,
+  "image": "",
+  "related": "AAPL",
+  "source": "Yahoo",
+  "summary": "",
+  "url": "https://finnhub.io/api/news?id=32c1a2611f12fba5af8caf9ef9edc004609e4fb53b7ca15db19d284eef3a920e"
+ },
+ {
+  "category": "company",
+  "datetime": 1795198631,
+  "headline": "Is Dell Stock's Steep Fall A Bargain Or A Warning?",
+  "id": 143990869,
+  "image": "",
+  "related": "AAPL",
+  "source": "Yahoo",
+  "summary": "",
+  "url": "https://finnhub.io/api/news?id=9dc69a9afbf6b1eaa7385ea1d8f7d643fbbefa2fd5795e71110cec536a8a6771"
+ },
+ {
+  "category": "company",
+  "datetime": 1795198389,
+  "headline": "Apple Plans an AI Agent to Rival Meta's Muse",
+  "id": 143990867,
+  "image": "",
+  "related": "AAPL",
+  "source": "Yahoo",
+  "summary": "",
+  "url": "https://finnhub.io/api/news?id=95393650dc2b424e093834ad8cac95425494210e75ab2c2050a7db696a84374f"
+ },
+ {
+  "category": "company",
+  "datetime": 1795193531,
+  "headline": "Underweighting Apple (AAPL) Detracts from the Fund’s Relative Quarterly Returns",
+  "id": 143989638,
+  "image": "",
+  "related": "AAPL",
+  "source": "Yahoo",
+  "summary": "",
+  "url": "https://finnhub.io/api/news?id=c21b72d911ba83cada817bd4a0d2673177e68825226f7a3d0bf42da432680c7c"
+ }
+]

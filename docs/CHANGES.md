@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Headlines, stage 3: Finnhub news for stocks and coins, said once with Alpaca's, 2026-11-20 — not heard, not on the VPS
+
+Cody: "Do C finhub and then assess whether B is needed" (B being companies' press-release feeds),
+with the Finnhub key in his API-keys folder. The key was used read-only for news and was never
+printed, logged or committed.
+
+- **What Finnhub's free key gives (checked live 2026-11-20).** `company-news` for one stock at a time
+  (Yahoo Finance, CNBC, Benzinga, Seeking Alpha, ChartMill: 1,800 stories for 22 stocks over two
+  days) and `news?category=crypto` (Cointelegraph, CoinDesk: about a hundred, no symbols). The
+  news socket is paid-only ("You don't have access to this resource"), so the terminal polls.
+- **The poller** (`FinnhubNewsLiveNotices`). The same stocks and coins as the Alpaca wire. One
+  request every 4 seconds at most (15 a minute, a quarter of the free key's 60, leaving room for
+  the Finnhub price data on the same key); each stock, and the crypto list once for all coins, read
+  every minute, or every 4 seconds × the number of lists when there are more than fifteen. The
+  first read of a list is a baseline (only the last five minutes are said), a dropped stock starts
+  over, a refused key waits 30 minutes, "too many requests" a minute, no key sends nothing.
+- **Only stories that name the symbol** (`NewsStoryWords.NamesCompany`, `NamesCoin`). More than half
+  of a stock's list is about other companies (Apple's on 2026-11-20 held Dell, Micron and market
+  wraps), so the headline must name the ticker or the company. The company name is the SEC's
+  (`ICompanyNameSource`, from the EDGAR ticker list the filings already read), trimmed of Inc,
+  Corp, Holdings and words like "Advanced" or "Bank" (a name made only of those is matched as its
+  phrase: "Bank of America", "Advanced Micro"), plus a short table of other names (Google,
+  Facebook, MicroStrategy, Berkshire). A coin needs its symbol in capitals or its name with its
+  capital letter (25 coins in a table, so "stellar results" is not Stellar).
+- **Said once across both wires.** One shared `NewsHeadlineGate` now serves Alpaca and Finnhub: a
+  story is keyed by wire and id, and a story whose headline shares 60 percent of its words with one
+  already offered for that symbol is the same story, so a fiscal.ai story and a Yahoo story with
+  the same title, or two publishers' copies, are said once. Both wires' stories for a symbol are
+  gathered into the same sentence and the same one-a-minute cap.
+- **Importance** gained Finnhub's filler, read on its 685 stories of the day (Low 617, Medium 41,
+  High 27): questions, "how to", "what to know", "Here's why", call transcripts, key-metrics notes,
+  "Stock Market Today" wraps, market-size reports, short-interest notes, and every Seeking Alpha
+  piece (signed opinion). Subpoenas became important; investigations, outages and signed deals
+  medium.
+- **The dossier's Recent news** reads both services at once: Finnhub's last seven days (or the crypto
+  list) and Alpaca's, newest first, each story once. One service answering is enough; with none, a
+  refused key is named ("Finnhub refused the key in API Keys"), and with no key at all it says to
+  add a Finnhub or Alpaca key.
+- **Settings.** The news-wire hint names both keys; settings search finds Finnhub, Yahoo, CNBC,
+  Cointelegraph and CoinDesk.
+- **Tests.** `FinnhubNewsTests` (parser on real captures cut short, naming rules, importance on real
+  headlines, the shared gate, the HTTP client's header and errors, the dossier sources, the poller
+  on a fake clock, the host wiring) and a startup test. Sixteen sabotages (no naming filter, the key
+  in the URL, no spacing, no baseline, a gate per wire, no dedupe across wires, and others) each
+  turned them red.
+- **How fresh, measured only roughly.** Walmart's results 8-K was accepted by EDGAR at 11:58:52 UTC
+  on 2026-11-19; Finnhub lists a Yahoo story on them at 12:00 and four more by 12:15. How long
+  Finnhub takes to list a story after its time was not measured: the recorder ran on a Friday
+  evening after the US close, when almost nothing new came.
+- **Caveats:** not heard; the listing delay above; a big event brings many differently worded
+  stories (twelve on one short-seller report about AMD), each said, at most a sentence a minute per
+  symbol; "What This Means for AAPL Stock" deal stories stay medium; each WebHost browser circuit
+  polls on its own (two windows share the 15 a minute at worst 30, still under 60); the key is shared
+  with the Finnhub price data; Finnhub's general market news is not used; a class share (BRK.B) is
+  asked by its own symbol, unchecked.
+
 ### Headlines, stage 2 checked live: Alpaca's stories are fiscal.ai's, half-hourly, stocks only; importance retuned on 688 real headlines, 2026-11-20 — not heard, not on the VPS
 
 Cody made a new Alpaca key pair ("try now"), then chose option A: "begin A now". The live pair was

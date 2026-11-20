@@ -299,8 +299,10 @@ read-out, and nothing said more than two hours late. Wire sources will add a ded
    with tickers attached. On Cody's free account they are fiscal.ai's (not Benzinga's as Alpaca's
    documentation says), in half-hourly batches, stocks only — so it is a slow second source, not a
    real-time wire. See stage 8 below. The news list (Go bar `NEWS`) is stage 2b.
-3. **Finnhub company news — after that**, with the key Cody is getting for earnings: a second wire
-   to fill gaps, polled. Plus on-bar placement.
+3. **Finnhub news — BUILT 2026-11-20, not heard.** Company news per stock and the crypto list,
+   polled (the news socket is paid-only), said only when the headline names the symbol, through a
+   gate shared with Alpaca so a story is said once. See stage 9 below. On-bar placement with
+   apostrophe jumps is still to do.
 4. **CryptoPanic — only if crypto coverage proves thin.** Alpaca's free feed turned out to carry no
    coin stories at all (2026-11-20), so this now rests on Finnhub's crypto category. If it is ever added, its credit goes in the
    manual and never in speech (Cody, 2026-11-20); its terms may ask for a visible "Powered by
@@ -559,7 +561,7 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    (twenty newest) through `INewsSource`, for coins as `BTCUSD`.
    **Differences from the plan:** no cross-source dedupe yet — EDGAR and the wire say different
    things ("filed an 8-K" and "reports Q4 results") and both are worth hearing, so it waits for a
-   second wire (Finnhub) where the same story really does arrive twice; the news list is stage 2b.
+   second wire (Finnhub) where the same story really does arrive twice (built with it, stage 9); the news list is stage 2b.
    **Checked live, 2026-11-20 evening** (Cody's new key, read-only): the handshake, the story
    frames (one story per frame, no `images` field) and the REST list are as documented, and the
    fixtures are now those captures. The 20:01 UTC batch was ten stories, the stream and REST agreed,
@@ -577,3 +579,31 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    **Still not verified:** the rule is Claude's judgement; on the WebHost each browser circuit opens its own socket, and Alpaca allows one
    news connection per account, so a second window waits on 406 (a shared per-user socket is the
    fix if it matters). Not heard by Cody; not on the VPS.
+9. **Headlines, stage 3: Finnhub news — BUILT 2026-11-20 by Claude, checked live (read only).**
+   Finnhub's news socket answers a free key with "You don't have access to this resource", so
+   `FinnhubNewsLiveNotices` polls REST with the key in the `X-Finnhub-Token` header
+   (`FinnhubNewsHttpClient`, behind `IFinnhubNewsClient` for the tests): `company-news` per touched
+   stock for yesterday and today in New York, and `news?category=crypto` once for every touched
+   coin. One request every 4 s at most (15/min of the free 60, the rest left for the Finnhub chart
+   provider on the same key); each list every 60 s, or 4 s × lists past fifteen; the most overdue
+   first. A list's first read is a baseline (stories older than five minutes marked seen, as with
+   the filings); a dropped stock loses its baseline; 401/403 waits 30 minutes, 429 one minute; no
+   key, no request. **Relevance:** Finnhub tags a stock's list loosely (more than half of AAPL's
+   on 2026-11-20 was about Dell, Micron or the market), so a story counts only when its headline
+   names the ticker or the company — the EDGAR company name (`ICompanyNameSource`, served by
+   `EdgarCompanyProfileSource` from the ticker file it already reads) minus generic words, or its
+   phrase when it has only generic words, plus a few aliases — and a crypto story only when it names
+   the coin by symbol or capitalised name (25 coins). **Cross-source dedupe, built here:** one
+   `NewsHeadlineGate` is shared by both wires (a singleton in the desktop, scoped per circuit in the
+   WebHost); stories are keyed `wire|id`, and per symbol a headline sharing ≥ 60 percent of its
+   words (Jaccard, stop words dropped) with one already offered is the same story. EDGAR still
+   stays apart (a filing and a story about it say different things). **Importance** gained
+   Finnhub's filler (questions, explainers, "Here's why", transcripts, key metrics, market wraps,
+   market-size reports, short interest) and every Seeking Alpha piece as Low, read on the day's
+   685 stories (Low 617, Medium 41, High 27). **Dossier:** `CombinedNewsSource` reads Alpaca and
+   `FinnhubNewsRestSource` (seven days, or the crypto list) together, newest first, deduped the
+   same way; one answering is enough; with none, Refused beats Failed/RateLimited beats NoKey.
+   **Not verified:** how long Finnhub takes to list a story after its `datetime` (the recorder ran on
+   a Friday evening with almost nothing new; Walmart's 8-K was accepted 11:58:52 UTC on 2026-11-19
+   and a Yahoo story on it is dated 12:00); many differently worded stories per event each count;
+   a WebHost circuit polls on its own; class shares unchecked. Not heard; not on the VPS.

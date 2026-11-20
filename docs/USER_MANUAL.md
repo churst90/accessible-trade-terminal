@@ -1842,7 +1842,7 @@ countdowns are Fed decisions**, which the shipped seed carries into 2027.
 
 A US company's filings with the SEC are said the minute EDGAR makes them public, for the stocks you
 are looking at or holding: *"AAPL filed an 8-K: earnings results."* This is the first kind of
-headline; the news wire is the second (next section). It needs no key and no account.
+headline; news stories from Alpaca and Finnhub are the others (next sections). It needs no key and no account.
 
 **Turning it on.** Settings, Narration, **Headlines**, **Headlines level**: **Off** (the default),
 **Important only**, **Important and medium**, or **All**. Off means nothing is fetched at all.
@@ -1932,7 +1932,52 @@ example) it waits five minutes. The asset dossier's Recent news tab says when th
 
 **Where to read more.** The asset dossier (Alt+I) has a **Recent news** tab for stocks and coins:
 the twenty newest stories, newest first, each with its New York publication time, the headline, and
-the importance the live headlines give it.
+the importance the live headlines give it. With a Finnhub key as well, the tab lists both together
+(next section).
+
+### Headlines: news from Finnhub
+
+With a Finnhub key, Finnhub's news is said too: stories from Yahoo Finance, CNBC, Benzinga and
+Seeking Alpha for your stocks, and from Cointelegraph and CoinDesk for your coins. A free Finnhub
+account is enough; it is the same key as the Finnhub price data and the earnings dates, in **API
+Keys** under Finnhub. It uses the same **Headlines level** and the same **Include news wire stories**
+switch as Alpaca, and sounds exactly the same. With both keys you hear both, and a story told by both
+(or by two publishers in nearly the same words) is said once.
+
+**How fresh.** Finnhub's free key has no live news feed, so the terminal asks: each of your stocks
+about once a minute, and one list for all your coins about once a minute. With more than fifteen
+stocks it takes longer to get round them all (twenty-five stocks: each every 100 seconds), so that
+the free key's limit is never reached and the Finnhub price data on the same key keeps working. How
+long Finnhub itself takes to list a story after it is published has not been measured yet.
+
+**Only stories that name the symbol.** Finnhub's list for a stock holds many stories that only
+mention it in passing — on 2026-11-20 more than half of Apple's were about Dell, Micron or the market
+— so a story is said only when its headline names the stock (*AAPL*, *$AAPL*) or the company
+(*Apple*, *Walt Disney*, *Bank of America*; also *Google* for Alphabet, *Facebook* for Meta,
+*MicroStrategy* for Strategy, *Berkshire*). The company name comes from the SEC's list of tickers. For coins it must name the coin, as its symbol in capitals
+(*XRP*, *BTC*) or its name with its capital letter (*Bitcoin*, *Ether*, *Solana*, *Monero*); a
+coin outside the terminal's list of 25 names is matched by its symbol only.
+
+**What is important.** The same table as Alpaca's above, with Finnhub's own filler kept low:
+questions in the headline, "how to" and "what to know" explainers, "Here's why" pieces, earnings-call
+transcripts and key-metrics notes, "Stock Market Today" wraps, industry market reports, short-interest
+and "fully priced" notes, and **every Seeking Alpha piece** (they are signed opinion). Subpoenas are
+important; investigations, outages and signed deals are medium.
+
+**When it starts.** As with the filings, the first look at a stock (or at the coin list) only takes
+note of what is there, except a story from the last five minutes. Closing a stock's last chart
+forgets it.
+
+**If the key is refused** the terminal waits half an hour before asking again; if Finnhub says
+there have been too many requests it waits a minute. Without a key nothing is sent.
+
+**In the dossier.** The **Recent news** tab lists Finnhub's stories for the last seven days (for a
+coin, the newest crypto list) together with Alpaca's, newest first, each story once, and its
+footnote says which services answered. The source column names the publisher.
+
+**Not covered.** Finnhub's general market news is not said, only stories about your own symbols.
+A big event can bring many differently worded stories (twelve about one short-seller report on
+2026-11-20); each is said separately, at most one sentence a minute per symbol.
 
 ### The calendar screen (Alt+E)
 

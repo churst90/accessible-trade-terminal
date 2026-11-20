@@ -74,7 +74,8 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// Headlines, stage 2: the news wire. Alpaca's news stream (fiscal.ai's stories on a free account) is subscribed to
     /// whole, and a story is said when it is about a stock or coin the trader touches — an open
     /// chart or a held position — and its importance (<see cref="NewsStoryWords"/>) passes the
-    /// Headlines level. <see cref="NewsHeadlineGate"/> gathers bursts and caps each symbol.
+    /// Headlines level. <see cref="NewsHeadlineGate"/> gathers bursts and caps each symbol; it is
+    /// shared with Finnhub's news (<see cref="FinnhubNewsLiveNotices"/>, stage 3).
     ///
     /// <para>
     /// <b>Off means no connection.</b> With the level Off, the "Include news wire stories" switch
@@ -116,7 +117,11 @@ namespace AccessibleTrader.Core.Services.Headlines
         private readonly ITimer _timer;
 
         private readonly object _lock = new();
-        private readonly NewsHeadlineGate _gate = new();
+        private readonly NewsHeadlineGate _gate;
+
+        /// <summary>The gate this wire says through, for the tests: the host gives both wires
+        /// the same one.</summary>
+        internal NewsHeadlineGate Gate => _gate;
         private IReadOnlyList<NewsTarget> _targets = Array.Empty<NewsTarget>();
         private MarketEventLevel _level = MarketEventLevel.Off;
 
@@ -141,8 +146,10 @@ namespace AccessibleTrader.Core.Services.Headlines
             IHeldPositionReader? held = null,
             TimeProvider? timeProvider = null,
             IUserPresence? presence = null,
-            ILogger<AlpacaNewsLiveNotices>? logger = null)
+            ILogger<AlpacaNewsLiveNotices>? logger = null,
+            NewsHeadlineGate? gate = null)
         {
+            _gate = gate ?? new NewsHeadlineGate();
             _store = store;
             _bus = bus;
             _keys = keys;

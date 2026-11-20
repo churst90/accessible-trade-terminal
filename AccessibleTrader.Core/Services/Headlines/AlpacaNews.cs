@@ -14,7 +14,9 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// documentation still says Benzinga. <see cref="Id"/> is
     /// Alpaca's id and is what "already said" is keyed on: an edited story is sent again with the
     /// same id and a newer <see cref="UpdatedUtc"/>, and is not said twice.
-    /// <see cref="CreatedUtc"/> is when it was published.
+    /// <see cref="CreatedUtc"/> is when it was published. <see cref="Wire"/> is the service it
+    /// came through, <c>"alpaca"</c> or <c>"finnhub"</c> (stage 3): ids are only unique within
+    /// one, so "already said" is keyed on both.
     /// </summary>
     public sealed record NewsStory(
         long Id,
@@ -24,7 +26,15 @@ namespace AccessibleTrader.Core.Services.Headlines
         DateTime CreatedUtc,
         DateTime UpdatedUtc,
         IReadOnlyList<string> Symbols,
-        string Url);
+        string Url,
+        string Wire = NewsStory.AlpacaWire)
+    {
+        public const string AlpacaWire = "alpaca";
+        public const string FinnhubWire = "finnhub";
+
+        /// <summary>"alpaca|127778840": what "already said" and the headline id are keyed on.</summary>
+        public string Key => Wire + "|" + Id.ToString(CultureInfo.InvariantCulture);
+    }
 
     /// <summary>A control message on the news stream: <c>success</c>, <c>subscription</c> or
     /// <c>error</c>, with Alpaca's message and (for an error) its code.</summary>
@@ -138,11 +148,16 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// headline's words — <b>Claude's judgement for Cody to correct</b>, first written
     /// 2026-11-20 from Benzinga's documented style, then retuned the same day on 688 real stories
     /// from Cody's account, every one of them from <c>fiscal.ai</c> (one company per story,
-    /// "Morgan Stanley Adjusts Price Target on X to $92 From $85" style).
+    /// "Morgan Stanley Adjusts Price Target on X to $92 From $85" style), and again for stage 3 on
+    /// 685 real Finnhub stories (Yahoo, Benzinga, CNBC, Seeking Alpha) that name their stock:
+    /// questions, explainers, earnings-call transcripts, market wraps, industry "market reports",
+    /// short-interest notes and "..., UBS says" commentary became Low; Seeking Alpha's stories,
+    /// all signed opinion pieces, are Low whatever they say; deal talk includes "could" and
+    /// "calls for"; subpoenas are High; probes, outages and agreed deals are Medium.
     ///
     /// <list type="number">
     /// <item>A story tagged with more than <see cref="RoundupSymbols"/> symbols is a roundup
-    /// ("12 stocks moving in Tuesday's session"): Low.</item>
+    /// ("12 stocks moving in Tuesday's session"): Low. So is an opinion source's story.</item>
     /// <item>Routine: generated filler, dates of coming results, conferences, law-firm
     /// "investigation" adverts, holdings and insider-trade notices, advisers to a deal, routine
     /// buyback reports, meetings, bond and loan deals: Low.</item>
@@ -184,6 +199,29 @@ namespace AccessibleTrader.Core.Services.Headlines
             @"\bpreview\b",
             @"\bahead of (its |the )?(earnings|q[1-4]|results)\b",
             @"\bwhat to expect\b",
+            // Finnhub's Yahoo, Motley Fool and Zacks stories: questions, explainers, wraps
+            @"\?",
+            @"\bhow to\b",
+            @"\bhere'?s (why|what)\b",
+            @"\bwhat to consider\b",
+            @"\bwhat (to know|you need to know)\b",
+            @"\bstock market (today|midday)\b",
+            @"\brundown\b",
+            @"\bin focus\b",
+            @"\bfinal trade\b",
+            @"\b(dow|s&p 500|nasdaq)\b.*\bfutures\b",
+            @"\bearnings call\b",
+            @"\b(call )?transcript\b",
+            @"\bkey metrics\b",
+            @"\b(market|business) report\b",
+            @"\bcagr\b",
+            @"\bcapitali[sz]e on\b",
+            @"\bshort interest\b",
+            @"\b(fully|over|under)[- ]?(priced|valued)\b",
+            @"\b(bull|bear|buy|sell) case\b",
+            // commentary: "Walmart Posted In-Line Q3 Results, RBC Says"; "..., says Jefferies"
+            @",\s*(?!(lawsuit|filing|report|court|complaint)\b)(\S+\s+){0,3}says\.?$",
+            @",\s*says\b",
             @"\banalyst ratings?\b",
             // the date of coming results, conferences: "Docusign Announces Date for Third
             // Quarter Fiscal 2027 Financial Results", "Genesco to Report ... on December 3"
@@ -264,7 +302,8 @@ namespace AccessibleTrader.Core.Services.Headlines
 
         private static readonly Regex DealTalk = Any(
             @"\b\d+(\.\d+)?% stake\b",
-            @"\b(proposed|oppos\w+|conditions|comments?|apologi\w+|evidence|weighs|mulls|in talks|reportedly|eyeing|rumou?r\w*)\b");
+            @"\b(proposed|oppos\w+|conditions|comments?|apologi\w+|evidence|weighs|mulls|in talks|reportedly|eyeing|rumou?r\w*)\b",
+            @"\b(could|would|might|may|needs?|calls? for|warns?|talks?|potential|possible)\b");
 
         private static readonly Regex High = Any(
             // results
@@ -288,7 +327,7 @@ namespace AccessibleTrader.Core.Services.Headlines
             @"\bfda\b.*\b(approv\w*|reject\w*|clear\w*|complete response|crl)\b",
             @"\bcomplete response letter\b",
             @"\b(sec|doj|ftc) (charges|sues|probe|investigation)\b",
-            @"\bsubpoena\b",
+            @"\bsubpoena(s|ed)?\b",
             @"\betfs?\b.*\b(approv\w*|reject\w*|den(y|ies|ied))\b",
             @"\b(approv\w*|reject\w*|den(y|ies|ied))\b.*\betfs?\b",
             // hacks
@@ -313,7 +352,9 @@ namespace AccessibleTrader.Core.Services.Headlines
             @"\bjoint venture\b",
             @"\b(supply|license|licensing|distribution|collaboration) agreement\b",
             @"\b(lawsuit|sues|sued|settles?|settlement|litigation|verdict)\b",
-            @"\b(probe|investigation (into|of))\b",
+            @"\b(probes?|probing|investigation (into|of))\b",
+            @"\boutages?\b",
+            @"\b(agree[sd]?|signs?|signed|inks?|strikes?|reach(es|ed)?|nears?)\b.*\b(deal|agreement|pact)\b",
             @"\b(layoffs?|job cuts|restructuring|voluntary departure|plant closure|workforce (reduction|consultations?))\b",
             @"\bcuts?( \S+){0,2} [\d,]+ jobs\b",
             @"\b(short[- ]sellers?|allegations?)\b",
@@ -325,9 +366,16 @@ namespace AccessibleTrader.Core.Services.Headlines
             @"\bphase (1|2|3|4|i|ii|iii)[ab]?\b.*\b(results|data|trial|study)\b",
             @"\btopline\b");
 
+        /// <summary>Sources whose stories are signed opinion, whatever the headline says:
+        /// Seeking Alpha's "Nvidia: Strong Buy Despite A Leadership Crisis" is its author's own
+        /// rating, not an analyst's.</summary>
+        private static readonly HashSet<string> OpinionSources =
+            new(StringComparer.OrdinalIgnoreCase) { "SeekingAlpha", "Seeking Alpha" };
+
         public static MarketEventImportance Importance(NewsStory story)
         {
             if (story.Symbols.Count > RoundupSymbols) return MarketEventImportance.Low;
+            if (OpinionSources.Contains(story.Source.Trim())) return MarketEventImportance.Low;
             string h = story.Headline;
             if (Filler.IsMatch(h)) return MarketEventImportance.Low;
             if (AnalystMove.IsMatch(h)) return MarketEventImportance.Medium;
@@ -387,6 +435,158 @@ namespace AccessibleTrader.Core.Services.Headlines
             string c = coin.Trim().ToUpperInvariant();
             return c == "XBT" ? "BTC" : c;
         }
+
+        // ── Stage 3: which stories are about the stock or coin ───────────────────────────────
+
+        /// <summary>Words in EDGAR's company names that say nothing about which company:
+        /// "ADVANCED MICRO DEVICES INC" is not news about every "advanced" headline.</summary>
+        private static readonly HashSet<string> GenericNameWords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "inc", "incorporated", "corp", "corporation", "co", "company", "companies", "ltd", "limited",
+            "plc", "llc", "lp", "holdings", "holding", "group", "the", "and", "of", "de", "del", "new",
+            "class", "com", "technologies", "technology", "systems", "global", "international",
+            "national", "american", "america", "united", "first", "general", "financial", "bancorp",
+            "bank", "banks", "trust", "capital", "partners", "industries", "enterprises", "resources",
+            "energy", "platforms", "devices", "advanced", "micro", "computer", "super", "health",
+            "healthcare", "services", "solutions", "networks", "communications", "brands", "products",
+            "pharmaceuticals", "therapeutics", "biosciences", "sciences", "entertainment", "media",
+            "software", "data", "digital", "strategy", "realty", "properties", "investment",
+            "investments", "fund", "funds", "income", "growth", "series", "sa", "nv", "ag", "se", "asa",
+            "adr", "ads",
+        };
+
+        /// <summary>Names a company goes by that its EDGAR name does not contain.</summary>
+        private static readonly Dictionary<string, string[]> CompanyAliases = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GOOGL"] = new[] { "Google" },
+            ["GOOG"] = new[] { "Google" },
+            ["META"] = new[] { "Facebook" },
+            ["MSTR"] = new[] { "MicroStrategy" },
+            ["BRKA"] = new[] { "Berkshire" },
+            ["BRKB"] = new[] { "Berkshire" },
+        };
+
+        /// <summary>What a company's name ends with, left out of the phrase.</summary>
+        private static readonly HashSet<string> NameSuffixes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "inc", "incorporated", "corp", "corporation", "co", "company", "com", "ltd", "limited",
+            "plc", "llc", "the",
+        };
+
+        /// <summary>
+        /// The words that, in a headline, mean the company: "Apple" for "Apple Inc.", "Walt" and
+        /// "Disney" for "Walt Disney Co". A name made only of generic words ("BANK OF AMERICA
+        /// CORP", "ADVANCED MICRO DEVICES INC") is matched as its whole phrase and its first two
+        /// words instead ("Bank of America", "Advanced Micro").
+        /// </summary>
+        internal static IReadOnlyList<string> CompanyWords(string ticker, string? companyName)
+        {
+            var words = new List<string>();
+            string name = Regex.Replace(companyName ?? "", @"/[A-Z]+/", " ");
+            var all = Regex.Matches(name, @"[A-Za-z][A-Za-z'&.-]*").Select(m => m.Value.Trim('.', '\'')).Where(w => w.Length > 0).ToList();
+            words.AddRange(all.Where(w => w.Length >= 4 && !GenericNameWords.Contains(w)));
+            if (words.Count == 0)
+            {
+                var phrase = all.Where(w => !NameSuffixes.Contains(w)).ToList();
+                if (phrase.Count > 0) words.Add(string.Join(" ", phrase));
+                if (phrase.Count > 2) words.Add(string.Join(" ", phrase.Take(2)));
+            }
+            if (CompanyAliases.TryGetValue(StockKey(ticker), out var aliases)) words.AddRange(aliases);
+            return words;
+        }
+
+        /// <summary>
+        /// Whether a headline names the stock: its ticker in capitals ("AMD", "(NASDAQ:MSFT)",
+        /// "$TSLA") or its company (<see cref="CompanyWords"/>). Finnhub tags a symbol's news
+        /// list loosely — more than half of the stories in its AAPL list on 2026-11-20 were
+        /// about Dell, Micron or the market — so only these are said or listed.
+        /// </summary>
+        public static bool NamesCompany(string headline, string ticker, string? companyName)
+        {
+            string t = StockKey(ticker);
+            if (t.Length > 0 && Regex.IsMatch(headline, @"(?<![A-Za-z])" + Regex.Escape(ticker.Trim().ToUpperInvariant()) + @"(?![A-Za-z])"))
+                return true;
+            foreach (var w in CompanyWords(ticker, companyName))
+                if (Regex.IsMatch(headline, @"\b" + Regex.Escape(w).Replace(@"\ ", @"\s+") + @"(?![A-Za-z])", Opt))
+                    return true;
+            return false;
+        }
+
+        /// <summary>Coin names as headlines write them. Matched with their capital letter, so
+        /// "stellar results" is not Stellar.</summary>
+        private static readonly (string Coin, string[] Names)[] CoinNames =
+        {
+            ("BTC", new[] { "Bitcoin" }),
+            ("ETH", new[] { "Ether", "Ethereum" }),
+            ("SOL", new[] { "Solana" }),
+            ("XRP", new[] { "Ripple" }),
+            ("DOGE", new[] { "Dogecoin" }),
+            ("ADA", new[] { "Cardano" }),
+            ("BNB", new[] { "Binance Coin" }),
+            ("AVAX", new[] { "Avalanche" }),
+            ("DOT", new[] { "Polkadot" }),
+            ("LINK", new[] { "Chainlink" }),
+            ("LTC", new[] { "Litecoin" }),
+            ("TRX", new[] { "Tron" }),
+            ("SHIB", new[] { "Shiba Inu" }),
+            ("HYPE", new[] { "Hyperliquid" }),
+            ("TON", new[] { "Toncoin" }),
+            ("XLM", new[] { "Stellar" }),
+            ("BCH", new[] { "Bitcoin Cash" }),
+            ("XMR", new[] { "Monero" }),
+            ("ATOM", new[] { "Cosmos" }),
+            ("UNI", new[] { "Uniswap" }),
+            ("APT", new[] { "Aptos" }),
+            ("ARB", new[] { "Arbitrum" }),
+            ("SUI", new[] { "Sui" }),
+            ("PEPE", new[] { "Pepe" }),
+            ("ZEC", new[] { "Zcash" }),
+        };
+
+        /// <summary>
+        /// Whether a crypto headline names <paramref name="coin"/>: its name ("Bitcoin",
+        /// "Ether") or its symbol in capitals, three letters or more ("XRP", "BTC"). Finnhub's
+        /// crypto list tags no coins, so the headline is all there is.
+        /// </summary>
+        public static bool NamesCoin(string headline, string coin)
+        {
+            string c = CoinLabel(coin);
+            if (c.Length >= 3 && Regex.IsMatch(headline, @"(?<![A-Za-z])\$?" + Regex.Escape(c) + @"(?![A-Za-z])"))
+                return true;
+            foreach (var (code, names) in CoinNames)
+                if (code == c)
+                    foreach (var n in names)
+                        if (Regex.IsMatch(headline, @"\b" + Regex.Escape(n).Replace(@"\ ", @"\s+") + @"(?![A-Za-z])"))
+                            return true;
+            return false;
+        }
+
+        private static readonly HashSet<string> SameStoryStopWords = new(StringComparer.Ordinal)
+        {
+            "a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "as", "at", "by", "with",
+            "from", "after", "is", "are", "be", "its", "it", "this", "that", "vs",
+        };
+
+        /// <summary>A headline's words for <see cref="SameStory"/>: lower case, without the
+        /// little words.</summary>
+        internal static HashSet<string> StoryWords(string headline)
+            => Regex.Matches(headline.ToLowerInvariant().Replace('\u2019', '\''), @"[a-z0-9$.%']+")
+                .Select(m => m.Value.Trim('.', '\''))
+                .Where(w => w.Length > 1 && !SameStoryStopWords.Contains(w))
+                .ToHashSet(StringComparer.Ordinal);
+
+        /// <summary>How alike two headlines must be (shared words over all words) to be one
+        /// story told twice: "NYC lawmakers weigh compromise on Amazon delivery worker bill,
+        /// Bloomberg reports" and "NYC Lawmakers Weigh Overhaul of Amazon Delivery Worker Bill"
+        /// are 0.6. Read off 1,643 real Finnhub stories on 2026-11-20.</summary>
+        public const double SameStoryOverlap = 0.6;
+
+        internal static bool SameStory(HashSet<string> a, HashSet<string> b)
+        {
+            if (a.Count == 0 || b.Count == 0) return false;
+            int shared = a.Count(b.Contains);
+            return shared >= SameStoryOverlap * (a.Count + b.Count - shared);
+        }
     }
 
     /// <summary>
@@ -395,7 +595,11 @@ namespace AccessibleTrader.Core.Services.Headlines
     ///
     /// <list type="bullet">
     /// <item><b>Said once.</b> A story id already offered is ignored, so an edited story (same id,
-    /// newer time) are not said again.</item>
+    /// newer time) is not said again. Ids are kept per wire (<see cref="NewsStory.Key"/>).</item>
+    /// <item><b>Not twice in other words.</b> A story whose headline is
+    /// <see cref="NewsStoryWords.SameStory"/> as one offered for the same symbol within
+    /// <see cref="LateReach"/> is dropped: the same news through both wires, or from two
+    /// publishers.</item>
     /// <item><b>Gathered.</b> A symbol's first new story waits <see cref="Gather"/> for the others
     /// that wire desks send in a burst ("Q4 EPS beats", "Q4 sales beat", "sees Q1"), so they are
     /// one sentence.</item>
@@ -404,6 +608,12 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// <item><b>Not late.</b> A story published more than <see cref="LateReach"/> ago is not said,
     /// as with the filings.</item>
     /// </list>
+    ///
+    /// <para>
+    /// One gate is shared by both wires (Alpaca's stream and Finnhub's polling, stage 3), so the
+    /// gather, the cap and the duplicate check cover them together. It is thread-safe: the
+    /// stream offers from its receive loop and each service's clock asks what is due.
+    /// </para>
     /// </summary>
     public sealed class NewsHeadlineGate
     {
@@ -414,8 +624,10 @@ namespace AccessibleTrader.Core.Services.Headlines
 
         private sealed record Item(NewsStory Story, IReadOnlyList<NewsTarget> Targets, MarketEventImportance Importance);
 
-        private readonly HashSet<long> _seen = new();
-        private readonly Queue<long> _seenOrder = new();
+        private readonly object _lock = new();
+        private readonly HashSet<string> _seen = new(StringComparer.Ordinal);
+        private readonly Queue<string> _seenOrder = new();
+        private readonly Dictionary<string, List<(DateTime AtUtc, HashSet<string> Words)>> _recent = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, (DateTime FirstUtc, List<Item> Items)> _pending = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _lastSaidUtc = new(StringComparer.OrdinalIgnoreCase);
 
@@ -424,21 +636,54 @@ namespace AccessibleTrader.Core.Services.Headlines
         public bool Offer(NewsStory story, IReadOnlyList<NewsTarget> targets, MarketEventImportance importance, DateTime nowUtc)
         {
             if (targets.Count == 0) return false;
-            if (!_seen.Add(story.Id)) return false;
-            _seenOrder.Enqueue(story.Id);
-            while (_seenOrder.Count > SeenCap) _seen.Remove(_seenOrder.Dequeue());
-            if (story.CreatedUtc < nowUtc - LateReach) return false;
+            lock (_lock)
+            {
+                if (!Remember(story.Key)) return false;
+                if (story.CreatedUtc < nowUtc - LateReach) return false;
 
-            string key = targets[0].Label;
-            if (!_pending.TryGetValue(key, out var p))
-                _pending[key] = p = (nowUtc, new List<Item>());
-            p.Items.Add(new Item(story, targets, importance));
+                var words = NewsStoryWords.StoryWords(story.Headline);
+                foreach (var t in targets)
+                    if (_recent.TryGetValue(t.Label, out var told)
+                        && told.Any(r => r.AtUtc >= nowUtc - LateReach && NewsStoryWords.SameStory(r.Words, words)))
+                        return false;
+                foreach (var t in targets)
+                {
+                    if (!_recent.TryGetValue(t.Label, out var told)) _recent[t.Label] = told = new();
+                    told.RemoveAll(r => r.AtUtc < nowUtc - LateReach);
+                    told.Add((nowUtc, words));
+                }
+
+                string key = targets[0].Label;
+                if (!_pending.TryGetValue(key, out var p))
+                    _pending[key] = p = (nowUtc, new List<Item>());
+                p.Items.Add(new Item(story, targets, importance));
+                return true;
+            }
+        }
+
+        /// <summary>Marks a story seen without saying it: what a poller does with the stories it
+        /// finds on its first look, which were news before the trader got here.</summary>
+        public void MarkSeen(NewsStory story)
+        {
+            lock (_lock) Remember(story.Key);
+        }
+
+        private bool Remember(string key)
+        {
+            if (!_seen.Add(key)) return false;
+            _seenOrder.Enqueue(key);
+            while (_seenOrder.Count > SeenCap) _seen.Remove(_seenOrder.Dequeue());
             return true;
         }
 
         /// <summary>The sentences due now, one per symbol. A symbol no longer in
         /// <paramref name="touched"/> is dropped unsaid.</summary>
         public IReadOnlyList<Headline> Due(DateTime nowUtc, IReadOnlyCollection<string> touched)
+        {
+            lock (_lock) return DueLocked(nowUtc, touched);
+        }
+
+        private IReadOnlyList<Headline> DueLocked(DateTime nowUtc, IReadOnlyCollection<string> touched)
         {
             var due = new List<Headline>();
             foreach (var key in _pending.Keys.ToList())
@@ -461,13 +706,20 @@ namespace AccessibleTrader.Core.Services.Headlines
         /// <summary>Forgets everything: the level was turned off, or the wire switched off.</summary>
         public void Forget()
         {
-            _pending.Clear();
-            _lastSaidUtc.Clear();
-            _seen.Clear();
-            _seenOrder.Clear();
+            lock (_lock)
+            {
+                _pending.Clear();
+                _lastSaidUtc.Clear();
+                _seen.Clear();
+                _seenOrder.Clear();
+                _recent.Clear();
+            }
         }
 
-        public int PendingCount => _pending.Values.Sum(p => p.Items.Count);
+        public int PendingCount
+        {
+            get { lock (_lock) return _pending.Values.Sum(p => p.Items.Count); }
+        }
     }
 
     /// <summary>
@@ -495,8 +747,7 @@ namespace AccessibleTrader.Core.Services.Headlines
             if (age >= EdgarHeadlineWording.SayAgeAfter)
                 text += " " + Age(age);
 
-            return new Headline(text, lead.Importance, "alpaca|" + lead.Story.Id.ToString(CultureInfo.InvariantCulture),
-                lead.Targets[0].Label);
+            return new Headline(text, lead.Importance, lead.Story.Key, lead.Targets[0].Label);
         }
 
         public static string Sentence(NewsStory story, IReadOnlyList<NewsTarget> targets)

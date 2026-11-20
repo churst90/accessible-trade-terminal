@@ -122,7 +122,7 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"Headlines": off, important only, important and medium, or all.</summary>
         string HeadlinesLevel { get; set; }
 
-        /// <summary>"Headlines": include the news wire (Alpaca's news) as well as filings.</summary>
+        /// <summary>"Headlines": include news stories (Finnhub's and Alpaca's) as well as filings.</summary>
         bool HeadlinesNewsWire { get; set; }
 
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
@@ -535,8 +535,8 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// "Headlines": also say news-wire stories (Alpaca's news), not only SEC filings.
-        /// Default ON: it does nothing until a headlines level is picked AND an Alpaca key is in
+        /// "Headlines": also say news stories (Finnhub's and Alpaca's), not only SEC filings.
+        /// Default ON: it does nothing until a headlines level is picked AND a Finnhub or Alpaca key is in
         /// API Keys, so the default costs nothing for anyone without one.
         /// </summary>
         public bool HeadlinesNewsWire

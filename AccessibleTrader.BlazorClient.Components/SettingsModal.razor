@@ -903,11 +903,13 @@
                                    @onchange="e => _headlinesNewsWire = e.Value is true" />
                         </div>
                         <p id="s-headlines-news-wire-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Needs an Alpaca key in API Keys (a free account works). News stories
-                            for your stocks, at the same level as the filings: "AAPL: Apple Reports
-                            Q4 Results, Beats Estimates." On a free account they come in batches
-                            about every half hour, so a story can be up to 30 minutes old, and
-                            there are none for coins. Important is results, guidance, takeovers,
+                            Needs a Finnhub or Alpaca key in API Keys (a free account with either
+                            works; with both, a story is said once). News stories for your stocks
+                            and coins, at the same level as the filings: "AAPL: Apple Reports Q4
+                            Results, Beats Estimates." Only a story whose headline names the
+                            company or coin is said. Finnhub is checked about once a minute for
+                            each stock and for coins; Alpaca's free account sends batches about
+                            every half hour and has nothing for coins. Important is results, guidance, takeovers,
                             listing notices, FDA decisions, share offerings and a CEO leaving;
                             medium adds analyst upgrades and downgrades, dividend rises, contracts,
                             lawsuits and other officers leaving; all adds the rest.

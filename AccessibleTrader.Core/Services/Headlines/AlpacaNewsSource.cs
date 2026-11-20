@@ -4,14 +4,16 @@ using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Headlines
 {
-    /// <summary>Why a news read came back empty-handed, or that it did not.</summary>
-    public enum NewsReadStatus { Ok, NoKey, Refused, Failed }
+    /// <summary>Why a news read came back empty-handed, or that it did not.
+    /// <see cref="RateLimited"/> is Finnhub's 429: too many requests this minute.</summary>
+    public enum NewsReadStatus { Ok, NoKey, Refused, Failed, RateLimited }
 
     /// <summary>One read of a symbol's recent wire stories. <see cref="Stories"/> is empty unless
-    /// <see cref="Status"/> is <see cref="NewsReadStatus.Ok"/>.</summary>
-    public sealed record NewsReadResult(NewsReadStatus Status, IReadOnlyList<NewsStory> Stories)
+    /// <see cref="Status"/> is <see cref="NewsReadStatus.Ok"/>. <see cref="Who"/> names the
+    /// service ("Alpaca", "Finnhub") so a refused key can be said as whose.</summary>
+    public sealed record NewsReadResult(NewsReadStatus Status, IReadOnlyList<NewsStory> Stories, string Who = "")
     {
-        public static NewsReadResult Of(NewsReadStatus status) => new(status, Array.Empty<NewsStory>());
+        public static NewsReadResult Of(NewsReadStatus status, string who = "") => new(status, Array.Empty<NewsStory>(), who);
     }
 
     /// <summary>A symbol's recent wire stories, newest first — the dossier's "Recent news".</summary>
@@ -28,6 +30,7 @@ namespace AccessibleTrader.Core.Services.Headlines
     public sealed class AlpacaNewsRestSource : INewsSource
     {
         public const string Endpoint = "https://data.alpaca.markets/v1beta1/news";
+        private const string Who = "Alpaca";
 
         private readonly HttpClient _http;
         private readonly IApiKeyCheckout _keys;
@@ -43,7 +46,7 @@ namespace AccessibleTrader.Core.Services.Headlines
         public async Task<NewsReadResult> RecentAsync(NewsTarget target, int limit, CancellationToken ct = default)
         {
             var key = await _keys.CheckoutAsync("Alpaca", ct: ct).ConfigureAwait(false);
-            if (!key.HasCredentials) return NewsReadResult.Of(NewsReadStatus.NoKey);
+            if (!key.HasCredentials) return NewsReadResult.Of(NewsReadStatus.NoKey, Who);
 
             string url = $"{Endpoint}?symbols={Uri.EscapeDataString(target.RestSymbol)}"
                 + $"&limit={Math.Clamp(limit, 1, 50)}&sort=desc&include_content=false";
@@ -54,20 +57,20 @@ namespace AccessibleTrader.Core.Services.Headlines
                 request.Headers.Add("APCA-API-SECRET-KEY", key.Secret);
                 using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
                 if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                    return NewsReadResult.Of(NewsReadStatus.Refused);
+                    return NewsReadResult.Of(NewsReadStatus.Refused, Who);
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger?.LogDebug("Alpaca news read returned {Status}.", (int)response.StatusCode);
-                    return NewsReadResult.Of(NewsReadStatus.Failed);
+                    return NewsReadResult.Of(NewsReadStatus.Failed, Who);
                 }
                 string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                return new NewsReadResult(NewsReadStatus.Ok, AlpacaNewsParser.ParseRest(json));
+                return new NewsReadResult(NewsReadStatus.Ok, AlpacaNewsParser.ParseRest(json), Who);
             }
             catch (Exception ex) when (ex is HttpRequestException
                                        || (ex is TaskCanceledException && !ct.IsCancellationRequested))
             {
                 _logger?.LogDebug("Alpaca news read failed: {Type}.", ex.GetType().Name);
-                return NewsReadResult.Of(NewsReadStatus.Failed);
+                return NewsReadResult.Of(NewsReadStatus.Failed, Who);
             }
         }
     }

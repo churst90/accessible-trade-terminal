@@ -132,4 +132,34 @@ public class ChangeLogStartupTests
 
         Assert.True(resolved, "AppStartupService never resolved EdgarHeadlineLiveNotices");
     }
+
+    [Fact]
+    public async Task StartupResolvesTheFinnhubNewsPoller_OrItWouldNeverRun()
+    {
+        // The poller starts its own timer in its constructor; nothing else asks for it.
+        bool resolved = false;
+        var services = new ServiceCollection();
+        services.AddSingleton<IDataService>(Substitute.For<IDataService>());
+        services.AddSingleton<IPluginLoaderService>(Substitute.For<IPluginLoaderService>());
+        services.AddSingleton<IIndicatorService>(Substitute.For<IIndicatorService>());
+        services.AddSingleton<IDataOrchestrationService>(Substitute.For<IDataOrchestrationService>());
+        services.AddSingleton<IInputRouter>(Substitute.For<IInputRouter>());
+        services.AddSingleton<IChartCommandManager>(Substitute.For<IChartCommandManager>());
+        services.AddSingleton<IHistoryBufferCoordinator>(Substitute.For<IHistoryBufferCoordinator>());
+        services.AddSingleton<IAccessibilityFeedbackCoordinator>(Substitute.For<IAccessibilityFeedbackCoordinator>());
+        services.AddSingleton<IWorkspaceInitializer>(Substitute.For<IWorkspaceInitializer>());
+        services.AddSingleton(_ =>
+        {
+            resolved = true;
+            return new Core.Services.Headlines.FinnhubNewsLiveNotices(
+                new MockWorkspaceStore(), new SpyEventBus(),
+                Substitute.For<Core.Services.Headlines.IFinnhubNewsClient>(),
+                new Core.Services.Headlines.NewsHeadlineGate());
+        });
+
+        await new AppStartupService(services.BuildServiceProvider(), NullLogger<AppStartupService>.Instance)
+            .InitializeAsync();
+
+        Assert.True(resolved, "AppStartupService never resolved FinnhubNewsLiveNotices");
+    }
 }

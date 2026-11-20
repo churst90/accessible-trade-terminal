@@ -462,30 +462,37 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 case Headlines.NewsReadStatus.NoKey:
                     return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
-                        "Add an Alpaca key in API Keys to list news-wire stories here. A free Alpaca account works.");
+                        "Add a Finnhub or Alpaca key in API Keys to list news stories here. A free account with either works.");
                 case Headlines.NewsReadStatus.Refused:
+                    string who = read.Who.Length == 0 ? "The news service" : read.Who;
                     return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
-                        "Alpaca refused the key in API Keys. Check it, or make a new one on Alpaca's site.");
+                        $"{who} refused the key in API Keys. Check it, or make a new one on {who}'s site.");
                 case Headlines.NewsReadStatus.Failed:
+                case Headlines.NewsReadStatus.RateLimited:
                     return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
                         "The news list could not be read.");
             }
+            string through = read.Who.Length == 0 ? "the news services" : read.Who;
             if (read.Stories.Count == 0)
                 return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
-                    "Alpaca lists no stories.");
+                    read.Who.Length == 0 ? "No stories are listed."
+                    : read.Who.Contains(" and ") ? $"{read.Who} list no stories." : $"{read.Who} lists no stories.");
 
             var fields = read.Stories
                 .OrderByDescending(s => s.CreatedUtc)
                 .Select(s => F(
                     ExchangeTime.ToEasternString(s.CreatedUtc, "yyyy-MM-dd h:mm tt") + " New York",
                     s.Headline,
-                    s.Source.Length == 0 ? "Alpaca" : char.ToUpperInvariant(s.Source[0]) + s.Source[1..],
+                    s.Source.Length == 0 ? WireName(s.Wire) : char.ToUpperInvariant(s.Source[0]) + s.Source[1..],
                     DossierStatus.Ok,
                     Headlines.NewsStoryWords.Word(Headlines.NewsStoryWords.Importance(s))))
                 .ToList();
             return new DossierSection(title, DossierStatus.Ok, fields, now,
-                "News-wire stories through Alpaca. Times are when each story was published.");
+                $"News stories through {through}. Times are when each story was published.");
         }
+
+        private static string WireName(string wire)
+            => wire == Headlines.NewsStory.FinnhubWire ? "Finnhub" : "Alpaca";
 
         private static void AddSeries(List<DossierField> into, string label,
                                       IReadOnlyList<(DateTime Filed, double Value)> series)

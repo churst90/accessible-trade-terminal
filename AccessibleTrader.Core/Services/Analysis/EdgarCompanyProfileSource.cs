@@ -31,10 +31,11 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// <c>HttpHeaders.Add</c> throws.
     /// </para>
     /// </summary>
-    public sealed class EdgarCompanyProfileSource : ICompanyProfileSource, ICompanyFilingSource
+    public sealed class EdgarCompanyProfileSource : ICompanyProfileSource, ICompanyFilingSource, ICompanyNameSource
     {
         private readonly HttpClient _http;
         private readonly ConcurrentDictionary<string, int> _cik = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, string> _title = new(StringComparer.OrdinalIgnoreCase);
         private bool _mapLoaded;
         private DateTime _mapFailedAtUtc = DateTime.MinValue;
 
@@ -62,6 +63,15 @@ namespace AccessibleTrader.Core.Services.Analysis
         {
             ticker = Normalise(ticker);
             return ticker.Length > 0 && await ResolveCikAsync(ticker, ct) != null;
+        }
+
+        /// <summary>The company's name as EDGAR's ticker index has it ("Apple Inc.",
+        /// "MICROSOFT CORP"). Loads the index once.</summary>
+        public async Task<string?> CompanyNameAsync(string ticker, CancellationToken ct = default)
+        {
+            ticker = Normalise(ticker);
+            if (ticker.Length == 0 || await ResolveCikAsync(ticker, ct) == null) return null;
+            return _title.TryGetValue(ticker, out var name) ? name : null;
         }
 
         /// <summary>
@@ -119,7 +129,10 @@ namespace AccessibleTrader.Core.Services.Analysis
                         var c = prop.Value["cik_str"];
                         if (!string.IsNullOrEmpty(t) && c != null
                             && int.TryParse(c.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v))
+                        {
                             _cik[t!] = v;
+                            if (prop.Value["title"]?.ToString() is { Length: > 0 } title) _title[t!] = title;
+                        }
                     }
                     _mapLoaded = true;
                 }

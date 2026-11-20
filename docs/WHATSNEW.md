@@ -112,6 +112,19 @@ None of this has been seen or heard in the app yet.
 - **The asset dossier (Alt+I)** has a "Recent news" tab with the twenty newest stories, stocks and
   coins alike.
 
+### Headlines: news from Finnhub
+
+- **With a Finnhub key, Finnhub's news is said too**, for your stocks (Yahoo Finance, CNBC,
+  Benzinga, Seeking Alpha) and, unlike Alpaca's free account, for your coins (Cointelegraph,
+  CoinDesk). The free key works; it is the same key as the Finnhub prices. Each stock, and the coin
+  list, is checked about once a minute. Same level, same switch, same sound.
+- **Only a story whose headline names your stock, company or coin is said**: Finnhub's list for a
+  stock is full of stories that only mention it.
+- **A story told by both services, or by two publishers in nearly the same words, is said once.**
+- Explainers, questions, "Here's why" pieces, call transcripts, market wraps and every Seeking
+  Alpha opinion piece are low; subpoenas are important; probes, outages and signed deals are medium.
+- The dossier's "Recent news" lists both services together, a week of each stock's stories.
+
 ### Chart types and price scales
 
 - **The chart type changes the price series itself, name and all.** Choose Line or Area and the
