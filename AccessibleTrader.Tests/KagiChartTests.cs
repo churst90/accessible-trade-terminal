@@ -559,4 +559,165 @@ public sealed class KagiChartTests
         Assert.True(CloseTo(bmp.GetPixel(100, Y(120)), thick));
         Assert.True(CloseTo(bmp.GetPixel(200, Y(95)), thin));
     }
+
+    // ---- Thick and thin heard (Cody, 2026-11-19: "thickness audible") ------------------------
+
+    [Fact]
+    public void The_price_series_holds_each_lines_thickness_and_follows_the_lines()
+    {
+        var state = KagiState();
+
+        // Up thick; down, turns thin at 100; up, turns thick at 120: each at its end.
+        Assert.Equal(new[] { 1d, 0d, 1d }, state.ActiveSeries[0].Data.ComponentData[PriceSeriesShape.KagiThickKey]);
+        // The same lines again change nothing, so the store's "did anything change" holds.
+        Assert.Same(state, PriceSeriesShape.Apply(state));
+
+        // New lines (up, then down but not past the waist at 100: still thick) bring their own.
+        var bars = Closes(100, 120, 108);
+        var built = BuiltCharts.Build(PriceChartStyle.Kagi, bars, state.Renko, 10, Hour);
+        var next = PriceSeriesShape.Apply(state with { Data = built.Bricks, BrickSpans = built.Spans });
+        Assert.Equal(new[] { 1d, 1d }, next.ActiveSeries[0].Data.ComponentData[PriceSeriesShape.KagiThickKey]);
+    }
+
+    [Fact]
+    public void Only_a_Kagi_chart_carries_the_thickness()
+    {
+        var renko = PriceSeriesShape.Apply(KagiState() with
+        {
+            ChartStyle = PriceChartStyle.Renko,
+            ActiveSeries = ImmutableList.Create(new ChartSeries(Candles(), new SeriesDataBuffer { SeriesId = "candles" })),
+        });
+
+        Assert.False(renko.ActiveSeries[0].Data.ComponentData.ContainsKey(PriceSeriesShape.KagiThickKey));
+    }
+
+    private static AudioPoint Sound(WorkspaceState state, int index)
+    {
+        var series = state.ActiveSeries[0];
+        var line = Assert.Single(series.Components);
+        var point = state.Data[index];
+        return new AccessibleTrader.Core.Services.Audio.DefaultSonificationStrategy(new AccessibleTrader.Core.Services.Audio.SoundPatchRegistry())
+            .CreateAudioPoint(series, line, point.Close, point, 0, 10, (90, 130), 1f, dataIndex: index);
+    }
+
+    [Fact]
+    public void A_thick_line_and_a_thin_line_going_the_same_way_sound_different()
+    {
+        var thin = Sound(KagiState(), 1);                          // down 120 to 95, ends thin
+        var thick = Sound(KagiState(new double[] { 100, 120, 108 }), 1);   // down 120 to 108, still thick
+
+        // Same direction, same pitch: thickness is the timbre alone.
+        Assert.Equal(thick.Frequency, thin.Frequency);
+        Assert.True(thick.SubSawMix > 0.2f && thin.SubSawMix == 0f, $"sub-saw thick {thick.SubSawMix}, thin {thin.SubSawMix}");
+        Assert.True(thick.SquareMix > thin.SquareMix, $"square thick {thick.SquareMix}, thin {thin.SquareMix}");
+        // And a thick line up sounds as thick as a thick line down, up only higher.
+        var thickUp = Sound(KagiState(), 0);
+        Assert.Equal((thick.SubSawMix, thick.SquareMix), (thickUp.SubSawMix, thickUp.SquareMix));
+        Assert.True(thickUp.Frequency > thick.Frequency);
+    }
+
+    // ---- Percentage reversal (TradingView's "Percentage") -------------------------------------
+
+    [Fact]
+    public void A_percentage_reversal_is_that_much_of_the_lines_end()
+    {
+        // 2%: 101.5 is under 2% of 100; 102 draws the first line; 104 grows it; 101.95 is under
+        // 2% of 104 (2.08) back; 101.9 turns it. A fixed 2 would have turned at 101.95.
+        var bars = Closes(100, 101.5, 102, 104, 101.95, 101.9);
+
+        var percent = KagiBuilder.Build(bars, 2, Hour, percent: true);
+        Assert.Null(percent.Refusal);
+        Assert.Equal(new[] { (100d, 104d), (104d, 101.9) }, percent.Bricks.Select(b => (b.Open, b.Close)));
+
+        Assert.Equal(Start.AddHours(5), percent.Bricks[1].Date);   // turned by 101.9
+
+        var fixedTwo = KagiBuilder.Build(bars, 2, Hour);
+        Assert.Equal(Start.AddHours(4), fixedTwo.Bricks[1].Date);   // turned by 101.95
+    }
+
+    [Fact]
+    public void A_percentage_is_frozen_as_typed_and_refused_outside_0_to_100()
+    {
+        var bars = Closes(Swing);
+        Assert.True(BuiltCharts.TryResolveBox(PriceChartStyle.Kagi, bars,
+            new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 2.5), out double box, out _));
+        Assert.Equal(2.5, box);
+
+        Assert.False(BuiltCharts.TryResolveBox(PriceChartStyle.Kagi, bars,
+            new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 150), out _, out string? refusal));
+        Assert.Equal("A Kagi reversal percentage must be above 0 and at most 100.", refusal);
+        Assert.False(BuiltCharts.TryResolveBox(PriceChartStyle.Kagi, bars,
+            new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 0), out _, out _));
+        Assert.NotNull(KagiBuilder.Build(bars, 150, Hour, percent: true).Refusal);
+
+        // A percentage is Kagi's alone.
+        Assert.False(BuiltCharts.TryResolveBox(PriceChartStyle.Renko, bars,
+            new RenkoSettings(RenkoBoxMode.Percent, 2), out _, out refusal));
+        Assert.Equal("Renko does not take a percentage box.", refusal);
+    }
+
+    [Fact]
+    public void Choosing_a_percentage_Kagi_builds_on_the_percentage_and_says_it()
+    {
+        var initial = WorkspaceState.Initial with
+        {
+            Identity = Id,
+            // 101.95 is under 2% of 104 back, so one line; a fixed 2 would have turned there.
+            Data = new TimeSeriesBuffer<Ohlcv>(Closes(100, 101.5, 102, 104, 101.95)),
+            Renko = new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 2),
+            CurrentDataIndex = 4,
+            ViewportLength = 30,
+            InitStatus = InitializationStatus.Ready,
+        };
+
+        var kagi = Reduce(initial, new SetChartStyleAction(PriceChartStyle.Kagi, false));
+
+        Assert.Equal(2, kagi.BrickBoxSize);
+        Assert.Equal(new[] { 104d }, kagi.Data.Select(b => b.Close));
+        Assert.Equal("Kagi chart, reversal 2 percent.", BrickChartSpeech.ChangeSentence(kagi));
+    }
+
+    [Fact]
+    public void A_percentage_too_big_for_the_moves_says_so_in_percent()
+    {
+        Assert.False(BuiltCharts.TryPlan(PriceChartStyle.Kagi, Closes(Swing),
+            new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 50), Hour, out _, out string? refusal));
+        Assert.Equal("No Kagi lines: price has not moved 50 percent in the loaded bars.", refusal);
+    }
+
+    [Theory]
+    [InlineData("2%", 2)]
+    [InlineData("2 %", 2)]
+    [InlineData("0.5 percent", 0.5)]
+    [InlineData("100%", 100)]
+    public void KAGI_takes_a_percentage(string argument, double percent)
+    {
+        Assert.True(GoBarParser.TryParseKagi(argument, out var settings));
+        Assert.Equal((RenkoBoxMode.Percent, percent), (settings.KagiMode, settings.KagiSize));
+    }
+
+    [Theory]
+    [InlineData("0%")]
+    [InlineData("150%")]
+    [InlineData("%")]
+    [InlineData("-2%")]
+    public void KAGI_refuses_a_percentage_outside_0_to_100(string argument)
+    {
+        Assert.False(GoBarParser.TryParseKagi(argument, out _));
+    }
+
+    [Fact]
+    public void KAGI_2_percent_makes_a_percentage_Kagi_action()
+    {
+        var bus = new EventBus();
+        using var stack = new ModalStack(bus);
+        var service = new GoBarService(Substitute.For<ICommandDispatcher>(), Substitute.For<IShortcutManager>(), bus, stack);
+
+        var option = service.Suggest("KAGI 2%").Options[0];
+        var action = Assert.IsType<GoBarRenkoAction>(option.Action);
+
+        Assert.Equal((RenkoBoxMode.Percent, 2d), (action.Settings.KagiMode, action.Settings.KagiSize));
+        Assert.Equal("Kagi chart, reversal 2 percent", option.Name);
+        Assert.Equal("KAGI 2%", option.CanonicalText);
+    }
 }

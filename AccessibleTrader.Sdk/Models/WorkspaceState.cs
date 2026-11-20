@@ -47,8 +47,10 @@ namespace AccessibleTrader.Sdk.Models
             style is PriceChartStyle.Renko or PriceChartStyle.LineBreak or PriceChartStyle.Kagi;
     }
 
-    /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.</summary>
-    public enum RenkoBoxMode { Atr = 0, Fixed = 1 }
+    /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.
+    /// <see cref="Percent"/> is Kagi's alone (TradingView's "Percentage" reversal): the size is a
+    /// percentage of the line's end, not a price. Saved in files, so only ever appended to.</summary>
+    public enum RenkoBoxMode { Atr = 0, Fixed = 1, Percent = 2 }
 
     /// <summary>
     /// Per-tab settings of the charts built off the clock. The first three are Renko's box:

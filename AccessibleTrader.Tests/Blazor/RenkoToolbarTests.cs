@@ -165,6 +165,73 @@ public sealed class RenkoToolbarTests
             Arg.Is<SetRenkoSettingsAction>(a => a.Settings.Mode == RenkoBoxMode.Fixed && a.Settings.BoxSize == 20));
     }
 
+    // ---- Kagi's percentage reversal ----------------------------------------------------------
+
+    private static IRenderedComponent<Cmp.ChartTypeSettingsModal> OpenDialog(BlazorTestHarness h, WorkspaceState state)
+    {
+        h.WorkspaceStore.State.Returns(_ => state);
+        h.Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
+        var cut = h.Ctx.RenderComponent<Cmp.ChartTypeSettingsModal>();
+        h.EventBus.Publish(new OpenChartTypeSettingsEvent());
+        cut.WaitForAssertion(() => cut.Find("#renko-box-atr"));
+        return cut;
+    }
+
+    [Fact]
+    public void Percentage_is_offered_on_Kagi_alone()
+    {
+        using (var h = new BlazorTestHarness())
+            Assert.Empty(OpenDialog(h, State(PriceChartStyle.Renko)).FindAll("#kagi-reversal-percent-mode"));
+        using (var h = new BlazorTestHarness())
+            Assert.Single(OpenDialog(h, State(PriceChartStyle.Kagi)).FindAll("#kagi-reversal-percent-mode"));
+    }
+
+    [Fact]
+    public void Choosing_Percentage_applies_a_percentage_reversal()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.Kagi));
+
+        cut.Find("#kagi-reversal-percent-mode").Change(true);
+        cut.Find("#kagi-reversal-percent").Input("2");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        h.WorkspaceStore.Received(1).Dispatch(
+            Arg.Is<SetRenkoSettingsAction>(a => a.Settings.KagiMode == RenkoBoxMode.Percent && a.Settings.KagiSize == 2));
+    }
+
+    [Fact]
+    public void A_percentage_tab_prefills_its_percentage_and_never_as_a_price()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.Kagi) with
+        {
+            Renko = new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: 3),
+            BrickBoxSize = 3,
+        });
+
+        Assert.True(cut.Find("#kagi-reversal-percent-mode").HasAttribute("checked"));
+        Assert.Equal("3", cut.Find("#kagi-reversal-percent").GetAttribute("value"));
+
+        cut.Find("#renko-box-fixed").Change(true);
+        Assert.Equal("0", cut.Find("#renko-box-size").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_percentage_over_100_is_refused_at_the_percentage_field()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.Kagi));
+
+        cut.Find("#kagi-reversal-percent-mode").Change(true);
+        cut.Find("#kagi-reversal-percent").Input("150");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("A Kagi reversal percentage must be above 0 and at most 100.", cut.Markup));
+        Assert.Contains(FocusTargets(h.Ctx), id => id == "kagi-reversal-percent");
+        h.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<SetRenkoSettingsAction>());
+    }
+
     private static List<string> FocusTargets(TestContext ctx) =>
         ctx.JSInterop.Invocations["accessibleTrader.focusElement"]
            .Select(i => i.Arguments[0]?.ToString() ?? "")

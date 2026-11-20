@@ -90,6 +90,13 @@ namespace AccessibleTrader.Core.Services.Charts
             box = 0;
             refusal = null;
 
+            if (settings.Mode == RenkoBoxMode.Percent)
+            {
+                // Kagi's alone, and resolved by BuiltCharts before it gets here.
+                refusal = $"{chart} does not take a percentage {unit}.";
+                return false;
+            }
+
             if (settings.Mode == RenkoBoxMode.Fixed)
             {
                 box = settings.BoxSize;

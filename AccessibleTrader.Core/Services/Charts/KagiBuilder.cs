@@ -25,23 +25,41 @@ namespace AccessibleTrader.Core.Services.Charts
     /// </para>
     ///
     /// <para>
+    /// With <c>percent</c>, the reversal is that percentage of the newest line's end (of the first
+    /// close, before the first line), TradingView's "Percentage" reversal: the same move turns a
+    /// line at a low price sooner than at a high one.
+    /// </para>
+    ///
+    /// <para>
     /// Thick and thin (yang and yin) are not part of a line's bars: they follow from the lines in
     /// order, and <see cref="KagiLines"/> works them out for the drawing and the speech alike.
     /// </para>
     /// </summary>
     public static class KagiBuilder
     {
+        /// <summary>The largest reversal percentage: past it a down line could never turn.</summary>
+        public const double MaxPercent = 100;
+
         public static BrickBuildResult Build(
             IReadOnlyList<Ohlcv> bars,
             double reversal,
             TimeSpan barLength,
-            int maxLines = BrickChartBuilder.MaxBricks)
+            int maxLines = BrickChartBuilder.MaxBricks,
+            bool percent = false)
         {
             if (!(reversal > 0) || double.IsInfinity(reversal))
                 return new BrickBuildResult(
                     TimeSeriesBuffer<Ohlcv>.Empty,
                     ImmutableArray<BrickSpan>.Empty,
                     "Kagi needs a reversal amount above zero.");
+            if (percent && reversal > MaxPercent)
+                return new BrickBuildResult(
+                    TimeSeriesBuffer<Ohlcv>.Empty,
+                    ImmutableArray<BrickSpan>.Empty,
+                    $"Kagi takes a reversal percentage up to {MaxPercent}.");
+
+            // The amount a close must come back from (or move from) this price to turn.
+            double Need(double from) => percent ? Math.Abs(from) * reversal / 100.0 : reversal;
 
             // (open, end, birth bar, first bar of the window, end bar, up)
             var lines = new List<(double Open, double End, int Birth, int First, int Last, bool Up)>();
@@ -56,7 +74,7 @@ namespace AccessibleTrader.Core.Services.Charts
 
                 if (lines.Count == 0)
                 {
-                    if (Math.Abs(close - first) >= reversal)
+                    if (Math.Abs(close - first) >= Need(first))
                         lines.Add((first, close, i, 0, i, close > first));
                     continue;
                 }
@@ -68,7 +86,7 @@ namespace AccessibleTrader.Core.Services.Charts
                     continue;
                 }
 
-                if (last.Up ? close <= last.End - reversal : close >= last.End + reversal)
+                if (last.Up ? close <= last.End - Need(last.End) : close >= last.End + Need(last.End))
                 {
                     if (lines.Count >= maxLines)
                         return new BrickBuildResult(

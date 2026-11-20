@@ -112,13 +112,56 @@ namespace AccessibleTrader.Core.Services.Charts
             int at = state.ActiveSeries.FindIndex(s => s.Id == CoreSeriesIds.Candles);
             if (at < 0) return state;
             var series = state.ActiveSeries[at];
-            var reshaped = Apply(series, state.ChartStyle, state.IsHeikinAshi);
+            var reshaped = WithKagiThickness(Apply(series, state.ChartStyle, state.IsHeikinAshi), state);
             if (ReferenceEquals(reshaped, series)) return state;
 
             var next = state with { ActiveSeries = state.ActiveSeries.SetItem(at, reshaped) };
             if (state.FocusedSeriesId == CoreSeriesIds.Candles)
                 next = next with { FocusedComponentIndex = DefaultPart(reshaped.Config) };
             return next;
+        }
+
+        /// <summary>
+        /// Each Kagi line's thickness at its end, 1 thick and 0 thin, in the price series' buffer
+        /// under this key, so its sound can tell thick from thin as the drawing and the words do
+        /// (Cody, 2026-11-19: "thickness audible"). Hidden: the "__" keeps it out of the parts.
+        /// </summary>
+        public const string KagiThickKey = "__kagi_thick";
+
+        /// <summary>One thickness array per drawn-bar list, so the reduces that do not change the
+        /// bars (every arrow key) cost a lookup, and the series is replaced only when they do.</summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IReadOnlyList<Ohlcv>, double[]> KagiThickCache = new();
+
+        /// <summary>The thickness of every line in <paramref name="lines"/>, as <see cref="KagiThickKey"/> holds it.</summary>
+        public static double[] KagiThickness(IReadOnlyList<Ohlcv> lines) =>
+            KagiThickCache.GetValue(lines, l => KagiLines.All(l).Select(look => look.ThickAtEnd ? 1.0 : 0.0).ToArray());
+
+        /// <summary>The price series with the Kagi lines' thickness in its buffer when the chart
+        /// is Kagi; the same instance when it is not, or already holds this list's thickness.</summary>
+        private static ChartSeries WithKagiThickness(ChartSeries series, WorkspaceState state)
+        {
+            if (state.ChartStyle != PriceChartStyle.Kagi || state.Data == null || Of(series.Config) != Kind.Kagi)
+                return series;
+            var thick = KagiThickness(state.Data);
+            if (series.Data.ComponentData.TryGetValue(KagiThickKey, out var held) && ReferenceEquals(held, thick))
+                return series;
+
+            var data = series.Data;
+            var copy = new SeriesDataBuffer
+            {
+                SeriesId = data.SeriesId,
+                FirstBarDate = data.FirstBarDate,
+                ComponentData = new Dictionary<string, double[]>(data.ComponentData) { [KagiThickKey] = thick },
+                ProfileBins = data.ProfileBins,
+                HeatmapData = data.HeatmapData,
+            };
+            return new ChartSeries(series.Config, copy)
+            {
+                Drawing = series.Drawing,
+                IsProfile = series.IsProfile,
+                FocusedBinIndex = series.FocusedBinIndex,
+                RequiresFullRecalcOnTick = series.RequiresFullRecalcOnTick,
+            };
         }
 
         /// <summary><paramref name="series"/> in the shape <paramref name="style"/> draws, and

@@ -86,6 +86,14 @@ namespace AccessibleTrader.Core.Services.Charts
                 case PriceChartStyle.RangeBars:
                     return BrickChartBuilder.TryResolveSize(bars, settings.RangeMode, settings.RangeSize,
                         settings.RangeAtrLength, "Range bars", "range", out box, out refusal);
+                case PriceChartStyle.Kagi when settings.KagiMode == RenkoBoxMode.Percent:
+                    // A percentage is not a price, so nothing to resolve: it is frozen as typed.
+                    box = settings.KagiSize;
+                    refusal = null;
+                    if (box > 0 && box <= KagiBuilder.MaxPercent) return true;
+                    refusal = $"A Kagi reversal percentage must be above 0 and at most {KagiBuilder.MaxPercent}.";
+                    box = 0;
+                    return false;
                 case PriceChartStyle.Kagi:
                     return BrickChartBuilder.TryResolveSize(bars, settings.KagiMode, settings.KagiSize,
                         settings.KagiAtrLength, "Kagi", "reversal amount", out box, out refusal);
@@ -113,7 +121,8 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             PriceChartStyle.RangeBars => RangeBarBuilder.Build(bars, box, barLength, max),
             PriceChartStyle.LineBreak => LineBreakBuilder.Build(bars, settings.LineBreakLines, barLength, max),
-            PriceChartStyle.Kagi => KagiBuilder.Build(bars, box, barLength, max),
+            PriceChartStyle.Kagi => KagiBuilder.Build(bars, box, barLength, max,
+                percent: settings.KagiMode == RenkoBoxMode.Percent),
             _ => BrickChartBuilder.Build(bars, box, barLength, max),
         };
 
@@ -172,6 +181,8 @@ namespace AccessibleTrader.Core.Services.Charts
                         $"No range bars: price has not moved a range of {size} in the loaded bars.",
                     PriceChartStyle.LineBreak =>
                         "No line break blocks: no close in the loaded bars differs from the first.",
+                    PriceChartStyle.Kagi when settings.KagiMode == RenkoBoxMode.Percent =>
+                        $"No Kagi lines: price has not moved {BrickChartSpeech.Percent(box)} percent in the loaded bars.",
                     PriceChartStyle.Kagi =>
                         $"No Kagi lines: price has not moved a reversal amount of {size} in the loaded bars.",
                     _ => $"No Renko bricks: price has not moved one box of {size} in the loaded bars.",

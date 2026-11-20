@@ -19,7 +19,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public const string LineBreakBadArgument =
             "Line break takes a number of lines from 1 to 50, like LINEBREAK 3.";
         public const string KagiBadArgument =
-            "Kagi takes a reversal amount, like KAGI 500, or ATR and a length, like KAGI ATR 14.";
+            "Kagi takes a reversal amount, like KAGI 500, a percentage, like KAGI 2%, or ATR and a length, like KAGI ATR 14.";
 
         /// <summary>"Already a Renko chart.", "Already a Range bars chart." ...</summary>
         public static string AlreadyFor(PriceChartStyle style) =>
@@ -37,9 +37,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _ => BadArgument,
         };
 
+        /// <summary>A reversal percentage as said: "2", "0.5", "1.25".</summary>
+        public static string Percent(double percent) =>
+            percent.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
         /// <summary>"Renko chart, box 512.30 from ATR 14." or "Renko chart, fixed box 500.00.";
         /// "Range bars chart, range 512.30 from ATR 14."; "Line break chart, 3 lines." The size is
-        /// the frozen one the chart actually uses. "Kagi chart, reversal amount 512.30 from ATR 14."</summary>
+        /// the frozen one the chart actually uses. "Kagi chart, reversal amount 512.30 from ATR 14."
+        /// "Kagi chart, reversal 2 percent."</summary>
         public static string ChangeSentence(WorkspaceState state)
         {
             var style = state.ChartStyle.IsBrickStyle() ? state.ChartStyle : PriceChartStyle.Renko;
@@ -53,6 +58,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double box = state.BrickBoxSize;
             if (!(box > 0))
                 return chart + ".";
+
+            // "Kagi chart, reversal 2 percent." A percentage is not a price.
+            if (style == PriceChartStyle.Kagi && state.Renko.KagiMode == RenkoBoxMode.Percent)
+                return $"{chart}, reversal {Percent(box)} percent.";
 
             string price = SpeechPriceFormatter.FormatPrice(box);
             string unit = style switch

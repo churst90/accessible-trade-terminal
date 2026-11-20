@@ -760,10 +760,12 @@ on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `H
   horizontal shoulder joins each line to the next. The line goes **thick** where it rises above
   the top of the line before (the last shoulder) and **thin** where it falls below the bottom of
   the line before (the last waist); a line keeps its thickness until then, so thickness is the
-  trend and direction is the swing. The reversal amount is the ATR (14 by default) or a fixed
-  size, frozen like Renko's box. **Kagi settings** opens the same dialog with "Reversal amount";
-  the Go bar's `KAGI 500` sets a fixed amount and `KAGI ATR 20` an ATR length. TradingView also
-  offers a percentage reversal; this build does not yet.
+  trend and direction is the swing. The reversal amount is the ATR (14 by default), a fixed
+  size, or a **percentage** of the line's end, frozen like Renko's box. A percentage turns a line
+  on the same share of the price wherever the price is, so a line at 50 turns on a smaller move
+  than one at 100. **Kagi settings** opens the same dialog with "Reversal amount" and a third
+  option, **Percentage** (above 0, at most 100); the Go bar's `KAGI 500` sets a fixed amount,
+  `KAGI 2%` (or `KAGI 2 percent`) a percentage and `KAGI ATR 20` an ATR length.
 
 Renko, range bars and line break draw only completed bars; the one still forming is left out
 until it completes. Kagi is the exception: its newest line is the one still growing, and it
@@ -837,13 +839,14 @@ line**: *"Kagi line. Up, turns thick at 120.00. 95.00 to 125.00. 18 Nov 14:00 to
 17:00."*, or *"Down, thin."* and so on. The two prices are where the line starts and where it
 ends now; the window is the real time since the line before ended. The status line says `Up Kagi
 line, thick …`, the layout *"Kagi chart, reversal amount 512.30 from ATR 14."* or *"… fixed
-reversal amount 500.00."*, and a new line says *"New up Kagi line, turns thick at 120.00, 95.00
+reversal amount 500.00."* or *"… reversal 2 percent."*, and a new line says *"New up Kagi line, turns thick at 120.00, 95.00
 to 125.00."* A line that is still growing says once, the moment it passes the shoulder or
 waist, *"Kagi turns thick at 120.00."* (or thin). A line growing is not a new bar: a Kagi tab in
 the background says only its new lines, and the New up / New down / Reversal alerts fire on a new
-line, not each time the newest one grows. Kagi sounds like the bricks for now: a short ping, high
-on an up line and low on a down one; thick and thin are spoken and drawn but not yet given their
-own sound.
+line, not each time the newest one grows. Kagi pings like the bricks, high on an up line and low
+on a down one, and the thickness is heard in the tone: a **thick** line sounds heavy, with an
+edge and a low weight under it, a **thin** line nearly a pure tone. A line that turned sounds as
+it ends.
 
 **A Renko, range bar, line break or Kagi tab in the background says its new bars, not its bar
 closes** (*"… 2 new up blocks, …"*, *"… new range bar"* and so on, by the type). When a bar closes on a

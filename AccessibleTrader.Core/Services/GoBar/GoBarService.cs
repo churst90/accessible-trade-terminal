@@ -472,17 +472,23 @@ namespace AccessibleTrader.Core.Services.GoBar
                 case GoBarVerb.Kagi:
                     if (!GoBarParser.TryParseKagi(parsed.Argument, out var kagi))
                         return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.KagiBadArgument);
-                    string kagiName = kagi.KagiMode == RenkoBoxMode.Fixed
-                        ? $"Kagi chart, fixed reversal amount {SpeechPriceFormatter.FormatPrice(kagi.KagiSize)}"
-                        : $"Kagi chart, ATR {kagi.KagiAtrLength}";
+                    string kagiName = kagi.KagiMode switch
+                    {
+                        RenkoBoxMode.Fixed => $"Kagi chart, fixed reversal amount {SpeechPriceFormatter.FormatPrice(kagi.KagiSize)}",
+                        RenkoBoxMode.Percent => $"Kagi chart, reversal {BrickChartSpeech.Percent(kagi.KagiSize)} percent",
+                        _ => $"Kagi chart, ATR {kagi.KagiAtrLength}",
+                    };
                     return new GoBarSuggestion(new[]
                     {
                         new GoBarOption(
                             kagiName,
                             Action: new GoBarRenkoAction(kagi, PriceChartStyle.Kagi),
-                            CanonicalText: parsed.Argument.StartsWith("ATR", StringComparison.OrdinalIgnoreCase)
-                                ? $"KAGI ATR {kagi.KagiAtrLength}"
-                                : $"KAGI {kagi.KagiSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            CanonicalText: kagi.KagiMode switch
+                            {
+                                RenkoBoxMode.Atr => $"KAGI ATR {kagi.KagiAtrLength}",
+                                RenkoBoxMode.Percent => $"KAGI {kagi.KagiSize.ToString("0.##########", CultureInfo.InvariantCulture)}%",
+                                _ => $"KAGI {kagi.KagiSize.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            },
                             Help: "Draw the price as Kagi lines turning on this reversal amount"),
                     }, kagiName + ".");
 

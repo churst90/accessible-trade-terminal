@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Kagi thickness heard, and a percentage reversal, 2026-11-20 — not yet heard by Cody
+
+Cody, 2026-11-19: *"1. thickness audible, yes if possible. 2. yes percentage adjustment too."*
+
+- **Thick and thin heard.** The sound path sees one value per bar, not the lines before it, so
+  the thickness travels in the price series' buffer: `PriceSeriesShape` puts each line's
+  thickness at its end (1 thick, 0 thin) under the hidden key `__kagi_thick`, after every reduce
+  on a Kagi chart. It is worked out once per drawn-bar list (a weak cache on the list), so an
+  arrow key costs a lookup and the series is replaced only when the lines change; the live
+  growing line gets its new thickness on the tick that turns it. `DefaultSonificationStrategy`
+  reads it for the Kagi part: thick = square 0.18 plus sub-octave saw 0.25 (heavy), thin =
+  triangle 0.06 (nearly a pure sine). Direction stays the pitch, so a thick line up and a thick
+  line down share a timbre and differ in pitch. A turned line sounds as it ends; the turn itself
+  is still said in words. Other built types are unchanged.
+- **Percentage reversal.** `RenkoBoxMode.Percent = 2` (appended; Kagi's alone: Renko and range
+  bars refuse it in words). `KagiBuilder.Build(..., percent: true)` turns a line when a close
+  comes back that percentage of the line's end (before the first line, of the first close), so
+  the same move turns a line sooner at a low price than at a high one. The percentage is frozen
+  as typed (above 0, at most 100), not resolved. Dialog: a third option, **Percentage**, on Kagi
+  only, with its own field (a percentage is never prefilled as a price, nor a price as a
+  percentage). Go bar: `KAGI 2%`, `KAGI 2 %`, `KAGI 0.5 percent`. Said *"Kagi chart, reversal 2
+  percent."*; a percentage too big for the loaded moves says *"No Kagi lines: price has not moved
+  50 percent in the loaded bars."*
+- **Tests.** `KagiChartTests` +16 (buffer thickness follows the lines and is left off other
+  charts; same-direction thick vs thin differ only in timbre; percent builder vs fixed turn on
+  different bars; freeze and refusals; Go bar parse, refuse and action; the store builds on the
+  percentage and says it); `RenkoToolbarTests` +4 (Percentage on Kagi only; Apply; prefill never
+  as a price; over 100 refused at the percentage field). Sabotaged 18 ways, all red (two only after
+  the tests were tightened: the store test now uses closes where percent and fixed draw different
+  line counts, and the dialog's duplicate over-100 check was dropped, the refusal coming from
+  `BuiltCharts` at the same field).
+
 ### Kagi chart type, 2026-11-19 — not yet heard by Cody
 
 Cody: *"continue with the next chart type"* — Kagi, after range bars and line break.

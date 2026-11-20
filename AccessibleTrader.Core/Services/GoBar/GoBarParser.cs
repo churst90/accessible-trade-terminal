@@ -316,9 +316,27 @@ namespace AccessibleTrader.Core.Services.GoBar
         public static bool TryParseKagi(string? text, out RenkoSettings settings)
         {
             settings = new RenkoSettings();
+            if (TryParsePercent(text, out double percent))
+            {
+                settings = new RenkoSettings(KagiMode: RenkoBoxMode.Percent, KagiSize: percent);
+                return true;
+            }
             if (!TryParseSize(text, out var mode, out double size, out int length)) return false;
             settings = new RenkoSettings(KagiMode: mode, KagiSize: size, KagiAtrLength: length);
             return true;
+        }
+
+        /// <summary>A reversal percentage: "2%", "2 %" or "2 percent", above 0 and at most 100.</summary>
+        private static bool TryParsePercent(string? text, out double percent)
+        {
+            percent = 0;
+            string typed = (text ?? "").Trim();
+            string number;
+            if (typed.EndsWith('%')) number = typed[..^1];
+            else if (typed.EndsWith("percent", StringComparison.OrdinalIgnoreCase)) number = typed[..^"percent".Length];
+            else return false;
+            return TryParsePositiveDecimal(number.Trim(), out percent)
+                   && percent <= Charts.KagiBuilder.MaxPercent;
         }
 
         /// <summary>LINEBREAK's argument: a whole number of lines, 1 to 50.</summary>

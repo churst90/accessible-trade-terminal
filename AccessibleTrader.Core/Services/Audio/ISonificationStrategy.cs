@@ -429,6 +429,17 @@ namespace AccessibleTrader.Core.Services.Audio
                     triangleMix = 0.10f;
                     squareMix = 0.08f;
                 }
+                else if (comp.DisplayType == ComponentDisplayType.Brick
+                         && comp.Name == Charts.PriceSeriesShape.KagiPart
+                         && KagiThick(series, dataIndex) is bool thick)
+                {
+                    // A KAGI LINE IS HEARD THICK OR THIN, as it is drawn and said. Cody,
+                    // 2026-11-19: "thickness audible, yes if possible." Direction is already the
+                    // pitch, so the timbre is free for thickness: a thick line heavy (square edge
+                    // and sub-octave weight), a thin line nearly a pure sine.
+                    if (thick) { squareMix = 0.18f; subSawMix = 0.25f; }
+                    else triangleMix = 0.06f;
+                }
                 else if (comp.DisplayType == ComponentDisplayType.Brick)
                 {
                     // A brick: one box, always the same size, so no size grit — a fixed square
@@ -543,6 +554,15 @@ namespace AccessibleTrader.Core.Services.Audio
                                   PatchId: resolvedPatchId, NoiseType: noiseType, PatchLayers: patchLayers,
                                   CrossDirection: crossDir, SquareMix: squareMix, SawMix: sawMix,
                                   TriangleMix: triangleMix, SubSawMix: subSawMix);
+        }
+
+        /// <summary>Whether the Kagi line at <paramref name="dataIndex"/> is thick at its end;
+        /// null when the buffer does not say (not a Kagi chart, or not yet worked out).</summary>
+        private static bool? KagiThick(ChartSeries series, int dataIndex)
+        {
+            if (!series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.KagiThickKey, out var thick)) return null;
+            if (dataIndex < 0 || dataIndex >= thick.Length) return null;
+            return thick[dataIndex] > 0.5;
         }
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)

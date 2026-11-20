@@ -99,7 +99,9 @@ None of this has been seen or heard in the app yet.
   its way and turns on a reversal amount, thick above the last shoulder and thin below the last
   waist. You hear the thickness as you arrow, *"Kagi line. Up, turns thick at 120.00. 95.00 to
   125.00."*, and once, live, the moment the growing line passes it: *"Kagi turns thick at
-  120.00."* `KAGI 500` sets a fixed reversal amount, `KAGI ATR 20` an ATR length.
+  120.00."* `KAGI 500` sets a fixed reversal amount, `KAGI ATR 20` an ATR length, and
+  `KAGI 2%` a percentage of the line's end. You hear the thickness too: a thick line sounds
+  heavy, a thin line nearly a pure tone, and the pitch still says up or down.
 - **Alerts on Renko, range bar, line break and Kagi charts fire on the real price.** An alert at 64,000
   fires when the market trades 64,000, not when a brick happens to end there; an alert on a drawn
   level does the same. Indicator alerts still read the indicator as the chart draws it, on the

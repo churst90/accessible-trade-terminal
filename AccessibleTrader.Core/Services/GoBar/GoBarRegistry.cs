@@ -456,7 +456,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             new(SystemCommand.ShowKagiChart, "Kagi chart",
                 new[] { "KAGI" },
                 new[] { "kagi", "kagi chart", "kagi lines" },
-                "Draw lines that turn on a reversal amount, thick above the last shoulder and thin below the last waist; KAGI 500 sets a fixed amount, KAGI ATR 20 an ATR length", GoBarKind.Normal),
+                "Draw lines that turn on a reversal amount, thick above the last shoulder and thin below the last waist; KAGI 500 sets a fixed amount, KAGI 2% a percentage, KAGI ATR 20 an ATR length", GoBarKind.Normal),
             new(SystemCommand.ShowBrickSettings, "Brick settings",
                 Array.Empty<string>(),
                 new[] { "renko settings", "brick settings", "range bar settings", "line break settings", "kagi settings" },

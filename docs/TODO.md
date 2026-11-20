@@ -126,10 +126,11 @@ and Identity already has 2FA, lockout and rate limits.
      chart's own bars; not watched by the hosted no-chart monitor). Caveat: restoring a workspace across built
      types re-resolves the size. **Kagi** — built 2026-11-19, not yet heard by Cody (toolbar select,
      Kagi settings dialog, Go bar `KAGI 500` / `KAGI ATR 20`; thick/thin drawn and spoken, live
-     "Kagi turns thick at X." once per line). Questions for Cody: (a) thick and thin have no sound
-     of their own yet (the sound path sees one value, not the lines before; it pings like a brick)
-     — worth plumbing? (b) TradingView's percentage reversal is not built (ATR and fixed only) —
-     wanted? Still open: Point & Figure, which reuses the brick plumbing. The brick and box types drop
+     "Kagi turns thick at X." once per line). Cody's two answers (2026-11-19, "thickness audible,
+     yes if possible" / "yes percentage adjustment too") built 2026-11-20, not heard: a thick line
+     sounds heavy (square edge and sub-octave weight), a thin line nearly a pure sine, direction
+     still the pitch; and a **Percentage** reversal (dialog option, Go bar `KAGI 2%`), that
+     percentage of the line's end. Still open: Point & Figure, which reuses the brick plumbing. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**
