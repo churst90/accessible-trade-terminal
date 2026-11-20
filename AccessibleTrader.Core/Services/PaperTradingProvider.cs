@@ -464,6 +464,12 @@ namespace AccessibleTrader.Core.Services
 
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
+            try { return await PlaceOrderCoreAsync(signal).ConfigureAwait(false); }
+            finally { DeliverPendingUpdates(); }
+        }
+
+        private async Task<string> PlaceOrderCoreAsync(TradeSignal signal)
+        {
             string raw = (signal.Symbol ?? "").ToUpperInvariant();
             if (signal.Quantity <= 0) return "ORDER_FAILED:quantity must be positive";
 
@@ -878,6 +884,12 @@ namespace AccessibleTrader.Core.Services
 
         public Task<bool> CancelOrderAsync(string orderId, string symbol)
         {
+            try { return CancelOrderCore(orderId); }
+            finally { DeliverPendingUpdates(); }
+        }
+
+        private Task<bool> CancelOrderCore(string orderId)
+        {
             lock (_lock)
             {
                 var o = _open.FirstOrDefault(x => x.Id == orderId);
@@ -943,6 +955,12 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         public void ProcessBar(string symbol, Ohlcv bar, string stream = "")
+        {
+            try { ProcessBarCore(symbol, bar, stream); }
+            finally { DeliverPendingUpdates(); }
+        }
+
+        private void ProcessBarCore(string symbol, Ohlcv bar, string stream)
         {
             stream ??= "";
             string sym = (symbol ?? "").ToUpperInvariant();
@@ -2076,10 +2094,57 @@ namespace AccessibleTrader.Core.Services
         /// an unreported error is inaudible — so it goes to the log, which is where the terminal's
         /// error surface reads from.
         /// </para>
+        ///
+        /// <para>
+        /// Queued, not delivered: every caller holds the account lock, and listeners (speech, the
+        /// journal, the order log, the reconciliation coordinator) used to run inside it, so one busy
+        /// listener froze every other question to the broker (code review, 2026-11-20; shown by
+        /// <c>A_slow_order_listener_does_not_hold_up_the_account</c>). The three entry points that
+        /// can change an order (<see cref="PlaceOrderAsync"/>, <see cref="CancelOrderAsync"/>,
+        /// <see cref="ProcessBar"/>) deliver the queue once the lock is released, so listeners also
+        /// see the account as it settled (a filled stop's sibling already cancelled, the file saved).
+        /// </para>
         /// </summary>
         private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false, string? reason = null)
         {
             var update = new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing, reason);
+            lock (_lock) _pendingUpdates.Add(update);
+            // A caller outside the lock would otherwise leave it queued until the next order.
+            if (!Monitor.IsEntered(_lock)) DeliverPendingUpdates();
+        }
+
+        // Guarded by _lock; appended in the order the account changed.
+        private readonly List<OrderUpdate> _pendingUpdates = new();
+
+        // One deliverer at a time, so listeners hear updates in the order they were queued even
+        // when a bar and an order land on two threads. Always taken BEFORE _lock, never inside it,
+        // so the two cannot deadlock; re-entrant, so a listener that places an order delivers its
+        // own update in turn.
+        private readonly object _deliverGate = new();
+
+        private void DeliverPendingUpdates()
+        {
+            // Still inside a lock on this thread: its outermost entry point delivers.
+            if (Monitor.IsEntered(_lock)) return;
+            lock (_deliverGate)
+            {
+                while (true)
+                {
+                    OrderUpdate[] batch;
+                    lock (_lock)
+                    {
+                        if (_pendingUpdates.Count == 0) return;
+                        batch = _pendingUpdates.ToArray();
+                        _pendingUpdates.Clear();
+                    }
+                    foreach (var update in batch) Deliver(update);
+                }
+            }
+        }
+
+        private void Deliver(OrderUpdate update)
+        {
+            var (status, symbol, id) = (update.Status, update.Symbol, update.OrderId);
             try
             {
                 _orderUpdates.OnNext(update);

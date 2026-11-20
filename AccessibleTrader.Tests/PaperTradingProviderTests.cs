@@ -82,6 +82,30 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task A_slow_order_listener_does_not_hold_up_the_account()
+        {
+            // Code review, 2026-11-20: the order stream ran its listeners inside the account lock,
+            // so a listener busy with a fill (speech, the journal, the order log) froze every other
+            // question to the broker until it returned. Now the events go out after the lock.
+            var paper = Make(out var store);
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            using var release = new ManualResetEventSlim(false);
+            using var inListener = new ManualResetEventSlim(false);
+            using var sub = paper.OrderUpdateStream.Subscribe(_ => { inListener.Set(); release.Wait(TimeSpan.FromSeconds(10)); });
+
+            var placing = Task.Run(() => paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0)));
+            Assert.True(inListener.Wait(TimeSpan.FromSeconds(5)), "the fill never reached the listener");
+
+            var positions = Task.Run(() => paper.GetPositionsAsync());
+            bool answered = await Task.WhenAny(positions, Task.Delay(TimeSpan.FromSeconds(2))) == positions;
+            release.Set();
+            await placing;
+
+            Assert.True(answered, "the account did not answer while a listener was busy with a fill");
+            Assert.Single(await positions);
+        }
+
+        [Fact]
         public async Task Market_order_fails_when_symbol_has_no_live_price()
         {
             // No chart loaded → no live price → the paper broker refuses rather
