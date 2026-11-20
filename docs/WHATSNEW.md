@@ -156,6 +156,8 @@ None of this has been seen or heard in the app yet.
   narration ladder of your background tabs, and of saved tabs while the browser is closed.
 - **Alt+U says how your positions moved while you were away**: *"Positions since 09:40: BTC/USDT
   made 42.10, SOL/USDT opened, ETH/USDT closed."* Once, after the first sentence.
+- **The morning brief**: type `BRIEF` in the Go bar to hear what changed, the market pulse and
+  today's market events in one go: *"... Today: 13:30, CPI, important."*
 - **Alt+G or slash opens the Go bar**: type a short code such as `PULSE`, `NEWS AAPL` or `RENKO`.
 
 ### Market events: the Fed rate

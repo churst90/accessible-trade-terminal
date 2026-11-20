@@ -792,6 +792,9 @@ namespace AccessibleTrader.BlazorClient
             // Alt+P. Singleton on this head because the Pulse watchlist is per-user singleton
             // here; on the WebHost it is scoped beside the per-circuit watchlists.
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.IMarketPulseReader>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>());
+            services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
             // Alt+G. The registry and matcher are static; the service owns the close-then-
             // dispatch sequence and reads the live shortcut profile for the key it says.
             services.AddSingleton<AccessibleTrader.Core.Services.GoBar.GoBarService>();

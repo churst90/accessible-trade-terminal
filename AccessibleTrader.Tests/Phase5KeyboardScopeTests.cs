@@ -163,6 +163,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.WhatChanged)]
         [InlineData(SystemCommand.OpenGoBar)]
         [InlineData(SystemCommand.OpenNewsList)]
+        [InlineData(SystemCommand.MorningBrief)]
         [InlineData(SystemCommand.OpenAssetDossier)]
         // The Ctrl+Alt+Shift switches: a three-modifier chord is never typed text.
         [InlineData(SystemCommand.ToggleChartPatterns)]
@@ -313,6 +314,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.OpenWatchlist, SystemCommand.OpenLevelReport,
                 SystemCommand.OpenMarketEventCalendar, SystemCommand.MarketPulse, SystemCommand.MarketPulseDetail,
                 SystemCommand.WhatChanged, SystemCommand.OpenGoBar, SystemCommand.OpenNewsList,
+                SystemCommand.MorningBrief,
                 SystemCommand.ToggleChartPatterns, SystemCommand.ToggleHeadlines,
                 SystemCommand.ToggleMarketEvents,
                 SystemCommand.TypedBuy, SystemCommand.TypedSell, SystemCommand.TypedFlat,

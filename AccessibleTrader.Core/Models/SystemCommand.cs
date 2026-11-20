@@ -104,6 +104,12 @@ namespace AccessibleTrader.Core.Models
         /// </summary>
         OpenNewsList,
 
+        /// <summary>
+        /// The Go bar's BRIEF: what changed, the pulse, then today's market events, as one
+        /// sentence. No key of its own, so a user may bind one.
+        /// </summary>
+        MorningBrief,
+
         /// <summary>Ctrl+Alt+Shift+comma — turn "Describe chart patterns" on or off.</summary>
         ToggleChartPatterns,
 

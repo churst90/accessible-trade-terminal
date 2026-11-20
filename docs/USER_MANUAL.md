@@ -2254,8 +2254,18 @@ stored once. If the file is unreadable it is moved aside as a `.corrupt-*` copy 
 starts, rather than being overwritten.
 
 Not yet recorded: the ladder of the chart you are looking at (you hear it as it happens), chart
-formations (the `,` list), market events released while the browser is closed, and the morning
-brief.
+formations (the `,` list), and market events released while the browser is closed.
+
+**The morning brief.** Type **`BRIEF`** in the Go bar (Alt+G or `/`) to hear three things as one
+sentence: what Alt+U would say, the market pulse (the same words as Alt+P), then today's market
+events: *"3 changes since 22:10, 9 hours ago. ... gold up 0.4, S&P down 0.2. Today: 13:30, CPI,
+important."* It first says *"Gathering the brief."*; pressing
+again while it gathers says *"Still gathering the brief."* "Today" is the day on the clock the
+terminal speaks (F12, local or UTC), whole, so an event earlier today is still listed. The events
+follow your market-events level, kind boxes and open or held markets like the live notices; with
+market events off it still says the important ones, since you asked. At most six are read, then
+*"N more in the calendar."* What changed is marked heard only after the whole sentence is said,
+and Ctrl+Alt+P afterwards reads the brief's pulse in detail. It has no key of its own.
 
 ### The Go bar (Alt+G)
 
@@ -2281,6 +2291,7 @@ every label match. Plain text lists settings after the commands. Case does not m
 | `ECO` | Market events calendar (the same screen as Alt+E) |
 | `PULSE` | Market pulse (Alt+P) |
 | `CHANGES` | What changed (Alt+U) |
+| `BRIEF` | The morning brief: what changed, the pulse and today's market events (`brief`, `morning brief`) |
 | `NEWS` | Every headline this session, newest first (`headlines`); `NEWS AAPL` for one symbol |
 | `HDLN` | The Headlines level setting |
 | `EVTS` | The market events level setting |

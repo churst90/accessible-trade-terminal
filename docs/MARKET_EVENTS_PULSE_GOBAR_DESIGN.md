@@ -243,6 +243,15 @@ unavailable, Finnhub key not set".
   offers; it never reads unasked.
 - Later, a **morning brief**: catch-up, pulse and today's events.
 
+**Built 2026-11-20 (stage 5c, part 3): the morning brief.** Go bar `BRIEF`, no key.
+`MorningBriefService` says "Gathering the brief.", then one sentence: the catch-up's press
+(`ChangeLogCatchUpService.PrepareAsync`, which returns the words and a mark step so Alt+U and the
+brief share one path), the pulse (`IMarketPulseReader.SentenceAsync`: Alt+P's list, quotes and
+words, kept for Ctrl+Alt+P, never spoken itself), then today's events (the spoken clock's whole
+day; the chosen level, Off read as important only; the kind boxes; open or held markets as the
+live notices pick them; six at most, then "N more in the calendar."). The catch-up is marked heard
+after the sentence. One gather at a time.
+
 **Built 2026-11-20 (stage 5c, part 1): unusual moves and signals.** "Usual" is the median size of
 the 46 close-to-close moves before the closed bar on that chart, unusual at 5 times (my numbers,
 not tuned; a question for Cody). Checked on the focused chart and open background tabs

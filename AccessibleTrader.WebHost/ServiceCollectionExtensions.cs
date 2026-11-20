@@ -771,6 +771,9 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.HeadlineNavigator>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
+            services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.IMarketPulseReader>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>());
+            services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal
             // stack and the shortcut profile it reads are scoped per signed-in user too.
             services.AddScoped<AccessibleTrader.Core.Services.GoBar.GoBarService>();

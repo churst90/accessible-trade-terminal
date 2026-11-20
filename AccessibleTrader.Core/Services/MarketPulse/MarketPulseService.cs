@@ -30,7 +30,7 @@ namespace AccessibleTrader.Core.Services.MarketPulse
     /// updating a sentence the user has already heard.
     /// </para>
     /// </summary>
-    public sealed class MarketPulseService
+    public sealed class MarketPulseService : IMarketPulseReader
     {
         private const int MaxRequestsPerProvider = 4;
         private static readonly TimeSpan FetchLimit = TimeSpan.FromSeconds(4);
@@ -130,6 +130,33 @@ namespace AccessibleTrader.Core.Services.MarketPulse
             finally
             {
                 gatherTimer?.Dispose();
+                Volatile.Write(ref _gathering, 0);
+            }
+        }
+
+        /// <summary>
+        /// The pulse sentence for the morning brief, which says it inside its own: the same
+        /// list, quotes and words as Alt+P, kept as the newest reading for Ctrl+Alt+P. It never
+        /// speaks, and never throws.
+        /// </summary>
+        public async Task<string> SentenceAsync(WorkspaceState state)
+        {
+            if (Interlocked.CompareExchange(ref _gathering, 1, 0) != 0)
+                return "The market pulse is still gathering.";
+            try
+            {
+                var (entries, _, _) = await BuildListAsync(state).ConfigureAwait(false);
+                var quotes = await FetchQuotesAsync(entries, state).ConfigureAwait(false);
+                Volatile.Write(ref _last, new Reading(quotes, NowUtc));
+                return MarketPulseWording.Sentence(quotes, NowUtc);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug("Market pulse for the brief failed: {Type}.", ex.GetType().Name);
+                return "The market pulse is unavailable.";
+            }
+            finally
+            {
                 Volatile.Write(ref _gathering, 0);
             }
         }

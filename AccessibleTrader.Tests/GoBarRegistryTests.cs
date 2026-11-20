@@ -139,6 +139,7 @@ public class GoBarRegistryTests
             ["ECO"] = SystemCommand.OpenMarketEventCalendar,
             ["PULSE"] = SystemCommand.MarketPulse,
             ["CHANGES"] = SystemCommand.WhatChanged,
+            ["BRIEF"] = SystemCommand.MorningBrief,
             ["DES"] = SystemCommand.SpeakChartLayout,
             ["HELP"] = SystemCommand.OpenHelp,
             ["GO"] = SystemCommand.OpenGoBar,

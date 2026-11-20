@@ -60,6 +60,18 @@ namespace AccessibleTrader.Core.Services.ChangeLog
 
         public async Task SpeakAsync()
         {
+            var press = await PrepareAsync().ConfigureAwait(false);
+            _bus.Publish(new AnnouncementEvent(
+                press.Sentence, Interrupt: true, Channel: SpeechChannel.Interface));
+            await press.MarkHeardAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// One press's sentence, and what to mark once it has been said. Alt+U says it at once;
+        /// the morning brief says it inside its own sentence and marks after that.
+        /// </summary>
+        public async Task<ChangeLogPress> PrepareAsync()
+        {
             var doc = await _store.SnapshotAsync().ConfigureAwait(false);
             var plan = ChangeLogRules.Plan(doc, NowUtc);
 
@@ -70,16 +82,17 @@ namespace AccessibleTrader.Core.Services.ChangeLog
 
             string? positions = followUp ? null : await PositionsSinceAsync(doc).ConfigureAwait(false);
             string sentence = ChangeLogWording.Press(doc, plan, NowUtc, followUp, positions);
-            _bus.Publish(new AnnouncementEvent(
-                sentence, Interrupt: true, Channel: SpeechChannel.Interface));
 
-            if (plan.Items.Count > 0)
-                await _store.MarkHeardAsync(plan.Items.Select(e => e.Key)).ConfigureAwait(false);
-            if (doc.AwayPositions != null && !followUp)
-                await _store.ClearAwayPositionsAsync().ConfigureAwait(false);
+            return new ChangeLogPress(sentence, async () =>
+            {
+                if (plan.Items.Count > 0)
+                    await _store.MarkHeardAsync(plan.Items.Select(e => e.Key)).ConfigureAwait(false);
+                if (doc.AwayPositions != null && !followUp)
+                    await _store.ClearAwayPositionsAsync().ConfigureAwait(false);
 
-            _lastPressEndedWithMore = plan.Remaining > 0;
-            _newestAtLastPress = newest;
+                _lastPressEndedWithMore = plan.Remaining > 0;
+                _newestAtLastPress = newest;
+            });
         }
 
         /// <summary>
@@ -173,4 +186,7 @@ namespace AccessibleTrader.Core.Services.ChangeLog
             return entries.Count == 0 ? null : entries.Max(e => e.TimeUtc);
         }
     }
+
+    /// <summary>A catch-up press's words, and the step that marks its items heard once they were said.</summary>
+    public sealed record ChangeLogPress(string Sentence, Func<Task> MarkHeardAsync);
 }

@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The morning brief (stage 5c), 2026-11-20 — not heard, not on the VPS
+
+- **Go bar `BRIEF`** (`SystemCommand.MorningBrief`, aliases "brief", "morning brief", "briefing";
+  no key; dispatcher case beside `WhatChanged`). `MorningBriefService` (singleton on the desktop,
+  scoped on the web host) says "Gathering the brief.", then the catch-up press, the pulse and
+  today's market events as one interface-tier sentence; "Still gathering the brief." on a press
+  while it gathers; "The brief is unavailable." on a failure; a failed pulse is "The market pulse
+  is unavailable." and the rest still speaks.
+- **`ChangeLogCatchUpService.PrepareAsync`** returns a `ChangeLogPress` (sentence + mark step);
+  `SpeakAsync` is now prepare, say, mark. The brief marks after its whole sentence is published.
+- **`MarketPulseService.SentenceAsync`** (`IMarketPulseReader`): the Alt+P sentence without
+  speaking or the braille strip, kept as the newest reading for Ctrl+Alt+P; shares Alt+P's gate.
+- **Today's events:** the spoken clock's whole day as a UTC range; level from the settings (Off
+  read as important only); kind boxes; `MarketEventNoticePlanner.Touches` on open and held
+  markets; by time; six read, then "N more in the calendar.".
+- Tests: `MorningBriefTests` (9) + one in `MarketPulseServiceTests`; guard rows in
+  `Phase5KeyboardScopeTests` and `GoBarRegistryTests`. Sabotages listed in the commit.
+- **Caveats:** no key; not heard; events-off fallback to important only is my choice.
+
 ### Alt+U: position profit and loss since you left (stage 5c), 2026-11-20 — not heard, not on the VPS
 
 - **The away mark keeps the open positions** (`ChangeLogCatchUpService.SetLastPresentAsync` writes

@@ -420,7 +420,12 @@ as proposed.
 - [ ] **Stage 5c: market events released while the browser is closed.** The same blocker as the
   stage 3a item above: one process-wide owner is needed, or a closed tab and the headless
   session would both speak/record it.
-- [ ] **Stage 5c: the morning brief.** Catch-up, pulse and today's events. Not built.
+- [x] **Stage 5c: the morning brief.** Go bar `BRIEF` (`SystemCommand.MorningBrief`, no key):
+  the Alt+U press, the pulse sentence and today's market events as one interface-tier sentence;
+  the catch-up items are marked heard after it is said. **Built 2026-11-20, not heard, not on the
+  VPS.** Caveats: no key (a free plain Alt letter if Cody wants one: F N Q V X Y); "today" is the
+  spoken clock's whole day, earlier events included; events with market events off fall back to
+  important only (my choice); the brief waits on the slowest pulse quote and up to 5 s on venues.
 - [x] **Stage 6a: the Go bar's registry, matcher and box (Alt+G).** One entry for every
   `SystemCommand` except `None` (140) behind a guard test that goes red when one is removed; the
   fixed order exact code → exact name/alias → prefix → word start → near miss; money exact-code or

@@ -62,6 +62,7 @@ namespace AccessibleTrader.Core.Services.Input
         private string _marketEventsLevelBeforeOff = MarketEvents.MarketEventLevels.ImportantOnly;
         private readonly MarketPulse.MarketPulseService? _marketPulse;
         private readonly ChangeLog.ChangeLogCatchUpService? _changeLog;
+        private readonly MarketPulse.MorningBriefService? _morningBrief;
         private readonly DemoPolicy? _demo;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
@@ -105,7 +106,8 @@ namespace AccessibleTrader.Core.Services.Input
             MarketPulse.MarketPulseService? marketPulse = null,
             ChangeLog.ChangeLogCatchUpService? changeLog = null,
             DemoPolicy? demo = null,
-            Headlines.HeadlineNavigator? headlineNavigator = null)
+            Headlines.HeadlineNavigator? headlineNavigator = null,
+            MarketPulse.MorningBriefService? morningBrief = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -129,6 +131,7 @@ namespace AccessibleTrader.Core.Services.Input
             // Optional for the same reason; without it period says headlines are unavailable.
             _headlineNavigator = headlineNavigator;
             _changeLog = changeLog;
+            _morningBrief = morningBrief;
             _demo = demo;
             _quickTrade = quickTrade;
 
@@ -385,6 +388,14 @@ namespace AccessibleTrader.Core.Services.Input
                     // What happened while you were not listening. The catch-up owns the plan,
                     // the words and the caught-up mark; this only starts the press.
                     if (_changeLog != null) _ = _changeLog.SpeakAsync();
+                    return;
+
+                case SystemCommand.MorningBrief:
+                    // What changed, the pulse and today's events in one sentence; the brief
+                    // gathers off the dispatcher's thread like the pulse.
+                    if (_morningBrief != null) _ = _morningBrief.SpeakAsync();
+                    else _eventBus.Publish(new AnnouncementEvent(
+                        "The brief is unavailable.", true, Channel: SpeechChannel.Interface));
                     return;
 
                 // ── Orientation and recovery ──────────────────────────────

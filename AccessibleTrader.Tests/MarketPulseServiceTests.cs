@@ -372,6 +372,28 @@ public class MarketPulseServiceTests
     }
 
     [Fact]
+    public async Task TheBriefsPulseIsTheSameSentenceSaysNothingAndIsKeptForCtrlAltP()
+    {
+        var rig = new Rig();
+        rig.SeedPulse(
+            new WatchlistEntry("Fmp", "XAUUSD", MarketType.Commodity),
+            new WatchlistEntry("Fmp", "^GSPC", MarketType.Index));
+
+        string sentence = await rig.Service.SentenceAsync(rig.State);
+
+        Assert.Equal("gold up 3.0, S&P up 3.0.", sentence);
+        Assert.Empty(rig.Announcements);
+        Assert.Empty(rig.Bus.Log.OfType<TactileStripMessageEvent>());
+
+        rig.Service.SpeakDetail();
+        Assert.StartsWith("Pulse read just now. gold: XAUUSD on Fmp", rig.Announcements[^1].Message);
+
+        // And it is Alt+P's own sentence.
+        await rig.Service.SpeakAsync(rig.State);
+        Assert.Equal(sentence, rig.Announcements[^1].Message);
+    }
+
+    [Fact]
     public async Task TheReadingGoesToTheStripAndCtrlAltPReadsItAgainInDetail()
     {
         var rig = new Rig();
