@@ -113,6 +113,10 @@ namespace AccessibleTrader.Core.Services
         private readonly Dictionary<string, DateTime> _recentOrders = new();
         private readonly object _recentOrdersLock = new();
 
+        // Every order, cancel and report back, one JSON line each (code review, 2026-11-20).
+        // Optional so the tests that build this service by hand need not care.
+        private readonly OrderAuditLog? _audit;
+
         public GeneralOrderService(
             IDataService dataService,
             IGlobalErrorCoordinator errorCoordinator,
@@ -121,8 +125,10 @@ namespace AccessibleTrader.Core.Services
             IPaperTradingProvider paper,
             ISettingsManager settings,
             DemoPolicy demo,
-            Trading.QuickTradeEquity equity)
+            Trading.QuickTradeEquity equity,
+            OrderAuditLog? audit = null)
         {
+            _audit = audit;
             _dataService = dataService;
             _errorCoordinator = errorCoordinator;
             _logger = logger;
@@ -240,6 +246,8 @@ namespace AccessibleTrader.Core.Services
 
         private void PublishOrderEvent(OrderUpdate update, string providerName)
         {
+            _audit?.Update(providerName, update);
+
             // The stop/take-profit flags say which LEG this update belongs to, not
             // that it executed. A protective leg can also be rejected or cancelled,
             // and announcing "stop hit" for a stop that was refused reports the
@@ -343,6 +351,13 @@ namespace AccessibleTrader.Core.Services
         // ── Order execution ────────────────────────────────────────────────────
 
         public async Task<OrderPlacement> PlaceOrderAsync(string providerName, TradeSignal providedSignal)
+        {
+            var placement = await PlaceOrderCoreAsync(providerName, providedSignal).ConfigureAwait(false);
+            _audit?.Placement(providerName, providedSignal, placement);
+            return placement;
+        }
+
+        private async Task<OrderPlacement> PlaceOrderCoreAsync(string providerName, TradeSignal providedSignal)
         {
             // Every exit from this method goes through OrderPlacement.Parse, including the
             // sentinels this method invents itself. Building the record directly from a factory
@@ -1009,6 +1024,14 @@ namespace AccessibleTrader.Core.Services
         public async Task<(bool Ok, string Message)> PlaceOcoPairAsync(string providerName, string symbol,
             OrderSide side, double quantity, double limitPrice, double stopTriggerPrice)
         {
+            var result = await PlaceOcoPairCoreAsync(providerName, symbol, side, quantity, limitPrice, stopTriggerPrice).ConfigureAwait(false);
+            _audit?.OcoPair(providerName, symbol, side, quantity, limitPrice, stopTriggerPrice, result.Ok, result.Message);
+            return result;
+        }
+
+        private async Task<(bool Ok, string Message)> PlaceOcoPairCoreAsync(string providerName, string symbol,
+            OrderSide side, double quantity, double limitPrice, double stopTriggerPrice)
+        {
             // Same sanity clamps as single orders — money path.
             if (!IsFinitePositive(quantity) || quantity > MaxOrderQuantity
                 || !IsFinitePositive(limitPrice) || !IsFinitePositive(stopTriggerPrice))
@@ -1101,6 +1124,13 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
+        {
+            bool ok = await CancelOrderCoreAsync(providerName, orderId, symbol).ConfigureAwait(false);
+            _audit?.Cancel(providerName, orderId, symbol, ok);
+            return ok;
+        }
+
+        private async Task<bool> CancelOrderCoreAsync(string providerName, string orderId, string symbol)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             if (tp == null)

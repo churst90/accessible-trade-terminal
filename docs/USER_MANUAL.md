@@ -5578,6 +5578,14 @@ over the live one, dropping the date from the name. The session autosave is not 
 reset leaves the copies alone. On the hosted server they are in your account's folder and come
 with **Download my data**.
 
+**The order log.** Every order the terminal is asked to send is written down, whether it went or
+was refused, in `OrderAudit/orders-2026-11.jsonl` in the same data folder (a new file each month).
+Each line is one event with its time in UTC: the order (venue, symbol, side, type, quantity,
+prices, stop, take profit), what became of it (sent, refused with the reason you heard, failed,
+or uncertain), each cancel, and each fill or cancel the venue or the paper broker reported back,
+with the leg that fired and the realised profit or loss. It holds no keys or passwords. The app
+does not read it back; open it in a text editor to answer "did I really send that?".
+
 ---
 
 ## The Tactile Display

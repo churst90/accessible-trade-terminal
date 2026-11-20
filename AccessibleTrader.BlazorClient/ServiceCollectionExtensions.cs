@@ -390,6 +390,7 @@ namespace AccessibleTrader.BlazorClient
             // account, so this matches the old static's behaviour without the WebHost's
             // cross-user leak (there, the hub hands each user their own).
             services.AddSingleton<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.OrderAuditLog>();
             services.AddSingleton<IOrderExecutionService, GeneralOrderService>();
             services.AddSingleton<IStrategyIndicatorCache, StrategyIndicatorCache>();
             // Holds the live half of the exit plan the backtester replays — the TP ladder,

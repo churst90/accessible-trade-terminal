@@ -34,7 +34,8 @@ The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fix
   live trading on purpose, so switching it moves every replayed trail. Cody's call.
 - [ ] Maybe: a **Restore from yesterday** button for the paper account and workspaces (the daily copies
   exist since 2026-11-20; going back is a hand copy today).
-- [ ] **No per-order audit log**: an append-only JSONL of every order sent, refused, filled or cancelled.
+- [ ] Maybe: a way to **read the order log** in the app (`OrderAudit/orders-yyyy-MM.jsonl`, since
+  2026-11-20; today it is a file for a text editor).
 - [ ] **No kill switch, daily-loss limit or close-all.** Nothing caps the day or the account; for a
   trader who cannot see the screen "one more trade" is the failure this exists to stop. Needs Cody's
   design input before building.

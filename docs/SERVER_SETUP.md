@@ -276,6 +276,9 @@ users/{userId}/  per-user data — settings, sound design, paper-trading, journa
                                      before the day's first save (UTC)
                    IndicatorPrefs/   per-indicator colours, thickness, sonification
                    SecurityEvents/   this user's audit log
+                   OrderAudit/       orders-yyyy-MM.jsonl: one line per order sent, refused,
+                                     cancelled or reported back (20 MB a month at most). On the
+                                     demo every visitor shares one folder, so one file.
 cache/           SHARED HTTP / analytics-series cache (public market data, one for everyone)
 dp-keys/         DataProtection key ring (auth cookies + antiforgery; persisted so restarts
                  don't log everyone out). Owner-only 0700, asserted at startup.

@@ -425,6 +425,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Trading.QuickTradeEquity>(sp =>
                 sp.GetRequiredService<AccessibleTrader.Core.Services.Trading.QuickTradeEquityHub>()
                   .ForUser(sp.GetService<Account.ICurrentUser>()?.DataKey));
+            // Per user, like the paper account: IPlatformPathService is per circuit when accounts are on.
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.OrderAuditLog>();
             services.AddScoped<IOrderExecutionService, GeneralOrderService>();
             services.AddScoped<IStrategyIndicatorCache, StrategyIndicatorCache>();
             // Per-circuit, like the engine it serves: the positions file it persists is
