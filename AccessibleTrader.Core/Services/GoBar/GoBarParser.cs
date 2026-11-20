@@ -19,6 +19,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         RangeBars,
         LineBreak,
         Kagi,
+        Baseline,
         PointFigure,
         GoTo,
         Find,
@@ -68,6 +69,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "KAGI" }, SystemCommand.ShowKagiChart),
             new GoBarVerbSpec(GoBarVerb.PointFigure,
                 new[] { "PNF", "PF", "POINTFIGURE" }, SystemCommand.ShowPointFigureChart),
+            new GoBarVerbSpec(GoBarVerb.Baseline,
+                new[] { "BASELINE" }, SystemCommand.ShowBaselineChart),
             new GoBarVerbSpec(GoBarVerb.GoTo,
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
@@ -480,6 +483,12 @@ namespace AccessibleTrader.Core.Services.GoBar
                         return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,
                             Refusal: $"{argument} is not a timeframe. Try 4h, 15m or 1d.");
                     return new GoBarParseResult(GoBarParseKind.Argument, verb, argument, tf, words);
+
+                case GoBarVerb.Baseline:
+                    if (!TryParsePrice(argument, out double basePrice))
+                        return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,
+                            Refusal: "A base must be a price above zero, like BASELINE 95000.");
+                    return new GoBarParseResult(GoBarParseKind.Argument, verb, argument, Price: basePrice);
 
                 case GoBarVerb.PriceAlert:
                     if (!TryParsePrice(argument, out double price))

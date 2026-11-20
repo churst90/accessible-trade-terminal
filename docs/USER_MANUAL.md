@@ -721,18 +721,34 @@ Three keys describe the structure instead of a value.
 The numbers these three speak come from the same ranges the chart is drawn with, so what you
 hear is what a sighted partner sees.
 
-### Chart types: candles, Heikin Ashi, line, area, Renko, range bars, line break, Kagi and point and figure
+### Chart types: candles, Heikin Ashi, bars, hollow candles, volume candles, line, area, baseline, high-low, HLC area, Renko, range bars, line break, Kagi and point and figure
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
-It is one choice with nine options, like TradingView's chart-type menu. **Alt+C** puts the focus
+It is one choice with fifteen options, like TradingView's chart-type menu. **Alt+C** puts the focus
 on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `HA` still does):
 
 - **Candles** — the standard OHLC bars, the default.
 - **Heikin Ashi** — the smoothed candles described in the next section. Choosing it sets
   Heikin Ashi on. (There is no separate Heikin Ashi button any more:
   this list carries it.)
+- **Bars** — OHLC bars: a thin stroke from the low to the high, the open ticked to the left and
+  the close to the right, green or red by the bar's own direction.
+- **Hollow candles** — TradingView's: the colour is the close against the **previous** close
+  (green up, red down), and the body is **hollow** when the close is at or above its own open,
+  filled when below. So a candle can be filled green (it closed under its open but above the
+  close before) or hollow red.
+- **Volume candles** — candles as wide as their volume, against the heaviest bar in view (never
+  narrower than a sixth of the full width).
 - **Line** — one line through the close of every visible bar.
 - **Area** — the same line with a fill from the line down to the bottom of the price pane.
+- **Baseline** — the close line green above a **base** and red below it, each side shaded to the
+  base, which is drawn dashed. The base is the close of the first bar in view (it moves as you
+  scroll), or a price you choose with the Go bar's `BASELINE 95000`; `BASELINE` alone goes back to
+  the first close in view. The base is not part of the price axis's range, so a base far from the
+  price sits off the pane.
+- **High-low** — only each bar's range, a solid block from its low to its high.
+- **HLC area** — the high, the close and the low as three lines, the space from the high down to
+  the close shaded green and from the close down to the low shaded red.
 - **Renko** — bricks of price movement. Time is no longer the X axis: one brick is one box of
   price, so a quiet day draws no bricks and a crash draws many. The box is the ATR (14 by
   default) measured on closed bars when you choose the chart, or a fixed size you type; it is
@@ -820,16 +836,50 @@ hear just *"95,000.50. Up 1,120.00 …"*. The detail key
 the select is not shown and the phrases refuse aloud.
 
 **From the keyboard**, use the Go bar (Alt+G): `CANDLE` or `candle chart`, `heikin ashi chart`,
+`BARS`, `bar chart` or `ohlc bars`, `HOLLOW` or `hollow candles`, `VCANDLE` or `volume candles`,
+`BASELINE` (or `BASELINE 95000` for a base of your own), `HILO` or `high-low`, `HLC` or `hlc area`,
 `LINE` or `line chart`, `AREA`, `area chart` or `mountain`, and `RENKO`, `renko chart` or
 `bricks`, `RANGEBAR` or `range bars`, `LINEBREAK`, `LBREAK` or `line break`, `KAGI` or
 `kagi chart`, and `PNF`, `PF`, `p&f` or `point and figure`. Choosing the type already on screen says *"Already a line chart."* (and so on) rather
-than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*
+than doing nothing; a repeated Renko with the same settings says *"Already a Renko chart."*, and
+`BASELINE 105` on a baseline chart moves only the base.
 
 **The price series is named after the chart type.** Page Up / Page Down, the indicator bar, the
-Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Line*, *Area*, *Renko*,
+Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Bars*, *Hollow candles*,
+*Volume candles*, *Line*, *Area*, *Baseline*, *High-low*, *HLC area*, *Renko*,
 *Range bars*, *Line break*, *Kagi* or *Point and figure*,
 whichever is chosen. A name you gave the series yourself is kept. Saved workspaces store it as
 Candles, as before.
+
+**Bars, hollow candles, volume candles, baseline, high-low and HLC area are each heard and read
+as they are drawn.** Choosing one says what it is: *"Bar chart."*, *"Hollow candle chart. Colour
+against the previous close, hollow when the close is above the open."*, *"Volume candle chart.
+Wider candles for more volume."*, *"Baseline chart, base at the first close in view."* (or *"…,
+base 104.00."*; a new base says it again), *"High-low chart."*, *"HLC area chart."*
+
+- **Bars** have one part, **Bar**: *"Bar. Up. Open 101.00, high 106.00, low 100.00, close
+  103.00."* then the move from the previous close. A bar sounds like a thinner candle body: the
+  same pitch for up and down and the same weight for how far it moved, with less edge.
+- **Hollow candles** keep the three candle parts and lead with how the candle is drawn:
+  *"Hollow green."*, *"Filled green."*, *"Hollow red."* or *"Filled red."* The body's tone says
+  the colour (bright for green, warm for red) and its pitch still says which way the body went,
+  so a filled green candle sounds bright but low.
+- **Volume candles** keep the three candle parts. The body's low weight is its volume against
+  the heaviest bar in view, as its width is drawn, and a bar whose volume stands out says so:
+  *"Heavy volume, 2.3 times the 20-bar average."* (1.5 times or more) or *"Light volume, 0.4
+  times the 20-bar average."* (half or less), against up to 20 bars before it (it needs 5).
+- **Baseline** has one part, **Close**: *"Close. baseline. 105.50, 1.44 percent above the base,
+  104.00."*, *"… below the base, …"* or *"… at the base, …"*. Above the base it has a bright tone
+  and below it a warm one, and it **clicks where it crosses the base**, up or down.
+- **High-low** has one part, **High-low bar**: *"High-low bar. High 112.00, low 98.00, range
+  14.00."* Its pitch is the bar's middle and its low weight its range against the tallest bar in
+  view, so a wide bar sounds heavier.
+- **HLC area** has three parts, **High**, **Close** and **Low**; the arrows start on Close, and
+  each is read and heard as a line.
+
+The status line shows what each draws: `O H L C` on bars and hollow candles (the hollow candle's
+in its colour), `O H L C Vol` on volume candles, `C` and `Base` on baseline (the close in its
+side's colour), `H L Range` on high-low, and `H L C` on HLC area.
 
 **On a Renko chart the arrow keys read the brick, not a candle,** by the same template as every
 part, with the brick's direction where a line says its type: *"Brick. Up. 95,000.00 to

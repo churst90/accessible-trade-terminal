@@ -29,7 +29,9 @@ namespace AccessibleTrader.Core.Services
             // highs and lows would leave the line floating inside a pane sized for ink that is
             // not on screen. This is TradingView's rule. Overlays still widen the range below,
             // and the log scale still maps it exactly as before.
-            bool closesOnly = state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area;
+            // Baseline draws only the closes too (its base is not fitted in: a fixed base far
+            // from price would squash the line).
+            bool closesOnly = state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area or PriceChartStyle.Baseline;
             double mainMin = closesOnly
                 ? visibleBars.Min(b => (double)b.Close)
                 : visibleBars.Min(b => (double)b.Low);

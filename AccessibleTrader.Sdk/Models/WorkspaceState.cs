@@ -23,7 +23,7 @@ namespace AccessibleTrader.Sdk.Models
     /// </summary>
     /// <remarks>Members are saved as numbers: new ones go on the end.</remarks>
     public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3, RangeBars = 4, LineBreak = 5, Kagi = 6,
-        PointAndFigure = 7 }
+        PointAndFigure = 7, Bars = 8, HollowCandles = 9, Baseline = 10, HighLow = 11, HlcArea = 12, VolumeCandles = 13 }
 
     /// <summary>
     /// True for the chart types drawn from BOUNDARIES of price movement rather than from the
@@ -67,6 +67,8 @@ namespace AccessibleTrader.Sdk.Models
     /// (TradingView's default, three), and <see cref="PnfHighLow"/> TradingView's "High/Low"
     /// source in place of the close. <see cref="RenkoBoxMode.Percent"/> on <see cref="PnfMode"/>
     /// is TradingView's "Percentage (LTP)" box: <see cref="PnfSize"/> percent of the last price.
+    /// <see cref="BaselinePrice"/> is the Baseline chart's base: a price, or 0 for the first
+    /// visible close (it is a time chart, but its one setting rides here with the others).
     /// One record so every save, tab snapshot and background
     /// monitor that already carries Renko's settings carries all of them; a file saved before a
     /// field existed reads its default.
@@ -86,7 +88,8 @@ namespace AccessibleTrader.Sdk.Models
         double PnfSize = 0,
         int PnfAtrLength = 14,
         int PnfReversal = 3,
-        bool PnfHighLow = false);
+        bool PnfHighLow = false,
+        double BaselinePrice = 0);
 
     /// <summary>
     /// The real time window a brick formed in. <see cref="FirstBar"/> and

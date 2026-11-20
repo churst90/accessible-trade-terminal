@@ -112,6 +112,18 @@ None of this has been seen or heard in the app yet.
   Point and figure settings). A column that breaks the last top or bottom tells you: *"Buy
   signal, above the last X top at 105.00."* or *"Sell signal, below the last O bottom at
   95.00."*, as you arrow onto it and once, live, when it happens.
+- **Six more chart types**, each heard and spoken as it is drawn. **Bars**: a thin stroke with the
+  open ticked left and the close right, read *"Bar. Up. Open 101.00, high 106.00, low 100.00,
+  close 103.00."*, and sounding thinner than a candle. **Hollow candles**: coloured by the close
+  before, hollow when the close is above its own open, read *"Hollow green."*, *"Filled red."* and
+  so on; the tone says the colour, the pitch the body. **Baseline**: the closes green above a base
+  and red below it, read *"1.44 percent above the base, 104.00"*, a bright tone above and a warm
+  one below, and a click where it crosses; the base is the first close in view, or a price you
+  give with `BASELINE 95000`. **High-low**: only the range, read *"High 112.00, low 98.00, range
+  14.00."*, a taller bar sounding heavier. **HLC area**: high, close and low lines with the space
+  shaded between. **Volume candles**: as wide as their volume, heavier to the ear, and *"Heavy
+  volume, 2.3 times the 20-bar average."* when it stands out. All six are in the Chart type list
+  and the Go bar: `BARS`, `HOLLOW`, `BASELINE`, `HILO`, `HLC`, `VCANDLE`.
 - **Alerts on Renko, range bar, line break, Kagi and point and figure charts fire on the real price.** An alert at 64,000
   fires when the market trades 64,000, not when a brick happens to end there; an alert on a drawn
   level does the same. Indicator alerts still read the indicator as the chart draws it, on the

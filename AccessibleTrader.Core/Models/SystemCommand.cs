@@ -179,6 +179,15 @@ namespace AccessibleTrader.Core.Models
         ShowKagiChart,
         // Point and figure, the fifth: PNF takes an optional box size and reversal.
         ShowPointFigureChart,
+        // Six more ways to draw the same time bars (Cody, 2026-11-20): bars, hollow candles,
+        // baseline (BASELINE takes an optional base price in the Go bar), high-low, HLC area and
+        // volume candles. Nothing is built off the clock; the bars are the chart's own.
+        ShowBarsChart,
+        ShowHollowCandleChart,
+        ShowBaselineChart,
+        ShowHighLowChart,
+        ShowHlcAreaChart,
+        ShowVolumeCandleChart,
         // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
         // these name a ruler outright so the Go bar can reach it without a new key.
         ShowRegularScale,

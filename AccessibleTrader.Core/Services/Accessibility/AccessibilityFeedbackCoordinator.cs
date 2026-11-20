@@ -352,9 +352,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && _previousState.ChartStyle == state.ChartStyle
                 && (!Charts.BuiltCharts.SameFor(state.ChartStyle, state.Renko, _previousState.Renko)
                     || state.BrickBoxSize != _previousState.BrickBoxSize);
+            // A new base on a Baseline chart is a change to what is drawn, said like one.
+            bool baselineChanged = state.ChartStyle == PriceChartStyle.Baseline
+                && _previousState.ChartStyle == PriceChartStyle.Baseline
+                && state.Renko.BaselinePrice != _previousState.Renko.BaselinePrice;
             if (state.IsHeikinAshi != _previousState.IsHeikinAshi
                 || state.ChartStyle != _previousState.ChartStyle
-                || renkoSettingsChanged)
+                || renkoSettingsChanged || baselineChanged)
             {
                 // One sentence, on the Interface channel (this is a chart-type choice, not a
                 // reading). Heikin-Ashi going ON is still the whole existing warning when the
@@ -379,6 +383,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         ? "Heikin-Ashi candles. Chart formations are still read from standard candles."
                         : "Heikin-Ashi candles";
                     msg = _previousState.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area
+                            || Charts.ChartTypeWords.ChangeSentence(_previousState) != null
                         ? ha.TrimEnd('.') + ". Candle chart."
                         : state.DescribeChartPatterns
                             ? "Heikin Ashi chart. Chart formations are still read from standard candles."
@@ -391,6 +396,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         PriceChartStyle.Line => "Line chart.",
                         PriceChartStyle.Area => "Area chart.",
                         _ when state.ChartStyle.IsBrickStyle() => BrickChartSpeech.ChangeSentence(state),
+                        _ when Charts.ChartTypeWords.ChangeSentence(state) is { } typeSentence => typeSentence,
                         _ => "Candle chart.",
                     };
                 }
@@ -404,6 +410,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         msg += state.ChartStyle switch
                         {
                             PriceChartStyle.Line or PriceChartStyle.Area => " On the close line.",
+                            _ when Charts.ChartTypeWords.LandingWords(state.ChartStyle) is { } landing => landing,
                             _ when state.ChartStyle.IsBrickStyle() => $" On the {Charts.BuiltCharts.Noun(state.ChartStyle, 2)}.",
                             _ => " On the candles.",
                         };

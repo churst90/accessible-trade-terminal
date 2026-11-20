@@ -43,6 +43,9 @@ namespace AccessibleTrader.Core.Services.GoBar
     /// <paramref name="Settings"/> are taken (the tab keeps its others).</summary>
     public sealed record GoBarRenkoAction(RenkoSettings Settings, PriceChartStyle Style = PriceChartStyle.Renko) : GoBarAction;
 
+    /// <summary>BASELINE 95000: the Baseline chart with its base at that price.</summary>
+    public sealed record GoBarBaselineAction(double BasePrice) : GoBarAction;
+
     /// <summary>Move the cursor to the last bar at or before a wall-clock moment.</summary>
     public sealed record GoBarDateAction(DateTime Wall, bool HasTime, string Display) : GoBarAction;
 

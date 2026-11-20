@@ -122,13 +122,21 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // Market Cipher B's waves opaque where the theme cannot show them translucent.
                     var comp = ThemeAdaptedColours.Component(declared, ctx.Theme);
 
+                    // HLC area: the high and low lines are drawn with the close line and the fills
+                    // between them (RenderHlcArea) while the close is drawn; alone, as lines.
+                    if (s.Id == CoreSeriesIds.Candles
+                        && comp.Name is Charts.PriceSeriesShape.HlcHighPart or Charts.PriceSeriesShape.HlcLowPart
+                        && s.Components.Any(c => c.Name == Charts.PriceSeriesShape.HlcClosePart && c.IsVisible && c.IsDrawn))
+                        continue;
+
                     using var paint = _stylingService.GetPaint(comp, ctx.Density);
 
                     // The price series' drawing part: the body on candles, or the one part it has on
                     // a line, area or brick chart (PriceSeriesShape).
                     if (s.Id == CoreSeriesIds.Candles
                         && comp.DisplayType is ComponentDisplayType.Candle or ComponentDisplayType.Brick
-                            || s.Id == CoreSeriesIds.Candles && comp.Name == Charts.PriceSeriesShape.LinePart)
+                            || s.Id == CoreSeriesIds.Candles && comp.Name is Charts.PriceSeriesShape.LinePart
+                                or Charts.PriceSeriesShape.BaselinePart or Charts.PriceSeriesShape.HlcClosePart)
                     {
                         // Candles body renders as real OHLCV candlesticks. Analytics
                         // providers (single-value) no longer reach this branch: after the
@@ -138,7 +146,17 @@ namespace AccessibleTrader.Core.Services.Rendering
                         // Line and Area are the same series DRAWN differently: one line through
                         // the raw closes, plus the fill for Area. No bodies, no wicks, and the
                         // phase colouring (a property of candles) has nothing to colour.
-                        if (ctx.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
+                        // The other time charts are told by their part (PriceSeriesShape), so a
+                        // part and the chart type never disagree about what is drawn.
+                        if (comp.Name == Charts.PriceSeriesShape.BarPart)
+                            StandardRenderers.RenderOhlcBars(ctx, s);
+                        else if (comp.Name == Charts.PriceSeriesShape.HighLowPart)
+                            StandardRenderers.RenderHighLow(ctx, s);
+                        else if (comp.Name == Charts.PriceSeriesShape.BaselinePart)
+                            StandardRenderers.RenderBaseline(ctx, s);
+                        else if (comp.Name == Charts.PriceSeriesShape.HlcClosePart)
+                            StandardRenderers.RenderHlcArea(ctx, s);
+                        else if (ctx.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
                             StandardRenderers.RenderPriceLine(ctx, area: ctx.ChartStyle == PriceChartStyle.Area);
                         else if (ctx.ChartStyle == PriceChartStyle.Kagi)
                             StandardRenderers.RenderKagi(ctx, s);
@@ -317,7 +335,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static bool IsClosePriceLineHiddenByChartStyle(ChartSeries s, RenderContext ctx)
         {
             if (ctx.PaneName != "Main") return false;
-            if (ctx.ChartStyle is not (PriceChartStyle.Line or PriceChartStyle.Area)) return false;
+            if (!Charts.PriceSeriesShape.DrawsCloseLine(ctx.ChartStyle)) return false;
             if (s.Id != CoreSeriesIds.Price) return false;
 
             var mappings = s.Components

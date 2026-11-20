@@ -67,6 +67,30 @@ public sealed class ChartTypeToolbarTests
             Arg.Is<SetChartStyleAction>(a => a.Style == PriceChartStyle.Area && !a.HeikinAshi));
     }
 
+    [Theory]
+    [InlineData("bars", PriceChartStyle.Bars, "Bars")]
+    [InlineData("hollow", PriceChartStyle.HollowCandles, "Hollow candles")]
+    [InlineData("volumecandles", PriceChartStyle.VolumeCandles, "Volume candles")]
+    [InlineData("baseline", PriceChartStyle.Baseline, "Baseline")]
+    [InlineData("highlow", PriceChartStyle.HighLow, "High-low")]
+    [InlineData("hlcarea", PriceChartStyle.HlcArea, "HLC area")]
+    public void Each_more_chart_type_is_a_choice_that_dispatches_and_shows_itself(
+        string value, PriceChartStyle style, string label)
+    {
+        using var h = new BlazorTestHarness();
+        h.WorkspaceStore.State.Returns(_ => State());
+        var cut = h.Ctx.RenderComponent<Cmp.Toolbar>();
+
+        Assert.Equal(label, cut.FindAll("#chart-type-select option").Single(o => o.GetAttribute("value") == value).TextContent.Trim());
+        cut.Find("#chart-type-select").Change(value);
+        h.WorkspaceStore.Received(1).Dispatch(
+            Arg.Is<SetChartStyleAction>(a => a.Style == style && !a.HeikinAshi));
+
+        using var shown = new BlazorTestHarness();
+        shown.WorkspaceStore.State.Returns(_ => State(style));
+        Assert.Equal(value, shown.Ctx.RenderComponent<Cmp.Toolbar>().Find("#chart-type-select").GetAttribute("value"));
+    }
+
     [Fact]
     public void Choosing_Heikin_Ashi_dispatches_candles_plus_HA()
     {

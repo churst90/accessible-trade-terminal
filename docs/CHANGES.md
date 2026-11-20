@@ -4,6 +4,67 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Six more chart types: bars, hollow candles, baseline, high-low, HLC area, volume candles, 2026-11-20 — not yet heard by Cody
+
+Cody, 2026-11-20, "1. Yes" to building six of TradingView's time-bar chart types (step line,
+line with markers and columns skipped), under his rule that *"a totally blind keyboard/speech
+user can get the same information that a sighted person can"*. Each is drawn, heard, said, put
+on the status line and chosen alike.
+
+- **The types.** `PriceChartStyle.Bars`, `HollowCandles`, `Baseline`, `HighLow`, `HlcArea`,
+  `VolumeCandles`. `PriceSeriesShape` gives each its parts: Bars one **Bar** part (`ohlc`), High-low
+  one **High-low bar** (`highlow`, mapped to hl2 so the pitch is the bar's middle), Baseline one
+  **Close** (`baseline`), HLC area **High** / **Close** / **Low** (focus on Close); hollow and
+  volume candles keep the three candle parts with a hidden value (`__hollow_green`, `__volume`;
+  high-low adds `__hl_range`, baseline `__baseline`) that only that type carries and that goes
+  when the type changes.
+- **Drawn.** `StandardRenderers`: `RenderOhlcBars` (a high-low stroke, the open ticked left, the
+  close right), `RenderHighLow` (a solid block low to high), `RenderBaseline` (the close green above
+  the base and red below, each side shaded to the base, a segment split where it crosses, the base
+  dashed), `RenderHlcArea` (high and low lines, high-to-close shaded green, close-to-low red, the
+  close line on top), and `RenderCandles` for hollow (coloured by the close against the previous
+  close, hollow when the close is at or over its own open, as TradingView) and volume candles (as
+  wide as the volume against the heaviest bar in view, never under a sixth).
+- **The base** (`PriceSeriesShape.BaselineBase`) is a chosen price or, by default, the close of the
+  first bar in view, and it is the one rule the drawing, the sound, the words and the status line
+  read. Stored as `RenkoSettings.BaselinePrice` (0 = first close in view).
+- **Heard.** A bar is a thin stroke and sounds thinner than a body (half the square edge),
+  direction coloured as a candle is; a high-low bar's sub-octave weight is its range against the
+  tallest bar in view; the baseline has a bright tone above the base and a warm one below, and
+  **clicks where it crosses** the base, up or down (`CrossDirection`); a hollow candle's tone says
+  its colour (against the previous close) while the pitch still says its body; a volume candle's
+  weight is its volume against the heaviest bar in view. HLC area's three lines sound as lines.
+- **Said.** Arrowing: *"Bar. Up. Open 101.00, high 106.00, low 100.00, close 103.00."* then the
+  move; *"High-low bar. High 112.00, low 98.00, range 14.00."*; on Baseline *"Close. baseline.
+  105.50, 1.44 percent above the base, 104.00."* (or *"below the base"*, *"at the base"*); hollow
+  candles lead with *"Hollow green."*, *"Filled green."*, *"Filled red."* …; volume candles add
+  *"Heavy volume, 4.0 times the 9-bar average."* (at least 1.5 times) or *"Light volume, …"* (at
+  most 0.5), measured over up to 20 bars before, needing 5. Changing type says *"Bar chart."*,
+  *"Hollow candle chart. Colour against the previous close, hollow when the close is above the
+  open."*, *"Baseline chart, base at the first close in view."* (or *"…, base 104.00."*),
+  *"High-low chart."*, *"HLC area chart."*, *"Volume candle chart. Wider candles for more
+  volume."*; a new base on a baseline chart is said the same way.
+- **Status line.** Bars and hollow candles show O H L C (hollow coloured by the previous close);
+  Baseline `C` in its side's colour and `Base`; High-low `H L Range`; HLC area `H L C`; volume
+  candles O H L C and `Vol`.
+- **Chosen.** Toolbar Chart type gains Bars, Hollow candles, Volume candles, Baseline, High-low,
+  HLC area. Go bar: `BARS` (`bar chart`, `ohlc bars`, `western bars`), `HOLLOW`, `BASELINE`
+  (`BASELINE 95000` sets the base; a non-price is refused *"A base must be a price above zero,
+  like BASELINE 95000."*), `HILO` (`high-low`), `HLC` (`hlc area`), `VCANDLE` (`volume candles`).
+  A type already on screen says *"Already a bar chart."*, *"Already an HLC area chart."*, *"Already
+  a baseline chart, base 104.00."*; `BASELINE 105` on a baseline chart only moves the base.
+  New `SystemCommand`s are chart-scoped like the others.
+- **Tests.** `MoreChartTypesTests` (new, 48: shape, hidden values, base, six sounds, speech by
+  part and by series, change sentences, coordinator, six drawings, status line, commands, Go
+  bar), `ChartTypeToolbarTests` +6, `Phase5KeyboardScopeTests` categorised. Sabotaged 31 ways,
+  all red — one only after a fix: the series-level reading's "Heavy volume" had no test (the
+  part-level one did), so a series test was added; one test had been comparing the spoken
+  baseline percent to an invented number and now checks the real one (vacuity-checked).
+- **Caveats.** The base is not added to the price axis range, so a chosen base far from the price
+  is off the pane (the shading still reaches the edge). Volume words compare with the bars before,
+  not the view. HLC area has no sound of its own for the bands: its three lines are heard. Not
+  seen, not heard.
+
 ### Point and figure: high and low, a percentage box, buy and sell signals, 2026-11-20 — not yet heard by Cody
 
 Cody, 2026-11-20, on the three P&F questions: *"1. Yes, I'd like this option."* (High/Low),

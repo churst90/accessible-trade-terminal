@@ -24,9 +24,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// </summary>
     public static class ChartTypeFocus
     {
-        /// <summary>True on Line and Area when the Price series only repeats the close line.</summary>
+        /// <summary>True on Line, Area, Baseline and HLC area when the Price series only repeats
+        /// the close line.</summary>
         public static bool PriceLineOffScreen(WorkspaceState state) =>
-            state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area
+            Charts.PriceSeriesShape.DrawsCloseLine(state.ChartStyle)
             && ClosePriceSeries(state) != null
             && state.ActiveSeries.Any(s => s.Id == CoreSeriesIds.Candles);
 

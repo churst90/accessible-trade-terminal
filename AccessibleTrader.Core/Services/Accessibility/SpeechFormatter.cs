@@ -113,7 +113,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 new CloudComponentStrategy(),   // 5. Ichimoku-style cloud narration
                 new PhaseNameStrategy(),        // 6. sentiment-phase names
                 new MarkerSignalStrategy(),     // 7. signal-marker templates
-                new PriceLineStrategy(),        // 8. the price series as one close line (Line, Area)
+                new PriceLineStrategy(),        // 8. the price series as one close line (Line, Area, Baseline, HLC area)
+                new PriceBarStrategy(),         // 8. the price series as OHLC bars or high-low bars
                 new BrickStrategy(),            // 8. the price series as bricks (Renko)
                 new CandleBodyStrategy(),       // 8. body = open→close span
                 new VolumeBarStrategy(),        // 9. signed exact volume
@@ -191,14 +192,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // "as with any other line it needs to follow the speech template, component name,
             // component type"). No body, no wicks, no shape and no pattern: none is on screen.
             // The bar-detail key still reads the full OHLC bar, a question about the market.
+            // Bars, Baseline and High-low are one part too: the bar, the close, the high-low bar.
             var onePart = seriesId == CoreSeriesIds.Candles && series.Components.Count == 1
-                && series.Components[0].Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BrickPart
-                    or Charts.PriceSeriesShape.BlockPart or Charts.PriceSeriesShape.KagiPart
-                    or Charts.PriceSeriesShape.PnfPart
+                && Charts.PriceSeriesShape.IsOnePartName(series.Components[0].Name)
                 ? series.Components[0]
                 : null;
 
-            bool lineChart = seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area;
+            // The time charts drawn as something other than a candle: the summary is the part's
+            // own reading (or, on HLC area, its three lines), not the candle's.
+            bool lineChart = seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area
+                or PriceChartStyle.Bars or PriceChartStyle.Baseline or PriceChartStyle.HighLow or PriceChartStyle.HlcArea;
             if (brickCandle || lineChart)
             {
                 if (onePart != null)
@@ -217,6 +220,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // Bricks drawn under candle parts (a shape not yet applied): the brick, plainly.
                     msg = ScalePrefix(scaleMode, brick.Close, scaleBase)
                         + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle, state.Data, state.CurrentDataIndex, state.BrickBoxSize);
+                }
+                else if (state.ChartStyle == PriceChartStyle.HlcArea
+                         && Charts.PriceSeriesShape.Of(series.Config) == Charts.PriceSeriesShape.Kind.HlcArea)
+                {
+                    // HLC AREA: three lines, the close between the high and the low, read top
+                    // down after the close the area is drawn around.
+                    msg = ScalePrefix(scaleMode, rawPt.Close, scaleBase)
+                        + $"Close {SpeechPriceFormatter.FormatPrice(rawPt.Close)}. High {SpeechPriceFormatter.FormatPrice(rawPt.High)}. "
+                        + $"Low {SpeechPriceFormatter.FormatPrice(rawPt.Low)}. "
+                        + MoveFromPreviousClose(state.Data, state.CurrentDataIndex, rawPt.Close);
                 }
                 else
                 {
@@ -272,9 +285,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                msg = $"{shape}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
+                // HOLLOW CANDLES lead with the colour and fill they are drawn in, and say the move
+                // from the previous close the colour comes from. VOLUME CANDLES say when the
+                // volume (the candle's width) stands out from the bars before it.
+                string? hollow = Charts.ChartTypeWords.Hollow(series, state.CurrentDataIndex, pt);
+                string? weight = Charts.PriceSeriesShape.IsVolumeCandles(series)
+                    ? Charts.ChartTypeWords.Volume(state.Data, state.CurrentDataIndex)
+                    : null;
+
+                msg = (hollow == null ? "" : hollow + ". ") +
+                      $"{shape}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
                       $"High {SpeechPriceFormatter.FormatPrice(pt.High)}. Low {SpeechPriceFormatter.FormatPrice(pt.Low)}. Volume {FormatVolume(pt.Volume)}. " +
+                      (weight == null ? "" : weight + ". ") +
                       $"Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.";
+                if (hollow != null) msg += " " + MoveFromPreviousClose(state.Data, state.CurrentDataIndex, pt.Close);
 
                 // `pt` is the bar AS DRAWN, so on a Heikin-Ashi chart this is the HA close — the
                 // candle on screen and the same close the axis' base came from.
@@ -1368,21 +1392,68 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// its type, its value — "Close. line. 104.20." — then how it moved from the previous close.
     /// On Percent and Indexed the scale reading leads the value, as on the candle body.
     /// </summary>
+    /// <remarks>The Baseline chart's close is the same line with its side of the base: "Close.
+    /// baseline. 103.00, 2.10 percent above the base, 101.00. Up …". The HLC area chart's close
+    /// line reads as a line; its high and low lines read through the standard template.</remarks>
     internal sealed class PriceLineStrategy : IComponentSpeechStrategy
     {
         public bool CanHandle(ComponentFormatContext ctx) =>
             Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
-            && ctx.Comp.Name == Charts.PriceSeriesShape.LinePart;
+            && ctx.Comp.Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BaselinePart
+                or Charts.PriceSeriesShape.HlcClosePart;
 
         public string Format(ComponentFormatContext ctx)
         {
             double close = ctx.Pt.Close;
             string scale = StandardTemplateStrategy.ScaleReading(ctx, close);
             string value = (scale.Length == 0 ? "" : scale + ", ") + SpeechPriceFormatter.FormatPrice(close);
+            string type = SpeechFormatter.SpokenType(ctx.Comp, ctx.Series);
+            if (ctx.Comp.Name == Charts.PriceSeriesShape.BaselinePart)
+            {
+                type = "baseline";
+                string side = Charts.ChartTypeWords.Baseline(close,
+                    Charts.PriceSeriesShape.BaselineBase(ctx.Series, Math.Max(0, ctx.ViewportStart)));
+                if (side.Length > 0) value += ", " + side;
+            }
             string move = SpeechFormatter.MoveFromPreviousClose(ctx.Bars, ctx.DataIndex, close);
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
                 return $"{value}. {move}";
-            return $"{ctx.Comp.DisplayName}. {SpeechFormatter.SpokenType(ctx.Comp, ctx.Series)}. {value}. {move}";
+            return $"{ctx.Comp.DisplayName}. {type}. {value}. {move}";
+        }
+    }
+
+    /// <summary>
+    /// The price series' one part on a Bars (OHLC) chart: "Bar. Up. Open 100.00, high 104.00,
+    /// low 99.00, close 103.00. Up 3.00 from the previous close, 3.00 percent." Its direction in
+    /// the type's place, as the candle body says Bullish, then the four prices the bar draws.
+    /// On a High-low chart: "High-low bar. High 104.00, low 99.00, range 5.00." — only what is
+    /// drawn, no open, no close, no direction.
+    /// </summary>
+    internal sealed class PriceBarStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
+            && ctx.Comp.Name is Charts.PriceSeriesShape.BarPart or Charts.PriceSeriesShape.HighLowPart;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            var pt = ctx.Pt;
+            bool highLow = ctx.Comp.Name == Charts.PriceSeriesShape.HighLowPart;
+            // Percent and Indexed: where the bar sits on the scale leads, by the close on a bar
+            // and by the middle (where it is drawn and heard) on a high-low bar.
+            string scale = StandardTemplateStrategy.ScaleReading(ctx, highLow ? (pt.High + pt.Low) / 2.0 : pt.Close);
+            string lead = scale.Length == 0 ? "" : scale + ", ";
+            if (highLow)
+            {
+                string words = lead + Charts.ChartTypeWords.HighLow(pt);
+                return !ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly" ? words : $"{ctx.Comp.DisplayName}. {words}.";
+            }
+            string prices = lead + Charts.ChartTypeWords.Ohlc(pt);
+            string move = SpeechFormatter.MoveFromPreviousClose(ctx.Bars, ctx.DataIndex, pt.Close);
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return $"{prices}. {move}";
+            string direction = pt.Close >= pt.Open ? "Up" : "Down";
+            return $"{ctx.Comp.DisplayName}. {direction}. {prices}. {move}";
         }
     }
 
@@ -1450,10 +1521,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // scale leads ("plus 4.20 percent, open …"), as every other main-pane price does.
             string scale = StandardTemplateStrategy.ScaleReading(ctx, pt.Close);
             string lead = scale.Length == 0 ? "" : scale + ", ";
+            // Hollow candles: the colour and fill in the trend's place, and the move from the
+            // previous close the colour is decided by. Volume candles: the weight, when it
+            // stands out, after the prices.
+            string? hollow = Charts.ChartTypeWords.Hollow(ctx.Series, ctx.DataIndex, pt);
+            string tail = hollow == null ? "" : " " + SpeechFormatter.MoveFromPreviousClose(ctx.Bars, ctx.DataIndex, pt.Close);
+            if (Charts.PriceSeriesShape.IsVolumeCandles(ctx.Series)
+                && Charts.ChartTypeWords.Volume(ctx.Bars, ctx.DataIndex) is { } weight)
+                tail = " " + weight + "." + tail;
             if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
-                return $"{lead}Open {open}, close {close}";
-            string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
-            return $"{ctx.Comp.DisplayName}. {trend}. {lead}Open {open}, close {close}.";
+                return $"{lead}Open {open}, close {close}" + (tail.Length == 0 ? "" : "." + tail);
+            string trend = hollow ?? (pt.Close >= pt.Open ? "Bullish" : "Bearish");
+            return $"{ctx.Comp.DisplayName}. {trend}. {lead}Open {open}, close {close}." + tail;
         }
     }
 

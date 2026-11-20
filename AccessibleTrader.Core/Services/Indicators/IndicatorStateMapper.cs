@@ -70,24 +70,30 @@ namespace AccessibleTrader.Core.Services.Indicators
                 var mapping = component.DataMapping?.ToLower();
                 if (string.IsNullOrEmpty(mapping)) continue;
 
+                var field = MapBar(mapping);
                 var arr = new double[count];
                 for (int i = 0; i < count; i++)
-                {
-                    arr[i] = mapping switch
-                    {
-                        "open" => (double)data[i].Open,
-                        "high" => (double)data[i].High,
-                        "low" => (double)data[i].Low,
-                        "close" => (double)data[i].Close,
-                        "volume" => (double)data[i].Volume,
-                        _ => double.NaN
-                    };
-                }
+                    arr[i] = field == null ? double.NaN : field(data[i]);
                 buffer.ComponentData[component.Name] = arr;
             }
 
             return buffer;
         }
+
+        /// <summary>
+        /// The bar field a price part's DataMapping names: open, high, low, close, volume, or hl2
+        /// (the middle of the high and the low, the High-low chart's bar). Null for anything else.
+        /// </summary>
+        public static Func<Ohlcv, double>? MapBar(string? mapping) => mapping?.ToLowerInvariant() switch
+        {
+            "open" => b => (double)b.Open,
+            "high" => b => (double)b.High,
+            "low" => b => (double)b.Low,
+            "close" => b => (double)b.Close,
+            "volume" => b => (double)b.Volume,
+            "hl2" => b => ((double)b.High + (double)b.Low) / 2.0,
+            _ => null,
+        };
 
         private double[] CreateNaNArray(int count)
         {

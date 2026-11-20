@@ -50,6 +50,34 @@ namespace AccessibleTrader.Core.Services.Charts
         /// <summary>The one part's name on a point and figure chart, said "Column".</summary>
         public const string PnfPart = "pnf";
 
+        /// <summary>The one part's name on a Bars (OHLC) chart, said "Bar": one stop that holds
+        /// the four prices, as the bar draws them.</summary>
+        public const string BarPart = "ohlc";
+
+        /// <summary>The one part's name on a Baseline chart: the close, said "Close" as on Line,
+        /// but never "line", so a lookup that means the Line chart's part is never fooled.</summary>
+        public const string BaselinePart = "baseline";
+
+        /// <summary>The one part's name on a High-low chart, said "High-low bar". Its value is
+        /// the bar's middle, (high + low) / 2, where it is drawn and heard; no open or close.</summary>
+        public const string HighLowPart = "highlow";
+
+        /// <summary>The three parts of an HLC area chart, top to bottom: the high line, the
+        /// close line, the low line.</summary>
+        public const string HlcHighPart = "hlc_high";
+        public const string HlcClosePart = "hlc_close";
+        public const string HlcLowPart = "hlc_low";
+
+        /// <summary>True on the chart types that draw a line through the closes (Line, Area,
+        /// Baseline, HLC area): the separate Price series' close line only repeats it there.</summary>
+        public static bool DrawsCloseLine(PriceChartStyle style) =>
+            style is PriceChartStyle.Line or PriceChartStyle.Area or PriceChartStyle.Baseline or PriceChartStyle.HlcArea;
+
+        /// <summary>True for the price series' one part on a chart that has one: the line, brick,
+        /// block, Kagi line, column, bar, baseline close or high-low bar.</summary>
+        public static bool IsOnePartName(string? name) => name is LinePart or BrickPart or BlockPart
+            or KagiPart or PnfPart or BarPart or BaselinePart or HighLowPart;
+
         /// <summary>
         /// The price series' name on each chart type: the Chart type list's own words. Cody,
         /// 2026-11-19: "when i change to renko and use pg up/down and land on that series, it is
@@ -65,6 +93,12 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.LineBreak => "Line break",
             PriceChartStyle.Kagi => "Kagi",
             PriceChartStyle.PointAndFigure => "Point and figure",
+            PriceChartStyle.Bars => "Bars",
+            PriceChartStyle.HollowCandles => "Hollow candles",
+            PriceChartStyle.Baseline => "Baseline",
+            PriceChartStyle.HighLow => "High-low",
+            PriceChartStyle.HlcArea => "HLC area",
+            PriceChartStyle.VolumeCandles => "Volume candles",
             _ => heikinAshi ? "Heikin Ashi" : "Candles",
         };
 
@@ -73,11 +107,14 @@ namespace AccessibleTrader.Core.Services.Charts
         private static readonly HashSet<string> ChartTypeNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "", "Candles", "Heikin Ashi", "Line", "Area", "Renko", "Range bars", "Line break", "Kagi",
-            "Point and figure",
+            "Point and figure", "Bars", "Hollow candles", "Baseline", "High-low", "HLC area", "Volume candles",
         };
 
         /// <summary>What the price series' parts are.</summary>
-        public enum Kind { Candles, Line, Area, Brick, Block, Kagi, Column }
+        /// <remarks>Hollow candles and Volume candles are <see cref="Kind.Candles"/>: the same three
+        /// parts, told apart by the hidden values the chart type adds (<see cref="HollowGreenKey"/>,
+        /// <see cref="VolumeKey"/>).</remarks>
+        public enum Kind { Candles, Line, Area, Brick, Block, Kagi, Column, Bar, Baseline, HighLow, HlcArea }
 
         /// <summary>The shape a chart type draws the price series in.</summary>
         public static Kind For(PriceChartStyle style) => style switch
@@ -88,14 +125,22 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.LineBreak => Kind.Block,
             PriceChartStyle.Kagi => Kind.Kagi,
             PriceChartStyle.PointAndFigure => Kind.Column,
+            PriceChartStyle.Bars => Kind.Bar,
+            PriceChartStyle.Baseline => Kind.Baseline,
+            PriceChartStyle.HighLow => Kind.HighLow,
+            PriceChartStyle.HlcArea => Kind.HlcArea,
             _ => Kind.Candles,
         };
 
         /// <summary>The shape <paramref name="config"/>'s parts are in now.</summary>
         public static Kind Of(SeriesConfig config)
         {
+            if (config.Components.Count == 3 && config.Components.Any(c => c.Name == HlcClosePart)) return Kind.HlcArea;
             if (config.Components.Count != 1) return Kind.Candles;
             var only = config.Components[0];
+            if (only.Name == BarPart) return Kind.Bar;
+            if (only.Name == BaselinePart) return Kind.Baseline;
+            if (only.Name == HighLowPart) return Kind.HighLow;
             if (only.Name == BrickPart) return Kind.Brick;
             if (only.Name == BlockPart) return Kind.Block;
             if (only.Name == KagiPart) return Kind.Kagi;
@@ -119,7 +164,8 @@ namespace AccessibleTrader.Core.Services.Charts
             int at = state.ActiveSeries.FindIndex(s => s.Id == CoreSeriesIds.Candles);
             if (at < 0) return state;
             var series = state.ActiveSeries[at];
-            var reshaped = WithPnfBoxes(WithKagiThickness(Apply(series, state.ChartStyle, state.IsHeikinAshi), state), state);
+            var reshaped = WithPnfBoxes(WithKagiThickness(Apply(series, state.ChartStyle, state.IsHeikinAshi, state.Data), state), state);
+            reshaped = WithStyleValues(reshaped, state);
             if (ReferenceEquals(reshaped, series)) return state;
 
             var next = state with { ActiveSeries = state.ActiveSeries.SetItem(at, reshaped) };
@@ -182,19 +228,143 @@ namespace AccessibleTrader.Core.Services.Charts
             return WithHidden(series, PnfBoxesKey, PnfBoxes(state.Data, state.BrickBoxSize));
         }
 
+        /// <summary>
+        /// Each bar's colour on a Hollow candles chart, 1 green and 0 red: TradingView's rule, the
+        /// close against the PREVIOUS close (the first bar, which has none, against its own open).
+        /// Whether the body is hollow is the close against its own open, which the bar already
+        /// holds. Hidden, as <see cref="KagiThickKey"/> is; present only on Hollow candles, so the
+        /// body's sound and words know the chart is hollow candles by finding it.
+        /// </summary>
+        public const string HollowGreenKey = "__hollow_green";
+
+        /// <summary>Each bar's volume on a Volume candles chart, so the body's sound and words can
+        /// weigh a bar against the bars around it as the drawing's width does. Present only there.</summary>
+        public const string VolumeKey = "__volume";
+
+        /// <summary>The Baseline chart's chosen base, one value: a price, or NaN for the first
+        /// visible close (<see cref="BaselineBase"/>). Present only on Baseline.</summary>
+        public const string BaselineKey = "__baseline";
+
+        /// <summary>Each bar's range, high minus low, on a High-low chart, so the bar's weight can
+        /// be heard against the tallest bar in view as it is drawn. Present only there.</summary>
+        public const string RangeKey = "__hl_range";
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IReadOnlyList<Ohlcv>, double[]> HollowCache = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IReadOnlyList<Ohlcv>, double[]> RangeCache = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IReadOnlyList<Ohlcv>, double[]> VolumeCache = new();
+        private static readonly Dictionary<double, double[]> BaselineCache = new();
+
+        /// <summary>Every bar's colour in <paramref name="bars"/>, as <see cref="HollowGreenKey"/> holds it.</summary>
+        public static double[] HollowGreen(IReadOnlyList<Ohlcv> bars) =>
+            HollowCache.GetValue(bars, b =>
+            {
+                var green = new double[b.Count];
+                for (int i = 0; i < b.Count; i++)
+                    green[i] = (i == 0 ? b[i].Close >= b[i].Open : b[i].Close >= b[i - 1].Close) ? 1.0 : 0.0;
+                return green;
+            });
+
+        /// <summary>Every bar's range in <paramref name="bars"/>, as <see cref="RangeKey"/> holds it.</summary>
+        public static double[] Ranges(IReadOnlyList<Ohlcv> bars) =>
+            RangeCache.GetValue(bars, b => b.Select(x => x.High - x.Low).ToArray());
+
+        /// <summary>Every bar's volume in <paramref name="bars"/>, as <see cref="VolumeKey"/> holds it.</summary>
+        public static double[] Volumes(IReadOnlyList<Ohlcv> bars) =>
+            VolumeCache.GetValue(bars, b => b.Select(x => x.Volume).ToArray());
+
+        /// <summary>The one-value array <see cref="BaselineKey"/> holds for <paramref name="price"/>
+        /// (0 or less: the first visible close). One array per price, so an unchanged base never
+        /// replaces the series.</summary>
+        private static double[] BaselineValue(double price)
+        {
+            double held = price > 0 && double.IsFinite(price) ? price : double.NaN;
+            lock (BaselineCache)
+            {
+                if (!BaselineCache.TryGetValue(held, out var arr))
+                    BaselineCache[held] = arr = new[] { held };
+                return arr;
+            }
+        }
+
+        /// <summary>
+        /// The Baseline chart's base for a view that starts at bar <paramref name="viewportStart"/>:
+        /// the chosen price, or the close of the first bar in view (TradingView's base moves with
+        /// the view the same way when it is not fixed). NaN when <paramref name="series"/> is not
+        /// on a Baseline chart or has no close there. The ONE rule the drawing, the sound and the
+        /// words read the base from.
+        /// </summary>
+        public static double BaselineBase(ChartSeries series, int viewportStart)
+        {
+            if (!series.Data.ComponentData.TryGetValue(BaselineKey, out var chosen) || chosen.Length == 0) return double.NaN;
+            if (double.IsFinite(chosen[0])) return chosen[0];
+            if (!series.Data.ComponentData.TryGetValue(BaselinePart, out var closes) || closes.Length == 0) return double.NaN;
+            return closes[Math.Clamp(viewportStart, 0, closes.Length - 1)];
+        }
+
+        /// <summary>True when <paramref name="series"/> is the price series drawn as volume candles.</summary>
+        public static bool IsVolumeCandles(ChartSeries series) => series.Data.ComponentData.ContainsKey(VolumeKey);
+
+        /// <summary>True when <paramref name="series"/> is the price series drawn as hollow candles.</summary>
+        public static bool IsHollow(ChartSeries series) => series.Data.ComponentData.ContainsKey(HollowGreenKey);
+
+        /// <summary>Bar <paramref name="index"/>'s colour on Hollow candles: true green, false red,
+        /// null when the series is not hollow candles or has no colour there.</summary>
+        public static bool? HollowIsGreen(ChartSeries series, int index) =>
+            series.Data.ComponentData.TryGetValue(HollowGreenKey, out var green) && index >= 0 && index < green.Length
+                ? green[index] >= 0.5
+                : null;
+
+        /// <summary>
+        /// The hidden values the chart type needs and no others: <see cref="HollowGreenKey"/> on
+        /// Hollow candles, <see cref="VolumeKey"/> on Volume candles, <see cref="RangeKey"/> on
+        /// High-low, <see cref="BaselineKey"/> on Baseline. Taken away on every other type, because their presence IS how the sound and
+        /// the words of the shared candle parts know which chart they are on.
+        /// </summary>
+        private static ChartSeries WithStyleValues(ChartSeries series, WorkspaceState state)
+        {
+            var bars = state.Data;
+            series = state.ChartStyle == PriceChartStyle.HollowCandles && bars != null && Of(series.Config) == Kind.Candles
+                ? WithHidden(series, HollowGreenKey, HollowGreen(bars))
+                : WithoutHidden(series, HollowGreenKey);
+            series = state.ChartStyle == PriceChartStyle.VolumeCandles && bars != null && Of(series.Config) == Kind.Candles
+                ? WithHidden(series, VolumeKey, Volumes(bars))
+                : WithoutHidden(series, VolumeKey);
+            series = state.ChartStyle == PriceChartStyle.HighLow && bars != null && Of(series.Config) == Kind.HighLow
+                ? WithHidden(series, RangeKey, Ranges(bars))
+                : WithoutHidden(series, RangeKey);
+            series = state.ChartStyle == PriceChartStyle.Baseline && Of(series.Config) == Kind.Baseline
+                ? WithHidden(series, BaselineKey, BaselineValue(state.Renko.BaselinePrice))
+                : WithoutHidden(series, BaselineKey);
+            return series;
+        }
+
+        /// <summary><paramref name="series"/> without the hidden <paramref name="key"/>; the same
+        /// instance when it has none.</summary>
+        private static ChartSeries WithoutHidden(ChartSeries series, string key)
+        {
+            if (!series.Data.ComponentData.ContainsKey(key)) return series;
+            var data = new Dictionary<string, double[]>(series.Data.ComponentData);
+            data.Remove(key);
+            return WithBuffer(series, data);
+        }
+
         /// <summary><paramref name="series"/> with <paramref name="values"/> under the hidden
         /// <paramref name="key"/>; the same instance when it already holds that very array.</summary>
         private static ChartSeries WithHidden(ChartSeries series, string key, double[] values)
         {
             if (series.Data.ComponentData.TryGetValue(key, out var held) && ReferenceEquals(held, values))
                 return series;
+            return WithBuffer(series, new Dictionary<string, double[]>(series.Data.ComponentData) { [key] = values });
+        }
 
+        private static ChartSeries WithBuffer(ChartSeries series, Dictionary<string, double[]> componentData)
+        {
             var data = series.Data;
             var copy = new SeriesDataBuffer
             {
                 SeriesId = data.SeriesId,
                 FirstBarDate = data.FirstBarDate,
-                ComponentData = new Dictionary<string, double[]>(data.ComponentData) { [key] = values },
+                ComponentData = componentData,
                 ProfileBins = data.ProfileBins,
                 HeatmapData = data.HeatmapData,
             };
@@ -209,7 +379,8 @@ namespace AccessibleTrader.Core.Services.Charts
 
         /// <summary><paramref name="series"/> in the shape <paramref name="style"/> draws, and
         /// named for it; the same instance when it is already, or when it is not the price series.</summary>
-        public static ChartSeries Apply(ChartSeries series, PriceChartStyle style, bool heikinAshi = false)
+        public static ChartSeries Apply(ChartSeries series, PriceChartStyle style, bool heikinAshi = false,
+            IReadOnlyList<Ohlcv>? bars = null)
         {
             if (!IsPriceSeries(series.Config)) return series;
             var target = For(style);
@@ -217,7 +388,7 @@ namespace AccessibleTrader.Core.Services.Charts
             if (Of(series.Config) == target && !NeedsName(series.Config, name)) return series;
 
             var config = Named(Reshape(series.Config, target), name);
-            return new ChartSeries(config, WithPartData(series.Data, config))
+            return new ChartSeries(config, WithPartData(series.Data, config, bars))
             {
                 Drawing = series.Drawing,
                 IsProfile = series.IsProfile,
@@ -227,16 +398,19 @@ namespace AccessibleTrader.Core.Services.Charts
         }
 
         /// <summary>
-        /// The computed values under the new part's name too: every part here is the close (or a
-        /// wick's high/low), already in the buffer under the body's name, so the line or brick is
-        /// heard and read at once rather than after the next recalculation.
+        /// The computed values under the new part's name too: a close part takes the close already
+        /// in the buffer under the body's name, so the line or brick is heard and read at once
+        /// rather than after the next recalculation. A part mapped to the high, the low or their
+        /// middle (HLC area, High-low) is worked out from <paramref name="bars"/> when they are
+        /// given, as the recalculation would.
         /// </summary>
-        private static SeriesDataBuffer WithPartData(SeriesDataBuffer data, SeriesConfig config)
+        private static SeriesDataBuffer WithPartData(SeriesDataBuffer data, SeriesConfig config, IReadOnlyList<Ohlcv>? bars = null)
         {
             var missing = config.Components.Where(c => !data.ComponentData.ContainsKey(c.Name)).ToList();
             if (missing.Count == 0) return data;
-            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart, KagiPart, PnfPart }.FirstOrDefault(data.ComponentData.ContainsKey);
-            if (closeKey == null) return data;
+            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart, KagiPart, PnfPart, BarPart, BaselinePart, HlcClosePart }
+                .FirstOrDefault(data.ComponentData.ContainsKey);
+            if (closeKey == null && bars == null) return data;
             var copy = new SeriesDataBuffer
             {
                 SeriesId = data.SeriesId,
@@ -246,8 +420,12 @@ namespace AccessibleTrader.Core.Services.Charts
                 HeatmapData = data.HeatmapData,
             };
             foreach (var c in missing)
-                if (string.Equals(c.DataMapping, "close", StringComparison.OrdinalIgnoreCase))
+            {
+                if (closeKey != null && string.Equals(c.DataMapping, "close", StringComparison.OrdinalIgnoreCase))
                     copy.ComponentData[c.Name] = data.ComponentData[closeKey];
+                else if (bars != null && Indicators.IndicatorStateMapper.MapBar(c.DataMapping) is { } field)
+                    copy.ComponentData[c.Name] = bars.Select(field).ToArray();
+            }
             return copy;
         }
 
@@ -291,7 +469,9 @@ namespace AccessibleTrader.Core.Services.Charts
             List<ComponentConfig> candleParts = current == Kind.Candles
                 ? copy.Components.ToList()
                 : copy.CandleParts.ToList();
-            ComponentConfig? one = current == Kind.Candles ? null : copy.Components[0];
+            ComponentConfig? one = current == Kind.Candles ? null
+                : current == Kind.HlcArea ? copy.Components.FirstOrDefault(c => c.Name == HlcClosePart) ?? copy.Components[0]
+                : copy.Components[0];
 
             copy.Components.Clear();
             copy.CandleParts.Clear();
@@ -313,6 +493,17 @@ namespace AccessibleTrader.Core.Services.Charts
             }
 
             foreach (var c in candleParts) copy.CandleParts.Add(c);
+            if (target == Kind.HlcArea)
+            {
+                // Three lines, top to bottom as drawn. The close line takes the price's mute,
+                // volume and visibility, as the one part does; the high and low start heard.
+                var body = Body(candleParts);
+                var close = MakePart(target, body, one);
+                copy.Components.Add(HlcEdge(close, HlcHighPart, "High", "high"));
+                copy.Components.Add(close);
+                copy.Components.Add(HlcEdge(close, HlcLowPart, "Low", "low"));
+                return copy;
+            }
             copy.Components.Add(MakePart(target, Body(candleParts), one));
             return copy;
         }
@@ -342,6 +533,9 @@ namespace AccessibleTrader.Core.Services.Charts
             {
                 Kind.Area => ComponentDisplayType.Area,
                 Kind.Brick or Kind.Block or Kind.Kagi or Kind.Column => ComponentDisplayType.Brick,
+                // A bar and a high-low bar are drawn by the price series' own renderer, as a
+                // candle is, so they keep the candle's display type.
+                Kind.Bar or Kind.HighLow => ComponentDisplayType.Candle,
                 _ => ComponentDisplayType.Line,
             };
             (part.Name, part.DisplayName) = target switch
@@ -350,6 +544,10 @@ namespace AccessibleTrader.Core.Services.Charts
                 Kind.Block => (BlockPart, "Block"),
                 Kind.Kagi => (KagiPart, "Kagi line"),
                 Kind.Column => (PnfPart, "Column"),
+                Kind.Bar => (BarPart, "Bar"),
+                Kind.Baseline => (BaselinePart, "Close"),
+                Kind.HighLow => (HighLowPart, "High-low bar"),
+                Kind.HlcArea => (HlcClosePart, "Close"),
                 _ => (LinePart, "Close"),
             };
             part.DisplayType = type;
@@ -357,7 +555,8 @@ namespace AccessibleTrader.Core.Services.Charts
             // Body, not PriceAction: the brick and the close line are the price itself, which is
             // what every "the price part" lookup (default focus, the price-bar reads) asks for.
             part.Role = ComponentRole.Body;
-            part.DataMapping = "close";
+            // A high-low bar has no close on screen: its value is its middle.
+            part.DataMapping = target == Kind.HighLow ? "hl2" : "close";
             part.IsAreaFill = target == Kind.Area;
             part.SpeechTemplate = "{name}. {type}. {value:price}.";
             if (previous != null)
@@ -383,7 +582,32 @@ namespace AccessibleTrader.Core.Services.Charts
             part.SoundPatchId = null;
             part.BullishSoundPatchId = null;
             part.BearishSoundPatchId = null;
+            // A high-low bar has no direction to put in the pitch (no open or close is drawn), so
+            // its pitch is where its middle sits, as a line's is.
+            if (target == Kind.HighLow) part.PitchMapping = PitchMapping.Value;
+            // The baseline's crossing click is its own (DefaultSonificationStrategy), against the
+            // base the chart draws, not a fixed reference level.
+            if (target == Kind.Baseline) { part.TriggerBoundaryClick = false; part.ReferenceLevel = null; }
             return part;
+        }
+
+        /// <summary>The high or low line of an HLC area chart, made from the close line: a line
+        /// at its own price, heard where it is drawn.</summary>
+        private static ComponentConfig HlcEdge(ComponentConfig close, string name, string display, string mapping)
+        {
+            var edge = close.Clone();
+            edge.Name = name;
+            edge.DisplayName = display;
+            edge.Role = ComponentRole.PriceAction;
+            edge.DataMapping = mapping;
+            edge.IsMuted = false;
+            edge.IsVisible = true;
+            edge.Volume = close.Volume;
+            var profile = new SonificationProfileProvider().GetProfile(ComponentDisplayType.Line, edge.Role, name);
+            edge.PitchMapping = profile.PitchMapping;
+            edge.AmplitudeMapping = profile.AmplitudeMapping;
+            edge.EnvelopeType = profile.EnvelopeType;
+            return edge;
         }
 
         /// <summary>

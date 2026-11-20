@@ -72,9 +72,13 @@ namespace AccessibleTrader.Core.Services.Audio
         /// as the pan width). Null when the component has no data there or the bar is unknown.
         /// </summary>
         internal static double? VisibleBarPeak(ChartSeries series, ComponentConfig comp, int dataIndex, int relativeIndex, int viewportWidth)
+            => VisiblePeak(series.GetComponentData(comp.Name), dataIndex, relativeIndex, viewportWidth);
+
+        /// <summary>The biggest magnitude in <paramref name="data"/> over the bars in view, as
+        /// <see cref="VisibleBarPeak"/> measures it.</summary>
+        internal static double? VisiblePeak(double[] data, int dataIndex, int relativeIndex, int viewportWidth)
         {
             if (dataIndex < 0) return null;
-            var data = series.GetComponentData(comp.Name);
             int start = Math.Max(0, dataIndex - relativeIndex);
             int end = Math.Min(data.Length, start + Math.Max(1, viewportWidth));
             double peak = 0;
@@ -308,6 +312,19 @@ namespace AccessibleTrader.Core.Services.Audio
             // if it fell. Inherits triggerClick's PlayEarcon / subscription gating.
             int crossDir = (triggerClick && prevVal.HasValue) ? Math.Sign(val - prevVal.Value) : 0;
 
+            // A BASELINE CHART CLICKS WHERE PRICE CROSSES ITS BASE, up or down, as the line
+            // changes colour there: the base is the chart's own (a chosen price or the first close
+            // in view), not a reference level, so it is checked here against the base drawn.
+            double baselineBase = comp.Name == Charts.PriceSeriesShape.BaselinePart
+                ? Charts.PriceSeriesShape.BaselineBase(series, Math.Max(0, dataIndex - relativeIndex))
+                : double.NaN;
+            if (prevVal.HasValue && double.IsFinite(baselineBase)
+                && LevelCross.Direction(prevVal.Value, val, baselineBase) is int baseCross && baseCross != 0)
+            {
+                triggerClick = true;
+                crossDir = baseCross;
+            }
+
             // ── Dynamic OB/OS zone noise texturing ────────────────────────────────────────
             // Add noise when the value enters an overbought or oversold zone.
             // Zone thresholds and noise parameters come from series.Config.Levels (injected by
@@ -407,7 +424,15 @@ namespace AccessibleTrader.Core.Services.Audio
                 bool isHistogramComp = comp.Role == ComponentRole.Histogram
                                     || comp.DisplayType == ComponentDisplayType.Histogram
                                     || comp.DisplayType == ComponentDisplayType.Bar;
-                if (comp.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
+                if (double.IsFinite(baselineBase))
+                {
+                    // A BASELINE CHART'S CLOSE HAS TWO TONES, as it is drawn in two colours: above
+                    // the base bright (green), below it warm (red), the same pair a line coloured
+                    // against another line uses.
+                    if (val >= baselineBase) { squareMix = 0.09f; triangleMix = 0.06f; }
+                    else triangleMix = 0.14f;
+                }
+                else if (comp.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
                     && SiblingToneBright(series, comp, dataIndex) is bool bright)
                 {
                     // A LINE COLOURED AGAINST ANOTHER LINE HAS TWO TONES, ONE PER COLOUR, as an
@@ -462,6 +487,28 @@ namespace AccessibleTrader.Core.Services.Audio
                     triangleMix = 0.10f;
                     squareMix = 0.08f;
                 }
+                else if (comp.Name == Charts.PriceSeriesShape.BarPart)
+                {
+                    // AN OHLC BAR IS A THIN STROKE where a candle is a filled body, and sounds
+                    // thinner: half the candle's square edge, the same direction colouring, and
+                    // the same sub-octave weight for how far it moved from open to close.
+                    double barRange = Math.Max((double)(point.High - point.Low), 1e-10);
+                    bool barUp = point.Close >= point.Open;
+                    squareMix   = barUp ? 0.06f : 0.03f;
+                    triangleMix = barUp ? 0f    : 0.04f;
+                    subSawMix = (float)(0.25 * Math.Clamp(Math.Abs(point.Close - point.Open) / barRange, 0.0, 1.0));
+                }
+                else if (comp.Name == Charts.PriceSeriesShape.HighLowPart)
+                {
+                    // A HIGH-LOW BAR IS ONLY ITS RANGE, drawn as tall as the bar went, so the
+                    // range is its weight: sub-octave grit against the tallest bar in view (the
+                    // pitch is where its middle sits). A plain stroke, no direction colouring:
+                    // a high-low bar has none.
+                    squareMix = 0.06f;
+                    subSawMix = BarGrit(point.High - point.Low, viewportRange,
+                        series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.RangeKey, out var ranges)
+                            ? VisiblePeak(ranges, dataIndex, relativeIndex, viewportWidth) : null);
+                }
                 else if (isBodyComp)
                 {
                     // Light "body" character (square) + warm sub-octave weight ∝ body size: a small
@@ -472,9 +519,21 @@ namespace AccessibleTrader.Core.Services.Audio
                     // more square), a down-bar a hair warmer (a little triangle) — so direction reads
                     // by tone as well as by pitch (up 440 / down 220). Kept small: slight colouring only.
                     bool bodyUp = point.Close >= point.Open;
-                    squareMix   = bodyUp ? 0.13f : 0.06f;
-                    triangleMix = bodyUp ? 0f    : 0.07f;
+                    // HOLLOW CANDLES carry two things: the colour (close against the PREVIOUS
+                    // close) and the fill (close against its own open). The pitch already says
+                    // the fill (up 440 / down 220, open to close), so the tone says the colour:
+                    // a green candle bright, a red one warm, whichever way its body went.
+                    bool toneUp = Charts.PriceSeriesShape.HollowIsGreen(series, dataIndex) ?? bodyUp;
+                    squareMix   = toneUp ? 0.13f : 0.06f;
+                    triangleMix = toneUp ? 0f    : 0.07f;
                     subSawMix = (float)(0.25 * bodySizeNorm);
+                    // VOLUME CANDLES are as wide as their volume, so the weight is the volume:
+                    // sub-octave grit against the heaviest bar in view, as the width is drawn
+                    // against it (the body's own size is then in the words, not the grit).
+                    if (series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.VolumeKey, out var volumes)
+                        && dataIndex >= 0 && dataIndex < volumes.Length)
+                        subSawMix = BarGrit(volumes[dataIndex], viewportRange,
+                            VisiblePeak(volumes, dataIndex, relativeIndex, viewportWidth));
                 }
                 else if (comp.Role == ComponentRole.Volume)
                 {
@@ -631,6 +690,7 @@ namespace AccessibleTrader.Core.Services.Audio
                         "low"    => (double)point.Low,
                         "close"  => (double)point.Close,
                         "volume" => (double)point.Volume,
+                        "hl2"    => ((double)point.High + (double)point.Low) / 2.0,
                         _        => double.NaN
                     };
                 }

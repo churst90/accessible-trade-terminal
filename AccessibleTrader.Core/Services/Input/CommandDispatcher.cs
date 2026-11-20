@@ -39,6 +39,10 @@ namespace AccessibleTrader.Core.Services.Input
         /// that type (the tab's other settings are kept). Validated first; refusals are spoken.</summary>
         void ShowBuiltChart(PriceChartStyle style, RenkoSettings typed);
 
+        /// <summary>Shows the Baseline chart with its base at <paramref name="basePrice"/>, or at
+        /// the first close in view when it is 0 (the Go bar's BASELINE 95000 / BASELINE).</summary>
+        void ShowBaseline(double basePrice);
+
         void SetChartActive(bool active);
     }
 
@@ -201,6 +205,26 @@ namespace AccessibleTrader.Core.Services.Input
             if (RefuseChartTypeOnSingleLine()) return;
             var settings = BuiltCharts.Merge(style, _store.State.Renko, typed);
             RenkoChoice.TryApply(_store, _eventBus, style, settings);
+        }
+
+        public void ShowBaseline(double basePrice)
+        {
+            if (RefuseChartTypeOnSingleLine()) return;
+            var state = _store.State;
+            double price = basePrice > 0 && double.IsFinite(basePrice) ? basePrice : 0;
+            if (state.ChartStyle == PriceChartStyle.Baseline && !state.IsHeikinAshi
+                && state.Renko.BaselinePrice == price)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Info, $"Already a baseline chart, {ChartTypeWords.BaseWords(price)}.", true,
+                    Channel: SpeechChannel.Interface));
+                return;
+            }
+            // The base first, then the type, so the change is said once with the base it has.
+            if (state.Renko.BaselinePrice != price)
+                _store.Dispatch(new SetRenkoSettingsAction(state.Renko with { BaselinePrice = price }));
+            if (_store.State.ChartStyle != PriceChartStyle.Baseline || _store.State.IsHeikinAshi)
+                _store.Dispatch(new SetChartStyleAction(PriceChartStyle.Baseline, HeikinAshi: false));
         }
 
         private void DispatchCore(SystemCommand command, bool fromGoBar)
@@ -835,6 +859,25 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowPointFigureChart:
                     ShowBuiltChart(PriceChartStyle.PointAndFigure, _store.State.Renko);
                     break;
+                case SystemCommand.ShowBarsChart:
+                    ShowChartType(PriceChartStyle.Bars, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowHollowCandleChart:
+                    ShowChartType(PriceChartStyle.HollowCandles, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowBaselineChart:
+                    // The bare command keeps the tab's base; BASELINE 95000 arrives through ShowBaseline.
+                    ShowBaseline(_store.State.Renko.BaselinePrice);
+                    break;
+                case SystemCommand.ShowHighLowChart:
+                    ShowChartType(PriceChartStyle.HighLow, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowHlcAreaChart:
+                    ShowChartType(PriceChartStyle.HlcArea, heikinAshi: false);
+                    break;
+                case SystemCommand.ShowVolumeCandleChart:
+                    ShowChartType(PriceChartStyle.VolumeCandles, heikinAshi: false);
+                    break;
                 case SystemCommand.ShowBrickSettings:
                     if (!_store.State.ChartStyle.IsBrickStyle())
                     {
@@ -1120,13 +1163,8 @@ namespace AccessibleTrader.Core.Services.Input
                 : !state.IsHeikinAshi && state.ChartStyle == style;
             if (already)
             {
-                string what = heikinAshi ? "Heikin Ashi" : style switch
-                {
-                    PriceChartStyle.Line => "line",
-                    PriceChartStyle.Area => "area",
-                    _ => "candle",
-                };
-                string article = what == "area" ? "an" : "a";
+                string what = heikinAshi ? "Heikin Ashi" : ChartTypeWords.Noun(style);
+                string article = what is "area" or "HLC area" ? "an" : "a";
                 _eventBus.Publish(new FeedbackRequestEvent(
                     FeedbackType.Info, $"Already {article} {what} chart.", true, Channel: SpeechChannel.Interface));
                 return;
@@ -1267,6 +1305,12 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowLineBreakChart:
                 case SystemCommand.ShowKagiChart:
                 case SystemCommand.ShowPointFigureChart:
+                case SystemCommand.ShowBarsChart:
+                case SystemCommand.ShowHollowCandleChart:
+                case SystemCommand.ShowBaselineChart:
+                case SystemCommand.ShowHighLowChart:
+                case SystemCommand.ShowHlcAreaChart:
+                case SystemCommand.ShowVolumeCandleChart:
                 case SystemCommand.ShowRegularScale:
                 case SystemCommand.ShowPercentScale:
                 case SystemCommand.ShowIndexedScale:

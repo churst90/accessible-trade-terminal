@@ -191,7 +191,14 @@ namespace AccessibleTrader.Core.Services.Rendering
         public sealed record Context(
             ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity,
             bool IsHeikinAshi = false, PriceChartStyle ChartStyle = PriceChartStyle.Candles,
-            IReadOnlyList<double>? PnfBoxes = null);
+            IReadOnlyList<double>? PnfBoxes = null, double BaselineBase = double.NaN);
+
+        /// <summary>The Baseline chart's base for a view starting at <paramref name="viewportStart"/>
+        /// (<see cref="Charts.PriceSeriesShape.BaselineBase"/>); NaN off Baseline.</summary>
+        internal static double BaselineBaseOf(IEnumerable<ChartSeries> series, PriceChartStyle style, int viewportStart) =>
+            style == PriceChartStyle.Baseline && series.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles) is { } price
+                ? Charts.PriceSeriesShape.BaselineBase(price, Math.Max(0, viewportStart))
+                : double.NaN;
 
         /// <summary>The price series' column boxes from <paramref name="series"/>, on point and
         /// figure; null otherwise.</summary>
@@ -229,7 +236,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             var backing = Backing(ctx.Theme, ctx.BackingAlpha);
 
             if (paneName == "Main" && ctx.Identity is { } id && ctx.Bars is { Count: > 0 } chartBars && absIndex < chartBars.Count)
-                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi, ctx.ChartStyle, ctx.PnfBoxes), maxWidth, gap, measure));
+                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi, ctx.ChartStyle, ctx.PnfBoxes, ctx.BaselineBase), maxWidth, gap, measure));
 
             foreach (var s in paneSeries)
             {
@@ -290,7 +297,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 && (string.IsNullOrEmpty(s.Pane) || s.Pane == "Main"));
             var chartStyle = drawsPriceBars ? state.ChartStyle : PriceChartStyle.Candles;
             var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi, chartStyle,
-                PnfBoxesOf(state.ActiveSeries, chartStyle));
+                PnfBoxesOf(state.ActiveSeries, chartStyle),
+                BaselineBaseOf(state.ActiveSeries, chartStyle, state.ViewportStartIndex));
             using var font = new SKFont(StatusTypeface, FontPx * scale);
             // DOM text is laid out by the browser's own font, not this one: measure a little wide
             // so a line the model says fits does not overflow its pane in the page.
@@ -395,7 +403,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         internal static StatusLine SymbolLine(ChartIdentity id, IReadOnlyList<Ohlcv> bars, int i, ChartTheme theme, SKColor backing,
             bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles,
-            IReadOnlyList<double>? pnfBoxes = null)
+            IReadOnlyList<double>? pnfBoxes = null, double baselineBase = double.NaN)
         {
             var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
             bool brickChart = chartStyle.IsBlockStyle();
@@ -432,6 +440,41 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             // On a line or area chart there is no open, high or low on screen — just the close —
             // so the line prints C alone, in the ink the close line is drawn in.
+            var (bull, bear) = StandardRenderers.ApplyColorVision(theme, theme.CandleBullishBody, theme.CandleBearishBody);
+
+            // Baseline: the close, in the colour of its side of the base, as the line is drawn.
+            if (chartStyle == PriceChartStyle.Baseline && double.IsFinite(baselineBase))
+            {
+                var side = bar.Close >= baselineBase ? bull : bear;
+                return new StatusLine(StatusLineKind.Symbol, title, "", new List<StatusValue>
+                {
+                    Value("C", FormatReading(bar.Close), side, theme, backing),
+                    Value("Base", FormatReading(baselineBase), theme.PriceChartLine.WithAlpha(255), theme, backing),
+                });
+            }
+
+            // High-low: what is drawn, the high, the low and the range between them.
+            if (chartStyle == PriceChartStyle.HighLow)
+            {
+                return new StatusLine(StatusLineKind.Symbol, title, "", new List<StatusValue>
+                {
+                    Value("H", FormatReading(bar.High), bull, theme, backing),
+                    Value("L", FormatReading(bar.Low), bull, theme, backing),
+                    Value("Range", FormatReading(bar.High - bar.Low), bull, theme, backing),
+                });
+            }
+
+            // HLC area: the three lines, each in its own ink.
+            if (chartStyle == PriceChartStyle.HlcArea)
+            {
+                return new StatusLine(StatusLineKind.Symbol, title, "", new List<StatusValue>
+                {
+                    Value("H", FormatReading(bar.High), bull, theme, backing),
+                    Value("L", FormatReading(bar.Low), bear, theme, backing),
+                    Value("C", FormatReading(bar.Close), theme.PriceChartLine.WithAlpha(255), theme, backing),
+                });
+            }
+
             if (chartStyle is PriceChartStyle.Line or PriceChartStyle.Area)
             {
                 var lineValues = new List<StatusValue>
@@ -441,8 +484,12 @@ namespace AccessibleTrader.Core.Services.Rendering
                 return new StatusLine(StatusLineKind.Symbol, title, "", lineValues);
             }
 
-            var (bull, bear) = StandardRenderers.ApplyColorVision(theme, theme.CandleBullishBody, theme.CandleBearishBody);
-            var dir = bar.Close >= bar.Open ? bull : bear;
+            // Hollow candles are coloured by the close against the PREVIOUS close, and so is
+            // their O H L C here (the first bar, with none before it, by its own open).
+            bool green = chartStyle == PriceChartStyle.HollowCandles && i > 0 && i < bars.Count
+                ? bar.Close >= bars[i - 1].Close
+                : bar.Close >= bar.Open;
+            var dir = green ? bull : bear;
             var values = new List<StatusValue>
             {
                 Value("O", FormatReading(bar.Open), dir, theme, backing),
@@ -450,6 +497,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 Value("L", FormatReading(bar.Low), dir, theme, backing),
                 Value("C", FormatReading(bar.Close), dir, theme, backing),
             };
+            // Volume candles are as wide as their volume: the volume is on the line too.
+            if (chartStyle == PriceChartStyle.VolumeCandles)
+                values.Add(Value("Vol", FormatVolume(bar.Volume), dir, theme, backing));
             return new StatusLine(StatusLineKind.Symbol, title, "", values);
         }
 

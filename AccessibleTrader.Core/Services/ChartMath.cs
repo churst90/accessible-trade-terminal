@@ -525,9 +525,10 @@ namespace AccessibleTrader.Core.Services
             string n = componentName.Trim();
 
             if (Is(n, "Open")) return point.Open;
-            if (Is(n, "High", "upper_wick", "Upper Wick")) return point.High;
-            if (Is(n, "Low", "lower_wick", "Lower Wick")) return point.Low;
-            if (Is(n, "Close", "body", "line", "brick", "block", "Candle Body")) return point.Close;
+            if (Is(n, "High", "upper_wick", "Upper Wick", "hlc_high")) return point.High;
+            if (Is(n, "Low", "lower_wick", "Lower Wick", "hlc_low")) return point.Low;
+            if (Is(n, "Close", "body", "line", "brick", "block", "Candle Body", "ohlc", "baseline", "hlc_close")) return point.Close;
+            if (Is(n, "highlow")) return (point.High + point.Low) / 2.0;
             if (Is(n, "Volume")) return point.Volume;
             return double.NaN;
 

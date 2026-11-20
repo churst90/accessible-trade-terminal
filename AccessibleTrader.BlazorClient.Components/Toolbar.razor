@@ -233,7 +233,8 @@
                                   IsToggleOn="@(IsHeatmapVisible == "true")"
                                   Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
-                @* Chart type: Candles, Heikin Ashi, Line, Area, Renko, Range bars, Line break — one choice, like
+                @* Chart type: Candles, Heikin Ashi, Bars, Hollow candles, Volume candles, Line, Area, Baseline,
+                   High-low, HLC area, then the charts built off the clock — one choice, like
                    TradingView. Alt+C puts focus here (until 2026-11-19 it toggled Heikin Ashi);
                    the separate HA button went the same day (Cody: it is already in this list). *@
                 <label for="chart-type-select" class="visually-hidden">Chart type</label>
@@ -243,8 +244,14 @@
                         value="@ChartTypeValue">
                     <option value="candles" selected="@(ChartTypeValue == "candles")">Candles</option>
                     <option value="heikin" selected="@(ChartTypeValue == "heikin")">Heikin Ashi</option>
+                    <option value="bars" selected="@(ChartTypeValue == "bars")">Bars</option>
+                    <option value="hollow" selected="@(ChartTypeValue == "hollow")">Hollow candles</option>
+                    <option value="volumecandles" selected="@(ChartTypeValue == "volumecandles")">Volume candles</option>
                     <option value="line" selected="@(ChartTypeValue == "line")">Line</option>
                     <option value="area" selected="@(ChartTypeValue == "area")">Area</option>
+                    <option value="baseline" selected="@(ChartTypeValue == "baseline")">Baseline</option>
+                    <option value="highlow" selected="@(ChartTypeValue == "highlow")">High-low</option>
+                    <option value="hlcarea" selected="@(ChartTypeValue == "hlcarea")">HLC area</option>
                     <option value="renko" selected="@(ChartTypeValue == "renko")">Renko</option>
                     <option value="rangebars" selected="@(ChartTypeValue == "rangebars")">Range bars</option>
                     <option value="linebreak" selected="@(ChartTypeValue == "linebreak")">Line break</option>
@@ -898,6 +905,12 @@
         {
             PriceChartStyle.Line => "line",
             PriceChartStyle.Area => "area",
+            PriceChartStyle.Bars => "bars",
+            PriceChartStyle.HollowCandles => "hollow",
+            PriceChartStyle.VolumeCandles => "volumecandles",
+            PriceChartStyle.Baseline => "baseline",
+            PriceChartStyle.HighLow => "highlow",
+            PriceChartStyle.HlcArea => "hlcarea",
             PriceChartStyle.Renko => "renko",
             PriceChartStyle.RangeBars => "rangebars",
             PriceChartStyle.LineBreak => "linebreak",
@@ -944,6 +957,13 @@
         {
             "line" => (PriceChartStyle.Line, false),
             "area" => (PriceChartStyle.Area, false),
+            "bars" => (PriceChartStyle.Bars, false),
+            "hollow" => (PriceChartStyle.HollowCandles, false),
+            "volumecandles" => (PriceChartStyle.VolumeCandles, false),
+            // The tab's own base (the first close in view until BASELINE 95000 sets one).
+            "baseline" => (PriceChartStyle.Baseline, false),
+            "highlow" => (PriceChartStyle.HighLow, false),
+            "hlcarea" => (PriceChartStyle.HlcArea, false),
             "heikin" => (PriceChartStyle.Candles, true),
             _ => (PriceChartStyle.Candles, false),
         };

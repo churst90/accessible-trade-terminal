@@ -422,6 +422,211 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
+        /// <summary>The price part's up and down colours: the theme's candle body colours, or
+        /// the user's when the part is styled by hand, through the colour-vision setting.</summary>
+        private static (SKColor Up, SKColor Down) PriceColours(RenderContext ctx, ComponentConfig? part)
+        {
+            SKColor up = ctx.Theme.CandleBullishBody, down = ctx.Theme.CandleBearishBody;
+            if (part is { IsUserStyled: true })
+            {
+                SKColor.TryParse(part.ColorHex, out up);
+                SKColor.TryParse(part.ColorHexSecondary, out down);
+            }
+            return ApplyColorVision(ctx.Theme, up, down);
+        }
+
+        /// <summary>
+        /// Bars (OHLC): a vertical stroke from the high to the low, the open a tick to the left
+        /// and the close a tick to the right, in the up colour when the close is at or above the
+        /// open — the four prices the bar's speech reads.
+        /// </summary>
+        public static void RenderOhlcBars(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float tick = Math.Max(1f, (float)Math.Floor(barWidth * 0.35f));
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.BarPart));
+            using var up = new SKPaint { Color = upColor, StrokeWidth = Math.Max(1f, 1.5f * ctx.Density), Style = SKPaintStyle.Stroke, IsAntialias = false };
+            using var down = new SKPaint { Color = downColor, StrokeWidth = Math.Max(1f, 1.5f * ctx.Density), Style = SKPaintStyle.Stroke, IsAntialias = false };
+
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+            for (int i = 0; i < count; i++)
+            {
+                var bar = data[i];
+                if (double.IsNaN(bar.High) || double.IsNaN(bar.Low)) continue;
+                float x = (float)Math.Floor(i * barWidth + barWidth / 2f) + 0.5f;
+                var paint = bar.Close >= bar.Open ? up : down;
+                ctx.Canvas.DrawLine(x, Y(bar.High), x, Y(bar.Low), paint);
+                if (!double.IsNaN(bar.Open)) ctx.Canvas.DrawLine(x - tick, Y(bar.Open), x, Y(bar.Open), paint);
+                if (!double.IsNaN(bar.Close)) ctx.Canvas.DrawLine(x, Y(bar.Close), x + tick, Y(bar.Close), paint);
+            }
+        }
+
+        /// <summary>
+        /// High-low: each bar a solid block from its high to its low, no open, no close and no
+        /// direction — the range its speech and its weight carry. One colour, the up body's.
+        /// </summary>
+        public static void RenderHighLow(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float half = Math.Max(0.5f, (float)Math.Floor(barWidth * 0.3f));
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            var (color, _) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.HighLowPart));
+            using var fill = new SKPaint { Color = color, Style = SKPaintStyle.Fill, IsAntialias = false };
+
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+            for (int i = 0; i < count; i++)
+            {
+                var bar = data[i];
+                if (double.IsNaN(bar.High) || double.IsNaN(bar.Low)) continue;
+                float x = (float)Math.Floor(i * barWidth + barWidth / 2f) + 0.5f;
+                float top = Y(bar.High), bottom = Y(bar.Low);
+                ctx.Canvas.DrawRect(new SKRect(x - half, top, x + half, Math.Max(bottom, top + 1)), fill);
+            }
+        }
+
+        /// <summary>
+        /// Baseline: the close line, green above the base and red below, each side filled to the
+        /// base, and the base itself a dashed line (<see cref="Charts.PriceSeriesShape.BaselineBase"/>,
+        /// the one rule the sound and the speech read it by). A segment that crosses the base is
+        /// split where it crosses, so the colour changes exactly at the base.
+        /// </summary>
+        public static void RenderBaseline(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+            double basePrice = Charts.PriceSeriesShape.BaselineBase(series, ctx.ViewportStart);
+            if (!double.IsFinite(basePrice)) { RenderPriceLine(ctx, area: false); return; }
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float X(int i) => i * barWidth + barWidth / 2f;
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float baseY = Y(basePrice);
+            var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.BaselinePart));
+
+            using var abovePath = new SKPath();
+            using var belowPath = new SKPath();
+            using var aboveFill = new SKPath();
+            using var belowFill = new SKPath();
+
+            // Each segment, split at the base where it crosses, goes to its side's line and fill.
+            void Segment(float x1, float y1, float x2, float y2, bool above)
+            {
+                var line = above ? abovePath : belowPath;
+                var fill = above ? aboveFill : belowFill;
+                line.MoveTo(x1, y1); line.LineTo(x2, y2);
+                fill.MoveTo(x1, baseY); fill.LineTo(x1, y1); fill.LineTo(x2, y2); fill.LineTo(x2, baseY); fill.Close();
+            }
+
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+            int prev = -1;
+            for (int i = 0; i < count; i++)
+            {
+                double close = data[i].Close;
+                if (double.IsNaN(close)) { prev = -1; continue; }
+                if (prev >= 0)
+                {
+                    double c0 = data[prev].Close;
+                    float x0 = X(prev), y0 = Y(c0), x1 = X(i), y1 = Y(close);
+                    bool a0 = c0 >= basePrice, a1 = close >= basePrice;
+                    if (a0 == a1) Segment(x0, y0, x1, y1, a0);
+                    else
+                    {
+                        float t = (float)((basePrice - c0) / (close - c0));
+                        float xc = x0 + (x1 - x0) * t;
+                        Segment(x0, y0, xc, baseY, a0);
+                        Segment(xc, baseY, x1, y1, a1);
+                    }
+                }
+                prev = i;
+            }
+
+            using var aboveShade = new SKPaint { Color = upColor.WithAlpha(60), Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var belowShade = new SKPaint { Color = downColor.WithAlpha(60), Style = SKPaintStyle.Fill, IsAntialias = true };
+            ctx.Canvas.DrawPath(aboveFill, aboveShade);
+            ctx.Canvas.DrawPath(belowFill, belowShade);
+
+            using var dash = SKPathEffect.CreateDash(new[] { 4f * ctx.Density, 4f * ctx.Density }, 0);
+            using var basePaint = new SKPaint
+            {
+                Color = ctx.Theme.PriceChartLine.WithAlpha(160), StrokeWidth = 1f * ctx.Density,
+                Style = SKPaintStyle.Stroke, PathEffect = dash, IsAntialias = true,
+            };
+            ctx.Canvas.DrawLine(0, baseY, ctx.Width, baseY, basePaint);
+
+            using var aboveLine = new SKPaint { Color = upColor, StrokeWidth = 2f * ctx.Density, Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeCap = SKStrokeCap.Round };
+            using var belowLine = new SKPaint { Color = downColor, StrokeWidth = 2f * ctx.Density, Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeCap = SKStrokeCap.Round };
+            ctx.Canvas.DrawPath(abovePath, aboveLine);
+            ctx.Canvas.DrawPath(belowPath, belowLine);
+        }
+
+        /// <summary>
+        /// HLC area: the high, close and low lines, with the band from the high down to the close
+        /// shaded in the up colour and from the close down to the low in the down colour. A line
+        /// the user has hidden is not drawn, and neither is the shade it bounds.
+        /// </summary>
+        public static void RenderHlcArea(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float X(int i) => i * barWidth + barWidth / 2f;
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            bool Shown(string name) => series.Components.Any(c => c.Name == name && c.IsVisible && c.IsDrawn);
+            bool showHigh = Shown(Charts.PriceSeriesShape.HlcHighPart), showLow = Shown(Charts.PriceSeriesShape.HlcLowPart);
+            var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.HlcClosePart));
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+
+            // One band between two prices of each bar, run by run so a gap is never filled.
+            void Band(Func<Ohlcv, double> upper, Func<Ohlcv, double> lower, SKColor color)
+            {
+                using var path = new SKPath();
+                int runStart = -1;
+                void CloseRun(int end)
+                {
+                    if (runStart < 0) return;
+                    for (int k = end; k >= runStart; k--) path.LineTo(X(k), Y(lower(data[k])));
+                    path.Close();
+                    runStart = -1;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    var b = data[i];
+                    if (double.IsNaN(upper(b)) || double.IsNaN(lower(b))) { CloseRun(i - 1); continue; }
+                    if (runStart < 0) { path.MoveTo(X(i), Y(upper(b))); runStart = i; }
+                    else path.LineTo(X(i), Y(upper(b)));
+                }
+                CloseRun(count - 1);
+                using var shade = new SKPaint { Color = color.WithAlpha(55), Style = SKPaintStyle.Fill, IsAntialias = true };
+                ctx.Canvas.DrawPath(path, shade);
+            }
+
+            void Line(Func<Ohlcv, double> price, SKColor color, float width)
+            {
+                using var path = new SKPath();
+                bool first = true;
+                for (int i = 0; i < count; i++)
+                {
+                    double v = price(data[i]);
+                    if (double.IsNaN(v)) { first = true; continue; }
+                    if (first) { path.MoveTo(X(i), Y(v)); first = false; }
+                    else path.LineTo(X(i), Y(v));
+                }
+                using var paint = new SKPaint { Color = color, StrokeWidth = width * ctx.Density, Style = SKPaintStyle.Stroke, IsAntialias = true, StrokeJoin = SKStrokeJoin.Round };
+                ctx.Canvas.DrawPath(path, paint);
+            }
+
+            if (showHigh) Band(b => b.High, b => b.Close, upColor);
+            if (showLow) Band(b => b.Close, b => b.Low, downColor);
+            if (showHigh) Line(b => b.High, upColor, 1f);
+            if (showLow) Line(b => b.Low, downColor, 1f);
+            Line(b => b.Close, ctx.Theme.PriceChartLine, 2f);
+        }
+
         public static void RenderCandles(RenderContext ctx, ChartSeries series, SKPaint paint, double[]? phaseData = null)
         {
             var data = ctx.Data;
@@ -460,11 +665,26 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             bool hasPhaseOverride = phaseData != null && phaseData.Length > 0;
 
+            // HOLLOW CANDLES (TradingView's): colour by the close against the previous close,
+            // hollow when the close is at or above its own open. VOLUME CANDLES: each body as wide
+            // as its volume against the heaviest bar in view, never under a sixth of the full width.
+            series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.HollowGreenKey, out var hollowGreen);
+            series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.VolumeKey, out var volumes);
+            double volumePeak = 0;
+            if (volumes != null)
+                for (int i = 0; i < ctx.ViewportLength; i++)
+                {
+                    int abs = ctx.ViewportStart + i;
+                    if (abs >= 0 && abs < volumes.Length && double.IsFinite(volumes[abs]))
+                        volumePeak = Math.Max(volumePeak, volumes[abs]);
+                }
+
             for (int i = 0; i < ctx.ViewportLength; i++)
             {
                 if (i >= data.Count) break;
 
                 var bar = data[i];
+                int barAbs = ctx.ViewportStart + i;
                 // Pixel-align the bar center to a half-pixel so the 1-px-wide
                 // wick stroke and the body rect share a common visual axis.
                 // Without this, float coordinates fell on arbitrary sub-pixel
@@ -489,6 +709,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                     else
                         bodyColor = bar.Close >= bar.Open ? bullish : bearish;
                 }
+                else if (hollowGreen != null && barAbs >= 0 && barAbs < hollowGreen.Length)
+                {
+                    bodyColor = hollowGreen[barAbs] >= 0.5 ? bullish : bearish;
+                }
                 else
                 {
                     bodyColor = bar.Close >= bar.Open ? bullish : bearish;
@@ -500,7 +724,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 {
                     using var wickLease = SKPaintPool.Rent();
                     var wickPaint = wickLease.Paint;
-                    wickPaint.Color = wickColor;
+                    // On hollow candles the wick is the candle's colour, as TradingView draws it.
+                    wickPaint.Color = hollowGreen != null ? bodyColor : wickColor;
                     wickPaint.Style = SKPaintStyle.Stroke;
                     wickPaint.StrokeWidth = wickThickness;
                     ctx.Canvas.DrawLine(x, yHigh, x, yLow, wickPaint);
@@ -517,7 +742,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // Hollow-up-candles accessibility mode: up-bodies are outlined, down
                 // filled — direction readable by shape alone, no color perception
                 // needed. Phase-colored candles stay filled (phase IS the message).
-                bool drawHollow = hollowUp && !hasPhaseOverride && bar.Close >= bar.Open;
+                bool drawHollow = (hollowUp || hollowGreen != null) && !hasPhaseOverride && bar.Close >= bar.Open;
                 bodyPaint.Style = drawHollow ? SKPaintStyle.Stroke : SKPaintStyle.Fill;
                 if (drawHollow) bodyPaint.StrokeWidth = 1.5f;
                 // Pixel-align body edges so the rect is symmetric around the
@@ -525,6 +750,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // left edge and width both drifted on sub-pixel boundaries and
                 // the visual center no longer matched the wick's x.
                 float bodyHalfWidth = (float)Math.Floor(barWidth * 0.4f);
+                if (volumePeak > 0 && barAbs >= 0 && barAbs < volumes!.Length && double.IsFinite(volumes[barAbs]))
+                    bodyHalfWidth = Math.Max(0.5f, (float)Math.Floor(barWidth * 0.48f * Math.Max(1.0 / 6.0, volumes[barAbs] / volumePeak)));
                 float bodyLeft = x - bodyHalfWidth;
                 float bodyWidthPx = bodyHalfWidth * 2f;
                 ctx.Canvas.DrawRect(bodyLeft, top, bodyWidthPx, bodyHeight, bodyPaint);

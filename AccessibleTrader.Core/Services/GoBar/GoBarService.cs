@@ -517,6 +517,17 @@ namespace AccessibleTrader.Core.Services.GoBar
                             Help: "Draw the price as point and figure columns of this box, turning on this reversal"),
                     }, pnfName + ".");
 
+                case GoBarVerb.Baseline when parsed.Price is { } basePrice:
+                    string baselineName = $"Baseline chart, {Charts.ChartTypeWords.BaseWords(basePrice)}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            baselineName,
+                            Action: new GoBarBaselineAction(basePrice),
+                            CanonicalText: $"BASELINE {basePrice.ToString("0.##########", CultureInfo.InvariantCulture)}",
+                            Help: "Draw the closes green above this base and red below it"),
+                    }, baselineName + ".");
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {
@@ -951,6 +962,9 @@ namespace AccessibleTrader.Core.Services.GoBar
                         break;
                     case GoBarRenkoAction renko:
                         _dispatcher.ShowBuiltChart(renko.Style, renko.Settings);
+                        break;
+                    case GoBarBaselineAction baseline:
+                        _dispatcher.ShowBaseline(baseline.BasePrice);
                         break;
                     case GoBarDateAction date:
                         ExecuteDate(date);

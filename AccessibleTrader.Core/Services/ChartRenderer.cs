@@ -377,7 +377,8 @@ namespace AccessibleTrader.Core.Services
                 float textScale = ChartStatusLine.ClampTextScale(statusTextScale);
                 using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * textScale * density);
                 var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, drawsHeikinAshi, chartStyle,
-                    ChartStatusLine.PnfBoxesOf(mainSeries, chartStyle));
+                    ChartStatusLine.PnfBoxesOf(mainSeries, chartStyle),
+                    ChartStatusLine.BaselineBaseOf(mainSeries, chartStyle, viewportStart));
                 int statusBar = crossIndex >= 0 ? viewportStart + crossIndex : Math.Clamp(cursorIndex, 0, data.Count - 1);
                 var statusBands = new Dictionary<string, PaneStatusBand>(StringComparer.Ordinal);
                 var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);

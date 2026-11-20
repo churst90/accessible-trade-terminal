@@ -138,10 +138,12 @@ and Identity already has 2FA, lockout and rate limits.
      Source, Go bar `PNF 500 3 HL`), a **percentage box** (TradingView's "Percentage (LTP)", Go
      bar `PNF 1%`; frozen at the price when chosen, TradingView's follows it), and spoken **buy
      and sell signals** ("Buy signal, above the last X top at 105.00"; chart formations
-     untouched). **Next (Cody's yes, 2026-11-20):** bars (OHLC), hollow candles (TradingView's:
-     colour by the close before, fill by its own open), baseline, high-low, HLC area and volume
-     candles, each heard and spoken as its own shape; step line, line with markers and columns
-     skipped. The brick and box types drop
+     untouched). **Bars, hollow candles, baseline, high-low, HLC area and volume
+     candles** (Cody's yes, 2026-11-20) — built 2026-11-20, not yet heard by Cody (toolbar select,
+     Go bar `BARS` / `HOLLOW` / `BASELINE 95000` / `HILO` / `HLC` / `VCANDLE`; each drawn, heard,
+     spoken and on the status line as its own shape; baseline clicks on crossing its base).
+     Caveats: the baseline's base is not in the price axis range; volume words weigh the 20 bars
+     before, not the view. Step line, line with markers and columns skipped. The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**
