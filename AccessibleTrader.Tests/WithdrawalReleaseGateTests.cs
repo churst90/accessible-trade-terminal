@@ -72,11 +72,11 @@ namespace AccessibleTrader.Tests
             // Deliberately asserts the literal shipped value. When this fails, it is
             // because someone opened the gate — which is the correct 2.4.1 change, and
             // the point of failing here is that they read the checklist in
-            // docs/RELEASE_2.4.0_VERIFICATION.md before they do.
+            // docs/archive/RELEASE_2.4.0_VERIFICATION.md before they do.
             Assert.False(WithdrawalService.Released,
                 "Withdrawals were enabled. That is the 2.4.1 change and it requires one real "
               + "withdrawal driven end to end against a live venue first — see "
-              + "docs/RELEASE_2.4.0_VERIFICATION.md. If that has happened, update this test.");
+              + "docs/archive/RELEASE_2.4.0_VERIFICATION.md. If that has happened, update this test.");
         }
 
         [Fact]

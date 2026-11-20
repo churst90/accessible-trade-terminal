@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AccessibleTrader.Tests.WebHost;
 
 /// <summary>
-/// Guards the multi-user web-host DI contract (see docs/WEBHOST_MULTI_USER_SCOPING.md).
+/// Guards the multi-user web-host DI contract (see docs/archive/WEBHOST_MULTI_USER_SCOPING.md).
 /// On the public web demo every Blazor circuit is its own DI scope, so per-visitor state
 /// services MUST be Scoped — if one is accidentally made Singleton again, one visitor's
 /// chart/indicators/navigation leak into everyone else's. These tests fail fast if that

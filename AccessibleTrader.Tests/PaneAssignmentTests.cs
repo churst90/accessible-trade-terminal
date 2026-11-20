@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests;
 /// MACD"</i>. Thirty indicators declared one shared <c>"Oscillator"</c> pane across five
 /// incompatible scale families; <c>ViewportRangeCalculator</c> computes ONE range per pane; MACD
 /// is a price difference (±800 on BTC) and RSI is bounded 0–100. RSI's whole working span was
-/// ~2.5% of the pitch range. Diagnosis: <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>.
+/// ~2.5% of the pitch range. Diagnosis: <c>docs/archive/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>.
 /// </para>
 ///
 /// <para>

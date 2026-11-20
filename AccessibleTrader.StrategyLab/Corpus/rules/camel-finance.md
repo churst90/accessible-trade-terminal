@@ -1051,7 +1051,7 @@ These are merged and deduplicated across the five parts and ranked with the most
 
 ## Ledger corrections
 
-Corrections to `docs/CAMEL_TRACK_RECORD.md` (and `docs/CAMEL_CYCLE_LIVE_READ.md`) found by the parts. Added at the end: disagreements between the parts, and corrections from this consolidation.
+Corrections to `docs/archive/CAMEL_TRACK_RECORD.md` (and `docs/archive/CAMEL_CYCLE_LIVE_READ.md`) found by the parts. Added at the end: disagreements between the parts, and corrections from this consolidation.
 
 1. **The self-audit is periodic.** 25 Jul, 1 Aug and 8 Aug are the same "weekend deep dive… back through the base case" format as 15 Aug. (§8 asked.) [I'm Sure About This, 2026-07-25, 00:40](https://youtu.be/Mm5NUZElP-Y?t=40), [It's starting, 2026-08-01, 00:30](https://youtu.be/L3QWk203NR4?t=30), [Another Record Close !!, 2026-08-08, 02:38](https://youtu.be/vSroUWCVwtU?t=158)
 2. **"No public video 16–18 Aug" is wrong.** "The Wait is Almost Over" (17 Aug, the day after the 62,653 low) still expected "new fresh lows… around the end of this month". "Answering Your Questions" was published 18 Aug and recorded 14 Aug. [The Wait is Almost Over, 2026-08-17, 02:08](https://youtu.be/Q_U-MbBmLdI?t=128), [Answering Your Questions, 2026-08-18, 00:34](https://youtu.be/EKSjKkcIIqU?t=34)

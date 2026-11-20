@@ -18,7 +18,7 @@ trusting any of it.
 - **The vendor's public docs**: about 50 GitBook pages (current and the archived 1.0) and the
   cftrading.co.uk sales page. Already summarised, with links, in
   `AccessibleTrader.StrategyLab/Corpus/rules/camel-finance.md` (section "What his indicator
-  computes") and `docs/CAMEL_METHOD.md` section 8.
+  computes") and `docs/archive/CAMEL_METHOD.md` section 8.
 - **86 images from those pages**, read one by one. One of them is the settings panel (section 3).
 - **405 frames from Camel's YouTube videos** (16 source videos, including the vendor's feature
   demos), about one frame every 7 seconds around the moments he has the indicator on screen. The
@@ -143,7 +143,7 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
 ## 6. What it is not, and what is missing
 
 - **Not an edge.** Camel's checklist showed none against shuffled prices in this project's tests
-  (`docs/CYCLE_SCHOOL_FINDINGS.md`). CF's own SPX counts fall inside its stated 36–44 day window only
+  (`docs/archive/CYCLE_SCHOOL_FINDINGS.md`). CF's own SPX counts fall inside its stated 36–44 day window only
   5 times in 23 (22%), counting trading days: 22–64, median 43, and 17 of 23 within 30–50. Counted
   in calendar days, 1 in 23. The indicator follows the method; it does not prove it.
   Buying the confirmed daily low (section 8) is not a dependable edge either. The left-translated
@@ -196,7 +196,7 @@ component. Cancelled and Failed stay navigable, but they are warnings: neither i
 - **Pulse Reversal Long**, the StrategyLab catalogue strategy built on the old Cipher C's bottoms. It
   is in the retired list of `CatalogueProvenance` and has not been re-tested on DCL Confirmed.
 
-`docs/CYCLE_LOW_INDICATOR_DESIGN.md` is a different design (a capitulation score, no windows) written
+`docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md` is a different design (a capitulation score, no windows) written
 for the pre-registered cycle-school test. It is not what Cipher C does.
 
 ## 8. Backtest: buy the confirmed daily low (2026-10-22)

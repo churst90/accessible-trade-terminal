@@ -4,7 +4,7 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// Pins the public-demo whitelist — the security boundary for the hosted demo (see
-/// docs/PLATFORM_STRATEGY_AND_ROADMAP.md). It must be a strict allow-list in demo mode and a
+/// docs/archive/PLATFORM_STRATEGY_AND_ROADMAP.md). It must be a strict allow-list in demo mode and a
 /// complete no-op outside it, so the full app/local/MAUI heads are never restricted.
 /// </summary>
 public class DemoPolicyTests

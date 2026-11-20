@@ -8,7 +8,7 @@ namespace AccessibleTrader.Tests
 {
     /// <summary>
     /// <b>One credential per provider, and everything reads the same one.</b>
-    /// See <c>docs/ORDER_ROUTING_SAFETY_SCOPE.md</c> §D1.
+    /// See <c>docs/archive/ORDER_ROUTING_SAFETY_SCOPE.md</c> §D1.
     ///
     /// <para>
     /// Three parts of the app used to hold three different opinions about which key an order

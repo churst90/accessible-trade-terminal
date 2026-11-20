@@ -17,7 +17,7 @@ namespace AccessibleTrader.Core.Services;
 /// five incompatible scale families, one range was computed over all of them, and Cody heard
 /// the result: <i>"the RSI almost sounds flat … RSI sounds correct after I removed the MACD"</i>.
 /// MACD is a price difference (±800 on BTC) and RSI is bounded 0–100, so RSI's whole working
-/// span was ~2.5% of the pitch range. See <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>.
+/// span was ~2.5% of the pitch range. See <c>docs/archive/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>.
 /// </para>
 ///
 /// <para>

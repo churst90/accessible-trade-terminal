@@ -84,7 +84,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void CipherCandlesHa_ComputesEachCipherAsOnAHeikinAshiChart_ThroughTheLabEngine()
         {
-            // The exploratory re-run (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6) compares the Ciphers
+            // The exploratory re-run (docs/archive/EXACT_CIPHERS_RERUN_PREREG.md section 6) compares the Ciphers
             // on candles and on Heikin-Ashi with everything else fixed. If the switch did nothing, the
             // "Heikin-Ashi" run would be the candle run again. So: through the engine the lab host
             // resolves, each Cipher must equal the same Cipher given the Heikin-Ashi chart parameter by

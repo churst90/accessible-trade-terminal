@@ -18,7 +18,7 @@ namespace AccessibleTrader.WebHost.Account
 
         /// <summary>
         /// Feature tier: "free" | "supporter" | … . Gates premium built-in indicators
-        /// and history depth per docs/HOSTED_ACCOUNTS_STRATEGY.md. Defaults to free.
+        /// and history depth per docs/archive/HOSTED_ACCOUNTS_STRATEGY.md. Defaults to free.
         /// </summary>
         public string Tier { get; set; } = "free";
 

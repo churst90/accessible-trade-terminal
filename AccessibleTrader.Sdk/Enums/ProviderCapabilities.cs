@@ -138,7 +138,7 @@ namespace AccessibleTrader.Sdk.Enums
 
         /// <summary>
         /// Deposit addresses and deposit history can be read. See
-        /// <c>docs/WALLET_AND_PORTFOLIO_DESIGN.md</c> — the address path is gated on
+        /// <c>docs/archive/WALLET_AND_PORTFOLIO_DESIGN.md</c> — the address path is gated on
         /// an <c>IWalletProvider</c> interface as well, because for a feature whose
         /// failure mode is showing someone the wrong address to send money to, a
         /// compiler-enforced fact beats a hand-written flag.

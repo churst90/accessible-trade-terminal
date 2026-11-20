@@ -27,7 +27,7 @@ public static class LabCipherProfile
     /// <summary>The gold dot's switch, refused since Cipher B's gold dot was removed (2026-10-22): a
     /// run asked to compare gold rules would otherwise compare nothing and say so in no way.</summary>
     public const string GoldFlag = "--cipherb-gold";
-    /// <summary>Exploratory (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6): <c>--cipher-candles ha</c>
+    /// <summary>Exploratory (docs/archive/EXACT_CIPHERS_RERUN_PREREG.md section 6): <c>--cipher-candles ha</c>
     /// computes Cipher A, Cipher B and Cipher SR as a Heikin-Ashi chart computes them in the app.</summary>
     public const string CandlesFlag = "--cipher-candles";
 

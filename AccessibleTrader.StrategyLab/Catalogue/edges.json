@@ -44,11 +44,11 @@
         {
           "asOf": "2026-08-27",
           "value": 0.0037,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/XSMOMENTUM_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/XSMOMENTUM_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
-      "source": "docs/XSMOMENTUM_FINDINGS.md",
+      "source": "docs/archive/XSMOMENTUM_FINDINGS.md",
       "reMeasure": {
         "command": "xsmom --universe equity",
         "implemented": true
@@ -102,7 +102,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/WALKFORWARD_FINDINGS.md",
+      "source": "docs/archive/WALKFORWARD_FINDINGS.md",
       "reMeasure": {
         "command": "walkfwd",
         "implemented": true
@@ -160,7 +160,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "source": "docs/archive/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
         "command": "polarity",
         "implemented": true
@@ -214,7 +214,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/VOLUME_FINDINGS.md",
+      "source": "docs/archive/VOLUME_FINDINGS.md",
       "reMeasure": {
         "command": "volume",
         "implemented": true
@@ -262,7 +262,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "source": "docs/archive/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
         "command": "poc-dev",
         "implemented": true
@@ -306,11 +306,11 @@
         {
           "asOf": "2026-08-27",
           "value": 32.34,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/EXIT_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/EXIT_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
-      "source": "docs/EXIT_FINDINGS.md",
+      "source": "docs/archive/EXIT_FINDINGS.md",
       "reMeasure": {
         "command": "exits",
         "implemented": true
@@ -361,7 +361,7 @@
         }
       ],
       "correlatesWith": [],
-      "source": "docs/FOMC_FINDINGS.md",
+      "source": "docs/archive/FOMC_FINDINGS.md",
       "reMeasure": {
         "command": "fomc",
         "implemented": true
@@ -405,7 +405,7 @@
         {
           "asOf": "2026-08-27",
           "value": 0.107,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/POLARITY_AND_GATE_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/POLARITY_AND_GATE_FINDINGS.md for what moved."
         },
         {
           "asOf": "2026-10-17",
@@ -420,7 +420,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/POLARITY_AND_GATE_FINDINGS.md",
+      "source": "docs/archive/POLARITY_AND_GATE_FINDINGS.md",
       "reMeasure": {
         "command": "gate",
         "implemented": true
@@ -461,7 +461,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/TRADING_CROSS_FINDINGS.md",
+      "source": "docs/archive/TRADING_CROSS_FINDINGS.md",
       "reMeasure": {
         "command": "cross",
         "implemented": true
@@ -505,11 +505,11 @@
         {
           "asOf": "2026-08-27",
           "value": -1.11,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/ONCHAIN_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/ONCHAIN_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
-      "source": "docs/ONCHAIN_FINDINGS.md",
+      "source": "docs/archive/ONCHAIN_FINDINGS.md",
       "reMeasure": {
         "command": "onchain",
         "implemented": true
@@ -547,11 +547,11 @@
         {
           "asOf": "2026-08-27",
           "value": 0.0,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/POSITIONING_AND_EVENTS_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/POSITIONING_AND_EVENTS_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
-      "source": "docs/POSITIONING_AND_EVENTS_FINDINGS.md",
+      "source": "docs/archive/POSITIONING_AND_EVENTS_FINDINGS.md",
       "reMeasure": {
         "command": "events",
         "implemented": true
@@ -585,7 +585,7 @@
       "lastMeasured": "2026-07-31",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/CROWDING_FINDINGS.md",
+      "source": "docs/archive/CROWDING_FINDINGS.md",
       "reMeasure": {
         "command": "crowding",
         "implemented": true
@@ -628,7 +628,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/MACRO_EVENT_FINDINGS.md",
+      "source": "docs/archive/MACRO_EVENT_FINDINGS.md",
       "reMeasure": {
         "command": "macro",
         "implemented": true
@@ -666,11 +666,11 @@
         {
           "asOf": "2026-08-27",
           "value": 0.03,
-          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/EXIT_FINDINGS.md for what moved."
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/archive/EXIT_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
-      "source": "docs/EXIT_FINDINGS.md",
+      "source": "docs/archive/EXIT_FINDINGS.md",
       "reMeasure": {
         "command": "exits",
         "implemented": true
@@ -706,7 +706,7 @@
       "lastMeasured": "2026-07-31",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/CYCLE_FINDINGS.md",
+      "source": "docs/archive/CYCLE_FINDINGS.md",
       "reMeasure": {
         "command": "cycles",
         "implemented": true
@@ -748,7 +748,7 @@
         }
       ],
       "correlatesWith": [],
-      "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
+      "source": "docs/archive/CONFLUENCE_SENTIMENT_FINDINGS.md",
       "reMeasure": {
         "command": "confluence",
         "implemented": true
@@ -782,7 +782,7 @@
       "lastMeasured": "2026-06-12",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/ASSET_PROFILE_FINDINGS.md",
+      "source": "docs/archive/ASSET_PROFILE_FINDINGS.md",
       "reMeasure": {
         "command": "asset-profile",
         "implemented": true
@@ -817,7 +817,7 @@
       "lastMeasured": "2026-06-20",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/CONFLUENCE_SENTIMENT_FINDINGS.md",
+      "source": "docs/archive/CONFLUENCE_SENTIMENT_FINDINGS.md",
       "reMeasure": {
         "command": "confluence",
         "implemented": true
@@ -853,7 +853,7 @@
       "lastMeasured": "2026-06-25",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/ML_CONFIDENCE_FINDINGS.md",
+      "source": "docs/archive/ML_CONFIDENCE_FINDINGS.md",
       "reMeasure": {
         "command": "ml-export",
         "implemented": true
@@ -896,7 +896,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/FIB_GANN_FINDINGS.md",
+      "source": "docs/archive/FIB_GANN_FINDINGS.md",
       "reMeasure": {
         "command": "fib",
         "implemented": true
@@ -937,7 +937,7 @@
       "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
+      "source": "docs/archive/APPROACH_AND_WEEKLY_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -988,7 +988,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1040,7 +1040,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
+      "source": "docs/archive/APPROACH_AND_WEEKLY_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1130,7 +1130,7 @@
       "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1182,7 +1182,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1227,7 +1227,7 @@
       "lastMeasured": "2026-08-01",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
@@ -1285,7 +1285,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "practitioner",
         "who": "Benjamin Cowen (risk metric / rainbow chart)",
@@ -1335,7 +1335,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/APPROACH_AND_WEEKLY_FINDINGS.md",
+      "source": "docs/archive/APPROACH_AND_WEEKLY_FINDINGS.md",
       "reMeasure": {
         "command": "weekly-persistence",
         "implemented": true
@@ -1385,7 +1385,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/EARNINGS_SURPRISE_FINDINGS.md",
+      "source": "docs/archive/EARNINGS_SURPRISE_FINDINGS.md",
       "origin": {
         "kind": "practitioner",
         "who": "this project's own macro/FOMC contrast (2026-08-01)",
@@ -1438,7 +1438,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/RISK_TARGET_AND_METRIC_FINDINGS.md",
+      "source": "docs/archive/RISK_TARGET_AND_METRIC_FINDINGS.md",
       "origin": {
         "kind": "practitioner",
         "who": "Cody",
@@ -1528,7 +1528,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/INTRADAY_SESSION_FINDINGS.md",
+      "source": "docs/archive/INTRADAY_SESSION_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
@@ -1576,7 +1576,7 @@
       "lastMeasured": "2026-08-02",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/REGIME_PERSISTENCE_FINDINGS.md",
+      "source": "docs/archive/REGIME_PERSISTENCE_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Peter Tuchman (NYSE floor broker since 1985), Titans of Tomorrow interview",
@@ -1624,7 +1624,7 @@
       "lastMeasured": "2026-08-02",
       "decay": [],
       "correlatesWith": [],
-      "source": "docs/SIZING_FINDINGS.md",
+      "source": "docs/archive/SIZING_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "David Hannan / 'Laptop Legend' (full-time trader ~4.5 years, small-cap short seller), Titans of Tomorrow interview",
@@ -1820,7 +1820,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/REVISION_BREADTH_FINDINGS.md",
+      "source": "docs/archive/REVISION_BREADTH_FINDINGS.md",
       "origin": {
         "kind": "derived",
         "who": "queued by the earnings-surprise null, 2026-08-02",
@@ -1864,7 +1864,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/CAMEL_CYCLE_LIVE_READ.md",
+      "source": "docs/archive/CAMEL_CYCLE_LIVE_READ.md",
       "origin": {
         "kind": "video",
         "who": "Camel Finance, daily market update",
@@ -1914,7 +1914,7 @@
           "correlation": null
         }
       ],
-      "source": "docs/TRANSLATION_FINDINGS.md",
+      "source": "docs/archive/TRANSLATION_FINDINGS.md",
       "origin": {
         "kind": "video",
         "who": "Camel Finance, daily market update",
@@ -1964,7 +1964,7 @@
       },
       "firstMeasured": "2026-08-06",
       "lastMeasured": "2026-08-06",
-      "source": "docs/CYCLE_FINDINGS.md",
+      "source": "docs/archive/CYCLE_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "camel-cycle-counts",
@@ -2014,7 +2014,7 @@
       },
       "firstMeasured": "2026-08-06",
       "lastMeasured": "2026-08-06",
-      "source": "docs/CYCLE_FINDINGS.md",
+      "source": "docs/archive/CYCLE_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "right-translation-predicts-decline-shape",
@@ -2089,7 +2089,7 @@
         ],
         "timeframe": "1d",
         "horizonBars": 20,
-        "notes": "Pre-registered in docs/SETUP_GRADER_PREREG.md (0597d7de) before any result. Development era before 2023, held-out 2023+. Crypto: 10 assets (Bitstamp 8, MEXC KAS and TAO); equities: 33 Yahoo series. Crypto 4h was a secondary test."
+        "notes": "Pre-registered in docs/archive/SETUP_GRADER_PREREG.md (0597d7de) before any result. Development era before 2023, held-out 2023+. Crypto: 10 assets (Bitstamp 8, MEXC KAS and TAO); equities: 33 Yahoo series. Crypto 4h was a secondary test."
       },
       "effect": {
         "measure": "excess-R-over-context-matched-random-entry",
@@ -2110,7 +2110,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/SETUP_GRADER_FINDINGS.md",
+      "source": "docs/archive/SETUP_GRADER_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "dip-buy-above-200ma",
@@ -2140,7 +2140,7 @@
         ],
         "timeframe": "1d",
         "horizonBars": 20,
-        "notes": "Pre-registered in docs/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d) before any result; harness committed (dcebe57c) before any count; counts-only stage committed (cf0e0386) before the full run. Market Cipher B tools only, our replica. Daily entries with a weekly environment built from completed weeks; crypto 4h with a daily environment as a secondary class. Development era before 2023, held-out 2023+ for signs. Crypto: 10 assets, of which 5 (BTC, ETH, LTC, XRP, BCH) have development-era setups; equities: 33 Yahoo series. Longs only."
+        "notes": "Pre-registered in docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d) before any result; harness committed (dcebe57c) before any count; counts-only stage committed (cf0e0386) before the full run. Market Cipher B tools only, our replica. Daily entries with a weekly environment built from completed weeks; crypto 4h with a daily environment as a secondary class. Development era before 2023, held-out 2023+ for signs. Crypto: 10 assets, of which 5 (BTC, ETH, LTC, XRP, BCH) have development-era setups; equities: 33 Yahoo series. Longs only."
       },
       "effect": {
         "measure": "excess-R-over-context-matched-random-entry",
@@ -2163,7 +2163,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md",
+      "source": "docs/archive/SETUP_GRADER_ROUND2_MC_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "cipherb-setup-grader-hierarchy",
@@ -2194,7 +2194,7 @@
         ],
         "timeframe": "1d",
         "horizonBars": 15,
-        "notes": "Pre-registered in docs/CYCLE_SCHOOL_PREREG.md (1fe9d986, addendum 13d1e80a) before any result. Development era before 2023, held-out 2023+. Crypto BTC and ETH; equities SPY, QQQ, DIA, IWM; gold GLD (recorded as commodities). Classes never pooled."
+        "notes": "Pre-registered in docs/archive/CYCLE_SCHOOL_PREREG.md (1fe9d986, addendum 13d1e80a) before any result. Development era before 2023, held-out 2023+. Crypto BTC and ETH; equities SPY, QQQ, DIA, IWM; gold GLD (recorded as commodities). Classes never pooled."
       },
       "effect": {
         "measure": "precision-minus-shuffled-bar-surrogate",
@@ -2217,7 +2217,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "source": "docs/archive/CYCLE_SCHOOL_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "camel-cycle-counts",
@@ -2244,7 +2244,7 @@
         ],
         "timeframe": "1d",
         "horizonBars": 20,
-        "notes": "Design frozen in docs/CYCLE_LOW_INDICATOR_DESIGN.md; tests in docs/CYCLE_SCHOOL_PREREG.md. Positioning uses the release-stamped CFTC TFF files fetched 2026-10-18; labour data JOLTS and temporary help added as M10-M12 before any outcome. Gold had 12 development alerts: not testable."
+        "notes": "Design frozen in docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md; tests in docs/archive/CYCLE_SCHOOL_PREREG.md. Positioning uses the release-stamped CFTC TFF files fetched 2026-10-18; labour data JOLTS and temporary help added as M10-M12 before any outcome. Gold had 12 development alerts: not testable."
       },
       "effect": {
         "measure": "alert-precision-full-minus-price-only",
@@ -2266,7 +2266,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "source": "docs/archive/CYCLE_SCHOOL_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "sentiment-orthogonal",
@@ -2301,7 +2301,7 @@
         ],
         "timeframe": "1d",
         "horizonBars": 60,
-        "notes": "Tests C1-SPY, C1-BTC, C2, C3, C5, C6 of docs/CYCLE_SCHOOL_PREREG.md, first prints and revisions from ALFRED vintages, NBER dates from the announcement table, BAA10Y (investment grade) in place of ICE high yield."
+        "notes": "Tests C1-SPY, C1-BTC, C2, C3, C5, C6 of docs/archive/CYCLE_SCHOOL_PREREG.md, first prints and revisions from ALFRED vintages, NBER dates from the announcement table, BAA10Y (investment grade) in place of ICE high yield."
       },
       "effect": {
         "measure": "event-group-difference",
@@ -2322,7 +2322,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/CYCLE_SCHOOL_FINDINGS.md",
+      "source": "docs/archive/CYCLE_SCHOOL_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "macro-release-dates",
@@ -2348,7 +2348,7 @@
         ],
         "timeframe": "4h",
         "horizonBars": 20,
-        "notes": "Pre-registered in docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc) before any result; harness committed (f8a2be88) before any count; counts-only stage committed (0353080e) before the full run. Primary class crypto 4h entries with a daily environment (7 assets; the development era is BTC, ETH, XRP); secondary crypto daily and equities daily (33 Yahoo series) with a weekly environment. Our Cipher SR replica (shipped defaults, on the chart's own bars) on our Cipher B replica. Development era before 2023, held-out 2023+. Longs only. Round 2's development-era counts reproduced exactly (334/158, 70/33, 1,423/721). The primary class was chosen knowing round 2's crypto 4h result."
+        "notes": "Pre-registered in docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc) before any result; harness committed (f8a2be88) before any count; counts-only stage committed (0353080e) before the full run. Primary class crypto 4h entries with a daily environment (7 assets; the development era is BTC, ETH, XRP); secondary crypto daily and equities daily (33 Yahoo series) with a weekly environment. Our Cipher SR replica (shipped defaults, on the chart's own bars) on our Cipher B replica. Development era before 2023, held-out 2023+. Longs only. Round 2's development-era counts reproduced exactly (334/158, 70/33, 1,423/721). The primary class was chosen knowing round 2's crypto 4h result."
       },
       "effect": {
         "measure": "excess-R-over-location-matched-random-entry",
@@ -2372,7 +2372,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-18",
       "lastMeasured": "2026-10-18",
-      "source": "docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md",
+      "source": "docs/archive/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "market-cipher-dot-vs-trigger-wave",
@@ -2406,7 +2406,7 @@
         ],
         "timeframe": "4h/1d",
         "horizonBars": 20,
-        "notes": "Pre-registered in docs/EXACT_CIPHERS_RERUN_PREREG.md (a95f53bc) before any outcome on the exact indicators; each counts-only stage committed before its full run. The same inputs as 10-17/18, re-hashed (0 changed): 52 files for round 1, 50 for rounds 2-3 (crypto 10 assets, equities 33 Yahoo series, crypto 4h as round 3's headline class), 8 series for the battery. Development era before 2023, held-out 2023+. Longs only for rounds 1-3. An exploratory arm on Heikin-Ashi candles (round 2 and the battery) gives no verdict by the plan's own rule."
+        "notes": "Pre-registered in docs/archive/EXACT_CIPHERS_RERUN_PREREG.md (a95f53bc) before any outcome on the exact indicators; each counts-only stage committed before its full run. The same inputs as 10-17/18, re-hashed (0 changed): 52 files for round 1, 50 for rounds 2-3 (crypto 10 assets, equities 33 Yahoo series, crypto 4h as round 3's headline class), 8 series for the battery. Development era before 2023, held-out 2023+. Longs only for rounds 1-3. An exploratory arm on Heikin-Ashi candles (round 2 and the battery) gives no verdict by the plan's own rule."
       },
       "effect": {
         "measure": "excess-R-over-location-matched-random-entry",
@@ -2430,7 +2430,7 @@
       "breadth": null,
       "firstMeasured": "2026-10-24",
       "lastMeasured": "2026-10-24",
-      "source": "docs/EXACT_CIPHERS_RERUN_FINDINGS.md",
+      "source": "docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md",
       "correlatesWith": [
         {
           "id": "market-cipher-sr-location",

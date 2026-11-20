@@ -43,7 +43,7 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// the FOCUSED feed by design. Meanwhile <see cref="BackgroundTabFeedService"/>
         /// deliberately keeps up to eight non-focused tabs on live subscriptions. Their bars
         /// closed in silence: a user with four charts open was told about bar closes on one of
-        /// them. See docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F1.</para>
+        /// them. See docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F1.</para>
         ///
         /// <para><b>This is not a widening of <see cref="FocusedFeedUpdated"/>.</b> That event's
         /// contract is correct and load-bearing — binding a background feed's bars to the store

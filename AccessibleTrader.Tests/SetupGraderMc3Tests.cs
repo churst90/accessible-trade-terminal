@@ -8,7 +8,7 @@ namespace AccessibleTrader.Tests
 {
     /// <summary>
     /// The round-3 Market Cipher setup grader with Cipher SR location
-    /// (<c>docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>, <c>setup-grader-mc3</c>). These pin the
+    /// (<c>docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>, <c>setup-grader-mc3</c>). These pin the
     /// properties the study's numbers depend on: the support used at bar t is the one live at bar
     /// t-1's close, so on a bar where a support is replaced the OLD level is the one tested; nothing at
     /// bar t (the level, the location flag, the level's age, the older/newer label) changes when later
@@ -350,7 +350,7 @@ namespace AccessibleTrader.Tests
             Assert.NotEmpty(Mc3.Reproduce(built, new[] { ("crypto", setups, e1 - 1) }, out _));
             // The pre-registered targets are round 2's published numbers.
             Assert.Equal(new[] { ("crypto4h", 334, 158), ("crypto", 70, 33), ("equities", 1_423, 721) }, Mc3.Round2Dev);
-            // --priors exact: round 2 as re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md, step 3).
+            // --priors exact: round 2 as re-run on the exact Ciphers (docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md, step 3).
             Assert.Equal(new[] { ("crypto4h", 260, 131), ("crypto", 59, 28), ("equities", 1_176, 586) }, Mc3.Round2DevExact);
         }
 

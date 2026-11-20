@@ -27,7 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Multi-user web host: each Blazor circuit (browser connection) is its own DI scope,
 // so per-visitor state services are registered Scoped (see ServiceCollectionExtensions
-// + docs/WEBHOST_MULTI_USER_SCOPING.md). Validate that nothing captures a Scoped service
+// + docs/archive/WEBHOST_MULTI_USER_SCOPING.md). Validate that nothing captures a Scoped service
 // in a Singleton (captive dependency) or resolves Scoped from the root provider —
 // ValidateOnBuild fails fast at startup with the exact offenders so they can be fixed.
 builder.Host.UseDefaultServiceProvider(o =>
@@ -61,7 +61,7 @@ bool autoLaunch = !args.Contains("--no-launch")
 
 // --accounts (or Accounts:Enabled=true) → hosted multi-user mode: ASP.NET Core Identity
 // login + per-user persistence. OFF by default, so the local single-user and --demo modes
-// (and the MAUI head) are completely unaffected. See docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md.
+// (and the MAUI head) are completely unaffected. See docs/archive/HOSTED_AUTH_PERSISTENCE_DESIGN.md.
 bool accountsEnabled = args.Contains("--accounts")
     || builder.Configuration.GetValue<bool>("Accounts:Enabled");
 string? accountsDataRoot = builder.Configuration["Accounts:DataRoot"];

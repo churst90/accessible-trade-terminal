@@ -4,7 +4,7 @@ This folder is data for the StrategyLab, not code. It holds what a set of trader
 actually said, so that their rules can be turned into pre-registered tests and their dated calls
 can be scored against prices later. Nothing in here is an endorsement. Most of these methods have
 not been tested yet, and several of the ideas behind them have already failed in this repo (see
-`docs/CYCLE_FINDINGS.md`, `docs/PLATFORM_AND_SIGNAL_SERVICE.md`, `docs/SETUP_GRADER_PREREG.md`).
+`docs/archive/CYCLE_FINDINGS.md`, `docs/archive/PLATFORM_AND_SIGNAL_SERVICE.md`, `docs/archive/SETUP_GRADER_PREREG.md`).
 
 ## What is here
 
@@ -112,7 +112,7 @@ back." over intro music; that is Whisper, not the speaker.
 ## How to use it
 
 1. Read `rules/<source>.md`, pick a candidate rule, and write it as a pre-registration before
-   computing anything (the `docs/SETUP_GRADER_PREREG.md` pattern). The candidate lists say which
+   computing anything (the `docs/archive/SETUP_GRADER_PREREG.md` pattern). The candidate lists say which
    rules need data the lab does not have and which need a hand-drawn line.
 2. The dated calls in each rules file are for scoring against prices later. Scoring has not been
    done; see `docs/TODO.md`.

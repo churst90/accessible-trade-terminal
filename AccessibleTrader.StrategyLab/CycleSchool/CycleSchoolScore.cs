@@ -22,7 +22,7 @@ public sealed class CapScore
 }
 
 /// <summary>
-/// The capitulation score of <c>docs/CYCLE_LOW_INDICATOR_DESIGN.md</c> sections 3 to 5 (with the
+/// The capitulation score of <c>docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md</c> sections 3 to 5 (with the
 /// prereg addendum's Q3 files and M10 to M12). Equal weights inside a family and across families;
 /// every percentile expanding; CAP needs at least 3 defined families; pctCAP and pctCAP_P are the
 /// scores' own expanding percentiles (252 values).

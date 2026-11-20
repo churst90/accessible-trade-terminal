@@ -9,7 +9,7 @@ namespace AccessibleTrader.WebHost.Services
 {
     /// <summary>
     /// Server-side alert evaluation for the HOSTED terminal (Tier 2 item 2,
-    /// docs/ROADMAP_2.0.md): every registered user's saved simple alerts keep
+    /// docs/archive/ROADMAP_2.0.md): every registered user's saved simple alerts keep
     /// evaluating on the server after their browser closes, delivered through
     /// THEIR configured channels (email / Telegram / webhooks — and Web Push
     /// once subscribed). The hosted sibling of <see cref="LocalBackgroundMonitor"/>,

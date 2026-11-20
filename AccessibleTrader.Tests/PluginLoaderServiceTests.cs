@@ -7,7 +7,7 @@ namespace AccessibleTrader.Tests;
 
 /// <summary>
 /// Pins the type-cache contract that makes per-circuit data isolation cheap (see
-/// docs/WEBHOST_MULTI_USER_SCOPING.md): plugin DLLs/types are discovered ONCE, but each
+/// docs/archive/WEBHOST_MULTI_USER_SCOPING.md): plugin DLLs/types are discovered ONCE, but each
 /// LoadPlugins call returns FRESH instances. A per-circuit (Scoped) DataService relies on
 /// this to give every web visitor its own provider objects (own connections/subscriptions)
 /// without re-loading assemblies into a new AssemblyLoadContext per connection.

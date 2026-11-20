@@ -151,7 +151,7 @@ namespace AccessibleTrader.Tests.WebHost
                 Assert.True(PluginHostServices.ApiKeys != null,
                     "PluginHostServices.ApiKeys is null after the host booted. Six trading providers "
                     + "then fall back to credentials stashed in long-lived Configure fields, which "
-                    + "makes docs/CREDENTIAL_CHECKOUT_MIGRATION.md inert on this head.");
+                    + "makes docs/archive/CREDENTIAL_CHECKOUT_MIGRATION.md inert on this head.");
 
                 Assert.True(PluginHostServices.SecurityEvents != null,
                     "PluginHostServices.SecurityEvents is null after the host booted. Every audit "

@@ -6,7 +6,7 @@ using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.StrategyLab;
 
-/// <summary>The grade a Cipher B dot gets under <c>docs/SETUP_GRADER_PREREG.md</c> section 3.6.</summary>
+/// <summary>The grade a Cipher B dot gets under <c>docs/archive/SETUP_GRADER_PREREG.md</c> section 3.6.</summary>
 internal enum SetupGrade { A, B, C, V }
 
 /// <summary>
@@ -86,7 +86,7 @@ internal readonly record struct GradeInputs(int Cg, bool Loc, bool D1, bool D2, 
 internal readonly record struct ExitResult(double RNet, double RGross, double AtrNet, int Hold, bool Complete);
 
 /// <summary>
-/// The pure parts of the pre-registered setup grader (<c>docs/SETUP_GRADER_PREREG.md</c>): completed
+/// The pure parts of the pre-registered setup grader (<c>docs/archive/SETUP_GRADER_PREREG.md</c>): completed
 /// higher-timeframe bars, the body-pivot trend, the cycle phase, location, confirmations, vetoes,
 /// grades, the standard R harness and the five exit variants. Everything here reads bars up to and
 /// including the bar being graded and nothing after it; <c>SetupGraderTests</c> holds that to

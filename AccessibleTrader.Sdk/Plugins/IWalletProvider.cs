@@ -65,7 +65,7 @@ namespace AccessibleTrader.Sdk.Plugins
     /// <para>
     /// Withdrawals are deliberately NOT on this interface. They need a separate,
     /// withdrawal-enabled credential so that the terminal's ordinary trading keys
-    /// can never move funds — see <c>docs/WALLET_AND_PORTFOLIO_DESIGN.md</c> §3.
+    /// can never move funds — see <c>docs/archive/WALLET_AND_PORTFOLIO_DESIGN.md</c> §3.
     /// </para>
     /// </summary>
     public interface IWalletProvider : IProviderPlugin

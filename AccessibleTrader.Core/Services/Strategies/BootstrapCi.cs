@@ -77,7 +77,7 @@ public static class BootstrapCi
     /// <summary>
     /// The R of one position from its exit rows: Σ quantity × (exit − entry) ÷ (Σ quantity ×
     /// (entry − initial stop)), sign-flipped for shorts — i.e. Σ portion × (exit − entry) ÷ initial
-    /// risk, the definition <c>docs/SETUP_GRADER_PREREG.md</c> §2.2 sets. The stop is the rows'
+    /// risk, the definition <c>docs/archive/SETUP_GRADER_PREREG.md</c> §2.2 sets. The stop is the rows'
     /// <see cref="BacktestTrade.StopPrice"/>, which the backtester stamps with the stop the position
     /// was OPENED with. NaN when the position is still open, has no stop, or its stop is not on the
     /// losing side of the entry (an entry that filled through its own stop has no defined risk).

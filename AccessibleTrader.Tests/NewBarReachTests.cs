@@ -10,7 +10,7 @@ namespace AccessibleTrader.Tests
     /// <summary>
     /// <b>Which charts can produce a new-bar announcement at all — measured, not read.</b>
     ///
-    /// <para>Phase 3 of docs/BACKGROUND_MONITOR_SCOPE.md is "new bars with the browser closed".
+    /// <para>Phase 3 of docs/archive/BACKGROUND_MONITOR_SCOPE.md is "new bars with the browser closed".
     /// Before designing that, this file pins what the CURRENT reach is, because the scope
     /// document's table claims new bars work with the browser open (✅) and fail only with it
     /// closed. That claim is about a subscriber; nothing had measured the PUBLISHER.</para>

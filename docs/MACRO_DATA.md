@@ -83,7 +83,7 @@ with the first prints derived from the real-time history. All twelve agree row f
 
 ### Labour leading data (ALFRED; point in time, exact; added 2026-10-18)
 
-The leading labour series Camel shows instead of the headline (`docs/CAMEL_METHOD.md` 7.3). Same
+The leading labour series Camel shows instead of the headline (`docs/archive/CAMEL_METHOD.md` 7.3). Same
 three files per series as above, from source `labour` of `macro-fetch`.
 
 | Series | What | Observations | Vintages from |

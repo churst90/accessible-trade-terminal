@@ -682,7 +682,7 @@ to 9 ships a position the risk sizer did not choose.
 Wallet-side capabilities (`IWalletProvider` for read-only deposit addresses and
 balances, `IWithdrawalProvider` for moving funds — deliberately separate
 interfaces, since a read-only credential must never imply withdrawal ability) are
-specified in `docs/WALLET_AND_PORTFOLIO_DESIGN.md`.
+specified in `docs/archive/WALLET_AND_PORTFOLIO_DESIGN.md`.
 
 When you add a broker, add its wire-payload tests to `BrokerParityTests` (payload
 pinned through a captured `FakeHttpMessageHandler`, proven red by sabotage) — the

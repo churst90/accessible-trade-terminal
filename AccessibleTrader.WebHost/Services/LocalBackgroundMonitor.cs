@@ -366,7 +366,7 @@ namespace AccessibleTrader.WebHost.Services
                 // chart with nothing to compute, the fetched bars alone (a three-bar pattern
                 // reads Data; a price crossing reads the two newest closes). Until 2026-09-11
                 // this was WorkspaceState.Initial and a fresh empty dictionary on every poll:
-                // no Data, no series, no memory — see docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md F3.
+                // no Data, no series, no memory — see docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md F3.
                 var state = observed?.State ?? BareState(watch, bars);
                 var previous = observed?.PreviousValues ?? new Dictionary<string, double>();
                 var evaluator = Evaluator(services);

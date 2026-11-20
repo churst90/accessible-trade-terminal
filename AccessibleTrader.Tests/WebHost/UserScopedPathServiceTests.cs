@@ -5,7 +5,7 @@ namespace AccessibleTrader.Tests.WebHost;
 
 /// <summary>
 /// Pins the per-user data routing that hosted accounts rely on (see
-/// docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md): with accounts on, each user's
+/// docs/archive/HOSTED_AUTH_PERSISTENCE_DESIGN.md): with accounts on, each user's
 /// <c>AppDataDirectory</c> is isolated under <c>users/{id}/</c> while
 /// <c>CacheDirectory</c> stays shared (public market data); with accounts off it is the
 /// legacy single shared directory, so the local/demo modes are unaffected.

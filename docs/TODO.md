@@ -452,7 +452,7 @@ venue's public answers or docs. The README and WHATSNEW say so.
   - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
     funding as an indicator, vaults.
 
-- [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/HYPERLIQUID_RESEARCH.md`).**
+- [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/archive/HYPERLIQUID_RESEARCH.md`).**
   Questions for Cody before anything is built:
   - Are you a US resident or citizen? If so, live trading (phase 4), and in practice testnet
     (phase 2), break Hyperliquid's terms until the Payward/Bitnomial route opens.
@@ -725,7 +725,7 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] Re-record every engine R figure on a two-rung ladder with breakeven or trail. R is now one (archive 1341)
 - [ ] Re-run the COT battery cells (`battery` v5a-v5h, BTC CFTC_COT) and `cipher-a-battery`'s COT gate (archive 1352)
 - [ ] Optional: re-download the COT snapshots with the fixed `cftc-cot` so the files themselves carry (archive 1354)
-- [ ] `docs/SETUP_GRADER_PREREG.md` section 2.2 still lists the HTF and R caveats; it is a frozen (archive 1356)
+- [ ] `docs/archive/SETUP_GRADER_PREREG.md` section 2.2 still lists the HTF and R caveats; it is a frozen (archive 1356)
 
 ### 2026-10-17 night — Cipher strategy re-run on the new Cipher A/B/SR: DONE; see CHANGES ...
 - [ ] Delete `CIPHER_A.Buy Signal` and `CIPHER_SR.Support` from bare-bull-pulse, faber-pulse and (archive 1365)

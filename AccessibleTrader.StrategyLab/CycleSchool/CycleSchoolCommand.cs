@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace AccessibleTrader.StrategyLab.CycleSchool;
 
 /// <summary>
-/// <c>cycle-school</c>: the frozen pre-registration <c>docs/CYCLE_SCHOOL_PREREG.md</c> (with its
+/// <c>cycle-school</c>: the frozen pre-registration <c>docs/archive/CYCLE_SCHOOL_PREREG.md</c> (with its
 /// 2026-10-18 addendum), built literally. Four schools of test, never pooled across classes:
 /// (a) Camel's real-time low-calling checklist, (b) our capitulation score against its price-only
 /// self, (c) Camel's macro theses, (d) a trading version of (a) and (b) that cannot rescue them.

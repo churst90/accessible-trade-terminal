@@ -179,7 +179,7 @@ internal static class XsMomentumRobustness
         // construction, so dragTop == dragAll and the whole table collapsed to
         // `excess = e^(drag*N) * cleanExcess` — the clean excess rescaled by a POSITIVE
         // CONSTANT. **It could never change sign.** Verify against the published table in
-        // docs/XSMOMENTUM_FINDINGS.md: at 5%/33% the drag works out to e^-0.875 = 0.417, and
+        // docs/archive/XSMOMENTUM_FINDINGS.md: at 5%/33% the drag works out to e^-0.875 = 0.417, and
         // the doc's "vs clean" column reads 42%. At topShare = 0 the drag on the momentum book
         // is exactly zero, so the excess mechanically GROWS — which the doc then reported as a
         // finding. "The edge survives every cell" was arithmetic, not evidence.

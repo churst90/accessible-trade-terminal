@@ -10,7 +10,7 @@ namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
 /// Stage 2 of the round-2 setup grader, the Market Cipher school only
-/// (<c>docs/SETUP_GRADER_ROUND2_MC_PREREG.md</c>, committed 60a94a0d before any result existed).
+/// (<c>docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md</c>, committed 60a94a0d before any result existed).
 /// Every rule, threshold, test, family and verdict rule is that document's; this class only
 /// computes them. Command: <c>setup-grader-mc2 [--counts-only]</c>.
 ///
@@ -126,7 +126,7 @@ public static class SetupGraderMc2Command
 
     public static async Task<int> RunAsync(string snapshotDir, bool countsOnly)
     {
-        Console.WriteLine("SETUP GRADER ROUND 2, MARKET CIPHER — pre-registered in docs/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d), stage 2");
+        Console.WriteLine("SETUP GRADER ROUND 2, MARKET CIPHER — pre-registered in docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md (60a94a0d), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
         // Its pre-registered rules read Cipher B's divergences (exit X4, the bearish divergence), which were removed on
         // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment
@@ -135,11 +135,11 @@ public static class SetupGraderMc2Command
         return 2;
 #pragma warning disable CS0162 // the frozen run below, kept for the record
         // --cipher-candles ha alone is allowed: the exploratory part of
-        // docs/EXACT_CIPHERS_RERUN_PREREG.md (section 6). It is never the pre-registered run.
+        // docs/archive/EXACT_CIPHERS_RERUN_PREREG.md (section 6). It is never the pre-registered run.
         // (--cipherb old, the one other profile the pre-registration refused, is refused by the lab
         // itself since 2026-10-31.)
         if (LabCipherProfile.CiphersOnHeikinAshi)
-            Console.WriteLine("EXPLORATORY: the Ciphers on Heikin-Ashi candles. Not the pre-registered run; its verdicts can say only \"worth its own pre-registration on new data\" or \"nothing\" (docs/EXACT_CIPHERS_RERUN_PREREG.md section 6).");
+            Console.WriteLine("EXPLORATORY: the Ciphers on Heikin-Ashi candles. Not the pre-registered run; its verdicts can say only \"worth its own pre-registration on new data\" or \"nothing\" (docs/archive/EXACT_CIPHERS_RERUN_PREREG.md section 6).");
         Console.WriteLine($"Snapshots: {Path.GetFullPath(snapshotDir)} (read only)");
         var files = CryptoDaily.Concat(EquityNames.Select(e => $"yahoo_{e}_1d.json")).Concat(Crypto4h).ToList();
         var missing = files.Where(f => !File.Exists(Path.Combine(snapshotDir, f))).ToList();

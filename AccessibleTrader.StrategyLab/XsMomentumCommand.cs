@@ -366,7 +366,7 @@ public static class XsMomentumCommand
         //
         // This is the p = 0.0045 recorded in Catalogue/edges.json for xs-momentum-equities —
         // the only edge with a full robustness pass — and quoted as the headline in
-        // docs/XSMOMENTUM_FINDINGS.md. The file's own comment at the grid ("A plateau of
+        // docs/archive/XSMOMENTUM_FINDINGS.md. The file's own comment at the grid ("A plateau of
         // positives is the signature of a real effect; one lone winner is a fit") shows the
         // author understood the shape; the code still tested the winner.
         //

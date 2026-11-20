@@ -64,7 +64,7 @@ internal sealed class Mc2Series
 }
 
 /// <summary>
-/// The pure parts of the round-2 Market Cipher setup grader (<c>docs/SETUP_GRADER_ROUND2_MC_PREREG.md</c>,
+/// The pure parts of the round-2 Market Cipher setup grader (<c>docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md</c>,
 /// committed 60a94a0d before any result): the higher-timeframe context (V, A, B, C), the anchor wave,
 /// the void rule, the trigger wave (E1) and the two secondary waits (E1h, E1m), the school's own stop,
 /// and the gap-keeping perturbation. Everything here reads the bars up to and including the bar it

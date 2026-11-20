@@ -410,7 +410,7 @@ namespace AccessibleTrader.Core.Services
         /// sites fell back to <c>state.ViewportRange</c> for every pane, silently: accidentally
         /// right for Main, and for an oscillator a 0–100 value normalised against 99,900–100,100
         /// is one flat tone with no log to say why. Recorded as §5 of
-        /// <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>; <c>PaneRanges</c> is recomputed only
+        /// <c>docs/archive/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>; <c>PaneRanges</c> is recomputed only
         /// when the data, the viewport or the series LIST reference changes and a tab snapshot
         /// restores it verbatim, so a stale-key miss is reachable.
         /// </para>

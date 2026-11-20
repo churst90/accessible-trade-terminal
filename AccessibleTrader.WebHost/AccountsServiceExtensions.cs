@@ -14,7 +14,7 @@ namespace AccessibleTrader.WebHost
     /// password) plus per-user persistence routing. Call ONLY when accounts are enabled,
     /// AFTER <c>AddAccessibleTraderWebHostServices</c> — the registrations here override the
     /// single-user defaults. The local/demo modes (which never call this) and the MAUI head
-    /// are unaffected. See docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md.
+    /// are unaffected. See docs/archive/HOSTED_AUTH_PERSISTENCE_DESIGN.md.
     /// </summary>
     public static class AccountsServiceExtensions
     {

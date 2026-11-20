@@ -154,7 +154,7 @@ namespace AccessibleTrader.StrategyLab
 
             new CapabilityRule("DepositAddresses", new[]
                 { new EvidenceGroup("wallet interface", new[] { Ev.Interface("IWalletProvider") }) },
-                "not built yet — see docs/WALLET_AND_PORTFOLIO_DESIGN.md"),
+                "not built yet — see docs/archive/WALLET_AND_PORTFOLIO_DESIGN.md"),
 
             // Deliberately a DIFFERENT interface from deposits. IWalletProvider is
             // read-only by design, so implementing it is not evidence of being able

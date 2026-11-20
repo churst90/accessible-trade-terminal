@@ -248,7 +248,7 @@ namespace AccessibleTrader.WebHost.Services
             // nothing headless dispatches into a store — the monitor fetches bars straight off
             // the provider and evaluates them as method arguments. Five polls, five bar closes,
             // zero events. The mask made it look deliberate; it was dead wiring.
-            // (Phase 3 F2, docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md.)
+            // (Phase 3 F2, docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md.)
             //
             // Headless bar closes are now LocalBackgroundMonitor's, OBSERVED rather than
             // received: it already re-fetches every watched chart once a minute, so "the newest

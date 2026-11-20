@@ -15,7 +15,7 @@ public sealed record Metric(string Id, string Family, double[] Pct);
 
 /// <summary>
 /// Reads every input of the cycle school, read-only, from <c>strategy-lab-data</c>, and builds the
-/// capitulation score's metrics exactly as <c>docs/CYCLE_LOW_INDICATOR_DESIGN.md</c> section 5 and
+/// capitulation score's metrics exactly as <c>docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md</c> section 5 and
 /// the prereg addendum (A.3) fix them. Every macro value goes through <see cref="MacroPointInTime"/>
 /// (<c>ParseKnownCsv</c>, <c>ParseVintageCsv</c>, <c>AsOf</c>, <c>LatestKnown</c>) and is used on a bar
 /// only once its known-from date has come (<see cref="MapReleases"/>).

@@ -7,7 +7,7 @@ namespace AccessibleTrader.Tests
     /// <b>The cycle school decides every bar from what was known at that bar's close.</b>
     ///
     /// <para>
-    /// <c>docs/CYCLE_SCHOOL_PREREG.md</c> scores Camel's checklist and our capitulation score against
+    /// <c>docs/archive/CYCLE_SCHOOL_PREREG.md</c> scores Camel's checklist and our capitulation score against
     /// lows that a fixed rule confirms later. That only measures something if no rule peeks: a
     /// reference low may be used only from its confirming bar, a weekly input only once its week is
     /// complete, a percentile only against the past, and a macro number only from the day it was

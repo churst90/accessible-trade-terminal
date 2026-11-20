@@ -7,7 +7,7 @@ namespace AccessibleTrader.Tests;
 /// <b>A missing pane range never falls back to the PRICE range for an indicator pane.</b>
 ///
 /// <para>
-/// §5 of <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>. Both audio sites — navigation pitch and
+/// §5 of <c>docs/archive/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>. Both audio sites — navigation pitch and
 /// playback — read <c>state.PaneRanges[pane]</c> and, when the key was absent, used
 /// <c>state.ViewportRange</c>: the price range. For the Main pane that is the right answer by
 /// definition. For an oscillator it is a 0–100 value normalised against 99,900–100,100 — one flat

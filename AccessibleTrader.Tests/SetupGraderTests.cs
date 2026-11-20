@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// The setup grader's harness (<c>docs/SETUP_GRADER_PREREG.md</c>, <c>setup-grader</c>). The
+    /// The setup grader's harness (<c>docs/archive/SETUP_GRADER_PREREG.md</c>, <c>setup-grader</c>). The
     /// pre-registration names three ways the app's own machinery would have falsified this study:
     /// a weekly bar treated as closed once it opens, R computed from a stop that has since moved,
     /// and a missing exit harness. These tests pin the properties the study depends on, not the

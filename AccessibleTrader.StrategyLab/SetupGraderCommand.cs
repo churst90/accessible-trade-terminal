@@ -9,7 +9,7 @@ namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
 /// Stage 2 of the pre-registered setup grader for the Cipher B Buy dot
-/// (<c>docs/SETUP_GRADER_PREREG.md</c>, committed 0597d7de before any result existed). Every rule,
+/// (<c>docs/archive/SETUP_GRADER_PREREG.md</c>, committed 0597d7de before any result existed). Every rule,
 /// threshold, test, family and verdict rule is that document's; this class only computes them.
 ///
 /// <para>
@@ -141,7 +141,7 @@ public static class SetupGraderCommand
 
     public static async Task<int> RunAsync(string snapshotDir, bool countsOnly)
     {
-        Console.WriteLine("SETUP GRADER — pre-registered in docs/SETUP_GRADER_PREREG.md (0597d7de), stage 2");
+        Console.WriteLine("SETUP GRADER — pre-registered in docs/archive/SETUP_GRADER_PREREG.md (0597d7de), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
         // Its pre-registered rules read Cipher B's divergences (the grades' divergence layer) and its red dot (Overbought Crossover), which were removed on
         // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment

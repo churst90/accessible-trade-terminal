@@ -54,7 +54,7 @@ internal sealed class Mc3Sr
 }
 
 /// <summary>
-/// The pure parts of the round-3 Market Cipher setup grader (<c>docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>,
+/// The pure parts of the round-3 Market Cipher setup grader (<c>docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>,
 /// committed 97def0cc before any result): Cipher SR read causally on the entry bars, the location rule,
 /// the level's age and pivot bar, the placebo levels, the XR exit, and the 20,000-draw tests. Round 2's
 /// definitions (setups, contexts, triggers, the R harness, the controls, the noise) are reused from

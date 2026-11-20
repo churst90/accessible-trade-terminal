@@ -9,7 +9,7 @@ namespace AccessibleTrader.StrategyLab.Macro;
 /// <c>macro-fetch --only cftc</c>: the CFTC Traders in Financial Futures (TFF) history for the
 /// E-mini S&amp;P 500, the Nasdaq-100 mini and CME Bitcoin, plus the disaggregated report for COMEX
 /// gold, from the public annual archives on cftc.gov. Added 2026-10-18 for the cycle school (its
-/// positioning metric Q3, <c>docs/CYCLE_LOW_INDICATOR_DESIGN.md</c> 5.4).
+/// positioning metric Q3, <c>docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md</c> 5.4).
 ///
 /// <para><b>Contracts are chosen by CFTC contract code, never by name.</b> The older
 /// <c>cftc-cot</c> downloader matched a substring of the market name and kept the first row per

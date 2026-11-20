@@ -12,7 +12,7 @@ public readonly record struct Bar(DateOnly Day, double Open, double High, double
 public readonly record struct RefLow(int Low, int Confirm);
 
 /// <summary>
-/// The pure building blocks of the cycle-school study (<c>docs/CYCLE_SCHOOL_PREREG.md</c>), kept
+/// The pure building blocks of the cycle-school study (<c>docs/archive/CYCLE_SCHOOL_PREREG.md</c>), kept
 /// free of file access so the tests can pin each causal property on synthetic bars.
 ///
 /// <para><b>The trap this whole file is built around</b> (prereg section 2): a "cycle low" picked on

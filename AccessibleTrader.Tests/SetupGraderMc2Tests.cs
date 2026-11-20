@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// The round-2 Market Cipher setup grader (<c>docs/SETUP_GRADER_ROUND2_MC_PREREG.md</c>,
+    /// The round-2 Market Cipher setup grader (<c>docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md</c>,
     /// <c>setup-grader-mc2</c>). These pin the properties the study's numbers depend on, not the
     /// spelling of any line: the trigger-wave entry never fills before its trigger bar has closed;
     /// nothing at bar t (context, dot, anchor, void, trigger, the two secondary waits) changes when

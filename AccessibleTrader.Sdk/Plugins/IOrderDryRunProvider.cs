@@ -14,7 +14,7 @@ namespace AccessibleTrader.Sdk.Plugins
     /// <para>
     /// ── Why this exists ───────────────────────────────────────────────────────
     /// Nine order-construction defects across eight venues (see
-    /// <c>docs/PROVIDER_CONFORMANCE_SCOPE.md</c>) were all the wrong value in the wrong field of
+    /// <c>docs/archive/PROVIDER_CONFORMANCE_SCOPE.md</c>) were all the wrong value in the wrong field of
     /// an outgoing request, and every one was found after the fact. Several venues offer a
     /// dry-run form of their order endpoint — Kraken's <c>AddOrder validate=true</c>, Binance's
     /// <c>/api/v3/order/test</c>, Tradier's <c>preview=true</c> — which runs the venue's own

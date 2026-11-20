@@ -17,7 +17,7 @@ Where a rules file says nothing, this file says "nothing stated". It does not fi
 
 "Stated" means the trader says it in words. "Inferred from a worked example" means the trader never says it, but the example on screen implies it.
 
-The frozen setup grader (docs/SETUP_GRADER_PREREG.md) is the reference for "not in the grader". For stage 1 it uses:
+The frozen setup grader (docs/archive/SETUP_GRADER_PREREG.md) is the reference for "not in the grader". For stage 1 it uses:
 
 - Trigger: WT1 crosses above WT2 with WT2 at or below -60, entry at the next bar's open.
 - Context: the weekly body-trend and the weekly EMA10, EMA21 and SMA10 phase.

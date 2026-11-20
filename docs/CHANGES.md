@@ -31,6 +31,7 @@ Cody, 2026-11-20: "from the code review, start on each of the issues you found, 
 - **A wrong computer clock is said.** Venues sign requests with a timestamp and refuse one too far from their own time (Binance re-syncs itself; Coinbase, Kalshi and the rest just refuse, in words that do not say "clock"), and a wrong clock also misplaces the newest bar. Every venue's answer carries its `Date` header, so the plugin web clients on both heads now pass it to `ClockSkewMonitor`, which compares it with the middle of the round trip. Three answers in a row more than 15 seconds off the same way are said once a run: "This computer's clock is about 60 seconds fast next to Kraken's. Venues refuse signed orders when the clock is off, and the newest bar's time will be wrong. Set the clock to sync automatically." Cached answers (an `Age` header) are not counted; the figure said is the smallest of the three. On the hosted server the clock is the server's, so it is logged, not spoken to visitors. Tests: `ClockSkewMonitorTests`. Four sabotages, all red: one answer enough, cached answers counted, directions mixed, said every time; and a fifth with the desktop factory not reading the clock.
 - **`/healthz/deep` for the server's operator.** Plain text, a fact a line: version, uptime, memory, the clock against the venues', free disk under the data root (LOW under 10%), when the leaderboard was last written (STALE after 15 minutes). It answers only a request made on the server itself (loopback and no forwarded-for header); through nginx it is a 404. `/healthz` is unchanged. Tried on a local build: the report on a direct call, 404 with nginx's header, `/healthz` still "ok". Sabotage: the forwarded-for check removed, red. SERVER_SETUP shows it under the deploy checks. Not in it: per-venue connection state (each user's venue connections live in their own session, and the hosted terminal is paper-only) and the error-rate digest the review also suggested.
 - **A slow listener no longer freezes the practice account.** The paper broker sent each order event (filled, cancelled, stop moved) to its listeners while holding the account's lock, and the listeners are speech, the journal, the reconciliation record and, since today, the order log's file write. While one of them was busy, every other question to the account waited: positions, balances, another tab's bar. Shown first: a test whose listener holds a fill made `GetPositionsAsync` wait past two seconds. Events are now queued under the lock and sent once it is released, in the order the account changed, by one sender at a time, so two threads cannot reorder them. A listener that places an order of its own still hears it. Proven by four sabotages: sending inside the lock again (the new test went red), and taking the send out of placing, cancelling or a new bar (2, 1 and 11 paper tests went red). A side effect: a listener now sees the account as it settled, with a filled stop's other leg already cancelled and the file saved. Before, it heard the fill first.
+- **Old docs moved to `docs/archive/`.** Cody, 2026-11-20: "Clean up old docs, studies, etc and put them in the docs/archive directory." 106 files went: every study's findings and pre-registration, the research notes and ledgers, the September audits, report cards and reviews (and the two folders of accessibility reviews), the old plans and scopes, and the 2.1 to 2.4 release checklists. `docs/` keeps 30: the user's documents (manual, shortcuts, quick start, what's new), TODO and CHANGES, the server and release guides, the authoring guides, the designs of features that are live (Cipher C, Cycle Position, market events, chart patterns, keyed feeds, the sandbox, braille), the alpha ledger and the lab's design and data notes. Every link and repo path that named a moved file (in docs, code comments, tests, the lab's edge registry, the skills) was rewritten by a script that resolved each link from the file's old place; a link check found the same two broken links before and after, both older (`docs/braille/` naming a firmware email and folder that were never committed). `docs/archive/README.md` lists what is there and says the live records are one folder up. The test that every findings document has an edge record looked only in `docs/`, so after the move it would have checked nothing; it now looks in both and fails if it finds fewer than 20 (proven: pointed back at `docs/` alone, it went red). Left alone: `reports/` (the lab writes its output there) and the tracked `scratchpad/` harness output.
 
 Caveats: strategies with an ATR-multiple stop will place it at a slightly different distance than before, so replayed results for them can move a little. The ATR trailing stop (`ManagedExitRules.AtrTrailStop`) is still a plain mean on purpose, because the backtester and live trading share it; changing it is a question for Cody (TODO). MEXC's and Tradier's addresses are fixed in code, so their call sites are covered through the shared helper's test, not a provider-level test; Kraken's is tested end to end. The journal test of "UTC off" can only tell the clocks apart on a computer not set to UTC: it does here (Central time), not on CI.
 
@@ -5761,7 +5762,7 @@ about what is now Cycle Position.
 
 ### Hyperliquid research: can the terminal trade on it, with leverage? (2026-10-25)
 
-- `docs/HYPERLIQUID_RESEARCH.md`, saved from the Claude Doc
+- `docs/archive/HYPERLIQUID_RESEARCH.md`, saved from the Claude Doc
   https://claude.ai/artifact/ArWAdoRPAWy62CMESyVmgD. Research only. No code or tests changed.
 - Leverage, from the live `meta` API on 2026-10-25: BTC 40x, ETH 25x, SOL and XRP 20x, most of the
   178 crypto perps 3x to 10x. HIP-3 markets: stocks 20x, EUR and JPY 50x.
@@ -5922,7 +5923,7 @@ about what is now Cycle Position.
 - **What ran:** the four pre-registered tests of 2026-10-17 and 10-18 (Cipher A battery, setup
   grader rounds 1 to 3). They were run again, unchanged, on the Cipher A, B and SR that now match
   Market Cipher's own plotted values. The plan was written first
-  (`docs/EXACT_CIPHERS_RERUN_PREREG.md`); results in `docs/EXACT_CIPHERS_RERUN_FINDINGS.md`.
+  (`docs/archive/EXACT_CIPHERS_RERUN_PREREG.md`); results in `docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md`.
 - **Verdicts:** all four say No edge again, in every class. Nothing passes its own correction.
   - Round 1: the equities grade-C dot still passes inside round 1 (Holm 0.049, was 0.011); the veto
     no longer does.
@@ -7816,7 +7817,7 @@ Caveats:
   confluence that upgrades over later bars, the macro table and the Bullish Meter. Our confluence
   scoring is our own (CF does not publish its three parts).
 - CF's own SPX counts fall inside its stated window only about 22% of the time. This follows the
-  method; it does not show the method works (`docs/CYCLE_SCHOOL_FINDINGS.md`).
+  method; it does not show the method works (`docs/archive/CYCLE_SCHOOL_FINDINGS.md`).
 - No weekly chart with CF on it and no yearly cycle low was ever seen, so the weekly and yearly
   tiers on a weekly chart are not compared to CF at all.
 - The bar clock is measured from the last 500 bars. Under seven days of a crypto chart it reads as a
@@ -8242,8 +8243,8 @@ educator videos plus the 2026-10-16 Camel daily arrived after their rules files 
 Dated calls are recorded but not yet scored against prices (TODO).
 ### Setup grader round 3, Market Cipher with Cipher SR location: run as pre-registered, No edge (2026-10-18)
 
-`docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`. A new lab command, `setup-grader-mc3`, was built and
-run as `docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md` wrote it. The order is in the history: the harness
+`docs/archive/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`. A new lab command, `setup-grader-mc3`, was built and
+run as `docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md` wrote it. The order is in the history: the harness
 first, then the counts-only stage, then the full run.
 
 - **Round 2 reproduced first, exactly:** 334 setups and 158 trigger trades in crypto 4h, 70 and 33 in
@@ -8290,7 +8291,7 @@ first, then the counts-only stage, then the full run.
 
 ### The cycle school, stage 2: the extra data fetched, the 56 pre-registered tests run (2026-10-18)
 
-Results in `docs/CYCLE_SCHOOL_FINDINGS.md`; three new `edges.json` records and ledger rows 31 to 33 (renumbered at merge; row 30 is the Market Cipher round 2).
+Results in `docs/archive/CYCLE_SCHOOL_FINDINGS.md`; three new `edges.json` records and ledger rows 31 to 33 (renumbered at merge; row 30 is the Market Cipher round 2).
 
 - **Data first, before any outcome** (`macro-fetch --only labour,cftc`, new files only):
   - JOLTS quits rate, JOLTS openings and temporary help services jobs, with full ALFRED vintages;
@@ -8299,7 +8300,7 @@ Results in `docs/CYCLE_SCHOOL_FINDINGS.md`; three new `edges.json` records and l
     stamped at its release (`CftcReleaseCalendar`): the Friday, moved for holidays, the 2013, 2018-19
     and 2025 shutdowns and the 2023 ION incident, and never before the history was first posted
     (2010-12-03 for TFF).
-  - A dated addendum to `docs/CYCLE_SCHOOL_PREREG.md` put the new series into slots the design
+  - A dated addendum to `docs/archive/CYCLE_SCHOOL_PREREG.md` put the new series into slots the design
     already had (positioning Q3; macro M10 to M12, copying M9). It was committed before anything was
     computed.
 - **What the old COT files held** (checked value by value): `sp500_cot`, `nasdaq_cot` and `gold_cot`
@@ -8330,7 +8331,7 @@ Results in `docs/CYCLE_SCHOOL_FINDINGS.md`; three new `edges.json` records and l
 
 ### Setup grader round 3, Market Cipher with Cipher SR location: pre-registered, not run (2026-10-18)
 
-`docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`, stage 1 of 2, committed before any setup was counted, any
+`docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md`, stage 1 of 2, committed before any setup was counted, any
 Cipher SR value computed or any outcome seen. Round 2's method is kept exactly. The one new variable is
 location: is the Buy dot (or the trigger wave) at the current Cipher SR support? Casper and Geo say
 they put Market Cipher away until price is at a key level, and Cipher SR is Market Cipher's own level
@@ -8351,12 +8352,12 @@ tool. Quotes with timestamps are from Casper, Geo, Crypto Face, the official tut
   all 119 pre-registered tests of rounds 1 to 3 (39, 51 and 29). "Supported" also needs the held-out era
   (2023 on) to agree in sign, keep half the size, reach p 0.10 by itself and have 30 events. The
   pre-registration says that the primary class was chosen after round 2's results were known.
-- Run the same day: see the entry above and `docs/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`.
+- Run the same day: see the entry above and `docs/archive/SETUP_GRADER_ROUND3_MC_SR_FINDINGS.md`.
 
 ### Setup grader round 2, the Market Cipher school: run as pre-registered, No edge (2026-10-18)
 
-`docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md`. A new lab command, `setup-grader-mc2`, built and run as
-`docs/SETUP_GRADER_ROUND2_MC_PREREG.md` wrote it. The order is in the history: the harness first,
+`docs/archive/SETUP_GRADER_ROUND2_MC_FINDINGS.md`. A new lab command, `setup-grader-mc2`, built and run as
+`docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md` wrote it. The order is in the history: the harness first,
 then the counts-only stage, then the full run.
 
 - **Verdict: No edge in crypto and equities** for all three questions:
@@ -8400,7 +8401,7 @@ then the counts-only stage, then the full run.
 Stage 1 of 2. Documents only: no code, and **no forward return, outcome, hit rate or event count
 was computed** for any rule. A later agent runs the tests.
 
-- **`docs/CAMEL_METHOD.md`**: Camel Finance's method in his own words, with a timestamped link for
+- **`docs/archive/CAMEL_METHOD.md`**: Camel Finance's method in his own words, with a timestamped link for
   every claim and a tag on each (testable now, needs data we lack, not testable). It covers how he
   calls a low in real time (window first, price gates said in advance, early confirmations, a
   sentiment check, then his indicator confirms late), the checklist and how its required count
@@ -8412,14 +8413,14 @@ was computed** for any rule. A later agent runs the tests.
     unverified. "Bracketing cross" is the lab's phrase, not his.
   - No Bob Loukas material exists in the corpus (the one item was a 404); Loukas appears only as
     Camel quotes him.
-- **`docs/CYCLE_LOW_INDICATOR_DESIGN.md`**: a from-scratch indicator with the CF indicator's outputs
+- **`docs/archive/CYCLE_LOW_INDICATOR_DESIGN.md`**: a from-scratch indicator with the CF indicator's outputs
   (pending, confirmed, cancelled, updated, a grade) and no fitted weights. Seven metric families
   (price at several lengths, breadth, volatility, positioning, sentiment, on-chain, macro and
   liquidity), each metric an expanding-window percentile, equal-weighted within and then across
   families into a 0 to 100 capitulation score. Every metric names its file, its sign, its known-from
   rule and a staleness limit. It says plainly that most inputs measure "price fell a lot" and that
   two or three families are really independent.
-- **`docs/CYCLE_SCHOOL_PREREG.md`**: 56 tests in six families with Holm inside each, all numbers
+- **`docs/archive/CYCLE_SCHOOL_PREREG.md`**: 56 tests in six families with Holm inside each, all numbers
   frozen. (a) Camel's checklist against lows confirmed later by one fixed rule, against chance, random
   swing lows and shuffled-bar surrogates; (b) the capitulation score against chance and against its
   own price-only version; (c) six macro theses (strong jobs print with falling yields, hot CPI with
@@ -8427,12 +8428,12 @@ was computed** for any rule. A later agent runs the tests.
   descriptive table); (d) trading versions that cannot rescue a failed detector. Development era to
   2022, held-out 2023 on, and a plain "no edge" definition with the reframings it forbids. Cycle
   lengths are never scored, because the lab showed they come from the detector.
-- **`docs/CAMEL_TRACK_RECORD.md`** (the August 2026 ledger) is now committed. It had been gitignored
+- **`docs/archive/CAMEL_TRACK_RECORD.md`** (the August 2026 ledger) is now committed. It had been gitignored
   as personal notes; Cody asked for research material to be committed, so the ignore line is gone.
 
 ### Setup grader round 2, the Market Cipher school: pre-registered, not run (2026-10-18)
 
-`docs/SETUP_GRADER_ROUND2_MC_PREREG.md`, stage 1 of 2, committed before any setup was counted or any
+`docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md`, stage 1 of 2, committed before any setup was counted or any
 outcome computed. Round 1 mixed Tim's weekly trend with a Market Cipher dot and graded the dot before
 any confirmation; this round uses Market Cipher B tools only and the sources' own words, with a quote
 and timestamp for every rule (Crypto Face, the official channels, Jayson Casper, Dylan Waves, Trader
@@ -8580,8 +8581,8 @@ fixture, and in scratch on the same history extended to 2026-10-18 from Bitstamp
 
 ### The setup grader for the Cipher B Buy dot: run as pre-registered (2026-10-18)
 
-Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:
-`docs/SETUP_GRADER_FINDINGS.md`; ALPHA_LEDGER row 29; `edges.json` record
+Stage 2 of the pre-registered study in `docs/archive/SETUP_GRADER_PREREG.md`. Results:
+`docs/archive/SETUP_GRADER_FINDINGS.md`; ALPHA_LEDGER row 29; `edges.json` record
 `cipherb-setup-grader-hierarchy` (Falsified).
 
 - **New lab command `setup-grader`** (`SetupGraderCommand.cs`, `SetupGraderCore.cs`). It builds its
@@ -8608,7 +8609,7 @@ Stage 2 of the pre-registered study in `docs/SETUP_GRADER_PREREG.md`. Results:
 
 ### Three lab defects verified and fixed: R after a stop move, higher-timeframe look-ahead, COT dated early (2026-10-18)
 
-All three came from the setup-grader pre-registration's lab notes (`docs/SETUP_GRADER_PREREG.md`
+All three came from the setup-grader pre-registration's lab notes (`docs/archive/SETUP_GRADER_PREREG.md`
 section 2.2). Each was shown with a test that failed on the old code, then fixed, then the test was
 seen red again by putting the bug back.
 
@@ -10017,7 +10018,7 @@ framework always passes a real one, and the base methods are no-ops. They now re
 
 Hosted notes §7g: 0 crashes, 0 dumps, 0 unscheduled restarts across 389.7 service-hours since the
 `ChartRenderer.cs:82` fix, against ~5.4 expected unfixed (P ≈ 0.004). Recorded on
-`docs/REPORT_CARD_2026-09-13.md`, with the server agent's caveat that `394a5c66` rewrote the
+`docs/archive/REPORT_CARD_2026-09-13.md`, with the server agent's caveat that `394a5c66` rewrote the
 renderer on 2026-09-12.
 
 ## [2.12.0] — 2026-09-22
@@ -10197,7 +10198,7 @@ Measured from a screenshot of a maximised 1280×781 window carrying Candles + Vo
 the terminal's own chrome took **394 CSS px** and the chart got **279** — 41.5% of the app.
 TradingView's equivalent vertical chrome is about 70. The pane weighting could not show at all,
 because three indicator panes at their 80px floor consumed the stack and the crowded rebalance
-flattened every pane to an equal quarter. Scope in `docs/CHART_REAL_ESTATE_SCOPE.md`; every step
+flattened every pane to an equal quarter. Scope in `docs/archive/CHART_REAL_ESTATE_SCOPE.md`; every step
 of it landed the same day, across four commits (`16e21add`, `6365de5d`, `a8b817c1`, `24d16179`).
 
 - **A guard first.** `ChartClaimsItsShareOfTheWindowTests` measures the chart's share of the
@@ -11283,7 +11284,7 @@ cannot catch it — the declaration does exist.
   and the state mapper — so each exemption is a claim that can be checked rather than trusted,
   and a second test fails if an exemption ever names a property that no longer exists.
 
-**`docs/REPORT_CARD_2026-09-13.md`** — the third graded pass. Alerts and monitoring D → C+ → **B**
+**`docs/archive/REPORT_CARD_2026-09-13.md`** — the third graded pass. Alerts and monitoring D → C+ → **B**
 (the notifier seam the last card asked for is built, across four phases); data flow and providers
 → **B** (the conformance suite went 33 rows red on its first run); trading-live → **B** (the
 Gemini sandbox run means "never exercised against a live venue" is no longer true); drawing and

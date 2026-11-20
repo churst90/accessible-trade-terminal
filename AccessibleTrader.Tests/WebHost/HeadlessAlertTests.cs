@@ -13,7 +13,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// browser closed, driven through the real monitor poll.</b>
 ///
 /// <para>
-/// docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F3 measured the defect: the monitor handed the
+/// docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F3 measured the defect: the monitor handed the
 /// evaluator <c>WorkspaceState.Initial</c> — no <c>Data</c>, no <c>ActiveSeries</c>, a fresh
 /// empty crossover memory every poll — and then REFUSED every alert that would have read them,
 /// so four of its five "cannot watch this in the background" reasons described the monitor's

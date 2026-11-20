@@ -351,9 +351,9 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
-    Console.WriteLine("  StrategyLab setup-grader --snapshots <dir> [--counts-only]   # pre-registered (docs/SETUP_GRADER_PREREG.md)");
-    Console.WriteLine("  StrategyLab setup-grader-mc2 --snapshots <dir> [--counts-only]   # round 2, Market Cipher school (docs/SETUP_GRADER_ROUND2_MC_PREREG.md)");
-    Console.WriteLine("  StrategyLab setup-grader-mc3 --snapshots <dir> [--counts-only] [--priors exact]   # round 3 (--priors exact: rounds 1-2 as re-run on the exact Ciphers), Market Cipher with Cipher SR location (docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md)");
+    Console.WriteLine("  StrategyLab setup-grader --snapshots <dir> [--counts-only]   # pre-registered (docs/archive/SETUP_GRADER_PREREG.md)");
+    Console.WriteLine("  StrategyLab setup-grader-mc2 --snapshots <dir> [--counts-only]   # round 2, Market Cipher school (docs/archive/SETUP_GRADER_ROUND2_MC_PREREG.md)");
+    Console.WriteLine("  StrategyLab setup-grader-mc3 --snapshots <dir> [--counts-only] [--priors exact]   # round 3 (--priors exact: rounds 1-2 as re-run on the exact Ciphers), Market Cipher with Cipher SR location (docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md)");
     Console.WriteLine("  Any command: --cipherb old  refused since 2026-10-31 (the pre-2026-10-17 Cipher B's settings were removed; build 2e86d377 to re-run it)");
     Console.WriteLine("  Any command: --cipher-candles ha  computes Cipher A, Cipher B and Cipher SR as on a Heikin-Ashi chart (exploratory; entries, stops, ATR and fills stay on the real bars)");
     Console.WriteLine("  StrategyLab combo --snapshot <path> --entry <id> --filter <id> --filter-op <Op> --filter-value <num>");

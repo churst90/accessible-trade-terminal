@@ -148,9 +148,12 @@ namespace AccessibleTrader.Tests
             // The registry's whole purpose is that nothing stays trapped in prose. If a new findings
             // document lands without an edge record, this fails and says which one.
             var root = RepoRoot();
-            var docs = Directory.GetFiles(Path.Combine(root, "docs"), "*_FINDINGS.md")
-                .Select(f => "docs/" + Path.GetFileName(f))
+            // Finished studies move to docs/archive/ (2026-11-20); they still need their edge record.
+            var docs = new[] { "docs", "docs/archive" }
+                .SelectMany(dir => Directory.GetFiles(Path.Combine(root, dir), "*_FINDINGS.md")
+                    .Select(f => dir + "/" + Path.GetFileName(f)))
                 .ToList();
+            Assert.True(docs.Count >= 20, $"Only {docs.Count} findings documents found; the search is looking in the wrong place.");
             var cited = Registry().Edges.Select(e => e.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var orphans = docs.Where(d => !cited.Contains(d)).ToList();

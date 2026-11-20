@@ -5,7 +5,7 @@ A professional-grade trading and analytics platform specifically engineered for 
 The same Razor component library is hosted two ways:
 
 - **.NET 10 MAUI Blazor Hybrid** on Windows / macOS / iOS / Android. Native `SKCanvasView` chart overlay, platform-native audio (WASAPI / AudioTrack / AVAudioEngine), and platform-native screen reader integration.
-- **ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`)** on Linux and any browser-reachable target. Same `ChartRenderer` paints to an in-memory SKBitmap that's PNG-encoded and streamed to an `<img>` element; speech routes through Orca's D-Bus `PresentMessage` (respecting the user's voxin/SpeechDispatcher voice config), with `spd-say` and browser `SpeechSynthesis` as fallbacks. As of v1.2.0 the WebHost is **multi-user** (every browser connection is its own DI scope → isolated session), and as of v1.3.0 it can run as a logged-in, **paper-trading education terminal** (`--accounts`): self-hosted accounts persist each user's settings, sound design, workspaces, and paper record, with real-money trading reserved for the desktop client. It's also the deploy target for the public-website chart demo. See [`WEBHOST_MULTI_USER_SCOPING.md`](WEBHOST_MULTI_USER_SCOPING.md), [`HOSTED_ACCOUNTS_STRATEGY.md`](HOSTED_ACCOUNTS_STRATEGY.md), and [`SERVER_SETUP.md`](SERVER_SETUP.md).
+- **ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`)** on Linux and any browser-reachable target. Same `ChartRenderer` paints to an in-memory SKBitmap that's PNG-encoded and streamed to an `<img>` element; speech routes through Orca's D-Bus `PresentMessage` (respecting the user's voxin/SpeechDispatcher voice config), with `spd-say` and browser `SpeechSynthesis` as fallbacks. As of v1.2.0 the WebHost is **multi-user** (every browser connection is its own DI scope → isolated session), and as of v1.3.0 it can run as a logged-in, **paper-trading education terminal** (`--accounts`): self-hosted accounts persist each user's settings, sound design, workspaces, and paper record, with real-money trading reserved for the desktop client. It's also the deploy target for the public-website chart demo. See [`WEBHOST_MULTI_USER_SCOPING.md`](archive/WEBHOST_MULTI_USER_SCOPING.md), [`HOSTED_ACCOUNTS_STRATEGY.md`](archive/HOSTED_ACCOUNTS_STRATEGY.md), and [`SERVER_SETUP.md`](SERVER_SETUP.md).
 
 Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and all 35 data providers (18 trading + 17 analytics). The MAUI/desktop head is unchanged by the WebHost and stays single-user (Singleton-scoped) — the host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`, and the per-circuit scoping lives only in the WebHost's DI registration.
 
@@ -13,7 +13,7 @@ Diagrams of all of this — architecture, hosting topology, the data/order/feedb
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.13.1** — a Windows installer and a one-folder Windows zip, on 2.13.0: Cipher A, B and SR match Market Cipher's own values, Cipher C finds cycle lows on the chart's own clock, Cipher DBSI is new, and Kalshi, Hyperliquid and Coinbase futures can be traded, untried with money) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.13.1** — a Windows installer and a one-folder Windows zip, on 2.13.0: Cipher A, B and SR match Market Cipher's own values, Cipher C finds cycle lows on the chart's own clock, Cipher DBSI is new, and Kalshi, Hyperliquid and Coinbase futures can be traded, untried with money) and [`RELEASE_2.4.0_VERIFICATION.md`](archive/RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -195,7 +195,7 @@ What postdated that tag is in the 2.10.0 section above.
 
 Two things 2.9.0 could not verify on the machine it was built on: the Windows toast notifier
 was still only compiled, never run, and the two-layout Alt+Shift question on Windows needs a Windows
-box. Both are in `docs/TODO.md`, along with `docs/BACKGROUND_MONITOR_SCOPE.md` — the scoped plan
+box. Both are in `docs/TODO.md`, along with `docs/archive/BACKGROUND_MONITOR_SCOPE.md` — the scoped plan
 for receiving notifications with the browser closed on every head. Phases 0 to 3 of that plan
 are on `main` since 2026-09-11: alerts, order events, bar closes and the narration ladder all
 reach you with no browser open. Phase 4 (also on `main`, post-tag) settled the routing policy —
@@ -208,7 +208,7 @@ terminal a voice; this one is about the places that voice was silent while the u
 asked for it, and every item on it was reachable from the same question — *did the thing it is
 supposed to produce actually appear?*
 
-*Since the tag:* the graded pass over every area is [`REPORT_CARD_2026-09-05.md`](REPORT_CARD_2026-09-05.md)
+*Since the tag:* the graded pass over every area is [`REPORT_CARD_2026-09-05.md`](archive/REPORT_CARD_2026-09-05.md)
 (real-money readiness D+ → B-; workspace persistence held at C+ because this pass found that N and M on
 a component were undone by every restart). What postdates 2.7.0 is under `## [Unreleased]` in
 [`CHANGES.md`](CHANGES.md); none of it is in the 2.7.0 binaries.
@@ -489,7 +489,7 @@ reintroducing it and watching a test go red.** The ones worth knowing about:
 is closed — the candidates and the reasoning are in the START HERE block at the top of
 [`TODO.md`](TODO.md), which is the authoritative order. Read that before picking anything up. Of the two
 items that carried across the 2.4.0 tag in
-[`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md), the **stale mutation catch rate is
+[`RELEASE_2.4.0_VERIFICATION.md`](archive/RELEASE_2.4.0_VERIFICATION.md), the **stale mutation catch rate is
 now closed** — re-measured 2026-08-28 at **89.3%**, with the three surviving mutants filed as the
 next work — while the StrategyLab's flagship statistic remains **banner-marked provisional and owed
 a re-run**: p = 0.0045 tested the winner of a 16-cell grid, and the survivorship stress beside it
@@ -599,7 +599,7 @@ fills between oscillator-pair boundaries stay visual-only), ARIA tree arrow-
 key navigation with meaningful labels on strategy + object trees. 577/577
 tests green. See `CHANGES.md` 2026-04-24.
 
-**Status (2026-11-05).** 35 data providers: 18 in `Plugins/Providers/` (14 trading venues and 4 market-data feeds) and 17 analytics in `Plugins/Analytics/`; indicator drop-in via `Plugins/Indicators/`. The tree carries no shared exchange SDK: Binance and MEXC call the exchange REST and WebSocket APIs directly, and a CI guard (`PluginDependencyIsolationTests`) fails the build if two plugins resolve the same third-party assembly at different versions. All trading, analytics and LLM providers send their requests through `IPluginHttpClientFactory` with per-provider outbound-host allow-lists. `PluginTrustPolicy.RequireTrusted` is `true`: unverified plugin DLLs are refused unless `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1` is set for development. User-compiled Roslyn indicators and strategies run in an OS-sandboxed worker process (Windows AppContainer, macOS `sandbox-exec`, Linux `bwrap`, Android isolated service); iOS refuses them. Five GitHub Actions workflows exist: `tests.yml` (full suite), `doc-drift.yml`, `plugin-manifest.yml`, `release.yml` and `diagnostic-build.yml`; a push triggers three of them. All green (12182 tests) as of 2026-11-20. The history of how each part got here is in `CHANGES.md` and `archive/CHANGES_HISTORY.md`.
+**Status (2026-11-05).** 35 data providers: 18 in `Plugins/Providers/` (14 trading venues and 4 market-data feeds) and 17 analytics in `Plugins/Analytics/`; indicator drop-in via `Plugins/Indicators/`. The tree carries no shared exchange SDK: Binance and MEXC call the exchange REST and WebSocket APIs directly, and a CI guard (`PluginDependencyIsolationTests`) fails the build if two plugins resolve the same third-party assembly at different versions. All trading, analytics and LLM providers send their requests through `IPluginHttpClientFactory` with per-provider outbound-host allow-lists. `PluginTrustPolicy.RequireTrusted` is `true`: unverified plugin DLLs are refused unless `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1` is set for development. User-compiled Roslyn indicators and strategies run in an OS-sandboxed worker process (Windows AppContainer, macOS `sandbox-exec`, Linux `bwrap`, Android isolated service); iOS refuses them. Five GitHub Actions workflows exist: `tests.yml` (full suite), `doc-drift.yml`, `plugin-manifest.yml`, `release.yml` and `diagnostic-build.yml`; a push triggers three of them. All green (12249 tests) as of 2026-11-20. The history of how each part got here is in `CHANGES.md` and `archive/CHANGES_HISTORY.md`.
 
 ### Security hardening (2026-04-16 → 2026-04-17, complete)
 
@@ -731,7 +731,7 @@ See `TODO.md` for the full Phase 10 + Linux WebHost L5–L7 roadmap and `PLATFOR
 
 The terminal ships as **two heads that cover different platforms — they are not
 redundant, and both are needed.** The full rationale is in
-[`PLATFORM_STRATEGY_AND_ROADMAP.md`](PLATFORM_STRATEGY_AND_ROADMAP.md); the short
+[`PLATFORM_STRATEGY_AND_ROADMAP.md`](archive/PLATFORM_STRATEGY_AND_ROADMAP.md); the short
 version:
 
 - **Use the MAUI app** on **Windows, macOS, iOS, and Android.** It is the *only* way
@@ -767,7 +767,7 @@ Built with **.NET 10**. Two hosts share the same component library and core.
 - **ScriptSandbox:** `AccessibleTrader.ScriptSandbox` — shared host/worker IPC contract (frame codec + opcodes + message DTOs).
 - **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators and strategies in a separate OS process.
 - **StrategyLab:** `AccessibleTrader.StrategyLab` — headless research CLI over snapshot data. Falsifies strategy claims against recorded controls; carries the spec catalogue and each spec's provenance. See [`LAB_DESIGN.md`](LAB_DESIGN.md) and [`STRATEGY_CATALOGUE.md`](STRATEGY_CATALOGUE.md).
-- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (12182 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus eight zero-dependency JS suites (`node tools/jstests/*.mjs`, 161 tests, every one of them in CI): the gesture engine (21), the keydown trap and rebind capture (85), which assert on `preventDefault` and stopped propagation, something no C# test can observe; the ARIA tree keyboard model behind the Object Tree (25); the WebHost's circuit start and reconnection back-off (8); what is announced while the circuit is down (5); the desktop head's canvas rect (7); the browser audio sink (5); and the browser voice, push enrolment and notification tags (5). All of them run in CI.
+- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (12249 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus eight zero-dependency JS suites (`node tools/jstests/*.mjs`, 161 tests, every one of them in CI): the gesture engine (21), the keydown trap and rebind capture (85), which assert on `preventDefault` and stopped propagation, something no C# test can observe; the ARIA tree keyboard model behind the Object Tree (25); the WebHost's circuit start and reconnection back-off (8); what is announced while the circuit is down (5); the desktop head's canvas rect (7); the browser audio sink (5); and the browser voice, push enrolment and notification tags (5). All of them run in CI.
 
 - **Diagrams:** [`Diagrams/`](../Diagrams/README.md) — fourteen Mermaid sources: four at user-manual altitude (the chart layout, where an announcement goes, the background monitor, a trade from start to finish) and ten covering architecture, hosting topology, the data / navigation / order / feedback paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging. Each has a prose summary in the index; change both together.
 

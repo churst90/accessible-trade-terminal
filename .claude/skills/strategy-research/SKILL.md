@@ -149,7 +149,7 @@ Pick the ones that apply. Each has changed a verdict here.
 - **Asset-class polarity is real and large.** Crypto trends (VR20 1.150), equities revert (0.820).
   But no single continuous variable reproduces it: drawdown depth and realised volatility
   rank-correlate 0.96 and neither partial clears, and the sign *reverses* inside crypto. Keep the
-  hard class fork; do not ship a continuous polarity switch. (`docs/POLARITY_AND_GATE_FINDINGS.md`)
+  hard class fork; do not ship a continuous polarity switch. (`docs/archive/POLARITY_AND_GATE_FINDINGS.md`)
 - **Price-derived confluence does not stack.** Eight versions of pure-Cipher confluence
   walk-forwarded to break-even; structure labels were indistinguishable from random. S/R, fibs,
   swing points, candle patterns, market structure and the Cipher oscillators are all transforms of
@@ -159,48 +159,48 @@ Pick the ones that apply. Each has changed a verdict here.
   on mean-reversion entries in equities: +0.10R/trade over a random baseline (p=0.0002), but it
   **collapses under noise injection** (21% retained at 25% noise vs 86% for cross-sectional
   momentum), one era shows nothing, and survivorship biases it the flattering way. A sensible
-  default, not an edge. (`docs/CROWDING_FINDINGS.md`, `docs/POLARITY_AND_GATE_FINDINGS.md`)
+  default, not an edge. (`docs/archive/CROWDING_FINDINGS.md`, `docs/archive/POLARITY_AND_GATE_FINDINGS.md`)
 - **The Trading Cross** (z-score momentum) is real but is drawdown-avoidance: 10/10 crypto beat
-  hold, 0/3 traditional. (`docs/TRADING_CROSS_FINDINGS.md`)
+  hold, 0/3 traditional. (`docs/archive/TRADING_CROSS_FINDINGS.md`)
 - **Cross-sectional momentum WORKS in equities — the strongest result here.** Rank 39 names by
   trailing return, hold the top third: beats a random-selection portfolio 8/8 at 180–365d lookbacks,
   monotone in lookback, per-period spread p = 0.0045. Null in crypto (underpowered, 10 names) and
   null in a mixed universe even vol-normalised — never rank a trending class against a reverting
-  one. Not yet costed or delisting-adjusted. (`docs/XSMOMENTUM_FINDINGS.md`)
+  one. Not yet costed or delisting-adjusted. (`docs/archive/XSMOMENTUM_FINDINGS.md`)
 - **Volume confirms in crypto, reverses in equities.** Trailing return/volume correlation, top-minus-
   bottom quintile: crypto +1.26 ATR (p=0.0002, survives inside every trend tercile), equity −0.19 ATR
   (p=0.0002). "20× volume day = capitulation = buy" is rejected and runs backwards in crypto and
-  commodities. (`docs/VOLUME_FINDINGS.md`)
+  commodities. (`docs/archive/VOLUME_FINDINGS.md`)
 - **The 60d/40d cycle is a swing-detector artifact.** Return-shuffled surrogates reproduce the cycle
   length on every asset and land in the claimed timing band more often than real data. Mean gap is
   near-linear in the detector's span. Translation (high late vs early) is momentum in cycle
-  vocabulary and splits crypto/equity like everything else. (`docs/CYCLE_FINDINGS.md`)
+  vocabulary and splits crypto/equity like everything else. (`docs/archive/CYCLE_FINDINGS.md`)
 - **On-chain (MVRV, NVT): carries non-price information but is NOT an edge.** MVRV is monotone
   across z quintiles (−1.11 ATR, p=0.0002) while its matched price/SMA baseline predicts nothing
   (0.00, p=0.986) despite correlating 0.752 with it — so it genuinely contains something price does
   not. But as a rule it **fails the exposure-matched null on all 6 symbol-metric pairs** (best
   p=0.143), loses to buy-and-hold on 5 of 6, and ETH gets 8× *better* under noise injection.
-  (`docs/ONCHAIN_FINDINGS.md`)
+  (`docs/archive/ONCHAIN_FINDINGS.md`)
 - **Positioning is null from both available sources.** Exchange funding/OI and regulated CFTC COT.
   On COT, the S&P and Nasdaq — ~90% correlated indices — gave *opposite* signals at p=0.0002 and
-  p=0.017. Stop testing positioning. (`docs/POSITIONING_AND_EVENTS_FINDINGS.md`)
+  p=0.017. Stop testing positioning. (`docs/archive/POSITIONING_AND_EVENTS_FINDINGS.md`)
 - **Exits: skill exists, crypto-only, and it is the entry signal in reverse.** Signal exit beats a
   random same-length exit 32× on BTC (p=0.003) and 4.35× on ETH (p=0.034); nothing beats random on
   SPY or QQQ. All mechanical exits (fixed R, ATR trails, time stops) are worthless everywhere.
-  (`docs/EXIT_FINDINGS.md`)
+  (`docs/archive/EXIT_FINDINGS.md`)
 - **BTC trend-following: the family works, the tuning does not.** Out-of-sample ~1.5–1.8× hold at
   ~40% exposure and about half the drawdown — but a random parameter pick beat the grid search, so
   the specific window/entry/exit values carry nothing. The 6× in `BTC_STRATEGY.md` is in-sample.
-  (`docs/WALKFORWARD_FINDINGS.md`)
+  (`docs/archive/WALKFORWARD_FINDINGS.md`)
 - **Macro release DATES are a null; FOMC was not.** CPI/NFP/PPI/GDP on real FRED dates gave 2 of 20
   significant release-day cells across 60 tests (~3 expected by chance), both TLT, neither near
   Bonferroni. FOMC gave four US equity vehicles at the SAME offset with the same sign. The likely
   reason: FOMC is a policy *action*; CPI/NFP are *data* the market spends the interval forecasting,
-  so the SURPRISE moves price, not the date. (`docs/MACRO_EVENT_FINDINGS.md`)
+  so the SURPRISE moves price, not the date. (`docs/archive/MACRO_EVENT_FINDINGS.md`)
 - **FOMC decision-day drift is real, replicates, and has decayed.** Day-0 excess of +0.17% to +0.27%
   across four US equity vehicles at the same offset, absent in gold and crypto; survives an
   exposure- and weekday-matched null at 3 bps. But ~70% is gone post-2015. Event dates live in
-  `strategy-lab-data/events_fomc.json`. (`docs/FOMC_FINDINGS.md`)
+  `strategy-lab-data/events_fomc.json`. (`docs/archive/FOMC_FINDINGS.md`)
 - **The asset-class polarity has now been measured five independent ways** — POC deviation, Value
   Deviation, the Trading Cross, volume, and cycle translation. It is the most robust finding here.
 - **A low-calling checklist must beat SHUFFLED prices, not just random swing lows.** Camel's
@@ -208,7 +208,7 @@ Pick the ones that apply. Each has changed a verdict here.
   lows in every class, and scores the same on shuffled-bar surrogates: items that need price to have
   rallied already pre-select the lows a "confirmed by a rally" rule rewards. A capitulation score with
   sentiment, positioning, on-chain and macro data did no better than its price family alone, and no
-  Camel macro thesis survived Holm. (`docs/CYCLE_SCHOOL_FINDINGS.md`)
+  Camel macro thesis survived Holm. (`docs/archive/CYCLE_SCHOOL_FINDINGS.md`)
 - **Failed outright:** all four Cosasverdes claims; Cipher SR proximity (lookahead artifact).
 
 ## Hypothesis generation from hindsight

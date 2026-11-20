@@ -12,7 +12,7 @@ namespace AccessibleTrader.Tests.WebHost;
 
 /// <summary>
 /// Pins the hosted-accounts auth configuration (AddHostedAccounts) against the
-/// documented policy in docs/SERVER_SETUP.md and docs/HOSTED_AUTH_PERSISTENCE_DESIGN.md:
+/// documented policy in docs/SERVER_SETUP.md and docs/archive/HOSTED_AUTH_PERSISTENCE_DESIGN.md:
 /// 10-char length-over-symbol-soup passwords, per-account lockout after 10 failures,
 /// and a Secure + HttpOnly + SameSite=Lax auth cookie with 14-day sliding expiry that
 /// sends unauthenticated visitors to the accessible login page. Follows the

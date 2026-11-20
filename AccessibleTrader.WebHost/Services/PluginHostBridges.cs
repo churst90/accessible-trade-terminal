@@ -26,7 +26,7 @@ namespace AccessibleTrader.WebHost.Services
     /// Coinbase, MEXC) branch on <c>PluginHostServices.ApiKeys == null</c> and fall back to
     /// credentials stashed in long-lived <c>Configure</c>-populated fields. With the bridge
     /// null, the whole per-request credential-checkout migration
-    /// (<c>docs/CREDENTIAL_CHECKOUT_MIGRATION.md</c>) was inert on this head — including
+    /// (<c>docs/archive/CREDENTIAL_CHECKOUT_MIGRATION.md</c>) was inert on this head — including
     /// local <c>HostMode.Full</c>, the one WebHost mode that trades real money with real
     /// keys. That was the entire point of the migration: shrink the window a credential is
     /// GC-reachable from "lifetime of the app" to "lifetime of one sign operation".

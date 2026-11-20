@@ -30,7 +30,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// <summary>
     /// <b>ONE saved chart, with the browser closed.</b> The state the narration ladder and the
     /// alert evaluator both need, composed per chart without a store — design (B) of
-    /// docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §2.
+    /// docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md §2.
     ///
     /// <para>
     /// ── What it is ─────────────────────────────────────────────────────────────

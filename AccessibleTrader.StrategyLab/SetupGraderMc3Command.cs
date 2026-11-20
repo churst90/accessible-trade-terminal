@@ -10,7 +10,7 @@ namespace AccessibleTrader.StrategyLab;
 
 /// <summary>
 /// Stage 2 of the round-3 setup grader: the Market Cipher school with Cipher SR as the location
-/// (<c>docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>, committed 97def0cc before any result existed).
+/// (<c>docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md</c>, committed 97def0cc before any result existed).
 /// Every rule, threshold, test, family, gate and verdict rule is that document's; this class only
 /// computes them. Command: <c>setup-grader-mc3 [--counts-only]</c>.
 ///
@@ -75,8 +75,8 @@ public static class SetupGraderMc3Command
     internal static readonly (string Cls, int Setups, int E1)[] Round2Dev =
         { ("crypto4h", 334, 158), ("crypto", 70, 33), ("equities", 1_423, 721) };
 
-    /// <summary>The same counts from round 2 re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_PREREG.md,
-    /// section 3 step 4; printed in docs/EXACT_CIPHERS_RERUN_FINDINGS.md step 3). Chosen by <c>--priors exact</c>.</summary>
+    /// <summary>The same counts from round 2 re-run on the exact Ciphers (docs/archive/EXACT_CIPHERS_RERUN_PREREG.md,
+    /// section 3 step 4; printed in docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md step 3). Chosen by <c>--priors exact</c>.</summary>
     internal static readonly (string Cls, int Setups, int E1)[] Round2DevExact =
         { ("crypto4h", 260, 131), ("crypto", 59, 28), ("equities", 1_176, 586) };
 
@@ -154,7 +154,7 @@ public static class SetupGraderMc3Command
 
     public static async Task<int> RunAsync(string snapshotDir, bool countsOnly, string priors = "10-18")
     {
-        Console.WriteLine("SETUP GRADER ROUND 3, MARKET CIPHER WITH CIPHER SR LOCATION — pre-registered in docs/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc), stage 2");
+        Console.WriteLine("SETUP GRADER ROUND 3, MARKET CIPHER WITH CIPHER SR LOCATION — pre-registered in docs/archive/SETUP_GRADER_ROUND3_MC_SR_PREREG.md (97def0cc), stage 2");
         Console.WriteLine(LabCipherProfile.Describe());
         // Its pre-registered rules read Cipher B's divergences (exit X4, the bearish divergence), which were removed on
         // 2026-10-31 (not Market Cipher B's): a run today would be a different experiment
@@ -174,8 +174,8 @@ public static class SetupGraderMc3Command
         }
         var exact = priors == "exact";
         Console.WriteLine(exact
-            ? "Earlier rounds: --priors exact — rounds 1 and 2 as re-run on the exact Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md), for the plumbing check and the cross-round Holm"
-            : "Earlier rounds: the 10-18 runs (docs/SETUP_GRADER_FINDINGS.md, docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md)");
+            ? "Earlier rounds: --priors exact — rounds 1 and 2 as re-run on the exact Ciphers (docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md), for the plumbing check and the cross-round Holm"
+            : "Earlier rounds: the 10-18 runs (docs/archive/SETUP_GRADER_FINDINGS.md, docs/archive/SETUP_GRADER_ROUND2_MC_FINDINGS.md)");
         Console.WriteLine($"Snapshots: {Path.GetFullPath(snapshotDir)} (read only)");
         var files = Crypto4h.Concat(CryptoDaily).Concat(EquityNames.Select(e => $"yahoo_{e}_1d.json")).ToList();
         var missing = files.Where(f => !File.Exists(Path.Combine(snapshotDir, f))).ToList();
@@ -746,7 +746,7 @@ public static class SetupGraderMc3Command
         if (exact) return EarlierRoundsExact();
         var l = new List<(string, string, double)>();
         void A(string r, string id, double p) => l.Add((r, id, p));
-        // Round 1 (docs/SETUP_GRADER_FINDINGS.md): primary 8, secondary 12, macro 5, exits 10, fallback 4.
+        // Round 1 (docs/archive/SETUP_GRADER_FINDINGS.md): primary 8, secondary 12, macro 5, exits 10, fallback 4.
         A("R1", "P1-crypto", 1); A("R1", "P2-crypto", 1); A("R1", "P3-crypto", 0.765); A("R1", "P4-crypto", 1);
         A("R1", "P1-equities", 1); A("R1", "P2-equities", 0.476); A("R1", "P3-equities", 0.0014); A("R1", "P4-equities", 1);
         A("R1", "S1-crypto", 0.923); A("R1", "S1-equities", 0.0024); A("R1", "S2-crypto", 1); A("R1", "S2-equities", 1);
@@ -756,7 +756,7 @@ public static class SetupGraderMc3Command
         foreach (var x in new[] { "X1", "X2", "X3", "X4", "X5" }) A("R1", $"{x}-crypto", 1);
         A("R1", "X1-equities", 0.242); A("R1", "X2-equities", 0.647); A("R1", "X3-equities", 0.376); A("R1", "X4-equities", 0.413); A("R1", "X5-equities", 0.488);
         A("R1", "AuB-equities", 0.53); A("R1", "AuB-C-equities", 0.84); A("R1", "AuB-crypto", 1); A("R1", "AuB-C-crypto", 1);
-        // Round 2 (docs/SETUP_GRADER_ROUND2_MC_FINDINGS.md): P 6, G 8, S 19, X 16, fallback 2.
+        // Round 2 (docs/archive/SETUP_GRADER_ROUND2_MC_FINDINGS.md): P 6, G 8, S 19, X 16, fallback 2.
         A("R2", "P1-crypto", 0.719); A("R2", "P2-crypto", 0.067); A("R2", "P3-crypto", 0.075);
         A("R2", "P1-equities", 0.095); A("R2", "P2-equities", 0.063); A("R2", "P3-equities", 0.601);
         A("R2", "GA-E0-crypto", 1); A("R2", "GO-E0-crypto", 1); A("R2", "GA-E1-crypto", 1); A("R2", "GO-E1-crypto", 1);
@@ -775,7 +775,7 @@ public static class SetupGraderMc3Command
     }
 
     /// <summary>The same 39 and 51 tests, with the raw p printed by rounds 1 and 2 re-run on the exact
-    /// Ciphers (docs/EXACT_CIPHERS_RERUN_FINDINGS.md, steps 4 and 5; p = 1 where not testable). The
+    /// Ciphers (docs/archive/EXACT_CIPHERS_RERUN_FINDINGS.md, steps 4 and 5; p = 1 where not testable). The
     /// re-run prints round 2's raw exit p, so those enter at their value, not at 1 as in the 10-18 table.</summary>
     internal static List<(string Round, string Id, double P)> EarlierRoundsExact()
     {

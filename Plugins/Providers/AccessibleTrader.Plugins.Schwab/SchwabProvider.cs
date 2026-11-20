@@ -760,7 +760,7 @@ namespace AccessibleTrader.Plugins.Schwab
         /// conformance suite asserts the two decoded orders are identical.</para>
         ///
         /// <para><b>What this is for.</b> Two things about Schwab's order form are recorded
-        /// UNVERIFIED in <c>docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md</c>: the
+        /// UNVERIFIED in <c>docs/archive/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md</c>: the
         /// <c>duration: "GTC"</c> spelling on every bracket (the published enum reads
         /// <c>GOOD_TILL_CANCEL</c>) and whether option legs need <c>BUY_TO_OPEN</c>-style
         /// instructions. Schwab has no sandbox, so this endpoint is the only way to settle either

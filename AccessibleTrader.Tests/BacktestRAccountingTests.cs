@@ -23,7 +23,7 @@ namespace AccessibleTrader.Tests
     /// </para>
     ///
     /// <para>
-    /// The definition pinned here is the one <c>docs/SETUP_GRADER_PREREG.md</c> section 2.2 sets
+    /// The definition pinned here is the one <c>docs/archive/SETUP_GRADER_PREREG.md</c> section 2.2 sets
     /// out: per position, the sum over its exits of (portion × (exit − entry)) ÷ (entry − initial
     /// stop). The expected values below are worked by hand from the fixture, not recomputed with
     /// the production formula.

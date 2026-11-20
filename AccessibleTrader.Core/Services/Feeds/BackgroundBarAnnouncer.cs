@@ -21,7 +21,7 @@ namespace AccessibleTrader.Core.Services.Feeds
     /// <b>A user who opened four charts to watch four markets was told about bar closes on one
     /// of them</b> — and the feature table recorded that as working, because it had been read at
     /// the subscriber and never traced to the publisher.
-    /// See docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F1.
+    /// See docs/archive/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F1.
     /// </para>
     ///
     /// <para>

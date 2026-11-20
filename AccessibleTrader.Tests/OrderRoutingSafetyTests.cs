@@ -14,7 +14,7 @@ namespace AccessibleTrader.Tests
 {
     /// <summary>
     /// <b>Which key signs, which host receives, and the one refusal that stands between a
-    /// mislabelled key and real money.</b> See <c>docs/ORDER_ROUTING_SAFETY_SCOPE.md</c>.
+    /// mislabelled key and real money.</b> See <c>docs/archive/ORDER_ROUTING_SAFETY_SCOPE.md</c>.
     ///
     /// <para>
     /// The defect these pin is not exotic. Six venues have no practice environment at all, so a

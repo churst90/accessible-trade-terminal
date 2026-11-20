@@ -5,7 +5,7 @@ using AccessibleTrader.Tests.OrderConformance;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// <b>The provider conformance suite</b> — `docs/PROVIDER_CONFORMANCE_SCOPE.md` §4, built.
+    /// <b>The provider conformance suite</b> — `docs/archive/PROVIDER_CONFORMANCE_SCOPE.md` §4, built.
     ///
     /// <para>
     /// Nine defects across eight venues were the same bug: the wrong value in the wrong field of an
@@ -343,7 +343,7 @@ namespace AccessibleTrader.Tests
         /// Where the venue has no practice environment, a Paper credential either refuses outright
         /// (Kraken Futures, whose demo is gone) or — today — signs against the live host. The second
         /// group is pinned BY NAME so that it cannot grow unnoticed; shrinking it is the decision
-        /// recorded in docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md.
+        /// recorded in docs/archive/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md.
         /// </summary>
         [Theory]
         [MemberData(nameof(RigsWithoutPracticeHost))]

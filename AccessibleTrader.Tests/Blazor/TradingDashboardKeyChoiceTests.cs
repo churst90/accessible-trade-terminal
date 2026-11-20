@@ -1,6 +1,6 @@
 // The trading dashboard's account identity: which key signs, and whether the user is TOLD.
 //
-// Three defects, all in one control and one gate (docs/ORDER_ROUTING_SAFETY_SCOPE.md):
+// Three defects, all in one control and one gate (docs/archive/ORDER_ROUTING_SAFETY_SCOPE.md):
 //
 //   1. "Switch API Key" flipped IsActive and announced a switch. The credential that signed
 //      came from a lookup blind to that flag, and the HOST stayed whatever the startup loop had
