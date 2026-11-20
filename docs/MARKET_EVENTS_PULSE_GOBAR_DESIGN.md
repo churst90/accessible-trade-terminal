@@ -1,9 +1,9 @@
 # Market events, market pulse and the Go bar — design
 
 Written 2026-11-18 from a discussion with Cody about what a Bloomberg Terminal gives a trader that this
-terminal does not. **Stages 1, 2, 3a, 3b, 4a, 5a and 5b are built (2026-11-18); stage 1 has been tried
-by Cody and stages 2, 3a, 3b, 4a, 5a and 5b have not been heard yet. Stage 4b, the rest of stage 5
-(5c), stage 6 and the rest are not built** except where a stage below says it is. This is the plan and
+terminal does not. **Stages 1, 2, 3a, 3b, 4a, 5a and 5b are built (2026-11-18) and 4b (2026-11-20);
+stage 1 has been tried by Cody and the others have not been heard yet. The rest of stage 5 (5c),
+stage 6 and the rest are not built** except where a stage below says it is. This is the plan and
 the reasons, so a later session (or a sub-agent) does not have to re-derive them.
 
 ## Why these three
@@ -420,7 +420,19 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
      dates (as stage 3a already did); an upcoming release whose FRED event carries no figures
      gains an expected-only figure row so the countdown can say it; with no Kalshi market the
      event is left exactly as stage 3b had it.
-   - **4b OPEN: earnings (Finnhub, Cody's key).**
+   - **4b BUILT 2026-11-20, not yet heard by Cody.** `MarketEventEarningsFeed` reads, per stock
+     on an open chart, Finnhub's `calendar/earnings` (±120 days) and `stock/earnings` (the last
+     four quarters) with the user's key, and EDGAR's recent filings; `EarningsEvents.Build` makes
+     one event per report day: Exact at the 8-K item 2.02 acceptance minute when EDGAR has it,
+     otherwise DayOnly with a `MarketEventSession` from Finnhub's hour (bmo / amc). An amc report
+     goes on the day's last intraday bar worded "after the close", a bmo one on the first bar;
+     daily bars keep decision 1. Figures are EPS (with the previous quarter) and revenue, each
+     against "analysts on Finnhub". Events carry a `Symbol`: the bar map filters by the chart's
+     symbol (and keys on it), and the live notices and Alt+E "only touching" count a report only
+     while one of its company's charts is open. **Differences from the plan:** dividends and splits
+     are not built; older quarters come only where EDGAR dates them (Finnhub's free history has no
+     report date); no countdowns for day-only reports; the user's own key only, because Finnhub's
+     terms forbid sharing one.
    - **Token unlocks BLOCKED:** DefiLlama's emissions/unlocks API now answers "Upgrade to the
      paid API plan" (checked 2026-11-18); needs a paid source or Cody's decision.
    - **Fed expected rate OPEN:** Kalshi has KXFED, but our Fed events carry no figures yet, so

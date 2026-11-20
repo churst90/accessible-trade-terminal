@@ -10,6 +10,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         Expiry,
         Holiday,
         Halving,
+        /// <summary>A company's quarterly report (stage 4b): on that company's charts only.</summary>
+        Earnings,
     }
 
     /// <summary>How much it matters, in the three levels the setting can gate.</summary>
@@ -27,11 +29,27 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         DayOnly,
     }
 
+    /// <summary>
+    /// Where in the trading day a day-only event falls, when its source says so but gives no
+    /// time: Finnhub's earnings calendar marks a report "bmo" (before market open) or "amc" (after
+    /// market close). Spoken as those words, never as an invented clock time.
+    /// </summary>
+    public enum MarketEventSession
+    {
+        None,
+        BeforeOpen,
+        AfterClose,
+    }
+
     /// <summary>What a figure is measured in. Percentages are spoken to one decimal; thousands are whole.</summary>
     public enum MarketEventFigureUnit
     {
         Percent,
         Thousands,
+        /// <summary>Earnings per share, in the company's reporting currency, to the cent.</summary>
+        PerShare,
+        /// <summary>Revenue: spoken in billions or millions to one decimal.</summary>
+        Money,
     }
 
     /// <summary>
@@ -48,7 +66,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// <summary>
     /// One figure from a release: what was published, the figure it is measured against, its
     /// unit and which way is hot. A null actual means that source had nothing for this release.
-    /// <see cref="Expected"/> is Kalshi's median outcome, or null when no market was stored.
+    /// <see cref="Expected"/> is Kalshi's median outcome, or null when no market was stored; for
+    /// earnings it is the analysts' consensus Finnhub publishes. <see cref="ExpectedBy"/> is said
+    /// with it, because the source always travels with the number.
     /// </summary>
     public sealed record MarketEventFigure(
         string Name,
@@ -56,7 +76,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         double? Previous,
         MarketEventFigureUnit Unit,
         MarketEventFigureDirection Direction,
-        double? Expected = null);
+        double? Expected = null,
+        string ExpectedBy = "Kalshi");
 
     /// <summary>
     /// The figures carried by one event. <see cref="EstimateNumber"/> and <see cref="Period"/> are
@@ -110,10 +131,20 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         MarketEventPrecision Precision,
         DateOnly Date,
         string Source,
-        MarketEventFigures? Figures = null)
+        MarketEventFigures? Figures = null,
+        string? Symbol = null,
+        MarketEventSession Session = MarketEventSession.None)
     {
         /// <summary>True when the event touches a chart of <paramref name="market"/>.</summary>
         public bool Touches(MarketType market) => Scope.Contains(market);
+
+        /// <summary>
+        /// True when the event belongs on a chart of <paramref name="symbol"/>: every market-wide
+        /// event does, a company's earnings only on that company's own charts.
+        /// </summary>
+        public bool IsFor(string? symbol)
+            => Symbol == null
+               || string.Equals(Symbol, symbol, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// True when the time could be known but this record does not carry it: an expiry or a
@@ -123,18 +154,21 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         /// </summary>
         public bool TimeCouldBeKnownButIsNot =>
             Precision == MarketEventPrecision.DayOnly
-            && Kind is MarketEventKind.Economy or MarketEventKind.Fed or MarketEventKind.Halving;
+            && Session == MarketEventSession.None
+            && Kind is MarketEventKind.Economy or MarketEventKind.Fed or MarketEventKind.Halving
+                or MarketEventKind.Earnings;
     }
 
-    /// <summary>The five kind tick boxes, as one value so they travel together.</summary>
+    /// <summary>The six kind tick boxes, as one value so they travel together.</summary>
     public readonly record struct MarketEventKindFilter(
         bool Economy,
         bool Fed,
         bool Expiries,
         bool Holidays,
-        bool Halvings)
+        bool Halvings,
+        bool Earnings = true)
     {
-        public static MarketEventKindFilter All => new(true, true, true, true, true);
+        public static MarketEventKindFilter All => new(true, true, true, true, true, true);
 
         public bool Includes(MarketEventKind kind) => kind switch
         {
@@ -142,6 +176,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             MarketEventKind.Fed => Fed,
             MarketEventKind.Expiry => Expiries,
             MarketEventKind.Holiday => Holidays,
+            MarketEventKind.Earnings => Earnings,
             _ => Halvings,
         };
     }

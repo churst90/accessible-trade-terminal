@@ -149,9 +149,16 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     e, next, CameOut(eventDate));
             }
 
-            // 6. A day-only event goes on the day's first bar, whatever its time of day.
+            // 6. A day-only event goes on the day's first bar, whatever its time of day — unless
+            // its source says which side of the session it falls (an earnings report "before the
+            // open" or "after the close"): then the day's first or last bar, worded so.
             if (e.Precision == MarketEventPrecision.DayOnly)
-                return Finish(e, bars, first, placement: null, nowUtc);
+                return e.Session switch
+                {
+                    MarketEventSession.BeforeOpen => Finish(e, bars, first, BeforeTheOpen, nowUtc),
+                    MarketEventSession.AfterClose => Finish(e, bars, last, AfterTheClose, nowUtc),
+                    _ => Finish(e, bars, first, placement: null, nowUtc),
+                };
 
             // 2. Same day, outside the session: before the first bar, after the last one.
             var moment = AsUtc(e.MomentUtc);

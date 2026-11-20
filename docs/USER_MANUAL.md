@@ -1695,11 +1695,28 @@ happened — the same bar TradingView puts it on — and tell you about it.
 Narration → Market events on the chart**. The **Level** setting inside **Market events on the
 chart** chooses how much you hear: **Off**, **Important only** (CPI, the jobs report, Fed
 decisions and Bitcoin halvings), **Important and medium** (adds PPI, GDP and the quarterly
-expiries), or **All**. Below **Level**, five tick boxes choose the kinds:
-**Economy** (CPI, jobs, PPI, GDP), **Fed**, **Expiries**, **Holidays** and **Bitcoin halvings**. All
-five start ticked; a kind you untick is never spoken or jumped to. Events are filtered to the
-chart's own market: a crypto chart never mentions a stock expiry, and a stock chart never mentions
-a halving.
+expiries), or **All**. Below **Level**, six tick boxes choose the kinds:
+**Economy** (CPI, jobs, PPI, GDP), **Fed**, **Expiries**, **Holidays**, **Bitcoin halvings** and
+**Company earnings, on that company's charts**. All six start ticked; a kind you untick is never
+spoken or jumped to. Events are filtered to the chart's own market: a crypto chart never mentions a
+stock expiry, and a stock chart never mentions a halving.
+
+**Company earnings** are on a stock's own charts only: Apple's reports are on AAPL, never on MSFT.
+They need your **Finnhub** key (free, from finnhub.io, added in **API Keys**); without one the
+**Market events** screen (`Alt+E`) says *"Earnings unavailable, Finnhub key not set."* Finnhub
+gives the report day, whether it is before the open or after the close, and the EPS and revenue
+against the analysts' estimates. A report after the close sits on that day's last bar, one before
+the open on its first bar, and a daily chart puts it on the report day, as TradingView does. When
+SEC EDGAR has the company's results filing (an 8-K with item 2.02), the event takes that filing's
+exact minute instead. On the bar you hear *"AAPL earnings after the close, EPS 1.85, beat 1.77
+expected, revenue 102.5 billion, beat 102.2 billion expected"*, or *"as expected"*, or *"missed"*.
+`Alt+Shift+D` adds who made the estimate ("by analysts on Finnhub") and the quarter before's EPS.
+Finnhub's calendar holds only the most recent report and the coming ones; older quarters appear
+only where EDGAR dates their results filing (EDGAR lists a company's twenty newest filings), so a
+busy filer's older reports may be missing rather than guessed. Each company is read when its chart
+or the **Market events** screen is first opened, then every six hours; a restart reads again. A
+coming report has no countdown, because Finnhub gives a day and a session, not a minute; the
+Headlines notice says the results filing the minute EDGAR has it.
 
 **What you hear on a bar.** Arrowing onto a bar that has an event appends a short clause after the
 price reading: *"CPI 8:30"*, *"Fed decision 2 pm"*, *"CPI 8:30, before the open"*, *"Bitcoin

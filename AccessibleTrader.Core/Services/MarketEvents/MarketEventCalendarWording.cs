@@ -28,9 +28,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         public static string LongDate(DateOnly day)
             => day.ToString("d MMMM yyyy", CultureInfo.InvariantCulture);
 
-        /// <summary>"all day" for a day-only event, otherwise the time on the F12 clock.</summary>
+        /// <summary>"all day" for a day-only event, otherwise the time on the F12 clock. A
+        /// company's report says "before the open", "after the close" or "time not given" instead:
+        /// it is never all day.</summary>
         public static string TimeWord(MarketEvent e)
-            => e.Precision == MarketEventPrecision.DayOnly
+            => e.Precision == MarketEventPrecision.DayOnly && e.Kind != MarketEventKind.Earnings
                 ? "all day"
                 : MarketEventSpeech.TimeText(e);
 
@@ -131,7 +133,9 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             string figure = e.Figures != null ? MarketEventSpeech.FigureClause(e) : "";
             if (figure.Length == 0) figure = "no figure";
-            figure += MarketEventSpeech.ExpectedSuffix(MarketEventSpeech.PrimaryFigureWithExpected(e));
+            // An earnings figure clause already says each estimate beside its number.
+            if (e.Kind != MarketEventKind.Earnings)
+                figure += MarketEventSpeech.ExpectedSuffix(MarketEventSpeech.PrimaryFigureWithExpected(e));
 
             string line = $"{LongDate(e.Date)}, {figure}";
             return bar is { } drawn ? line + "; " + MarketEventSpeech.PriceSentence(drawn) : line + ".";

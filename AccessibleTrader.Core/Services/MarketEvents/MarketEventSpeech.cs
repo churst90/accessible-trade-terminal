@@ -102,11 +102,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 text += ", " + figures;
                 // The surprise word follows the figure it already reads. No expected figure
                 // means the stage-one clause is unchanged.
-                string surprise = PrimarySurprise(e);
+                string surprise = e.Kind == MarketEventKind.Earnings ? "" : PrimarySurprise(e);
                 if (surprise.Length > 0) text += ", " + surprise;
             }
 
-            if (!string.IsNullOrEmpty(placement.Placement))
+            // "AAPL earnings after the close" already said where it falls.
+            if (!string.IsNullOrEmpty(placement.Placement) && placement.Placement != TimeText(e))
                 text += ", " + placement.Placement;
             return text;
         }
@@ -120,6 +121,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             var figures = e.Figures;
             if (figures == null) return "";
+            if (e.Kind == MarketEventKind.Earnings) return EarningsClause(figures);
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -180,6 +182,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             var figures = e.Figures;
             if (figures == null) return "";
+            if (e.Kind == MarketEventKind.Earnings)
+                return Find(figures, EarningsEvents.EpsName)?.Previous is double epsPrevious
+                    ? "previous quarter EPS " + PerShareValue(epsPrevious)
+                    : "";
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -219,6 +225,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             var figures = e.Figures;
             if (figures == null) return "Figure: unavailable.";
+            if (e.Kind == MarketEventKind.Earnings) return EarningsDetail(figures);
 
             var cpi = Find(figures, "CPI");
             var core = Find(figures, "core CPI");
@@ -315,10 +322,11 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             if (figure.Actual is not double actual || figure.Expected is not double expected)
                 return "";
 
-            int decimals = figure.Unit == MarketEventFigureUnit.Thousands ? 0 : 1;
-            double a = Math.Round(actual, decimals, MidpointRounding.AwayFromZero);
-            double e = Math.Round(expected, decimals, MidpointRounding.AwayFromZero);
+            double a = Rounded(figure.Unit, actual);
+            double e = Rounded(figure.Unit, expected);
             if (a == e) return "as expected";
+            if (figure.Unit is MarketEventFigureUnit.PerShare or MarketEventFigureUnit.Money)
+                return a > e ? "beat estimates" : "missed estimates";
 
             bool higher = a > e;
             return figure.Direction switch
@@ -335,6 +343,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         public static string ShortSurpriseWord(MarketEventFigure figure)
         {
             string word = SurpriseWord(figure);
+            if (word.EndsWith(" estimates", StringComparison.Ordinal))
+                return word[..^" estimates".Length];
             return word.EndsWith(" than expected", StringComparison.Ordinal)
                 ? word[..^" than expected".Length]
                 : word;
@@ -344,16 +354,93 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         public static string ExpectedValue(MarketEventFigure figure)
         {
             if (figure.Expected is not double expected) return "";
-            return figure.Unit == MarketEventFigureUnit.Thousands
-                ? ThousandsPhrase(expected)
-                : expected.ToString("0.0", CultureInfo.InvariantCulture);
+            return Value(figure.Unit, expected);
+        }
+
+        /// <summary>A figure's number in its own unit's words: "0.3", "up 128 thousand",
+        /// "2.10", "114.5 billion".</summary>
+        private static string Value(MarketEventFigureUnit unit, double value) => unit switch
+        {
+            MarketEventFigureUnit.Thousands => ThousandsPhrase(value),
+            MarketEventFigureUnit.PerShare => PerShareValue(value),
+            MarketEventFigureUnit.Money => MoneyValue(value),
+            _ => value.ToString("0.0", CultureInfo.InvariantCulture),
+        };
+
+        /// <summary>A figure rounded to the step it is said in, so the surprise word never
+        /// disagrees with the two numbers the user hears.</summary>
+        private static double Rounded(MarketEventFigureUnit unit, double value) => unit switch
+        {
+            MarketEventFigureUnit.Thousands => Math.Round(value, 0, MidpointRounding.AwayFromZero),
+            MarketEventFigureUnit.PerShare => Math.Round(value, 2, MidpointRounding.AwayFromZero),
+            MarketEventFigureUnit.Money => MoneyStep(value) is var step and > 0
+                ? Math.Round(value / step, 1, MidpointRounding.AwayFromZero) * step
+                : Math.Round(value, 0, MidpointRounding.AwayFromZero),
+            _ => Math.Round(value, 1, MidpointRounding.AwayFromZero),
+        };
+
+        private static double MoneyStep(double value)
+        {
+            double abs = Math.Abs(value);
+            return abs >= 1e9 ? 1e9 : abs >= 1e6 ? 1e6 : 0;
+        }
+
+        private static string PerShareValue(double value)
+            => value.ToString("0.00", CultureInfo.InvariantCulture);
+
+        /// <summary>"114.5 billion", "350.2 million", or the whole number below a million.</summary>
+        private static string MoneyValue(double value)
+        {
+            double step = MoneyStep(value);
+            if (step == 0) return value.ToString("#,0", CultureInfo.InvariantCulture);
+            string word = step == 1e9 ? "billion" : "million";
+            return (value / step).ToString("0.0", CultureInfo.InvariantCulture) + " " + word;
+        }
+
+        /// <summary>
+        /// The arrow keys' earnings figures, each beside its estimate: "EPS 2.10, beat 2.03
+        /// expected, revenue 114.5 billion, missed 115.7 billion expected". Empty before the
+        /// report, when there is no actual to read.
+        /// </summary>
+        private static string EarningsClause(MarketEventFigures figures)
+        {
+            var parts = new List<string>(2);
+            foreach (string name in new[] { EarningsEvents.EpsName, EarningsEvents.RevenueName })
+            {
+                if (Find(figures, name) is not { Actual: double actual } figure) continue;
+                string text = $"{name} {Value(figure.Unit, actual)}";
+                string word = ShortSurpriseWord(figure);
+                if (word == "as expected") text += ", as expected";
+                else if (word.Length > 0) text += $", {word} {ExpectedValue(figure)} expected";
+                parts.Add(text);
+            }
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>The detail key's earnings lines: each figure with its estimate and source,
+        /// and the quarter before.</summary>
+        private static string EarningsDetail(MarketEventFigures figures)
+        {
+            var parts = new List<string>(3);
+            var eps = Find(figures, EarningsEvents.EpsName);
+            parts.Add(eps?.Actual is double epsActual
+                ? $"Figure: EPS {PerShareValue(epsActual)}{ExpectedSuffix(eps)}."
+                : "Figure: EPS unavailable" + ExpectedSuffix(eps) + ".");
+            parts.Add(eps?.Previous is double previous
+                ? $"Previous quarter: EPS {PerShareValue(previous)}."
+                : "Previous quarter: unavailable.");
+            var revenue = Find(figures, EarningsEvents.RevenueName);
+            parts.Add(revenue?.Actual is double revenueActual
+                ? $"Revenue: {MoneyValue(revenueActual)}{ExpectedSuffix(revenue)}."
+                : "Revenue: unavailable" + ExpectedSuffix(revenue) + ".");
+            return string.Join(" ", parts);
         }
 
         /// <summary>"expected 0.3, by Kalshi" — the source always travels with the number.</summary>
         public static string ExpectedClause(MarketEventFigure figure)
         {
             string value = ExpectedValue(figure);
-            return value.Length == 0 ? "" : $"expected {value}, by Kalshi";
+            return value.Length == 0 ? "" : $"expected {value}, by {figure.ExpectedBy}";
         }
 
         /// <summary>The inline detail suffix: ", expected 0.3, by Kalshi, hotter than expected".</summary>
@@ -370,7 +457,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         public static string ExpectedShort(MarketEvent e)
         {
             var figure = PrimaryFigureWithExpected(e);
-            return figure == null ? "" : "expected " + ExpectedValue(figure);
+            if (figure == null) return "";
+            // "EPS expected 2.96": a company's estimate is not one number the name implies.
+            return (e.Kind == MarketEventKind.Earnings ? figure.Name + " " : "")
+                + "expected " + ExpectedValue(figure);
         }
 
         /// <summary>The word for the headline figure alone; core CPI gets its own in the detail.</summary>
@@ -397,7 +487,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             var figures = e.Figures;
             if (figures == null) return null;
-            foreach (string name in new[] { "payrolls", "CPI", "PPI", "GDP", "unemployment", "core CPI" })
+            foreach (string name in new[] { "payrolls", "CPI", "PPI", "GDP", "unemployment", "core CPI",
+                         EarningsEvents.EpsName, EarningsEvents.RevenueName })
             {
                 var figure = Find(figures, name);
                 if (figure != null && test(figure)) return figure;
@@ -415,9 +506,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             var figure = PrimaryExpectedFigure(e);
             if (figure?.Actual is not double actual || figure.Expected is not double expected)
                 return "";
-            string value = figure.Unit == MarketEventFigureUnit.Thousands
-                ? ThousandsPhrase(actual)
-                : actual.ToString("0.0", CultureInfo.InvariantCulture);
+            string value = Value(figure.Unit, actual);
             return $"{figure.Name} {value}, expected {ExpectedValue(figure)}, "
                 + ShortSurpriseWord(figure);
         }
@@ -495,6 +584,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         {
             if (e.Precision == MarketEventPrecision.Exact)
                 return SpeechTimeFormatter.FormatTime(e.MomentUtc);
+            if (e.Session == MarketEventSession.BeforeOpen) return MarketEventPlacement.BeforeTheOpen;
+            if (e.Session == MarketEventSession.AfterClose) return MarketEventPlacement.AfterTheClose;
             return e.TimeCouldBeKnownButIsNot ? "time not given" : "";
         }
 
@@ -531,9 +622,10 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 var e = p.Event;
                 string time = TimeText(e);
                 if (time.Length == 0) time = "day only";
+                string where = p.Placement == null || p.Placement == time ? "on this bar" : p.Placement;
                 parts.Add(
                     $"{e.LongName}, {time}, {ImportanceWord(e.Importance)} importance, "
-                    + $"{p.Placement ?? "on this bar"}, {e.Source}.");
+                    + $"{where}, {e.Source}.");
                 parts.Add(FigureDetail(e));
             }
             parts.Add(PriceSentence(barAsDrawn));

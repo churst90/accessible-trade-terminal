@@ -555,6 +555,22 @@ namespace AccessibleTrader.WebHost
                     sp.GetRequiredService<AccessibleTrader.Sdk.Services.IApiKeyCheckout>()));
             services.AddScoped<ICompanyNameSource>(sp =>
                 (ICompanyNameSource)sp.GetRequiredService<ICompanyProfileSource>());
+            // Market events, stage 4b: a company's earnings on its own charts, from Finnhub's
+            // calendar and EPS history with the user's own Finnhub key (Finnhub's terms allow no
+            // shared key), timed to the minute by EDGAR's results filing.
+            services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.IFinnhubEarningsClient>(sp =>
+                new AccessibleTrader.Core.Services.MarketEvents.FinnhubEarningsHttpClient(
+                    AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+                        "MarketEvents.FinnhubEarnings",
+                        new[] { "finnhub.io" },
+                        userAgent: "AccessibleTrader/2.2 (accessible-trade-terminal)"),
+                    sp.GetRequiredService<AccessibleTrader.Sdk.Services.IApiKeyCheckout>()));
+            services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.MarketEventEarningsFeed>(sp =>
+                new AccessibleTrader.Core.Services.MarketEvents.MarketEventEarningsFeed(
+                    sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.IFinnhubEarningsClient>(),
+                    (ICompanyFilingSource)sp.GetRequiredService<ICompanyProfileSource>()));
+            services.AddScoped<AccessibleTrader.Core.Services.MarketEvents.IMarketEventEarningsFeed>(sp =>
+                sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.MarketEventEarningsFeed>());
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.INewsSource>(sp =>
                 new AccessibleTrader.Core.Services.Headlines.CombinedNewsSource(
                     new AccessibleTrader.Core.Services.Headlines.AlpacaNewsRestSource(

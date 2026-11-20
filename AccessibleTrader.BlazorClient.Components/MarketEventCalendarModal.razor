@@ -37,8 +37,11 @@
             <p style="color:var(--text-muted); font-size:0.9em; margin: 4px 0 4px 0;">
                 @_status
             </p>
-            <p style="color:var(--text-muted); font-size:0.9em; margin: 0 0 12px 0;">
+            <p style="color:var(--text-muted); font-size:0.9em; margin: 0 0 4px 0;">
                 @_kalshiStatus
+            </p>
+            <p style="color:var(--text-muted); font-size:0.9em; margin: 0 0 12px 0;">
+                @_earningsStatus
             </p>
 
             <div role="group" aria-label="Filters"
@@ -82,6 +85,10 @@
                     <label for="mec-halvings" style="margin-left:8px;">
                         <input id="mec-halvings" type="checkbox" checked="@_halvings"
                                @onchange="e => SetKind(Kind.Halvings, e.Value is bool b && b)" /> Bitcoin halvings
+                    </label>
+                    <label for="mec-earnings" style="margin-left:8px;">
+                        <input id="mec-earnings" type="checkbox" checked="@_earnings"
+                               @onchange="e => SetKind(Kind.Earnings, e.Value is bool b && b)" /> Company earnings
                     </label>
                 </fieldset>
                 <label for="mec-touching">
@@ -168,7 +175,7 @@
 }
 
 @code {
-    private enum Kind { Economy, Fed, Expiries, Holidays, Halvings }
+    private enum Kind { Economy, Fed, Expiries, Holidays, Halvings, Earnings }
 
     private sealed record DayGroup(DateOnly Day, IReadOnlyList<MarketEvent> Events);
 
@@ -176,6 +183,7 @@
 
     private string _status = "";
     private string _kalshiStatus = "";
+    private string _earningsStatus = "";
     private string _range = "next7";
     private string _importance = "importantOnly";
     private bool _economy = true;
@@ -183,6 +191,7 @@
     private bool _expiries = true;
     private bool _holidays = true;
     private bool _halvings = true;
+    private bool _earnings = true;
     private bool _onlyTouching;
     private DateTime _now = DateTime.UtcNow;
     private IReadOnlyList<DayGroup> _days = Array.Empty<DayGroup>();
@@ -193,6 +202,8 @@
     private bool _feedResolved;
     private MarketEventKalshiFeed? _kalshi;
     private bool _kalshiResolved;
+    private IMarketEventEarningsFeed? _earningsFeed;
+    private bool _earningsResolved;
     private MarketEventCalendar? _calendar;
     private MarketEventLiveNotices? _live;
     private bool _liveResolved;
@@ -226,9 +237,22 @@
         }
     }
 
+    private IMarketEventEarningsFeed? EarningsFeed
+    {
+        get
+        {
+            if (!_earningsResolved)
+            {
+                _earningsFeed = Services.GetService(typeof(IMarketEventEarningsFeed)) as IMarketEventEarningsFeed;
+                _earningsResolved = true;
+            }
+            return _earningsFeed;
+        }
+    }
+
     private MarketEventCalendar Calendar
         => _calendar ??= Services.GetService(typeof(MarketEventCalendar)) as MarketEventCalendar
-            ?? new MarketEventCalendar(feed: Feed, expectedFeed: Kalshi);
+            ?? new MarketEventCalendar(feed: Feed, expectedFeed: Kalshi, earningsFeed: EarningsFeed);
 
     private MarketEventLiveNotices? Live
     {
@@ -281,6 +305,7 @@
         _expiries = kinds.Expiries;
         _holidays = kinds.Holidays;
         _halvings = kinds.Halvings;
+        _earnings = kinds.Earnings;
 
         _range = "next7";
         _onlyTouching = false;
@@ -312,6 +337,10 @@
         }
 
         _kalshiStatus = Kalshi?.Status.Describe() ?? new MarketEventKalshiStatus(0, null).Describe();
+        // Opening the calendar is a reason to read the open stock charts' earnings; what it
+        // finds is listed the next time the calendar opens or a filter changes.
+        EarningsFeed?.RequestRefresh(Store.State);
+        _earningsStatus = EarningsFeed?.Status ?? "Earnings unavailable in this head.";
     }
 
     private void Rebuild()
@@ -320,12 +349,14 @@
         var kinds = KindFilter;
         var openMarkets = MarketEventLiveNotices.OpenMarkets(Store.State);
         var heldMarkets = Live?.HeldMarkets ?? Array.Empty<MarketType>();
+        var stockSymbols = MarketEventEarningsFeed.StockSymbols(Store.State);
 
         _days = Calendar.Between(from, to, AllMarkets)
             .Where(e => PassesImportance(e.Importance))
             .Where(e => kinds.Includes(e.Kind))
             .Where(e => !_onlyTouching
-                || MarketEventNoticePlanner.Touches(e, openMarkets, heldMarkets))
+                || (MarketEventNoticePlanner.Touches(e, openMarkets, heldMarkets)
+                    && (e.Symbol == null || stockSymbols.Contains(e.Symbol))))
             .GroupBy(e => e.Date)
             .OrderBy(g => g.Key)
             .Select(g => new DayGroup(
@@ -353,7 +384,8 @@
         Fed: _fed,
         Expiries: _expiries,
         Holidays: _holidays,
-        Halvings: _halvings);
+        Halvings: _halvings,
+        Earnings: _earnings);
 
     private bool PassesImportance(MarketEventImportance importance) => _importance switch
     {
@@ -382,7 +414,8 @@
             case Kind.Fed: _fed = on; break;
             case Kind.Expiries: _expiries = on; break;
             case Kind.Holidays: _holidays = on; break;
-            default: _halvings = on; break;
+            case Kind.Halvings: _halvings = on; break;
+            default: _earnings = on; break;
         }
         Rebuild();
     }

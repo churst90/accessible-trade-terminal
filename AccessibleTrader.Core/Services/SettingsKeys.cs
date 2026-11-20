@@ -201,6 +201,7 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>"Headlines": read Alpaca's news wire as well (default off since 2026-11-20).</summary>
         public const string HeadlinesAlpaca = "narration.headlinesAlpaca";
+        public const string MarketEventsEarnings = "narration.marketEvents.earnings";
 
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";

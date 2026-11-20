@@ -88,6 +88,7 @@ namespace AccessibleTrader.Core.Services.Settings
             new("Expiry events", "Narration", "s-market-events-expiries", "market events options expiry quarterly crypto"),
             new("Holiday events", "Narration", "s-market-events-holidays", "market events holidays market closed thanksgiving christmas"),
             new("Bitcoin halving events", "Narration", "s-market-events-halvings", "market events bitcoin halving crypto"),
+            new("Company earnings events", "Narration", "s-market-events-earnings", "market events earnings eps revenue estimates beat missed report quarter finnhub sec edgar before the open after the close stock company"),
             new("Sound on event bars", "Narration", "s-market-events-sound", "market events bell earcon landing sound event bars"),
             new("Countdowns before events", "Narration", "s-market-events-countdowns", "market events countdown warning minutes before cpi jobs fed decision 15 5 1 30 off"),
             new("Headlines level", "Narration", "s-headlines-level", "headlines news sec edgar filings 8-k earnings results insider form 4 10-q 10-k company off important medium all"),

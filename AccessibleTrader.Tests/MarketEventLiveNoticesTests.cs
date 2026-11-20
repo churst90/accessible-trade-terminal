@@ -174,6 +174,24 @@ public class MarketEventLiveNoticesTests
         Assert.Equal("CPI out. BTC down 0.8% in the first minute.", rig.Notices[^1].Text);
     }
 
+    [Theory]
+    [InlineData("AAPL", 1)]
+    [InlineData("MSFT", 0)]
+    public async Task ACompanysEarningsCountOnlyWhileOneOfItsChartsIsOpen(string chart, int notices)
+    {
+        // Stage 4b: a stock chart being open does not make every company's report touch you.
+        var earnings = MarketEventTestData.Event(
+            id: "earnings.AAPL-2026-03-11", kind: MarketEventKind.Earnings, spoken: "AAPL earnings",
+            longName: "AAPL earnings", moment: T, scope: MarketType.Stock) with { Symbol = "AAPL" };
+        using var rig = new Rig(earnings, key: false,
+            identity: new ChartIdentity("Stock|US", "Alpaca", chart, "1h"));
+
+        await rig.TickAt(T.AddMinutes(-15));
+
+        Assert.Equal(notices, rig.Notices.Count);
+        if (notices == 1) Assert.StartsWith("AAPL earnings in 15 minutes", rig.Notices[0].Text);
+    }
+
     [Fact]
     public async Task AHeldPositionsMarketAloneIsEnough()
     {

@@ -833,6 +833,16 @@
                                    @onchange="e => _marketEventsHalvings = e.Value is bool b ? b : _marketEventsHalvings" />
                         </div>
                         <div class="modal-row">
+                            <label for="s-market-events-earnings">Company earnings, on that company's charts</label>
+                            <input id="s-market-events-earnings" type="checkbox"
+                                   aria-describedby="s-market-events-earnings-hint"
+                                   checked="@_marketEventsEarnings"
+                                   @onchange="e => _marketEventsEarnings = e.Value is bool b ? b : _marketEventsEarnings" />
+                        </div>
+                        <p id="s-market-events-earnings-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                            Report days, before the open or after the close, with EPS and revenue against the analysts' estimates, from Finnhub: needs your Finnhub key in API Keys. SEC EDGAR gives the exact minute when it has the filing.
+                        </p>
+                        <div class="modal-row">
                             <label for="s-market-events-countdowns">Countdowns before events</label>
                             <select id="s-market-events-countdowns"
                                     aria-describedby="s-market-events-countdowns-hint"
@@ -1586,6 +1596,7 @@
     private bool _marketEventsExpiries = true;
     private bool _marketEventsHolidays = true;
     private bool _marketEventsHalvings = true;
+    private bool _marketEventsEarnings = true;
     private bool _marketEventsSound = true;
     private string _marketEventsCountdowns = "15,1";
     private string _marketPulseCryptoStart = "midnightUtc";
@@ -2238,6 +2249,7 @@
         _marketEventsExpiries = Store.State.MarketEventsExpiries;
         _marketEventsHolidays = Store.State.MarketEventsHolidays;
         _marketEventsHalvings = Store.State.MarketEventsHalvings;
+        _marketEventsEarnings = Store.State.MarketEventsEarnings;
         _marketEventsSound = Store.State.MarketEventsSoundOnEventBars;
         _marketEventsCountdowns = Store.State.MarketEventsCountdowns;
         _marketPulseCryptoStart = Store.State.MarketPulseCryptoStart;
@@ -2605,6 +2617,7 @@
             MarketEventsExpiries = _marketEventsExpiries,
             MarketEventsHolidays = _marketEventsHolidays,
             MarketEventsHalvings = _marketEventsHalvings,
+            MarketEventsEarnings = _marketEventsEarnings,
             MarketEventsSoundOnEventBars = _marketEventsSound,
             MarketEventsCountdowns = _marketEventsCountdowns,
             MarketPulseCryptoStart = _marketPulseCryptoStart,

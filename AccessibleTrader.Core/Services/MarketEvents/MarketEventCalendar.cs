@@ -16,16 +16,19 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private readonly IReadOnlyList<MarketEvent> _seed;
         private readonly IMarketEventFigureFeed? _feed;
         private readonly IMarketEventExpectedFeed? _expectedFeed;
+        private readonly IMarketEventEarningsFeed? _earningsFeed;
 
         /// <summary>A calendar over the embedded seed and the live feeds, or over a supplied set for a test.</summary>
         public MarketEventCalendar(
             IReadOnlyList<MarketEvent>? seed = null,
             IMarketEventFigureFeed? feed = null,
-            IMarketEventExpectedFeed? expectedFeed = null)
+            IMarketEventExpectedFeed? expectedFeed = null,
+            IMarketEventEarningsFeed? earningsFeed = null)
         {
             _seed = seed ?? MarketEventSeed.Load().Events;
             _feed = feed;
             _expectedFeed = expectedFeed;
+            _earningsFeed = earningsFeed;
         }
 
         /// <summary>Every event that touches <paramref name="market"/> and starts in the half-open range.</summary>
@@ -80,6 +83,12 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                     if (TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc)
                         && !events.Any(x => x.Id == e.Id))
                         events.Add(e);
+
+            // Companies' earnings (stage 4b), for every stock the feed has read. Each carries its
+            // symbol: the bar map and the live notices keep only the chart's own company.
+            foreach (var e in _earningsFeed?.Events ?? Array.Empty<MarketEvent>())
+                if (TouchesAny(e) && InRange(e.MomentUtc, fromUtc, toUtc))
+                    events.Add(e);
 
             if (_expectedFeed != null)
                 for (int i = 0; i < events.Count; i++)

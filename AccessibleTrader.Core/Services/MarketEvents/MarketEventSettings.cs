@@ -2,7 +2,7 @@ using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.MarketEvents
 {
-    /// <summary>The setting as the workspace mirror carries it: one level and five kind boxes.</summary>
+    /// <summary>The setting as the workspace mirror carries it: one level and six kind boxes.</summary>
     public static class MarketEventSettings
     {
         public static MarketEventLevel Level(WorkspaceState state)
@@ -13,7 +13,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             Fed: state.MarketEventsFed,
             Expiries: state.MarketEventsExpiries,
             Holidays: state.MarketEventsHolidays,
-            Halvings: state.MarketEventsHalvings);
+            Halvings: state.MarketEventsHalvings,
+            Earnings: state.MarketEventsEarnings);
 
         /// <summary>The event ids the user asked to be alerted about by name.</summary>
         public static IReadOnlyList<string> Watched(WorkspaceState state)

@@ -427,6 +427,9 @@ namespace AccessibleTrader.Sdk.Models
         // "Headlines": read Alpaca's wire as well as Finnhub's (default off since 2026-11-20 —
         // half-hourly batches, stocks only). Host narration preference, never in the sandbox.
         bool HeadlinesAlpaca = false,
+        // "Market events": companies' earnings on their own charts (stage 4b; needs a Finnhub
+        // key). Host narration preference, never in the script sandbox.
+        bool MarketEventsEarnings = true,
         // How the active tab opens if it was restored from a saved workspace and its data
         // has not loaded yet. Per tab: snapshotted with the tab. See RestoredTabLoad.
         RestoredTabLoad? RestoredLoad = null

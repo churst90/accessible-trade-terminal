@@ -27,6 +27,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         private readonly MarketEventCalendar _calendar;
         private readonly MarketEventFredFeed? _feed;
         private readonly IMarketEventExpectedFeed? _kalshiFeed;
+        private readonly IMarketEventEarningsFeed? _earningsFeed;
         private readonly object _gate = new();
         private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private readonly Queue<string> _order = new();
@@ -37,11 +38,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
         public MarketEventBarMapCache(
             MarketEventCalendar? calendar = null,
             MarketEventFredFeed? feed = null,
-            IMarketEventExpectedFeed? kalshiFeed = null)
+            IMarketEventExpectedFeed? kalshiFeed = null,
+            IMarketEventEarningsFeed? earningsFeed = null)
         {
             _feed = feed;
             _kalshiFeed = kalshiFeed;
-            _calendar = calendar ?? new MarketEventCalendar(feed: feed, expectedFeed: kalshiFeed);
+            _earningsFeed = earningsFeed;
+            _calendar = calendar
+                ?? new MarketEventCalendar(feed: feed, expectedFeed: kalshiFeed, earningsFeed: earningsFeed);
         }
 
         public IReadOnlyList<MarketEventBarPlacement> For(WorkspaceState state, DateTime nowUtc)
@@ -53,13 +57,18 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             // bumps Version, which makes the next arrow press rebuild the map.
             _feed?.RequestRefresh(state);
             _kalshiFeed?.RequestRefresh(state);
+            _earningsFeed?.RequestRefresh(state);
 
             int barSeconds = Math.Max(1, Accessibility.PlaybackNarration.BarSeconds(state));
             var market = state.SelectedMarketType;
             var zone = MarketEventChartZone.For(market);
+            // Earnings belong to one company: the chart's symbol is part of the key, so a map built
+            // for AAPL is never read on MSFT.
+            string? symbol = MarketEventEarningsFeed.ChartSymbol(state);
             string key = $"{ChartPatternKey(state)}|{(int)market}|{barSeconds}|{zone.Id}"
                 + $"|feed{_feed?.Version ?? 0}"
-                + $"|kx{_kalshiFeed?.Version ?? 0}";
+                + $"|kx{_kalshiFeed?.Version ?? 0}"
+                + $"|ern{_earningsFeed?.Version ?? 0}|{symbol}";
             var stamp = (data.Count, data[^1].Date);
 
             IReadOnlyList<MarketEventBarPlacement> placements;
@@ -72,7 +81,7 @@ namespace AccessibleTrader.Core.Services.MarketEvents
                 }
                 else
                 {
-                    placements = Build(data, barSeconds, market, zone);
+                    placements = Build(data, barSeconds, market, zone, symbol);
                     BuildCount++;
                     if (!_entries.ContainsKey(key)) _order.Enqueue(key);
                     _entries[key] = new Entry(stamp.Count, stamp.Date, placements);
@@ -91,11 +100,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             IReadOnlyList<Ohlcv> data,
             int barSeconds,
             Sdk.Enums.MarketType market,
-            TimeZoneInfo zone)
+            TimeZoneInfo zone,
+            string? symbol)
         {
             var first = data[0].Date;
             var last = data[^1].Date;
-            var events = _calendar.Between(first.AddDays(-2), last.AddDays(100), market);
+            var events = _calendar.Between(first.AddDays(-2), last.AddDays(100), market)
+                .Where(e => e.IsFor(symbol))
+                .ToList();
 
             // DateTime.MaxValue as "now" keeps the base map free of the one clock-dependent word.
             return MarketEventPlacement.Place(events, data, barSeconds, zone, DateTime.MaxValue);

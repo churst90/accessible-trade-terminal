@@ -141,6 +141,22 @@ None of this has been seen or heard in the app yet.
 - Shift+comma, Shift+period and Shift+apostrophe never reached the terminal from the browser before;
   they do now, on the chart only.
 
+### Market events: company earnings
+
+- **A company's earnings on its own charts.** With market events on and your Finnhub key in API
+  Keys, a stock chart's report days are events: "AAPL earnings after the close, EPS 1.85, beat 1.77
+  expected, revenue 102.5 billion, beat 102.2 billion expected". After the close goes on that day's
+  last bar, before the open on its first; when SEC EDGAR has the results filing, the event takes its
+  exact minute. Apostrophe reaches them like any other event, and `Alt+Shift+D` adds the estimate's
+  source and the quarter before's EPS.
+- **Only that company's charts.** Apple's reports never appear on MSFT, and a countdown or the
+  Alt+E calendar's "only touching" counts a report only while one of its charts is open.
+- **A new tick box**, "Company earnings, on that company's charts", in Settings → Narration and on
+  the Alt+E screen, on by default. The Alt+E screen says whether earnings could be read.
+- **Limits.** Finnhub's calendar holds only the latest report and the coming ones, so older
+  quarters appear only where EDGAR's twenty newest filings date them; a coming report has a day and
+  a session but no minute, so it gets no countdown; each company is read again every six hours.
+
 ### Chart types and price scales
 
 - **The chart type changes the price series itself, name and all.** Choose Line or Area and the

@@ -125,6 +125,7 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"Headlines": include news stories (Finnhub's and Alpaca's) as well as filings.</summary>
         bool HeadlinesNewsWire { get; set; }
         bool HeadlinesAlpaca { get; set; }
+        bool MarketEventsEarnings { get; set; }
 
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
@@ -555,6 +556,14 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.HeadlinesAlpaca, false);
             set => Set(SettingsKeys.HeadlinesAlpaca, value);
+        }
+
+        /// <summary>Market events: companies' earnings on their own charts (stage 4b). On by
+        /// default; it needs a Finnhub key to have anything to say.</summary>
+        public bool MarketEventsEarnings
+        {
+            get => GetBool(SettingsKeys.MarketEventsEarnings, true);
+            set => Set(SettingsKeys.MarketEventsEarnings, value);
         }
 
         /// <summary>

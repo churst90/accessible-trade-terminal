@@ -340,7 +340,17 @@ as proposed.
   (about mid-2021); Kalshi's traders, not economists, so it can differ from the consensus quoted
   in the news; an upcoming release's expected moves until the release; the live fetch was never
   run against the real API from the app (the fixtures are real responses saved 2026-11-18).
-- [ ] **Stage 4b: earnings (Finnhub, Cody's key).** Open; needs the key.
+- [x] **Stage 4b: earnings (Finnhub, Cody's key).** A stock's report days on its own charts only,
+  from Finnhub's calendar (day, before the open / after the close, EPS and revenue against the
+  analysts' estimates) and EPS history, timed to the minute by EDGAR's 8-K item 2.02 when it has
+  it. The "Company earnings" kind box (Settings and Alt+E, on by default) and the Alt+E status line.
+  **Built 2026-11-20, not yet heard by Cody, not on the VPS.** Caveats: Finnhub's calendar lists
+  only the latest report and the coming ones, so an older quarter appears only where EDGAR's
+  twenty newest filings date it (a busy filer loses the older ones); no countdown for a coming
+  report (a day and a session, no minute); the shapes were checked live with Cody's key on
+  2026-11-20 but the app's own read has not run against the real service; how soon after a report
+  Finnhub fills in the actuals was not measured; kept in memory, so a restart reads again; each
+  user needs their own key (Finnhub's terms allow no shared key, so the VPS cannot offer one).
 - [ ] **Token unlocks: blocked.** DefiLlama's emissions/unlocks API now answers "Upgrade to the
   paid API plan" (checked 2026-11-18), so it needs a paid source or Cody's decision.
 - [ ] **Fed expected rate.** Kalshi has KXFED, but our Fed events carry no figures; open, and

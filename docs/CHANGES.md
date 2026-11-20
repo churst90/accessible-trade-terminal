@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Market events stage 4b: company earnings on their own charts, 2026-11-20 — not heard, not on the VPS
+
+Cody: "Last finish up the remaining bloomberg type items." Earnings were the first.
+
+- **`MarketEventEarningsFeed`** reads, for each stock on an open chart (the focused one and every
+  tab), Finnhub's `calendar/earnings` (120 days either side) and `stock/earnings` (the last four
+  quarters) with the user's Finnhub key in the `X-Finnhub-Token` header, plus EDGAR's recent filings.
+  Once per company per six hours; anything short of a good read (no key, refused, limited, failed)
+  is tried again after two minutes, so a key added in API Keys is picked up within minutes. Never
+  while market events are Off or the new Earnings box is clear. In memory only.
+- **`EarningsEvents.Build`** (pure): one event per report day. When EDGAR has an 8-K with item 2.02
+  accepted on the same New York day, the event is Exact at that minute ("time from SEC EDGAR");
+  otherwise it is day-only with a session from Finnhub's hour (`bmo` before the open, `amc` after
+  the close). Figures: EPS with the previous fiscal quarter's actual, and revenue, each against
+  "analysts on Finnhub". Older quarters from the EPS history are added only where an EDGAR results
+  filing falls within 100 days after the quarter's end. Finnhub's duplicated calendar rows are kept
+  once per date; a body that is not the expected shape is nothing, not an exception (the first
+  version threw on an array where an object was expected; a test caught it).
+- **Placement:** a day-only report with a session goes on the day's last intraday bar ("after the
+  close") or first ("before the open"); daily charts keep the report-day rule.
+- **Speech:** "AAPL earnings after the close, EPS 1.85, beat 1.77 expected, revenue 102.5 billion,
+  beat 102.2 billion expected"; "as expected" and "missed" likewise. The session word is said once.
+  `Alt+Shift+D` gives "Figure: EPS 1.85, expected 1.77, by analysts on Finnhub, beat estimates.
+  Previous quarter: EPS 1.57. Revenue: …". New figure units PerShare and Money.
+- **One company's charts only.** Events carry a `Symbol`; the bar map filters by the chart's symbol
+  and keys its cache on it and on the feed's version; the live notices and the Alt+E calendar's
+  "only touching" count a report only while one of its charts is open.
+- **Setting:** "Company earnings, on that company's charts" (`narration.marketEvents.earnings`, on by
+  default) in Settings → Narration, on the Alt+E screen, and in the Settings search. A host narration
+  preference, deliberately not carried into the script sandbox (like the Alpaca switch). The Alt+E
+  screen has a third status line ("Earnings unavailable, Finnhub key not set.", "Earnings: Finnhub,
+  read for 2 companies.").
+- **Wired on both heads** (desktop singleton, hosted scoped), with its own allow-listed HTTP client
+  for finnhub.io.
+- **Tests:** `MarketEventEarningsTests` (parsing, building, placement, speech, the bar map's symbol
+  filter and rebuild, the feed's reads, gating and retry, open stock tabs) and a live-notice theory.
+  Twelve sabotages, each turned red: the EDGAR minute dropped, any 8-K counted as results, the UTC date used instead of New York's, the 100-day history window removed, an after-close report put on the first bar, the bar map not filtered by symbol, the map key ignoring the feed's version, live countdowns for every company, the session said twice, the earnings tick box ignored, no key waiting six hours, and the calendar dedupe dropped. The window sabotage first stayed green: the only late filing in the test was a 10-Q, which the form filter already drops. A real results 8-K 100+ days past every quarter was added, and it went red.
+- **Caveats:** not heard; not on the VPS; the app's own read has not run against the real Finnhub
+  (the shapes were checked live with Cody's key the same day); how soon Finnhub fills in the actuals
+  after a report was not measured; Finnhub's calendar lists only the latest report and the coming
+  ones, so a busy filer's older quarters may be missing (EDGAR's feed holds twenty filings); no
+  countdowns for a coming report; dividends and splits not built; each user needs their own key
+  (Finnhub's terms allow no shared key, so the VPS cannot offer one as it does FRED).
+
 ### Headlines on the bars, the NEWS list, the keys rearranged and Alpaca made optional, 2026-11-20 — not heard, not on the VPS
 
 Cody: "finish the last headline items. for the keyboard shortcuts we may need to change them up

@@ -81,13 +81,14 @@ namespace AccessibleTrader.Core.Services.MarketEvents
             IDataService? dataService = null,
             IUserPresence? presence = null,
             ILogger<MarketEventLiveNotices>? logger = null,
-            IMarketEventExpectedFeed? expectedFeed = null)
+            IMarketEventExpectedFeed? expectedFeed = null,
+            IMarketEventEarningsFeed? earningsFeed = null)
         {
             _store = store;
             _bus = bus;
             _feed = feed;
             _calendar = calendar
-                ?? new MarketEventCalendar(feed: feed, expectedFeed: expectedFeed);
+                ?? new MarketEventCalendar(feed: feed, expectedFeed: expectedFeed, earningsFeed: earningsFeed);
             _orders = orders;
             _paper = paper;
             _apiKeys = apiKeys;
@@ -135,8 +136,13 @@ namespace AccessibleTrader.Core.Services.MarketEvents
 
                 // Every event in the window for any market; the planner applies the real
                 // open-or-held filter. One pass over the calendar, not one per market.
+                // A company's earnings count only while one of its charts is open: a stock chart
+                // being open does not make every company's report touch you.
+                var stockSymbols = MarketEventEarningsFeed.StockSymbols(state);
                 var candidates = _calendar.Between(
-                    now.AddMinutes(-61), now.AddMinutes(31), AllMarkets);
+                        now.AddMinutes(-61), now.AddMinutes(31), AllMarkets)
+                    .Where(e => e.Symbol == null || stockSymbols.Contains(e.Symbol))
+                    .ToList();
 
                 var openMarkets = OpenMarkets(state);
                 bool hasKey = await KeyNeededAndPresentAsync(now, candidates, level, kinds, watched)
