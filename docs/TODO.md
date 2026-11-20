@@ -44,6 +44,14 @@ The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fix
   **Restore from yesterday** button. The daily copies exist; going back is a hand copy.
 - [x] The **order log** is read in the app: trading dashboard → **Order log** tab (2026-11-20, CHANGES).
 
+## CI flakiness seen 2026-11-20
+
+- [ ] c0b44e9e's xunit needed three attempts: first `ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload`
+  (the loopback connect hit its 10 s limit), then three bUnit waits (`SettingsModalTests` focus and factory
+  reset, `TradingDashboardDecouplingTests.Close_at_limit_...`). Different tests each time, all green locally
+  three runs out of three, suite time unchanged (5 to 6.5 minutes). Watch for a repeat before changing the
+  waits; if one test keeps showing up, that is the one to look at.
+
 ## Website (accessibletrader.com), Cody's notes 2026-11-20
 
 The site's files live on the server (`/var/www/html/trade.codyhurst.com`), drafts in
