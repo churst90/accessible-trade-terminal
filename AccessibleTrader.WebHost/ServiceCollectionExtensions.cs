@@ -136,7 +136,7 @@ namespace AccessibleTrader.WebHost
             // with no host check, on the one head that faces the public internet.
             // The error coordinator is per circuit here, so the server's clock is only logged and
             // reported by /healthz/deep, never spoken to a visitor.
-            services.AddSingleton(sp => new AccessibleTrader.Core.Services.ClockSkewMonitor(
+            services.AddSingleton<AccessibleTrader.Core.Services.ClockSkewMonitor>(sp => new AccessibleTrader.Core.Services.ClockSkewMonitor(
                 null, sp.GetService<ILogger<AccessibleTrader.Core.Services.ClockSkewMonitor>>()));
             services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
 
