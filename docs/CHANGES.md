@@ -91,6 +91,11 @@ from 2026-11-20 on are in the log; a fill the terminal never heard about (a venu
 or an order placed on the venue's own website) is not in it — History, which asks the venue,
 still has those.
 
+CI caught one thing the first push missed: **Save as CSV** used a plain `disabled`, which drops the
+button out of the tab order with nothing said (DisabledButtonScanTests, red on b04cbb49). It is now a
+GatedButton: still reachable, read as unavailable, with "No orders recorded yet." or "No orders match
+the filter." read alongside.
+
 ### The website knows you are signed in, 2026-11-20 — not yet seen or heard by Cody
 
 Cody, 2026-11-20: he signed in to the terminal, set a display name and joined the leaderboard,

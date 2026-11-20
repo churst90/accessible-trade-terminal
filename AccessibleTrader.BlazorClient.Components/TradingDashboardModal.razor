@@ -780,7 +780,7 @@
                                         <div class="order-log-tools">
                                             <label for="order-log-filter">Filter by symbol or exchange</label>
                                             <input id="order-log-filter" type="search" autocomplete="off" @bind="_logFilter" @bind:event="oninput" />
-                                            <button type="button" disabled="@(!shown.Any())" @onclick="SaveOrderLogCsv">Save as CSV</button>
+                                            <GatedButton Gate="OrderLogCsvGate" OnClick="SaveOrderLogCsv">Save as CSV</GatedButton>
                                         </div>
                                         @* Nine columns do not fit the dashboard's right column at every width;
                                            the table scrolls sideways inside a region a keyboard can reach. *@
@@ -1168,6 +1168,13 @@
             : _logRows.Where(r => r.Symbol.Contains(f, StringComparison.OrdinalIgnoreCase)
                                || r.Exchange.Contains(f, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>Why Save as CSV cannot run now, or null when it can: kept reachable, the reason
+    /// read with it, rather than vanishing under <c>disabled</c>.</summary>
+    private string? OrderLogCsvGate() =>
+        _logRows.Count == 0 ? "No orders recorded yet."
+        : !FilteredLog().Any() ? "No orders match the filter."
+        : null;
 
     private async Task SaveOrderLogCsv()
     {

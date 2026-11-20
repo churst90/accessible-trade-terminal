@@ -205,7 +205,11 @@ namespace AccessibleTrader.Tests
             var cut = OpenLogTab(h);
 
             Assert.Equal("No orders recorded yet.", Assert.Single(BodyRows(cut)).Trim());
-            Assert.True(cut.Find(".order-log-tools button").HasAttribute("disabled"));
+            // Unavailable but still reachable, with the reason read alongside (GatedButton).
+            var save = cut.Find(".order-log-tools button");
+            Assert.False(save.HasAttribute("disabled"));
+            Assert.Equal("true", save.GetAttribute("aria-disabled"));
+            Assert.Contains("No orders recorded yet.", cut.Find("#" + save.GetAttribute("aria-describedby")!.Split(' ')[^1]).TextContent);
         }
 
         [Fact]
