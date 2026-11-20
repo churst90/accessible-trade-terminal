@@ -34,20 +34,23 @@ namespace AccessibleTrader.Core.Services
         public static string Classify(string? symbol)
         {
             if (string.IsNullOrWhiteSpace(symbol)) return Unknown;
-            string baseToken = symbol.Split('/', '-', ':')[0].Trim().ToUpperInvariant();
+            // One splitter for every symbol shape (SymbolAssets.BaseOf): "BTCUSDT" is BTC, as
+            // "BTC/USDT" is. Exchange symbols carry no slash, and until 2026-11-20 this cut on
+            // separators alone, so they were all "other" and the hint never spoke for them.
+            string baseToken = Trading.SymbolAssets.BaseOf(symbol);
             if (baseToken.Length == 0) return Unknown;
 
             foreach (var (bases, sector) in Map)
                 if (bases.Contains(baseToken)) return sector;
 
-            // Heuristics for the long tail: a pair symbol ("ABC/USDT") is almost
-            // certainly crypto; a bare 1-5 letter ticker is a single stock.
-            if (symbol.Contains('/') || symbol.Contains('-'))
-            {
-                string quote = symbol.Split('/', '-', ':').Last().Trim().ToUpperInvariant();
-                if (quote is "USDT" or "USDC" or "BTC" or "ETH") return Crypto;
-            }
-            if (baseToken.Length <= 5 && baseToken.All(char.IsLetter)) return Stocks;
+            // Heuristics for the long tail: a pair priced in a crypto quote ("ABC/USDT",
+            // "ABCUSDT") is almost certainly crypto; a bare 1-5 letter ticker is a single stock.
+            // The stock test reads the whole symbol, so a ticker that happens to end in a quote's
+            // letters ("SETH") stays a stock rather than becoming "S" priced in ETH.
+            string bare = symbol.Trim().ToUpperInvariant();
+            if (bare.Length <= 5 && bare.All(char.IsLetter)) return Stocks;
+            string quote = Trading.SymbolAssets.Split(bare).Quote;
+            if (quote is "USDT" or "USDC" or "BTC" or "ETH") return Crypto;
             return Unknown;
         }
 

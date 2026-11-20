@@ -28,6 +28,11 @@ namespace AccessibleTrader.Tests
         [InlineData("DXY",      "USD_INDEX_COT")]
         [InlineData("CL",       "WTI_CRUDE_COT")]
         [InlineData("XAG/USD",  "SILVER_COT")]
+        // Exchange-style symbols (code review, 2026-11-20): no separator, or an exchange prefix.
+        [InlineData("BTCUSDT",  "BITCOIN_COT")]
+        [InlineData("XAUUSD",   "GOLD_COT")]
+        [InlineData("EURUSD",   "EURO_FX_COT")]
+        [InlineData("COINBASE:ETHUSD", "ETHER_COT")]
         public void MapSymbol_RoutesChartSymbols_ToCftcContracts(string chart, string expected)
             => Assert.Equal(expected, CotPositioningProvider.MapSymbol(chart));
 

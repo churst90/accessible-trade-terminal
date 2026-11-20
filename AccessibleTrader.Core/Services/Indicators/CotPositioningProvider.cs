@@ -66,7 +66,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         internal static string? MapSymbol(string? chartSymbol)
         {
             if (string.IsNullOrWhiteSpace(chartSymbol)) return null;
-            string baseToken = chartSymbol.Split('/', '-', ':')[0].Trim().ToUpperInvariant();
+            string baseToken = AccessibleTrader.Core.Services.Trading.SymbolAssets.BaseOf(chartSymbol);
             foreach (var (bases, cot) in SymbolMap)
                 foreach (var b in bases)
                     if (baseToken == b) return cot;

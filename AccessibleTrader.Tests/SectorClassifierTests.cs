@@ -47,5 +47,29 @@ namespace AccessibleTrader.Tests
             // Empty book.
             Assert.Null(SectorClassifier.BuildSectorHint("BTC/USDT", System.Array.Empty<string>()));
         }
+
+        // Code review, 2026-11-20: exchange symbols carry no slash ("BTCUSDT", as MEXC and the
+        // paper book name them), and the classifier cut on separators alone, so every one was
+        // "other" and the hint never spoke for them.
+        [Theory]
+        [InlineData("BTCUSDT", SectorClassifier.Crypto)]
+        [InlineData("SOLUSDT", SectorClassifier.Crypto)]
+        [InlineData("ETHUSD", SectorClassifier.Crypto)]
+        [InlineData("ABCUSDT", SectorClassifier.Crypto)]
+        [InlineData("KRAKEN:BTCUSD", SectorClassifier.Crypto)]
+        [InlineData("XAUUSD", SectorClassifier.Metals)]
+        [InlineData("EURUSD", SectorClassifier.Fx)]
+        [InlineData("SETH", SectorClassifier.Stocks)]
+        [InlineData("AAPL", SectorClassifier.Stocks)]
+        public void Symbols_without_a_separator_are_classified_by_their_base(string symbol, string sector)
+            => Assert.Equal(sector, SectorClassifier.Classify(symbol));
+
+        [Fact]
+        public void Hint_speaks_when_the_book_holds_exchange_style_symbols()
+        {
+            var hint = SectorClassifier.BuildSectorHint("ETH/USDT", new[] { "BTCUSDT", "SOLUSDT" });
+            Assert.NotNull(hint);
+            Assert.Contains("2 open positions in the crypto sector (BTCUSDT, SOLUSDT)", hint);
+        }
     }
 }

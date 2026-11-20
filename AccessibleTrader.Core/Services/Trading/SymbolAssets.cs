@@ -74,6 +74,24 @@ namespace AccessibleTrader.Core.Services.Trading
         }
 
         /// <summary>
+        /// The asset a chart or position symbol is about, upper-cased: "BTC" for <c>BTC/USDT</c>,
+        /// <c>BTC-USD</c>, <c>BTCUSDT</c> and <c>KRAKEN:BTCUSD</c> alike (an exchange prefix before a
+        /// colon is dropped). A symbol with no recognisable quote comes back whole ("AAPL").
+        ///
+        /// <para>Until 2026-11-20 the sector hint and the COT feed cut the base off with their own
+        /// <c>Split('/', '-', ':')[0]</c>, so "BTCUSDT" was not crypto and had no COT report; holding
+        /// SOLUSDT and buying ETH/USDT gave no same-sector warning (code review).</para>
+        /// </summary>
+        public static string BaseOf(string? symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return "";
+            string s = symbol.Trim();
+            int colon = s.LastIndexOf(':');
+            if (colon >= 0 && colon < s.Length - 1) s = s[(colon + 1)..];
+            return Split(s).Base.Trim().ToUpperInvariant();
+        }
+
+        /// <summary>
         /// A quantity with its unit — "0.714 BTC" rather than "0.714 units".
         ///
         /// <para>
