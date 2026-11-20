@@ -295,10 +295,9 @@ read-out, and nothing said more than two hours late. Wire sources will add a ded
 
 1. **SEC EDGAR — BUILT 2026-11-20, not yet heard by Cody.** No key, no account; the filing itself is
    the primary source, minutes before a wire rewrites it. See stage 7 below.
-2. **Alpaca news (Benzinga) — next.** A websocket of wire headlines with tickers attached, stocks
-   and crypto, real time. Cody has an Alpaca live and paper key (2026-11-20), so it can be built
-   and tried. Needs: the key read from the app's key store (never shown or logged), the dedupe and
-   per-symbol cap above, and the news list.
+2. **Alpaca news (Benzinga) — BUILT 2026-11-20, not yet tried with a working key.** A websocket of
+   wire headlines with tickers attached, stocks and crypto, real time. See stage 8 below. The news
+   list (Go bar `NEWS`) is stage 2b.
 3. **Finnhub company news — after that**, with the key Cody is getting for earnings: a second wire
    to fill gaps, polled. Plus on-bar placement.
 4. **CryptoPanic — only if crypto coverage proves thin.** It is not needed: Alpaca's feed carries
@@ -537,3 +536,31 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    the other narration preferences. **Not tried against live EDGAR end to end** (the parsers were
    checked against live responses captured the same day, the poller only against a fake source);
    not heard by Cody; not on the VPS.
+8. **Headlines, stage 2: the Alpaca news wire — BUILT 2026-11-20 by Claude, never connected.** One
+   socket to `wss://stream.data.alpaca.markets/v1beta1/news`: on Alpaca's "connected" the key is
+   checked out from API Keys and sent as `auth` (then dropped, never kept or logged); on
+   "authenticated" it subscribes to `news: ["*"]` and matches every story itself, because touched
+   symbols change all the time and Alpaca charges nothing more for the whole feed. The pieces, in
+   `Core/Services/Headlines/`: `AlpacaNewsParser` (stream frames with `T` = `n`, `success`,
+   `subscription`, `error`; the REST `{"news": [...]}`; HTML entities decoded), `NewsStoryWords`
+   (the importance rule on the headline's words — filler and roundups of more than four symbols
+   are Low first, then a High list, then a Medium list, else Low — and the matching: stocks by
+   ticker ignoring `.`/`-`, coins by the base before a USD/USDT/USDC quote, XBT as BTC),
+   `NewsHeadlineGate` (dedupe by story id over the last 5,000 ids, so an edit is not said again; a
+   3-second gather per symbol; a 60-second cooldown per symbol; the same 2-hour late reach as the
+   filings; symbols no longer touched dropped unsaid), `NewsHeadlineWording` ("AAPL: headline."
+   plus "N more headlines." and "Published N minutes ago." past ten minutes; id `alpaca|<id>`), and
+   `AlpacaNewsLiveNotices` (a one-second clock; no socket while the level is Off, the new
+   `HeadlinesNewsWire` switch is off, there is no key, or nothing is touched; a socket down two
+   minutes is replaced after a backoff of one minute doubling to fifteen; Alpaca's error 402 waits
+   30 minutes, 406 five, 409 six hours). The socket sits behind `INewsSocket` so the tests drive it.
+   The dossier's **Recent news** section reads `GET data.alpaca.markets/v1beta1/news?symbols=...`
+   (twenty newest) through `INewsSource`, for coins as `BTCUSD`.
+   **Differences from the plan:** no cross-source dedupe yet — EDGAR and the wire say different
+   things ("filed an 8-K" and "reports Q4 results") and both are worth hearing, so it waits for a
+   second wire (Finnhub) where the same story really does arrive twice; the news list is stage 2b.
+   **Not verified:** every Alpaca shape is from Alpaca's documentation (both key pairs in Cody's
+   patches folder were refused with 401 on 2026-11-20, so nothing was captured); the importance
+   rule is Claude's; on the WebHost each browser circuit opens its own socket, and Alpaca allows one
+   news connection per account, so a second window waits on 406 (a shared per-user socket is the
+   fix if it matters). Not heard by Cody; not on the VPS.

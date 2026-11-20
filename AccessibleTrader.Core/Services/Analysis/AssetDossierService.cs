@@ -45,18 +45,24 @@ namespace AccessibleTrader.Core.Services.Analysis
         private readonly ICompanyProfileSource? _company;
         private readonly IChartPatternDetector? _patterns;
         private readonly ISwingStructureAnalyzer? _swings;
+        private readonly Headlines.INewsSource? _news;
 
         public AssetDossierService(
             ICryptoProfileSource? crypto = null,
             ICompanyProfileSource? company = null,
             IChartPatternDetector? patterns = null,
-            ISwingStructureAnalyzer? swings = null)
+            ISwingStructureAnalyzer? swings = null,
+            Headlines.INewsSource? news = null)
         {
             _crypto = crypto;
             _company = company;
             _patterns = patterns;
             _swings = swings;
+            _news = news;
         }
+
+        /// <summary>How many wire stories "Recent news" lists.</summary>
+        public const int NewsListLength = 20;
 
         /// <summary>
         /// Crypto or equity, decided from the market the chart was loaded from rather than guessed
@@ -76,6 +82,9 @@ namespace AccessibleTrader.Core.Services.Analysis
 
             if (crypto) await BuildCryptoAsync(symbol, sections, flags, ct);
             else await BuildEquityAsync(symbol, sections, flags, ct);
+
+            if (_news != null)
+                sections.Add(await RecentNewsSectionAsync(_news, symbol, crypto, ct));
 
             // The chart read is last in construction and FIRST in the tab order: it is the only
             // section that always has an answer, and it is the one a sighted person gets for free.
@@ -424,6 +433,58 @@ namespace AccessibleTrader.Core.Services.Analysis
                 .ToList();
             return new DossierSection(title, DossierStatus.Ok, fields, now,
                 "Times are when EDGAR accepted the filing, which is when it became public.");
+        }
+
+        private static async Task<DossierSection> RecentNewsSectionAsync(
+            Headlines.INewsSource news, string symbol, bool crypto, CancellationToken ct)
+        {
+            var target = crypto
+                ? new Headlines.NewsTarget(Headlines.NewsStoryWords.CoinLabel(Trading.SymbolAssets.BaseOf(symbol)), true)
+                : new Headlines.NewsTarget(EdgarCompanyProfileSource.Normalise(symbol), false);
+            Headlines.NewsReadResult read;
+            try { read = await news.RecentAsync(target, NewsListLength, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                read = Headlines.NewsReadResult.Of(Headlines.NewsReadStatus.Failed);
+            }
+            return RecentNewsSection(read, DateTime.UtcNow);
+        }
+
+        /// <summary>
+        /// The symbol's newest wire stories, newest first, each with its publication time in New
+        /// York and the importance the live headlines give it — the headline is the same words, so
+        /// one heard earlier can be found again here.
+        /// </summary>
+        internal static DossierSection RecentNewsSection(Headlines.NewsReadResult read, DateTime now)
+        {
+            const string title = "Recent news";
+            switch (read.Status)
+            {
+                case Headlines.NewsReadStatus.NoKey:
+                    return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
+                        "Add an Alpaca key in API Keys to list news-wire stories here. A free Alpaca account works.");
+                case Headlines.NewsReadStatus.Refused:
+                    return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
+                        "Alpaca refused the key in API Keys. Check it, or make a new one on Alpaca's site.");
+                case Headlines.NewsReadStatus.Failed:
+                    return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
+                        "The news list could not be read.");
+            }
+            if (read.Stories.Count == 0)
+                return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
+                    "Alpaca lists no stories.");
+
+            var fields = read.Stories
+                .OrderByDescending(s => s.CreatedUtc)
+                .Select(s => F(
+                    ExchangeTime.ToEasternString(s.CreatedUtc, "yyyy-MM-dd h:mm tt") + " New York",
+                    s.Headline,
+                    s.Source.Length == 0 ? "Alpaca" : char.ToUpperInvariant(s.Source[0]) + s.Source[1..],
+                    DossierStatus.Ok,
+                    Headlines.NewsStoryWords.Word(Headlines.NewsStoryWords.Importance(s))))
+                .ToList();
+            return new DossierSection(title, DossierStatus.Ok, fields, now,
+                "News-wire stories through Alpaca. Times are when each story was published.");
         }
 
         private static void AddSeries(List<DossierField> into, string label,

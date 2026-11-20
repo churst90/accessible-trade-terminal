@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Headlines, stage 2: the news wire (Alpaca/Benzinga), 2026-11-20 — not heard, not on the VPS, never run against live Alpaca
+
+Cody: "ok start stage 2 with alpaca." Both Alpaca key pairs in his patches folder were refused
+(401) the same day, so this was built from Alpaca's documented message shapes and has never
+connected; it does nothing until a working key is in API Keys.
+
+- **Said on arrival.** One websocket to Alpaca's news stream (`v1beta1/news`, Benzinga's wire),
+  authenticated with the Alpaca key checked out from API Keys at connect time and dropped (never kept
+  or logged), subscribed to every story; the terminal keeps those about a touched symbol: the stocks
+  the filings use, plus the coin of every open crypto chart and every held coin (BTC/USDT, XBT/USD
+  and BTC-USD are all BTC). Spoken exactly like the filings (alerts tier, Headline sound, toast,
+  Alt+U Headlines): *"AAPL: Apple Reports Q4 Results, Beats Estimates. 2 more headlines."*
+- **Importance from the headline's words** (`NewsStoryWords`): options/whale notes, "why shares are
+  moving", movers, previews, and any story about more than four symbols are Low first; then results,
+  guidance, takeovers, bankruptcy, FDA and ETF decisions, halts, offerings, SEC/DOJ/FTC charges, CEO
+  departures, recalls, dividend cuts, splits and hacks are Important; upgrades/downgrades, dividends,
+  buybacks, deals, lawsuits, layoffs and executive appointments are Medium; the rest Low.
+- **Gate** (`NewsHeadlineGate`): a story id is said once (edits are not said again); a symbol's first
+  story waits 3 seconds for the burst, then one sentence, then a minute's cooldown for that symbol;
+  older than two hours is dropped, ten minutes or more adds *"Published N minutes ago."*; a symbol no
+  longer touched is dropped unsaid.
+- **Connection** (`AlpacaNewsLiveNotices`): no socket while the Headlines level is Off, the new
+  switch is off, there is no key, or nothing is touched; reconnects after 1 minute doubling to 15;
+  a socket down two minutes is replaced; Alpaca's 402 (key refused) waits 30 minutes, 406 (connection
+  limit) 5, 409 (no subscription) 6 hours.
+- **Setting:** Settings, Narration, Headlines, **Include news wire stories** (on by default; nothing
+  happens without a key), searchable, kept with the narration preferences, out of saved workspaces.
+- **Dossier:** Alt+I has a **Recent news** tab for stocks and coins (twenty newest from Alpaca's
+  REST news, New York time, headline, source, importance), and says when there is no key or the key
+  was refused.
+- **Code:** `AlpacaNews.cs` (parser, words, gate, wording), `AlpacaNewsSource.cs` (`INewsSource`,
+  REST), `AlpacaNewsLiveNotices.cs` (`INewsSocket` over `ReconnectingWebSocket`), the dossier
+  section, registration on both heads, `AppStartupService`. 52 new tests on two fixtures that are
+  Alpaca's documentation examples (not captures); fourteen sabotages each turned their guard red
+  once one gap was closed: the settings write-back (store to saved settings) was unguarded for the
+  new switch and, from stage 1, for the Headlines level; both tests now cover it and both
+  sabotages go red.
+- **Caveats:** never connected to Alpaca; the importance rule is my judgement; on the WebHost every
+  browser window opens its own socket and Alpaca allows one, so a second window waits on 406;
+  nothing while the browser is closed, and the live stream does not replay what was missed (those
+  stories are in the dossier's Recent news); no cross-source dedupe yet
+  (waits for Finnhub); the Go bar news list is stage 2b. Found on the way, not fixed:
+  `SymbolAssets.Split("XBTUSD")` reads XB in TUSD (in TODO).
+
 ### Headlines, stage 1: a company's SEC filings said the minute they are public, 2026-11-20 — not yet heard by Cody, not on the VPS
 
 Cody: "start with EDGAR, then file the headlines plan in TODO ... edgar first step with headlines,

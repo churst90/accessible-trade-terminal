@@ -196,6 +196,9 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string HeadlinesLevel = "narration.headlinesLevel";
 
+        /// <summary>"Headlines": include the Alpaca news wire (default on; needs an Alpaca key).</summary>
+        public const string HeadlinesNewsWire = "narration.headlinesNewsWire";
+
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
         public const string PlaybackSpeed = "playback.speed";
 

@@ -238,6 +238,8 @@ namespace AccessibleTrader.Core.Services
             _services.GetService<MarketEvents.MarketEventLiveNotices>();
             //     Headlines (SEC filings) poll on the same terms: resolved here or never run.
             _services.GetService<Headlines.EdgarHeadlineLiveNotices>();
+            //     So does the news wire (Alpaca), which opens no socket until it is wanted.
+            _services.GetService<Headlines.AlpacaNewsLiveNotices>();
 
             // 4d. Alt+U's change log. The recorder subscribes in its constructor; on the desktop
             //     it is a singleton nothing else resolves, so without this line the desktop log

@@ -529,14 +529,21 @@ public class EdgarHeadlineTests
 
         var settings = new AppSettings(new DictSettings()) { HeadlinesLevel = "importantAndMedium" };
         var store = new MockWorkspaceStore();
+        var clock = new System.Reactive.Concurrency.HistoricalScheduler();
         using var svc = new PreferencePersistenceService(store, settings,
-            NullLogger<PreferencePersistenceService>.Instance);
+            NullLogger<PreferencePersistenceService>.Instance, clock);
         svc.Initialize();
 
         var seeded = store.DispatchedActions.OfType<UpdateSettingsAction>()
             .Select(a => a.Updater(WorkspaceState.Initial))
             .Last();
         Assert.Equal("importantAndMedium", seeded.HeadlinesLevel);
+
+        // A level picked in Settings is written back to the saved settings.
+        store.EmitState(seeded);
+        store.EmitState(seeded with { HeadlinesLevel = "all" });
+        clock.AdvanceBy(TimeSpan.FromSeconds(2));
+        Assert.Equal("all", settings.HeadlinesLevel);
     }
 
     [Fact]

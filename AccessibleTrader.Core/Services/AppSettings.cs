@@ -122,6 +122,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"Headlines": off, important only, important and medium, or all.</summary>
         string HeadlinesLevel { get; set; }
 
+        /// <summary>"Headlines": include the news wire (Alpaca's Benzinga feed) as well as filings.</summary>
+        bool HeadlinesNewsWire { get; set; }
+
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
         float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -529,6 +532,17 @@ namespace AccessibleTrader.Core.Services
                 ? value
                 : Services.MarketEvents.MarketEventLevels.Off;
             set => Set(SettingsKeys.HeadlinesLevel, value);
+        }
+
+        /// <summary>
+        /// "Headlines": also say news-wire stories (Alpaca's Benzinga feed), not only SEC filings.
+        /// Default ON: it does nothing until a headlines level is picked AND an Alpaca key is in
+        /// API Keys, so the default costs nothing for anyone without one.
+        /// </summary>
+        public bool HeadlinesNewsWire
+        {
+            get => GetBool(SettingsKeys.HeadlinesNewsWire, true);
+            set => Set(SettingsKeys.HeadlinesNewsWire, value);
         }
 
         /// <summary>

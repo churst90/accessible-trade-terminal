@@ -894,6 +894,21 @@
                             annual reports and other 8-Ks; all adds insider trades. Muted by
                             Shift+F2, not F2. Alt+I lists each company's recent filings.
                         </p>
+
+                        <div class="modal-row">
+                            <label for="s-headlines-news-wire">Include news wire stories</label>
+                            <input id="s-headlines-news-wire" type="checkbox"
+                                   aria-describedby="s-headlines-news-wire-hint"
+                                   checked="@_headlinesNewsWire"
+                                   @onchange="e => _headlinesNewsWire = e.Value is true" />
+                        </div>
+                        <p id="s-headlines-news-wire-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                            Needs an Alpaca key in API Keys (a free account works). Benzinga's
+                            wire stories for your stocks and coins, at the same level as the
+                            filings: "AAPL: Apple Reports Q4 Results, Beats Estimates." Important
+                            is results, takeovers, bankruptcy, approvals and halts; medium adds
+                            analyst upgrades and downgrades, dividends and deals; all adds the rest.
+                        </p>
                     </fieldset>
 
                     @* Alt+P's one sentence. The Pulse list is a watchlist (Alt+M); this only
@@ -1559,6 +1574,7 @@
     private string _marketPulseCryptoStart = "midnightUtc";
     private bool _changeLogOfferOnReturn = true;
     private string _headlinesLevel = "off";
+    private bool _headlinesNewsWire = true;
     private string _marketEventStatus = "";
     private string _marketEventKalshiStatus = "";
 
@@ -2209,6 +2225,7 @@
         _marketPulseCryptoStart = Store.State.MarketPulseCryptoStart;
         _changeLogOfferOnReturn = Store.State.ChangeLogOfferOnReturn;
         _headlinesLevel = Store.State.HeadlinesLevel;
+        _headlinesNewsWire = Store.State.HeadlinesNewsWire;
         _marketEventStatus = NoKeyMarketEventStatus();
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
@@ -2574,6 +2591,7 @@
             MarketPulseCryptoStart = _marketPulseCryptoStart,
             ChangeLogOfferOnReturn = _changeLogOfferOnReturn,
             HeadlinesLevel = _headlinesLevel,
+            HeadlinesNewsWire = _headlinesNewsWire,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

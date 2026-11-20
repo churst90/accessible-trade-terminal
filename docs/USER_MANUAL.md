@@ -1842,7 +1842,7 @@ countdowns are Fed decisions**, which the shipped seed carries into 2027.
 
 A US company's filings with the SEC are said the minute EDGAR makes them public, for the stocks you
 are looking at or holding: *"AAPL filed an 8-K: earnings results."* This is the first kind of
-headline; news wires are planned (see below). It needs no key and no account.
+headline; the news wire is the second (next section). It needs no key and no account.
 
 **Turning it on.** Settings, Narration, **Headlines**, **Headlines level**: **Off** (the default),
 **Important only**, **Important and medium**, or **All**. Off means nothing is fetched at all.
@@ -1884,6 +1884,48 @@ under **Headlines**. As with market events, nothing arrives while the browser it
 **Where to read more.** The asset dossier (Alt+I) on a US stock has a **Recent filings** tab: the
 twenty newest filings, newest first, each with the time EDGAR accepted it in New York time, its
 words, and whether headlines would announce it.
+
+### Headlines: the news wire (Alpaca)
+
+With an Alpaca key, the wire stories about your stocks and coins are said the moment they are
+published: *"AAPL: Apple Reports Q4 Results, Beats Estimates."* The stories are Benzinga's, carried
+by Alpaca's news service; a free Alpaca account is enough (sign up on Alpaca's site, make an API key,
+and add it in **API Keys** under Alpaca). Without a key nothing is fetched and nothing is said.
+
+**Turning it on.** It follows the same **Headlines level** as the filings, so it is off until you pick
+a level. Under the level is **Include news wire stories**, ticked by default; untick it to keep the
+filings and drop the wire.
+
+**Which symbols.** The stocks the filings use (open stock charts and held stocks), plus every coin
+on an open crypto chart and every coin you hold, by the coin itself: a chart of BTC/USDT, XBT/USD or
+BTC-USD all hear Bitcoin stories.
+
+**What is important.** Wire stories come with no importance, so the terminal judges by the
+headline's words:
+
+| Important | Medium | Low (said only at **All**) |
+| --- | --- | --- |
+| Results and earnings per share, beats and misses, guidance, takeovers and mergers, bankruptcy, delisting, FDA decisions, ETF approvals and rejections, trading halts and resumptions, share offerings, SEC, Justice Department or FTC charges and subpoenas, a chief executive leaving, recalls, a cut dividend, a stock split, a hack or stolen funds | Analyst upgrades, downgrades and new coverage, dividends, buybacks, deals, partnerships and contracts, lawsuits, settlements and investigations, job cuts and restructuring, a new chief executive, finance chief, president or chair | Everything else, including price-target changes. Always low, whatever the words: options-activity and "whale" notes, "why the shares are moving" and "what's going on" notes, movers lists, pre-market, mid-day and after-hours notes, "if you had invested" notes, earnings previews and "what to expect", analyst-ratings digests, and any story about more than four symbols |
+
+**What is said.** A symbol's first story waits three seconds for the others wire desks send in a
+burst, then one sentence is said: the most important story in full and the rest counted, *"AAPL:
+Apple Reports Q4 Results, Beats Estimates. 2 more headlines."* After that, nothing more is said for
+that symbol for a minute; stories in that minute are gathered into the next sentence. A story
+edited after it was said is not said again. A story found more than ten minutes after it was
+published ends with its age, *"Published 25 minutes ago."*, and one more than two hours old is not
+said. A story about two of your symbols names both, *"AAPL, BTC: ..."*.
+
+**How it sounds.** Exactly as the filings: the alerts tier (Shift+F2 mutes it), the Headline sound,
+a desktop notification when the window is hidden, and **What changed (Alt+U)** under Headlines.
+
+**If the connection drops** the terminal reconnects on its own, waiting a minute and then longer, up
+to a quarter of an hour. If Alpaca refuses the key it tries again after half an hour; if it says
+the account already has a news connection open (a second browser window of the web version, for
+example) it waits five minutes. The asset dossier's Recent news tab says when the key is refused.
+
+**Where to read more.** The asset dossier (Alt+I) has a **Recent news** tab for stocks and coins:
+the twenty newest stories, newest first, each with its New York publication time, the headline, and
+the importance the live headlines give it.
 
 ### The calendar screen (Alt+E)
 

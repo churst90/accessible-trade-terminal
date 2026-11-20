@@ -85,7 +85,8 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyList<string>? MarketEventsWatched = null,
             string MarketPulseCryptoStart = "midnightUtc",
             bool ChangeLogOfferOnReturn = true,
-            string HeadlinesLevel = "off");
+            string HeadlinesLevel = "off",
+            bool HeadlinesNewsWire = true);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
@@ -97,7 +98,8 @@ namespace AccessibleTrader.Core.Services
             s.MarketEventsLevel, s.MarketEventsEconomy, s.MarketEventsFed,
             s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings,
             s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns, s.MarketEventsWatched,
-            s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn, s.HeadlinesLevel);
+            s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn, s.HeadlinesLevel,
+            s.HeadlinesNewsWire);
 
         public void Initialize()
         {
@@ -148,6 +150,7 @@ namespace AccessibleTrader.Core.Services
                     MarketPulseCryptoStart = _settings.MarketPulseCryptoStart,
                     ChangeLogOfferOnReturn = _settings.ChangeLogOfferOnReturn,
                     HeadlinesLevel = _settings.HeadlinesLevel,
+                    HeadlinesNewsWire = _settings.HeadlinesNewsWire,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
                     // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
@@ -197,6 +200,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.MarketPulseCryptoStart = p.MarketPulseCryptoStart;
                         _settings.ChangeLogOfferOnReturn = p.ChangeLogOfferOnReturn;
                         _settings.HeadlinesLevel = p.HeadlinesLevel;
+                        _settings.HeadlinesNewsWire = p.HeadlinesNewsWire;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }

@@ -413,11 +413,30 @@ Alt+U under Headlines; only symbols the trader touches.
   source and clock); the item and form importance table is my judgement, so Cody may want to move
   things between levels; a stock is only known to EDGAR by its plain ticker (class shares such as
   BRK.B and foreign listings may be missed); nothing while the browser is closed.
-- [ ] **Stage 2: Alpaca news (Benzinga) websocket.** Cody has an Alpaca live and paper key in his
-  patches/api keys folder (2026-11-20; read it from the app's key store, never print it). Real-time
-  wire headlines with tickers, stocks and crypto. Needs the cross-source dedupe, a per-symbol cap
-  per few minutes, an importance rule for wire stories (none comes with them), and the news list
-  (Go bar `NEWS`).
+- [x] **Stage 2: Alpaca news (Benzinga) websocket.** **Built 2026-11-20, never connected, not heard,
+  not on the VPS.** Wire stories for touched stocks and coins on the Headlines level, the "Include
+  news wire stories" switch (default on; nothing without an Alpaca key), a 3-second gather and a
+  1-minute cap per symbol, dedupe by story id, the dossier's Recent news tab. Caveats below.
+  - [ ] **Cody: put a working Alpaca key in the app's API Keys.** Both pairs in
+    `patches/api keys/alpaca-api-key.txt` were refused (401) on 2026-11-20; the file is from August
+    and says to rotate. Then: turn a level on, open AAPL and BTC charts, and listen during market
+    hours.
+  - [ ] **Capture real frames and a REST answer** once a key works, and replace the two fixtures
+    (they are Alpaca's documentation examples). Check: the crypto symbol form (`BTCUSD` assumed),
+    that the feed is free on a basic account, and the error codes.
+  - [ ] **Q for Cody after hearing it:** is the wire importance rule right? It is my judgement
+    (results, takeovers, approvals, halts important; upgrades, dividends, deals medium; filler and
+    roundups low). Is a minute per symbol the right cap?
+  - [ ] **WebHost: one socket per browser circuit.** Alpaca allows one news connection per account,
+    so a second window gets 406 and waits five minutes, then tries again. A per-user shared socket
+    fixes it if Cody uses two windows.
+  - [ ] **Found, not fixed: `SymbolAssets.Split("XBTUSD")` reads XB priced in TUSD** (the longest
+    quote wins, and TUSD is longer than USD). The news matching no longer uses it; the sector hint,
+    COT and other callers still do. Unverified whether any venue in the app gives a slashless
+    XBTUSD symbol.
+- [ ] **Stage 2b: the news list (Go bar `NEWS`)**, every headline said or not, newest first.
+- [ ] **Cross-source dedupe**, when a second wire (Finnhub) arrives: the same story from two wires
+  is one headline. EDGAR and the wire say different things and both stay.
 - [ ] **Stage 3: Finnhub company news** (the key Cody is getting for earnings) as a second wire, and
   headlines placed on the bar they arrived in, with apostrophe jumps.
 - [ ] **CryptoPanic: only if crypto news proves thin after stage 2** (Cody asked whether it is strictly

@@ -544,6 +544,15 @@ namespace AccessibleTrader.WebHost
                     "AssetDossier.Company",
                     new[] { "data.sec.gov", "www.sec.gov" },
                     userAgent: "AccessibleTrader/2.2 (codythurst@gmail.com)")));
+            // Headlines, stage 2: the dossier's "Recent news" and the live wire both read Alpaca
+            // with the key from API Keys. No key, no requests: the section says how to add one.
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.INewsSource>(sp =>
+                new AccessibleTrader.Core.Services.Headlines.AlpacaNewsRestSource(
+                    AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
+                        "Headlines.AlpacaNews",
+                        new[] { "data.alpaca.markets" },
+                        userAgent: "AccessibleTrader/2.2 (accessible-trade-terminal)"),
+                    sp.GetRequiredService<AccessibleTrader.Sdk.Services.IApiKeyCheckout>()));
             services.AddScoped<IAssetDossierService, AssetDossierService>();
             services.AddScoped<ILevelProvenanceService, LevelProvenanceService>();
             services.AddScoped<IReplayService, ReplayService>();
@@ -715,6 +724,10 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ICompanyFilingSource>(sp =>
                 (ICompanyFilingSource)sp.GetRequiredService<ICompanyProfileSource>());
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.EdgarHeadlineLiveNotices>();
+            // Headlines, stage 2: the Alpaca news wire. One socket per circuit (a second browser window can hit Alpaca's connection limit, 406, and waits).
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.INewsSocketFactory,
+                AccessibleTrader.Core.Services.Headlines.AlpacaNewsSocketFactory>();
+            services.AddScoped<AccessibleTrader.Core.Services.Headlines.AlpacaNewsLiveNotices>();
             // Alt+P. Scoped here because IWatchlistLibrary is scoped per signed-in user.
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal

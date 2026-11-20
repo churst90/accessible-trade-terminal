@@ -205,7 +205,7 @@ namespace AccessibleTrader.Core.Services.Headlines
             return tickers;
         }
 
-        private static MarketType? MarketOf(ChartIdentity identity)
+        internal static MarketType? MarketOf(ChartIdentity identity)
         {
             string category = MarketKey.Category(identity.Market ?? "");
             return Enum.TryParse<MarketType>(category, ignoreCase: true, out var market)
