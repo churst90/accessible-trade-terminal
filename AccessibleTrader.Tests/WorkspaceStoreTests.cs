@@ -66,21 +66,46 @@ namespace AccessibleTrader.Tests
 
         // ── Identity / mode / provider (inlined projections) ─────────────────
 
+        // Code review, 2026-11-20: these used to dispatch an action and read back the one field it
+        // set, which passes even if nothing that matters follows. Each now pins what the action
+        // does to the rest of the chart.
+
         [Fact]
-        public void SetIdentityAction_UpdatesIdentity()
+        public void SetIdentityAction_drops_the_old_symbols_bars_and_cursor()
         {
+            // The paper broker prices positions from (Identity, last bar); bars kept from the old
+            // symbol under the new identity would price a BTC position from ETH's last close.
             using var store = NewStore(out _);
+            store.Dispatch(new SetIdentityAction(new ChartIdentity("Spot", "Binance", "ETHUSDT", "1h")));
+            store.Dispatch(new UpdateDataAction(MakeBars(150), IsInitialLoad: true));
+            store.Dispatch(new NavigateAction(80));
+            Assert.Equal(150, store.State.Data.Count);
+
             var id = new ChartIdentity("Spot", "Binance", "BTCUSDT", "1h");
             store.Dispatch(new SetIdentityAction(id));
+
             Assert.Equal(id, store.State.Identity);
+            Assert.Empty(store.State.Data);
+            Assert.Null(store.State.TimeBars);
+            Assert.Equal(0, store.State.CurrentDataIndex);
+            Assert.Equal(0, store.State.ViewportStartIndex);
         }
 
         [Fact]
-        public void ChangeModeAction_UpdatesMode()
+        public void ChangeModeAction_changes_the_mode_and_nothing_else()
         {
             using var store = NewStore(out _);
-            store.Dispatch(new ChangeModeAction(TerminalMode.Trading));
-            Assert.Equal(TerminalMode.Trading, store.State.Mode);
+            store.Dispatch(new UpdateDataAction(MakeBars(150), IsInitialLoad: true));
+            store.Dispatch(new NavigateAction(80));
+            var before = store.State;
+            // The store starts in Trading; the old version of this test switched TO Trading, so
+            // it passed with an action that did nothing.
+            Assert.Equal(TerminalMode.Trading, before.Mode);
+
+            store.Dispatch(new ChangeModeAction(TerminalMode.Analytics));
+
+            Assert.NotSame(before, store.State);
+            Assert.Equal(before with { Mode = TerminalMode.Analytics }, store.State);
         }
 
         // ── Playback reducer ────────────────────────────────────────────────
@@ -123,16 +148,25 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void ToggleHeikinAshiAction_FlipsFlag()
+        public void ToggleHeikinAshiAction_turns_a_line_chart_into_Heikin_Ashi_candles_and_back_to_candles()
         {
+            // Heikin-Ashi is a candle transform: turning it on from a line chart has to show
+            // candles, or the flag is set on a chart that cannot draw it.
             using var store = NewStore(out _);
-            bool before = store.State.IsHeikinAshi;
+            store.Dispatch(new SetChartStyleAction(PriceChartStyle.Line, HeikinAshi: false));
+            Assert.Equal(PriceChartStyle.Line, store.State.ChartStyle);
+
             store.Dispatch(new ToggleHeikinAshiAction());
-            Assert.Equal(!before, store.State.IsHeikinAshi);
+            Assert.True(store.State.IsHeikinAshi);
+            Assert.Equal(PriceChartStyle.Candles, store.State.ChartStyle);
+
+            store.Dispatch(new ToggleHeikinAshiAction());
+            Assert.False(store.State.IsHeikinAshi);
+            Assert.Equal(PriceChartStyle.Candles, store.State.ChartStyle);
         }
 
         [Fact]
-        public void ToggleLogScaleAction_FlipsFlag()
+        public void SelectComponentAction_SetsFocusedComponent()
         {
             using var store = NewStore(out _);
             bool before = store.State.IsLogScale;
@@ -253,9 +287,20 @@ namespace AccessibleTrader.Tests
             store.Dispatch(new SetIdentityAction(id));
             int tabsBefore = store.State.TabSnapshots?.Count ?? 0;
 
+            store.Dispatch(new UpdateDataAction(MakeBars(150), IsInitialLoad: true));
+
             store.Dispatch(new AddTabAction());
 
-            Assert.True((store.State.TabSnapshots?.Count ?? 0) >= tabsBefore);
+            // Exactly one more tab, the new one active and empty, the old chart kept in its snapshot.
+            Assert.Equal(tabsBefore + 1, store.State.TabSnapshots?.Count ?? 0);
+            Assert.Equal(2, store.State.TabCount);
+            Assert.Equal(1, store.State.ActiveTabIndex);
+            Assert.Equal(ChartIdentity.Empty, store.State.Identity);
+            Assert.Empty(store.State.Data);
+            var kept = Assert.Single(store.State.TabSnapshots!);
+            Assert.Equal(0, kept.TabIndex);
+            Assert.Equal(id, kept.Identity);
+            Assert.Equal(150, kept.Data.Count);
         }
 
         /// <summary>
