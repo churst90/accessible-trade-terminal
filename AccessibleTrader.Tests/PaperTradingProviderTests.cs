@@ -276,6 +276,30 @@ namespace AccessibleTrader.Tests
             Assert.Single(await paperB.GetFillsAsync(Btc));
         }
 
+        [Fact]
+        public async Task The_account_as_it_stood_is_copied_before_the_days_first_save()
+        {
+            // Code review, 2026-11-20: a save that is WRONG replaced the only copy. The paper
+            // account now keeps one a day in Backups/ beside it (AtomicFile).
+            var paperA = Make(out var storeA);
+            storeA.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paperA.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Buy, 1.0));
+            paperA.Dispose();
+            string before = File.ReadAllText(Path.Combine(_tempDir, "paper_account.json"));
+            string backups = Path.Combine(_tempDir, AtomicFile.BackupFolderName);
+            if (Directory.Exists(backups)) Directory.Delete(backups, recursive: true);
+
+            var paperB = Make(out var storeB);
+            storeB.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paperB.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0));
+            paperB.Dispose();
+
+            string copy = Assert.Single(Directory.GetFiles(backups));
+            Assert.Matches(@"paper_account\.\d{4}-\d{2}-\d{2}\.json$", copy);
+            Assert.Equal(before, File.ReadAllText(copy));
+            Assert.NotEqual(before, File.ReadAllText(Path.Combine(_tempDir, "paper_account.json")));
+        }
+
         // ── Symbol scoping ───────────────────────────────────────────────────
 
         [Fact]

@@ -5569,6 +5569,15 @@ above are the ones that work.
 A factory reset (General tab) clears everything in the table except your API keys, your paper
 account and its history, and your saved workspaces, and says so before it does.
 
+**Daily copies.** Your paper account, each saved workspace and your alerts keep a copy a day: on
+the first save of each day (UTC), the file as it stood (yesterday's last state) is copied into a
+`Backups` folder beside it, named with the date, and the newest seven are kept. So
+`paper_account.json` has `Backups/paper_account.2026-11-20.json`, and `Workspaces/Main.json` has
+`Workspaces/Backups/Main.2026-11-20.json`. To go back a day, close the app and copy the dated file
+over the live one, dropping the date from the name. The session autosave is not copied; a factory
+reset leaves the copies alone. On the hosted server they are in your account's folder and come
+with **Download my data**.
+
 ---
 
 ## The Tactile Display

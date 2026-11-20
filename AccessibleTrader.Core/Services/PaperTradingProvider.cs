@@ -2147,7 +2147,7 @@ namespace AccessibleTrader.Core.Services
                     Aliases = _ledgerAlias.Where(kv => IsLedgerKey(kv.Value))
                         .Select(kv => new AliasDto { From = kv.Key, To = kv.Value }).ToList()
                 };
-                AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
+                AtomicFile.WriteAllTextKeepingDailyBackup(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
             }
             catch (Exception ex) { _logger.LogWarning(ex, "Paper account persist failed."); }
         }

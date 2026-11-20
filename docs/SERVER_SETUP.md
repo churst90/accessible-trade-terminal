@@ -271,6 +271,9 @@ Under `Accounts__DataRoot`:
 auth.db          Identity accounts (AspNetUsers, …)
 users/{userId}/  per-user data — settings, sound design, paper-trading, journal, and:
                    Workspaces/       saved layouts, alerts.json, __last-session__ autosave
+                   Workspaces/Backups/, Backups/  a copy a day (7 kept) of each saved layout,
+                                     alerts.json and paper_account.json — the file as it stood
+                                     before the day's first save (UTC)
                    IndicatorPrefs/   per-indicator colours, thickness, sonification
                    SecurityEvents/   this user's audit log
 cache/           SHARED HTTP / analytics-series cache (public market data, one for everyone)

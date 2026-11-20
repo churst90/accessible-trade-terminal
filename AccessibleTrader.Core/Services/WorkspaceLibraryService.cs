@@ -139,7 +139,12 @@ namespace AccessibleTrader.Core.Services
             {
                 string path = Path.Combine(_libraryDir, $"{safe}.json");
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                AtomicFile.WriteAllText(path, json);
+                // A saved profile keeps a copy a day (Workspaces/Backups); the session autosave
+                // slots are rewritten every few seconds per tab and are not the user's own work.
+                if (safe.StartsWith(Workspace.SessionAutosaveService.LastSessionProfileName, StringComparison.Ordinal))
+                    AtomicFile.WriteAllText(path, json);
+                else
+                    AtomicFile.WriteAllTextKeepingDailyBackup(path, json);
                 _logger.LogInformation("Workspace profile {Name} saved.", safe);
             }
             catch (Exception ex)
@@ -381,7 +386,7 @@ namespace AccessibleTrader.Core.Services
             {
                 string path = Path.Combine(_libraryDir, "alerts.json");
                 string json = JsonConvert.SerializeObject(alerts, Formatting.Indented, AlertJsonSettings);
-                AtomicFile.WriteAllText(path, json);
+                AtomicFile.WriteAllTextKeepingDailyBackup(path, json);
                 _logger.LogInformation("Alerts saved.");
             }
             catch (Exception ex)
