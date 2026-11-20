@@ -492,6 +492,25 @@ namespace AccessibleTrader.Core.Services.GoBar
                             Help: "Draw the price as Kagi lines turning on this reversal amount"),
                     }, kagiName + ".");
 
+                case GoBarVerb.PointFigure:
+                    if (!GoBarParser.TryParsePointFigure(parsed.Argument, out var pnf))
+                        return new GoBarSuggestion(Array.Empty<GoBarOption>(), BrickChartSpeech.PnfBadArgument);
+                    int pnfReversal = pnf.PnfReversal;
+                    string pnfReversalWords = $"reversal {pnfReversal} box{(pnfReversal == 1 ? "" : "es")}";
+                    string pnfName = pnf.PnfMode == RenkoBoxMode.Fixed
+                        ? $"Point and figure chart, fixed box {SpeechPriceFormatter.FormatPrice(pnf.PnfSize)}, {pnfReversalWords}"
+                        : $"Point and figure chart, ATR {pnf.PnfAtrLength}, {pnfReversalWords}";
+                    return new GoBarSuggestion(new[]
+                    {
+                        new GoBarOption(
+                            pnfName,
+                            Action: new GoBarRenkoAction(pnf, PriceChartStyle.PointAndFigure),
+                            CanonicalText: (pnf.PnfMode == RenkoBoxMode.Fixed
+                                ? $"PNF {pnf.PnfSize.ToString("0.##########", CultureInfo.InvariantCulture)}"
+                                : $"PNF ATR {pnf.PnfAtrLength}") + $" {pnfReversal}",
+                            Help: "Draw the price as point and figure columns of this box, turning on this reversal"),
+                    }, pnfName + ".");
+
                 case GoBarVerb.PriceAlert when parsed.Price is { } price:
                     return Finish(new[]
                     {

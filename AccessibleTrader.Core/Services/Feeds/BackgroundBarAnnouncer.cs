@@ -148,13 +148,13 @@ namespace AccessibleTrader.Core.Services.Feeds
             var brickTab = BrickTabFor(feed.Identity);
             if (brickTab != null)
             {
+                double box = Charts.BrickNews.BoxFor(bars, brickTab.Renko, brickTab.BrickBoxSize, brickTab.ChartStyle);
                 var bricks = Charts.BrickNews.CompletedAtClose(
-                    bars, Charts.BrickNews.BoxFor(bars, brickTab.Renko, brickTab.BrickBoxSize, brickTab.ChartStyle),
-                    feed.Identity, brickTab.ChartStyle, brickTab.Renko);
+                    bars, box, feed.Identity, brickTab.ChartStyle, brickTab.Renko);
                 if (bricks.Count == 0) return;
                 try { _earcons.PlayNewBar(); }
                 catch (Exception ex) { _logger?.LogWarning(ex, "Background brick earcon failed."); }
-                _ = AnnounceBricksAsync(feed, bricks, brickTab.ChartStyle);
+                _ = AnnounceBricksAsync(feed, bricks, brickTab.ChartStyle, box);
                 return;
             }
 
@@ -227,14 +227,14 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// background speech is on, with the tab's ladder (computed on its bricks) after them.
         /// </summary>
         private async Task AnnounceBricksAsync(ChartFeed feed, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            PriceChartStyle style)
+            PriceChartStyle style, double box)
         {
             try
             {
                 string? ladder = await LadderAsync(feed).ConfigureAwait(false);
-                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks, style), ladder, style));
+                _bus.Publish(new BackgroundBricksFormedEvent(feed.Identity, Charts.BrickNews.Summary(bricks, style, box), ladder, style));
                 if (SpeakEnabled())
-                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder, style),
+                    _speech.Speak(Charts.BrickNews.Sentence(feed.Identity, bricks, ladder, style, box),
                         interrupt: false, channel: SpeechChannel.Narration);
             }
             catch (Exception ex)

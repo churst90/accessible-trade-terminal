@@ -338,11 +338,11 @@ namespace AccessibleTrader.WebHost.Services
                 {
                     // A Renko chart says the bricks this close completed, and a close that
                     // completed none says nothing of its own — only its ladder, if that had news.
+                    double box = BrickNews.BoxFor(bars, watch.Renko, watch.BrickBoxSize, watch.ChartStyle);
                     var bricks = BrickNews.CompletedAtClose(
-                        bars, BrickNews.BoxFor(bars, watch.Renko, watch.BrickBoxSize, watch.ChartStyle),
-                        new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
+                        bars, box, new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
                         watch.ChartStyle, watch.Renko);
-                    if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null);
+                    if (bricks.Count > 0) AnnounceBricks(watch, bricks, speakLadder ? ladder : null, box);
                     else if (speakLadder) AnnounceNarration(watch, ladder!);
                 }
                 else if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
@@ -1009,13 +1009,14 @@ namespace AccessibleTrader.WebHost.Services
         /// Bricks completed on a Renko chart: the same sentence a background Renko tab says, with
         /// the sound, toast and speech this monitor owns for a bar close.
         /// </summary>
-        private void AnnounceBricks(Watch watch, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks, string? ladder)
+        private void AnnounceBricks(Watch watch, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks, string? ladder,
+            double box)
         {
             if (_announcementsSnoozed) return;
             string title = BrickNews.Title(watch.Symbol, watch.Timeframe, watch.ChartStyle);
             string sentence = BrickNews.Sentence(
                 new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), bricks, ladder,
-                watch.ChartStyle);
+                watch.ChartStyle, box);
             _logger.LogInformation("Background bricks: {Sentence}", sentence);
             DesktopAnnouncement.Present(_presenter,
                 title, sentence, sentence, urgent: false, withSound: true, _logger);

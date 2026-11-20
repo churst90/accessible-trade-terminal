@@ -130,7 +130,13 @@ and Identity already has 2FA, lockout and rate limits.
      yes if possible" / "yes percentage adjustment too") built 2026-11-20, not heard: a thick line
      sounds heavy (square edge and sub-octave weight), a thin line nearly a pure sine, direction
      still the pitch; and a **Percentage** reversal (dialog option, Go bar `KAGI 2%`), that
-     percentage of the line's end. Still open: Point & Figure, which reuses the brick plumbing. The brick and box types drop
+     percentage of the line's end. **Point and figure** — built 2026-11-20, not yet heard by Cody
+     (toolbar select, settings dialog with Box and Reversal 1–20, Go bar `PNF 500 3` /
+     `PNF ATR 20`; X/O marks drawn, "Column. Up, X, 4 boxes." spoken, heavier sound for taller
+     columns, each new box said once live, background tabs say a column that grew). Questions for
+     Cody: High/Low as the source (TradingView offers it; closes only now)? Double top / double
+     bottom breakout words? A percentage box like Kagi's? Still open: which other TradingView
+     types (bars, hollow candles, columns, high-low, baseline, step line, line with markers)? The brick and box types drop
      time, so the bar cursor, playback and speech must say a brick's own start and end time, and
      indicators run on the bricks.
   2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**

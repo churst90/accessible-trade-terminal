@@ -22,12 +22,12 @@ namespace AccessibleTrader.Sdk.Models
     /// </para>
     /// </summary>
     /// <remarks>Members are saved as numbers: new ones go on the end.</remarks>
-    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3, RangeBars = 4, LineBreak = 5, Kagi = 6 }
+    public enum PriceChartStyle { Candles = 0, Line = 1, Area = 2, Renko = 3, RangeBars = 4, LineBreak = 5, Kagi = 6,
+        PointAndFigure = 7 }
 
     /// <summary>
     /// True for the chart types drawn from BOUNDARIES of price movement rather than from the
-    /// clock: Renko, range bars, line break and Kagi today, and Point &amp; Figure when it
-    /// arrives. Those charts drop time from the index axis, so every index-based consumer runs on
+    /// clock: Renko, range bars, line break, Kagi and point and figure. Those charts drop time from the index axis, so every index-based consumer runs on
     /// the drawn bars, while every money and feed path keeps the real time bars
     /// (<see cref="WorkspaceState.MarketBars"/>). "Brick" in the plumbing's names means any of
     /// them; <see cref="IsBlockStyle"/> is the narrower "drawn as blocks with no wicks".
@@ -36,15 +36,16 @@ namespace AccessibleTrader.Sdk.Models
     {
         public static bool IsBrickStyle(this PriceChartStyle style) =>
             style is PriceChartStyle.Renko or PriceChartStyle.RangeBars or PriceChartStyle.LineBreak
-                or PriceChartStyle.Kagi;
+                or PriceChartStyle.Kagi or PriceChartStyle.PointAndFigure;
 
         /// <summary>
-        /// Renko, line break and Kagi: each drawn bar runs between two prices (a brick, a block, a
-        /// Kagi line), with no wicks, and the price series has one part. Range bars are not: each
+        /// Renko, line break, Kagi and point and figure: each drawn bar runs between two prices (a brick, a block, a
+        /// Kagi line, a column of X or O), with no wicks, and the price series has one part. Range bars are not: each
         /// is a real candle (open, high, low, close) and keeps the candle parts.
         /// </summary>
         public static bool IsBlockStyle(this PriceChartStyle style) =>
-            style is PriceChartStyle.Renko or PriceChartStyle.LineBreak or PriceChartStyle.Kagi;
+            style is PriceChartStyle.Renko or PriceChartStyle.LineBreak or PriceChartStyle.Kagi
+                or PriceChartStyle.PointAndFigure;
     }
 
     /// <summary>How a Renko chart picks its brick size. TradingView's default is ATR 14.
@@ -59,7 +60,10 @@ namespace AccessibleTrader.Sdk.Models
     /// <see cref="RangeSize"/>, <see cref="RangeAtrLength"/>), so choosing one never moves the
     /// other. <see cref="LineBreakLines"/> is how many lines a line-break reversal must break
     /// (TradingView's default, three). Kagi's reversal amount is chosen like the range and kept
-    /// apart too (<see cref="KagiMode"/>, <see cref="KagiSize"/>, <see cref="KagiAtrLength"/>).
+    /// apart too (<see cref="KagiMode"/>, <see cref="KagiSize"/>, <see cref="KagiAtrLength"/>), and
+    /// so is point and figure's box (<see cref="PnfMode"/>, <see cref="PnfSize"/>,
+    /// <see cref="PnfAtrLength"/>), with <see cref="PnfReversal"/> the boxes a turn takes
+    /// (TradingView's default, three).
     /// One record so every save, tab snapshot and background
     /// monitor that already carries Renko's settings carries all of them; a file saved before a
     /// field existed reads its default.
@@ -74,7 +78,11 @@ namespace AccessibleTrader.Sdk.Models
         int LineBreakLines = 3,
         RenkoBoxMode KagiMode = RenkoBoxMode.Atr,
         double KagiSize = 0,
-        int KagiAtrLength = 14);
+        int KagiAtrLength = 14,
+        RenkoBoxMode PnfMode = RenkoBoxMode.Atr,
+        double PnfSize = 0,
+        int PnfAtrLength = 14,
+        int PnfReversal = 3);
 
     /// <summary>
     /// The real time window a brick formed in. <see cref="FirstBar"/> and

@@ -448,6 +448,12 @@ namespace AccessibleTrader.Core.Services.Audio
                     bool brickUp = point.Close >= point.Open;
                     squareMix   = brickUp ? 0.18f : 0.10f;
                     triangleMix = brickUp ? 0f    : 0.10f;
+                    // A POINT AND FIGURE COLUMN IS HEARD BY ITS BOXES, as it is drawn and said: a
+                    // column is as tall as the boxes price went, so a long run carries sub-octave
+                    // weight and a one-box column has none (Cody's "whatever is selected should be
+                    // mirrored visually and through sound and speech").
+                    if (comp.Name == Charts.PriceSeriesShape.PnfPart && PnfBoxes(series, dataIndex) is int boxes)
+                        subSawMix = PnfWeight(boxes);
                 }
                 else if (comp.DisplayType == ComponentDisplayType.Area && series.Id == CoreSeriesIds.Candles)
                 {
@@ -564,6 +570,19 @@ namespace AccessibleTrader.Core.Services.Audio
             if (dataIndex < 0 || dataIndex >= thick.Length) return null;
             return thick[dataIndex] > 0.5;
         }
+
+        /// <summary>The boxes in the point and figure column at <paramref name="dataIndex"/>; null
+        /// when the buffer does not say.</summary>
+        private static int? PnfBoxes(ChartSeries series, int dataIndex)
+        {
+            if (!series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.PnfBoxesKey, out var boxes)) return null;
+            if (dataIndex < 0 || dataIndex >= boxes.Length || !double.IsFinite(boxes[dataIndex])) return null;
+            return (int)boxes[dataIndex];
+        }
+
+        /// <summary>A column's sub-octave weight: none at one box, rising to 0.3 at ten boxes and
+        /// over.</summary>
+        internal static float PnfWeight(int boxes) => 0.3f * Math.Clamp((boxes - 1) / 9f, 0f, 1f);
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
         {

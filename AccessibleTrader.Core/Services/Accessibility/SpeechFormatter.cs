@@ -194,6 +194,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var onePart = seriesId == CoreSeriesIds.Candles && series.Components.Count == 1
                 && series.Components[0].Name is Charts.PriceSeriesShape.LinePart or Charts.PriceSeriesShape.BrickPart
                     or Charts.PriceSeriesShape.BlockPart or Charts.PriceSeriesShape.KagiPart
+                    or Charts.PriceSeriesShape.PnfPart
                 ? series.Components[0]
                 : null;
 
@@ -215,7 +216,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     // Bricks drawn under candle parts (a shape not yet applied): the brick, plainly.
                     msg = ScalePrefix(scaleMode, brick.Close, scaleBase)
-                        + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle, state.Data, state.CurrentDataIndex);
+                        + BrickChartSpeech.BrickSummary(brick, brickSpan, state.ChartStyle, state.Data, state.CurrentDataIndex, state.BrickBoxSize);
                 }
                 else
                 {
@@ -1391,13 +1392,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// then its direction in the type's place (as the candle body says Bullish), then its two
     /// edges as drawn. The brick's real window follows from the caller. A Kagi line adds its
     /// thickness, which the chart draws: "Kagi line. Up, turns thick at 115.00. 110.00 to 120.00."
+    /// A point and figure column adds its mark and boxes, from the series' own box counts
+    /// (<see cref="Charts.PriceSeriesShape.PnfBoxesKey"/>): "Column. Up, X, 4 boxes. 100.00 to 104.00."
     /// </summary>
     internal sealed class BrickStrategy : IComponentSpeechStrategy
     {
         public bool CanHandle(ComponentFormatContext ctx) =>
             Charts.PriceSeriesShape.IsPriceSeries(ctx.Series.Config)
             && ctx.Comp.Name is Charts.PriceSeriesShape.BrickPart or Charts.PriceSeriesShape.BlockPart
-                or Charts.PriceSeriesShape.KagiPart;
+                or Charts.PriceSeriesShape.KagiPart or Charts.PriceSeriesShape.PnfPart;
 
         public string Format(ComponentFormatContext ctx)
         {
@@ -1406,6 +1409,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (ctx.Comp.Name == Charts.PriceSeriesShape.KagiPart && ctx.Bars != null
                 && ctx.DataIndex >= 0 && ctx.DataIndex < ctx.Bars.Count)
                 direction += ", " + Charts.KagiLines.Words(Charts.KagiLines.At(ctx.Bars, ctx.DataIndex));
+            if (ctx.Comp.Name == Charts.PriceSeriesShape.PnfPart)
+                direction += ", " + Charts.PointFigureColumns.Words(brick.Close >= brick.Open, PnfBoxes(ctx));
             string scale = StandardTemplateStrategy.ScaleReading(ctx, brick.Close);
             string edges = (scale.Length == 0 ? "" : scale + ", ")
                 + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to {SpeechPriceFormatter.FormatPrice(brick.Close)}";
@@ -1413,6 +1418,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return $"{direction}, {edges}";
             return $"{ctx.Comp.DisplayName}. {direction}. {edges}.";
         }
+
+        /// <summary>The column's boxes as the series holds them; 0 (unknown) when it does not.</summary>
+        internal static int PnfBoxes(ComponentFormatContext ctx) =>
+            ctx.Series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.PnfBoxesKey, out var boxes)
+            && ctx.DataIndex >= 0 && ctx.DataIndex < boxes.Length && double.IsFinite(boxes[ctx.DataIndex])
+                ? (int)boxes[ctx.DataIndex]
+                : 0;
     }
 
     internal sealed class CandleBodyStrategy : IComponentSpeechStrategy

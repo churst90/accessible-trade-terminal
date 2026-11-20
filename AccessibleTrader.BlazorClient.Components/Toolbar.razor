@@ -249,6 +249,7 @@
                     <option value="rangebars" selected="@(ChartTypeValue == "rangebars")">Range bars</option>
                     <option value="linebreak" selected="@(ChartTypeValue == "linebreak")">Line break</option>
                     <option value="kagi" selected="@(ChartTypeValue == "kagi")">Kagi</option>
+                    <option value="pnf" selected="@(ChartTypeValue == "pnf")">Point and figure</option>
                 </select>
                 @if (Store.State.ChartStyle.IsBrickStyle())
                 {
@@ -901,6 +902,7 @@
             PriceChartStyle.RangeBars => "rangebars",
             PriceChartStyle.LineBreak => "linebreak",
             PriceChartStyle.Kagi => "kagi",
+            PriceChartStyle.PointAndFigure => "pnf",
             _ => "candles",
         });
 
@@ -909,6 +911,7 @@
         PriceChartStyle.RangeBars => "Change the range: ATR length or a fixed size",
         PriceChartStyle.LineBreak => "Change how many lines a turn must break",
         PriceChartStyle.Kagi => "Change the reversal amount: ATR length or a fixed size",
+        PriceChartStyle.PointAndFigure => "Change the box size and the reversal",
         _ => "Change the Renko box: ATR length or a fixed size",
     };
 
@@ -925,6 +928,7 @@
             "rangebars" => PriceChartStyle.RangeBars,
             "linebreak" => PriceChartStyle.LineBreak,
             "kagi" => PriceChartStyle.Kagi,
+            "pnf" => PriceChartStyle.PointAndFigure,
             _ => null,
         };
         if (built is { } builtStyle)

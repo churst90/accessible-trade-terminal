@@ -11,7 +11,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         public const string Already = "Already a Renko chart.";
         public const string SettingsOnlyOnRenko =
-            "Brick settings are for Renko, range bars, line break and Kagi charts. Choose one first.";
+            "Brick settings are for Renko, range bars, line break, Kagi and point and figure charts. Choose one first.";
         public const string BadArgument =
             "Renko takes a box size, like RENKO 500, or ATR and a length, like RENKO ATR 14.";
         public const string RangeBadArgument =
@@ -20,12 +20,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             "Line break takes a number of lines from 1 to 50, like LINEBREAK 3.";
         public const string KagiBadArgument =
             "Kagi takes a reversal amount, like KAGI 500, a percentage, like KAGI 2%, or ATR and a length, like KAGI ATR 14.";
+        public const string PnfBadArgument =
+            "Point and figure takes a box size, like PNF 500, or ATR and a length, like PNF ATR 14, "
+            + "then a reversal of 1 to 20 boxes if you want one, like PNF 500 3.";
 
         /// <summary>"Already a Renko chart.", "Already a Range bars chart." ...</summary>
         public static string AlreadyFor(PriceChartStyle style) =>
             style == PriceChartStyle.Renko ? Already
                 : style == PriceChartStyle.RangeBars ? "Already a range bar chart."
                 : style == PriceChartStyle.Kagi ? "Already a Kagi chart."
+                : style == PriceChartStyle.PointAndFigure ? "Already a point and figure chart."
                 : "Already a line break chart.";
 
         /// <summary>The Go bar's refusal for a bad argument to <paramref name="style"/>'s word.</summary>
@@ -34,6 +38,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             PriceChartStyle.RangeBars => RangeBadArgument,
             PriceChartStyle.LineBreak => LineBreakBadArgument,
             PriceChartStyle.Kagi => KagiBadArgument,
+            PriceChartStyle.PointAndFigure => PnfBadArgument,
             _ => BadArgument,
         };
 
@@ -44,7 +49,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>"Renko chart, box 512.30 from ATR 14." or "Renko chart, fixed box 500.00.";
         /// "Range bars chart, range 512.30 from ATR 14."; "Line break chart, 3 lines." The size is
         /// the frozen one the chart actually uses. "Kagi chart, reversal amount 512.30 from ATR 14."
-        /// "Kagi chart, reversal 2 percent."</summary>
+        /// "Kagi chart, reversal 2 percent." "Point and figure chart, box 512.30 from ATR 14,
+        /// reversal 3 boxes."</summary>
         public static string ChangeSentence(WorkspaceState state)
         {
             var style = state.ChartStyle.IsBrickStyle() ? state.ChartStyle : PriceChartStyle.Renko;
@@ -64,6 +70,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return $"{chart}, reversal {Percent(box)} percent.";
 
             string price = SpeechPriceFormatter.FormatPrice(box);
+            // "Point and figure chart, box 500.00 from ATR 14, reversal 3 boxes."
+            string reversal = style == PriceChartStyle.PointAndFigure
+                ? $", reversal {state.Renko.PnfReversal} box{(state.Renko.PnfReversal == 1 ? "" : "es")}"
+                : "";
             string unit = style switch
             {
                 PriceChartStyle.RangeBars => "range",
@@ -74,11 +84,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 PriceChartStyle.RangeBars => (state.Renko.RangeMode, state.Renko.RangeAtrLength),
                 PriceChartStyle.Kagi => (state.Renko.KagiMode, state.Renko.KagiAtrLength),
+                PriceChartStyle.PointAndFigure => (state.Renko.PnfMode, state.Renko.PnfAtrLength),
                 _ => (state.Renko.Mode, state.Renko.AtrLength),
             };
             return mode == RenkoBoxMode.Fixed
-                ? $"{chart}, fixed {unit} {price}."
-                : $"{chart}, {unit} {price} from ATR {atr}.";
+                ? $"{chart}, fixed {unit} {price}{reversal}."
+                : $"{chart}, {unit} {price} from ATR {atr}{reversal}.";
         }
 
         /// <summary>The brick at <paramref name="index"/>, when this chart has one.</summary>
@@ -103,12 +114,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>"Up brick, 95,000.00 to 95,500.00" — direction and the two prices as drawn
         /// ("Up block" on line break). On Kagi, given the lines and the index, the line's
         /// thickness follows its name: "Up Kagi line, turns thick at 95,200.00, 95,000.00 to
-        /// 95,500.00", as the chart draws it.</summary>
+        /// 95,500.00", as the chart draws it. A point and figure column, given the box, says its mark
+        /// and its boxes: "Up column, X, 4 boxes, 100.00 to 104.00".</summary>
         public static string BrickSummary(Ohlcv brick, BrickSpan span, PriceChartStyle style = PriceChartStyle.Renko,
-            IReadOnlyList<Ohlcv>? drawn = null, int index = -1)
+            IReadOnlyList<Ohlcv>? drawn = null, int index = -1, double box = 0)
             => $"{(span.Up ? "Up" : "Down")} {BuiltCharts.Noun(style)}, "
              + (style == PriceChartStyle.Kagi && drawn != null && index >= 0 && index < drawn.Count
                  ? KagiLines.Words(KagiLines.At(drawn, index)) + ", "
+                 : style == PriceChartStyle.PointAndFigure
+                 ? PointFigureColumns.Words(span.Up, PointFigureColumns.Boxes(brick, box)) + ", "
                  : "")
              + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
              + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}";
@@ -131,9 +145,27 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return $"Kagi turns {(look.ThickAtEnd ? "thick" : "thin")} at {SpeechPriceFormatter.FormatPrice(look.TurnAt)}.";
         }
 
+        /// <summary>
+        /// "X column, 6 boxes, 106.00." when the newest point and figure column, growing in place,
+        /// has more boxes than <paramref name="saidBoxes"/>, the most this column has been said at.
+        /// A column is news box by box, as a Renko brick is; a close that falls back inside the
+        /// column, or a forming bar that takes a box back and gives it again, says nothing new.
+        /// Null otherwise, and for a column other than <paramref name="before"/>'s.
+        /// </summary>
+        public static string? PnfGrowNews(IReadOnlyList<Ohlcv>? columns, Ohlcv? before, double box, int saidBoxes)
+        {
+            if (columns == null || columns.Count == 0 || before is not { } prev) return null;
+            var now = columns[^1];
+            if (prev.Date != now.Date || prev.Open != now.Open) return null;
+            int boxes = PointFigureColumns.Boxes(now, box);
+            if (boxes <= saidBoxes || boxes <= PointFigureColumns.Boxes(prev, box)) return null;
+            return $"{(now.Close >= now.Open ? "X" : "O")} column, {boxes} box{(boxes == 1 ? "" : "es")}, "
+                 + $"{SpeechPriceFormatter.FormatPrice(now.Close)}.";
+        }
+
         /// <summary>The arrow-key sentence for a brick: its direction, prices and real window.</summary>
         public static string Readout(WorkspaceState state, Ohlcv brick, BrickSpan span)
-            => $"{BrickSummary(brick, span, state.ChartStyle)}. {Window(state, span)}.";
+            => $"{BrickSummary(brick, span, state.ChartStyle, box: state.BrickBoxSize)}. {Window(state, span)}.";
 
         /// <summary>Validates a choice against the real bars and returns the bricks it would make.</summary>
         public static bool TryPlan(

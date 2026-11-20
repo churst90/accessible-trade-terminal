@@ -333,6 +333,95 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
+        /// <summary>
+        /// Point and figure: each column a stack of marks at its bar, one per box, X going up and
+        /// O going down, from the level it moved from to its newest box — the same boxes the
+        /// speech counts (<see cref="Charts.PriceSeriesShape.PnfBoxesKey"/>). Colours are the
+        /// body's, as on every built chart. Where a box is too short on screen to hold a mark, the
+        /// column is drawn as a plain bar, which is what the marks would blur into.
+        /// </summary>
+        public static void RenderPointFigure(RenderContext ctx, ChartSeries series)
+        {
+            var data = ctx.Data;
+            if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
+
+            float barWidth = ctx.Width / ctx.ViewportLength;
+            float halfMark = Math.Max(0.5f, barWidth * 0.4f);
+            float X(int i) => i * barWidth + barWidth / 2f;
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+
+            var part = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Brick);
+            SKColor upColor = ctx.Theme.CandleBullishBody;
+            SKColor downColor = ctx.Theme.CandleBearishBody;
+            if (part is { IsUserStyled: true })
+            {
+                SKColor.TryParse(part.ColorHex, out upColor);
+                SKColor.TryParse(part.ColorHexSecondary, out downColor);
+            }
+            (upColor, downColor) = ApplyColorVision(ctx.Theme, upColor, downColor);
+
+            series.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.PnfBoxesKey, out var boxes);
+            int Boxes(int i)
+            {
+                int abs = ctx.ViewportStart + i;
+                return boxes != null && abs >= 0 && abs < boxes.Length && double.IsFinite(boxes[abs])
+                    ? (int)boxes[abs]
+                    : 0;
+            }
+
+            using var up = new SKPaint
+            {
+                Color = upColor, StrokeWidth = 1.5f * ctx.Density, Style = SKPaintStyle.Stroke,
+                IsAntialias = true, StrokeCap = SKStrokeCap.Round,
+            };
+            using var down = new SKPaint
+            {
+                Color = downColor, StrokeWidth = 1.5f * ctx.Density, Style = SKPaintStyle.Stroke,
+                IsAntialias = true,
+            };
+
+            // The plain bar a column becomes when its marks would blur is solid, as they would be.
+            using var upFill = new SKPaint { Color = upColor, Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var downFill = new SKPaint { Color = downColor, Style = SKPaintStyle.Fill, IsAntialias = true };
+
+            int count = Math.Min(ctx.ViewportLength, data.Count);
+            for (int i = 0; i < count; i++)
+            {
+                var column = data[i];
+                if (double.IsNaN(column.Open) || double.IsNaN(column.Close)) continue;
+                bool rising = column.Close >= column.Open;
+                var paint = rising ? up : down;
+                float x = X(i);
+                int n = Boxes(i);
+                double box = n > 0 ? Math.Abs(column.Close - column.Open) / n : 0;
+                float boxPx = n > 0 ? Math.Abs(Y(column.Open) - Y(column.Open + box)) : 0;
+
+                if (n == 0 || boxPx < 4f * ctx.Density)
+                {
+                    float top = Y(Math.Max(column.Open, column.Close)), bottom = Y(Math.Min(column.Open, column.Close));
+                    ctx.Canvas.DrawRect(new SKRect(x - halfMark, top, x + halfMark, Math.Max(bottom, top + 1)),
+                        rising ? upFill : downFill);
+                    continue;
+                }
+
+                double step = rising ? box : -box;
+                for (int k = 0; k < n; k++)
+                {
+                    float yA = Y(column.Open + step * k), yB = Y(column.Open + step * (k + 1));
+                    float top = Math.Min(yA, yB) + 1f, bottom = Math.Max(yA, yB) - 1f;
+                    if (rising)
+                    {
+                        ctx.Canvas.DrawLine(x - halfMark, top, x + halfMark, bottom, paint);
+                        ctx.Canvas.DrawLine(x - halfMark, bottom, x + halfMark, top, paint);
+                    }
+                    else
+                    {
+                        ctx.Canvas.DrawOval(new SKRect(x - halfMark, top, x + halfMark, bottom), paint);
+                    }
+                }
+            }
+        }
+
         public static void RenderCandles(RenderContext ctx, ChartSeries series, SKPaint paint, double[]? phaseData = null)
         {
             var data = ctx.Data;

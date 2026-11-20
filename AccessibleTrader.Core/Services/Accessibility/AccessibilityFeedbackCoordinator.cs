@@ -729,10 +729,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     $"New {(span.Up ? "up" : "down")} {Charts.BuiltCharts.Noun(state.ChartStyle)}, "
                     + (state.ChartStyle == PriceChartStyle.Kagi
                         ? Charts.KagiLines.Words(Charts.KagiLines.At(state.Data, last)) + ", "
+                        : state.ChartStyle == PriceChartStyle.PointAndFigure
+                        ? Charts.PointFigureColumns.Words(brick, state.BrickBoxSize) + ", "
                         : "")
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Open)} to "
                     + $"{SpeechPriceFormatter.FormatPrice(brick.Close)}.",
                     interrupt: false, channel: SpeechChannel.Narration);
+                if (state.ChartStyle == PriceChartStyle.PointAndFigure)
+                {
+                    // The column's boxes are said; growth from here says only more.
+                    _pnfSaidFor = brick.Date;
+                    _pnfSaidBoxes = Charts.PointFigureColumns.Boxes(brick, state.BrickBoxSize);
+                }
                 return;
             }
 
@@ -848,6 +856,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// across the shoulder says it once.</summary>
         private DateTime _kagiTurnSaidFor;
 
+        /// <summary>The point and figure column whose boxes were last said, by its date, and the
+        /// most boxes said for it, so a column is news once per new box.</summary>
+        private DateTime _pnfSaidFor;
+        private int _pnfSaidBoxes;
+
         private void OnIntraBarUpdate(IntraBarUpdateEvent e)
         {
             var state = _store.State;
@@ -864,6 +877,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     _kagiTurnSaidFor = line;
                     _speechRouter.Speak(turn, interrupt: false, channel: SpeechChannel.Narration);
+                }
+                return;
+            }
+
+            // A point and figure column grows in place, box by box; each new box is news, as a
+            // new Renko brick is. A box taken back and given again by the forming bar is not.
+            if (state.ChartStyle == PriceChartStyle.PointAndFigure)
+            {
+                var column = state.Data is { Count: > 0 } d ? d[^1].Date : default;
+                int said = column == _pnfSaidFor ? _pnfSaidBoxes : 0;
+                string? grew = BrickChartSpeech.PnfGrowNews(state.Data, e.PreviousBar, state.BrickBoxSize, said);
+                if (grew != null)
+                {
+                    _pnfSaidFor = column;
+                    _pnfSaidBoxes = Charts.PointFigureColumns.Boxes(state.Data![^1], state.BrickBoxSize);
+                    _speechRouter.Speak(grew, interrupt: false, channel: SpeechChannel.Narration);
                 }
                 return;
             }

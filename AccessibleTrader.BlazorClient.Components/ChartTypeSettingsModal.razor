@@ -39,6 +39,7 @@
                 {
                     PriceChartStyle.RangeBars => "The range is how far price moves, high to low, in one bar. ATR follows the market's own range; a fixed size never changes.",
                     PriceChartStyle.Kagi => "The reversal amount is how far a close must come back from a line's end to turn it. ATR follows the market's own range; a fixed size never changes; a percentage is that much of the line's end, so it grows and shrinks with the price.",
+                    PriceChartStyle.PointAndFigure => "The box is the price one X or O stands for. ATR follows the market's own range; a fixed size never changes. The reversal is how many boxes a close must come back from a column's end to start a column the other way; three is the classic setting.",
                     _ => "The box is the price move that makes one brick. ATR follows the market's own range; a fixed size never changes.",
                 })
             </p>
@@ -123,6 +124,21 @@
                     @BoxPreview()
                 </p>
             }
+
+            @if (_style == PriceChartStyle.PointAndFigure)
+            {
+                <div class="modal-row" style="margin-top: 12px;">
+                    <label for="pnf-reversal">Reversal (boxes):</label>
+                    <input id="pnf-reversal"
+                           type="number"
+                           min="@PointFigureBuilder.MinReversal"
+                           max="@PointFigureBuilder.MaxReversal"
+                           step="1"
+                           @bind="_reversalText" @bind:event="oninput"
+                           @onkeydown="OnKeyDown"
+                           style="width: 8em;" />
+                </div>
+            }
             }
 
             @if (!string.IsNullOrEmpty(_statusMessage))
@@ -145,8 +161,9 @@
     private string _boxSizeText = "";
     private string _percentText = "1";
     private string _linesText = "3";
+    private string _reversalText = "3";
 
-    /// <summary>One dialog for the four charts built off the clock; it shows the settings of
+    /// <summary>One dialog for the five charts built off the clock; it shows the settings of
     /// the type on screen. Its modal name stays "Brick settings" so the modal stack and the
     /// keyboard scope know it as before.</summary>
     private string Title => _style switch
@@ -154,6 +171,7 @@
         PriceChartStyle.RangeBars => "Range bar settings",
         PriceChartStyle.LineBreak => "Line break settings",
         PriceChartStyle.Kagi => "Kagi settings",
+        PriceChartStyle.PointAndFigure => "Point and figure settings",
         _ => "Brick settings",
     };
 
@@ -162,6 +180,7 @@
     {
         PriceChartStyle.RangeBars => "Range",
         PriceChartStyle.Kagi => "Reversal amount",
+        PriceChartStyle.PointAndFigure => "Box",
         _ => "Renko box",
     };
     private string? _statusMessage;
@@ -184,6 +203,7 @@
         {
             PriceChartStyle.RangeBars => (r.RangeMode, r.RangeAtrLength, r.RangeSize),
             PriceChartStyle.Kagi => (r.KagiMode, r.KagiAtrLength, r.KagiSize),
+            PriceChartStyle.PointAndFigure => (r.PnfMode, r.PnfAtrLength, r.PnfSize),
             _ => (r.Mode, r.AtrLength, r.BoxSize),
         };
         _atrLengthText = atrLength.ToString(CultureInfo.InvariantCulture);
@@ -194,6 +214,7 @@
             .ToString("0.##########", CultureInfo.InvariantCulture);
         _percentText = (percent && fixedSize > 0 ? fixedSize : 1).ToString("0.##########", CultureInfo.InvariantCulture);
         _linesText = state.Renko.LineBreakLines.ToString(CultureInfo.InvariantCulture);
+        _reversalText = state.Renko.PnfReversal.ToString(CultureInfo.InvariantCulture);
         _statusMessage = null;
         _isError = false;
         await ShowModalAsync("chart-type-settings-title");
@@ -218,6 +239,7 @@
         {
             PriceChartStyle.RangeBars => new RenkoSettings(RangeMode: RenkoBoxMode.Atr, RangeAtrLength: length),
             PriceChartStyle.Kagi => new RenkoSettings(KagiMode: RenkoBoxMode.Atr, KagiAtrLength: length),
+            PriceChartStyle.PointAndFigure => new RenkoSettings(PnfMode: RenkoBoxMode.Atr, PnfAtrLength: length),
             _ => new RenkoSettings(RenkoBoxMode.Atr, 0, length),
         };
         return BuiltCharts.TryResolveBox(_style, state.MarketBars, asked, out double box, out _)
@@ -238,6 +260,15 @@
                 return;
             }
             ApplySettings(state, state.Renko with { LineBreakLines = lines }, "line-break-lines");
+            return;
+        }
+
+        int reversal = state.Renko.PnfReversal;
+        if (_style == PriceChartStyle.PointAndFigure
+            && (!int.TryParse(_reversalText, NumberStyles.None, CultureInfo.InvariantCulture, out reversal)
+                || reversal < PointFigureBuilder.MinReversal || reversal > PointFigureBuilder.MaxReversal))
+        {
+            Refuse(PointFigureBuilder.ReversalRefusal, "pnf-reversal");
             return;
         }
 
@@ -267,6 +298,7 @@
             {
                 PriceChartStyle.RangeBars => "A range bar's range must be a positive price.",
                 PriceChartStyle.Kagi => "A Kagi reversal amount must be a positive price.",
+                PriceChartStyle.PointAndFigure => "A point and figure box must be a positive price.",
                 _ => "A Renko box must be a positive price.",
             }, "renko-box-size");
             return;
@@ -276,6 +308,10 @@
         {
             PriceChartStyle.RangeBars => state.Renko with { RangeMode = _mode, RangeSize = boxSize, RangeAtrLength = atrLength },
             PriceChartStyle.Kagi => state.Renko with { KagiMode = _mode, KagiSize = boxSize, KagiAtrLength = atrLength },
+            PriceChartStyle.PointAndFigure => state.Renko with
+            {
+                PnfMode = _mode, PnfSize = boxSize, PnfAtrLength = atrLength, PnfReversal = reversal,
+            },
             _ => state.Renko with { Mode = _mode, BoxSize = boxSize, AtrLength = atrLength },
         };
         string sizeTarget = _mode switch

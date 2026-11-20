@@ -376,7 +376,8 @@ namespace AccessibleTrader.Core.Services
                 // as "—"), so the band is the same whichever bar the DOM reads.
                 float textScale = ChartStatusLine.ClampTextScale(statusTextScale);
                 using var statusFont = new SKFont(AxisTypeface, ChartStatusLine.FontPx * textScale * density);
-                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, drawsHeikinAshi, chartStyle);
+                var statusCtx = new ChartStatusLine.Context(_theme.Current, StatusBackingAlpha, data, identity, drawsHeikinAshi, chartStyle,
+                    ChartStatusLine.PnfBoxesOf(mainSeries, chartStyle));
                 int statusBar = crossIndex >= 0 ? viewportStart + crossIndex : Math.Clamp(cursorIndex, 0, data.Count - 1);
                 var statusBands = new Dictionary<string, PaneStatusBand>(StringComparer.Ordinal);
                 var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);

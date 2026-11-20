@@ -177,6 +177,8 @@ namespace AccessibleTrader.Core.Models
         ShowLineBreakChart,
         // Kagi, the fourth, likewise: KAGI takes an optional reversal amount.
         ShowKagiChart,
+        // Point and figure, the fifth: PNF takes an optional box size and reversal.
+        ShowPointFigureChart,
         // The price-scale menu's other three entries. Logarithmic is still ToggleLogScale above;
         // these name a ruler outright so the Go bar can reach it without a new key.
         ShowRegularScale,

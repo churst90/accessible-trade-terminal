@@ -832,6 +832,9 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowKagiChart:
                     ShowBuiltChart(PriceChartStyle.Kagi, _store.State.Renko);
                     break;
+                case SystemCommand.ShowPointFigureChart:
+                    ShowBuiltChart(PriceChartStyle.PointAndFigure, _store.State.Renko);
+                    break;
                 case SystemCommand.ShowBrickSettings:
                     if (!_store.State.ChartStyle.IsBrickStyle())
                     {
@@ -1263,6 +1266,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowRangeBarsChart:
                 case SystemCommand.ShowLineBreakChart:
                 case SystemCommand.ShowKagiChart:
+                case SystemCommand.ShowPointFigureChart:
                 case SystemCommand.ShowRegularScale:
                 case SystemCommand.ShowPercentScale:
                 case SystemCommand.ShowIndexedScale:

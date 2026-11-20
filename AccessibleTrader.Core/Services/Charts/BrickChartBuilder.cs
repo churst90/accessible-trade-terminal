@@ -76,6 +76,11 @@ namespace AccessibleTrader.Core.Services.Charts
         /// The ATR-or-fixed size behind Renko's box and the range bars' range: the same rule,
         /// worded for the chart that asked (<paramref name="chart"/> and its <paramref name="unit"/>).
         /// </summary>
+        /// <summary>A chart's name inside a sentence: "Renko" and "Kagi" are names and keep their
+        /// capital, "point and figure" is not.</summary>
+        private static string MidSentence(string chart) =>
+            chart == "Point and figure" ? "point and figure" : chart;
+
         internal static bool TryResolveSize(
             IReadOnlyList<Ohlcv> bars,
             RenkoBoxMode mode,
@@ -102,7 +107,7 @@ namespace AccessibleTrader.Core.Services.Charts
                 box = settings.BoxSize;
                 if (!(box > 0) || double.IsNaN(box) || double.IsInfinity(box))
                 {
-                    refusal = $"A {chart} {unit} must be a positive price.";
+                    refusal = $"A {MidSentence(chart)} {unit} must be a positive price.";
                     return false;
                 }
                 return true;
@@ -126,7 +131,7 @@ namespace AccessibleTrader.Core.Services.Charts
 
             if (!(box > 0) || double.IsNaN(box) || double.IsInfinity(box))
             {
-                refusal = $"A {chart} {unit} must be a positive price.";
+                refusal = $"A {MidSentence(chart)} {unit} must be a positive price.";
                 return false;
             }
             return true;

@@ -237,6 +237,62 @@ public sealed class RenkoToolbarTests
            .Select(i => i.Arguments[0]?.ToString() ?? "")
            .ToList();
 
+    // ---- Point and figure's reversal ---------------------------------------------------------
+
+    [Fact]
+    public void The_select_offers_point_and_figure_and_the_dialog_asks_its_reversal()
+    {
+        using (var h = new BlazorTestHarness())
+        {
+            h.WorkspaceStore.State.Returns(_ => State());
+            var toolbar = h.Ctx.RenderComponent<Cmp.Toolbar>();
+            Assert.Contains(toolbar.FindAll("#chart-type-select option"),
+                o => o.GetAttribute("value") == "pnf" && o.TextContent.Trim() == "Point and figure");
+        }
+        using (var h = new BlazorTestHarness())
+            Assert.Empty(OpenDialog(h, State(PriceChartStyle.Kagi)).FindAll("#pnf-reversal"));
+        using (var h = new BlazorTestHarness())
+        {
+            var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure) with
+            {
+                Renko = new RenkoSettings(PnfMode: RenkoBoxMode.Fixed, PnfSize: 2, PnfReversal: 2),
+            });
+            Assert.Contains("Point and figure settings", cut.Markup);
+            Assert.Equal("2", cut.Find("#pnf-reversal").GetAttribute("value"));
+            Assert.Empty(cut.FindAll("#kagi-reversal-percent-mode"));
+        }
+    }
+
+    [Fact]
+    public void Apply_sets_the_point_and_figure_box_and_reversal()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure));
+
+        cut.Find("#renko-box-fixed").Change(true);
+        cut.Find("#renko-box-size").Input("1");
+        cut.Find("#pnf-reversal").Input("2");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        h.WorkspaceStore.Received(1).Dispatch(Arg.Is<SetRenkoSettingsAction>(a =>
+            a.Settings.PnfMode == RenkoBoxMode.Fixed && a.Settings.PnfSize == 1 && a.Settings.PnfReversal == 2
+            && a.Settings.BoxSize == new RenkoSettings().BoxSize));
+    }
+
+    [Fact]
+    public void A_reversal_outside_1_to_20_is_refused_at_the_reversal_field()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenDialog(h, State(PriceChartStyle.PointAndFigure));
+
+        cut.Find("#pnf-reversal").Input("21");
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Apply").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Point and figure takes a reversal of 1 to 20 boxes.", cut.Markup));
+        Assert.Contains(FocusTargets(h.Ctx), id => id == "pnf-reversal");
+        h.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<SetRenkoSettingsAction>());
+    }
+
     [Fact]
     public void Escape_closes_the_dialog()
     {

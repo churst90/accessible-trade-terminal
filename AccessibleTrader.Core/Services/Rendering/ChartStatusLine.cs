@@ -185,9 +185,22 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// <param name="IsHeikinAshi">The candles are drawn Heikin Ashi: the symbol line gives the bar AS DRAWN, as speech does.</param>
         /// <param name="ChartStyle">Line and Area draw no O/H/L, so their symbol line is the
         /// close alone, in the line's colour. Candles and Heikin-Ashi keep O H L C.</param>
+        /// <param name="PnfBoxes">On point and figure, each column's boxes
+        /// (<see cref="Charts.PriceSeriesShape.PnfBoxesKey"/>), so the symbol line gives a column's
+        /// mark and boxes as the chart draws them; null elsewhere.</param>
         public sealed record Context(
             ChartTheme Theme, byte BackingAlpha, IReadOnlyList<Ohlcv>? Bars, ChartIdentity? Identity,
-            bool IsHeikinAshi = false, PriceChartStyle ChartStyle = PriceChartStyle.Candles);
+            bool IsHeikinAshi = false, PriceChartStyle ChartStyle = PriceChartStyle.Candles,
+            IReadOnlyList<double>? PnfBoxes = null);
+
+        /// <summary>The price series' column boxes from <paramref name="series"/>, on point and
+        /// figure; null otherwise.</summary>
+        internal static double[]? PnfBoxesOf(IEnumerable<ChartSeries> series, PriceChartStyle style) =>
+            style == PriceChartStyle.PointAndFigure
+            && series.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles) is { } price
+            && price.Data.ComponentData.TryGetValue(Charts.PriceSeriesShape.PnfBoxesKey, out var boxes)
+                ? boxes
+                : null;
 
         /// <summary>
         /// A pane's status block at bar <paramref name="absIndex"/> (an index into the chart's
@@ -216,7 +229,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             var backing = Backing(ctx.Theme, ctx.BackingAlpha);
 
             if (paneName == "Main" && ctx.Identity is { } id && ctx.Bars is { Count: > 0 } chartBars && absIndex < chartBars.Count)
-                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi, ctx.ChartStyle), maxWidth, gap, measure));
+                lines.Add(Fit(SymbolLine(id, chartBars, absIndex, ctx.Theme, backing, ctx.IsHeikinAshi, ctx.ChartStyle, ctx.PnfBoxes), maxWidth, gap, measure));
 
             foreach (var s in paneSeries)
             {
@@ -276,7 +289,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 s.Id == CoreSeriesIds.Candles && s.IsVisible
                 && (string.IsNullOrEmpty(s.Pane) || s.Pane == "Main"));
             var chartStyle = drawsPriceBars ? state.ChartStyle : PriceChartStyle.Candles;
-            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi, chartStyle);
+            var ctx = new Context(theme, backingAlpha, state.Data, state.Identity, state.IsHeikinAshi, chartStyle,
+                PnfBoxesOf(state.ActiveSeries, chartStyle));
             using var font = new SKFont(StatusTypeface, FontPx * scale);
             // DOM text is laid out by the browser's own font, not this one: measure a little wide
             // so a line the model says fits does not overflow its pane in the page.
@@ -380,7 +394,8 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </para>
         /// </summary>
         internal static StatusLine SymbolLine(ChartIdentity id, IReadOnlyList<Ohlcv> bars, int i, ChartTheme theme, SKColor backing,
-            bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles)
+            bool isHeikinAshi = false, PriceChartStyle chartStyle = PriceChartStyle.Candles,
+            IReadOnlyList<double>? pnfBoxes = null)
         {
             var bar = ChartMath.BarAsDrawn(bars, i, isHeikinAshi);
             bool brickChart = chartStyle.IsBlockStyle();
@@ -402,6 +417,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                     Value($"{(up ? "Up" : "Down")} {Charts.BuiltCharts.Noun(chartStyle)}"
                           + (chartStyle == PriceChartStyle.Kagi
                               ? ", " + (Charts.KagiLines.At(bars, i).ThickAtEnd ? "thick" : "thin")
+                              : chartStyle == PriceChartStyle.PointAndFigure
+                              ? ", " + Charts.PointFigureColumns.Words(up,
+                                    pnfBoxes != null && i >= 0 && i < pnfBoxes.Count && double.IsFinite(pnfBoxes[i])
+                                        ? (int)pnfBoxes[i] : 0)
                               : ""),
                         $"{FormatReading(bar.Open)} → {FormatReading(bar.Close)}",
                         up ? brickBull : brickBear, theme, backing),

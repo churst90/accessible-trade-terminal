@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Point and figure chart type, 2026-11-20 — not yet heard by Cody
+
+Cody, 2026-11-19: *"then proceed with the next chart types"* — point and figure, after Kagi.
+
+- **Builder.** `Charts/PointFigureBuilder`: closes only, on a grid of whole boxes from zero
+  (`UpLevel`/`DownLevel`, with a 1e-9 hair so 300 at box 0.1 is on its level). The first column
+  is drawn when a close reaches one box past the first close's own level, either way. A close
+  reaching a level past the column's end extends it; a close the **reversal** count of boxes back
+  (1 to 20, three by default, TradingView's) starts a column the other way, one box in from the
+  end. Each drawn bar is one column: Open is the level it moved FROM (the column before's end, or
+  the first close's level), Close its newest box, so `PointFigureColumns.Boxes` = |Close − Open| /
+  box and a one-box column keeps its direction. Date is the bar whose close started it; the span
+  and volume are the window since the column before's newest box, like Kagi. The forming bar is
+  fed in, so the newest column grows with the live close. `PriceChartStyle.PointAndFigure = 7`
+  on the end; brick and block style. `RenkoSettings` gains `PnfMode`, `PnfSize`, `PnfAtrLength`
+  (ATR 14), `PnfReversal` (3); an old file reads the defaults. `BuiltCharts` covers it; a
+  reversal outside 1–20 is refused before the box is resolved.
+- **Drawn.** `StandardRenderers.RenderPointFigure`: per column one mark per box at the bar's
+  centre, X (two diagonals) going up, O (an oval) going down, in the up/down body colours (or the
+  user's), colour-vision safe. Where a box is under 4 px × density on screen the column is drawn
+  as a solid bar, which is what the marks would blur into (the first cut drew only its outline;
+  a test caught it).
+- **Read and heard.** The price series is named *Point and figure*, one part **Column**: *"Column.
+  Up, X, 4 boxes. 100.00 to 104.00. window."* The box counts travel in the series' buffer
+  (`__pnf_boxes`, one per column, weak-cached per column list and box, as Kagi's thickness), so
+  the template, sound and status line (`Up column, X, 4 boxes`) read the same number the drawing
+  draws. Sound: the brick ping (direction = pitch) plus sub-octave saw weight rising with the
+  boxes, none at one box, 0.3 at ten or more. Change sentence *"Point and figure chart, fixed box
+  500.00, reversal 3 boxes."* / *"… box 512.30 from ATR 14, …"*.
+- **Live.** A new column says *"New up column, X, 3 boxes, 100.00 to 103.00."*; the growing
+  column says each new box once, *"X column, 6 boxes, 106.00."*, on the narration channel. A box
+  the forming bar takes back and gives again is not said twice (a high-water mark per column).
+- **Background and alerts.** A background P&F tab says a column that turned **or grew** on the
+  bar that closed: *"BTC/USD 1h: up column, X, 6 boxes, 100.00 to 106.00."*, titled *"… column
+  moved"* (not "new": the column may be an old one growing). New up / New down / Reversal alerts
+  fire on a new column, not on growth (the Kagi same-bar rule).
+- **Chosen from.** Toolbar Chart type list (*Point and figure*), **Point and figure settings** in
+  the shared dialog (Box: ATR or fixed, plus **Reversal**, 1 to 20 boxes), Go bar `PNF`, `PF`,
+  `p&f`, `point and figure`; `PNF 500`, `PNF 500 2`, `PNF ATR 20`, `PNF ATR 20 2` ("ATR 3" is ATR
+  length 3; the reversal follows a whole size). `SystemCommand.ShowPointFigureChart`. The brick
+  settings refusal on a time chart now names all five types.
+- **Tests.** `PointFigureChartTests` 42 (builder: grow/turn, dates/spans/volume, reversal 1 and 4,
+  growth keeps date and open, first column down and one box, the hair, refusals; BuiltCharts
+  fields; store freezes its own box; series part and box buffer; arrowing, summary, change
+  sentence, status line; new column and growth said once through a waver; growth-news nulls;
+  background turn/grow/inside; alerts; Go bar parse/refuse/words/action/already; dispatcher;
+  X vs O drawn; solid bar under 4 px; taller sounds heavier); `RenkoToolbarTests` +3 (select,
+  reversal field, Apply, refused at the field); `RenkoSpeechTests` sentence updated. Sabotaged 22
+  ways, all red — four only after tightening (growth news for "another column" was already
+  rejected by the box check; nothing exercised a waver right after a new column; the tiny-box
+  test could not tell marks from a bar; a sed that made a tuple did not build).
+- **Caveats and questions for Cody.** Closes only: TradingView also offers High/Low as the
+  source, not built. No double-top / double-bottom breakout words (the classic P&F signals). No
+  percentage box (Kagi has one). The renderer dispatch from `DataLayer` has no test of its own
+  (as for Kagi). Not seen, not heard.
+
 ### Kagi thickness heard, and a percentage reversal, 2026-11-20 — not yet heard by Cody
 
 Cody, 2026-11-19: *"1. thickness audible, yes if possible. 2. yes percentage adjustment too."*

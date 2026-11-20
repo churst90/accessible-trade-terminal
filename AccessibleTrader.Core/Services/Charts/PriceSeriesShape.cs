@@ -8,7 +8,7 @@ namespace AccessibleTrader.Core.Services.Charts
     /// <summary>
     /// The main price series takes the shape of the chart type: three candle parts (upper wick,
     /// body, lower wick) on Candles and Heikin Ashi, one close line on Line, one filled close
-    /// line on Area, one brick part on Renko, one block part on line break. Range bars are real
+    /// line on Area, one brick part on Renko, one block part on line break, one Kagi line on Kagi, one column on point and figure. Range bars are real
     /// candles and keep the three candle parts.
     ///
     /// <para>
@@ -47,6 +47,9 @@ namespace AccessibleTrader.Core.Services.Charts
         /// which is the Line chart's.</summary>
         public const string KagiPart = "kagi";
 
+        /// <summary>The one part's name on a point and figure chart, said "Column".</summary>
+        public const string PnfPart = "pnf";
+
         /// <summary>
         /// The price series' name on each chart type: the Chart type list's own words. Cody,
         /// 2026-11-19: "when i change to renko and use pg up/down and land on that series, it is
@@ -61,6 +64,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.RangeBars => "Range bars",
             PriceChartStyle.LineBreak => "Line break",
             PriceChartStyle.Kagi => "Kagi",
+            PriceChartStyle.PointAndFigure => "Point and figure",
             _ => heikinAshi ? "Heikin Ashi" : "Candles",
         };
 
@@ -69,10 +73,11 @@ namespace AccessibleTrader.Core.Services.Charts
         private static readonly HashSet<string> ChartTypeNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "", "Candles", "Heikin Ashi", "Line", "Area", "Renko", "Range bars", "Line break", "Kagi",
+            "Point and figure",
         };
 
         /// <summary>What the price series' parts are.</summary>
-        public enum Kind { Candles, Line, Area, Brick, Block, Kagi }
+        public enum Kind { Candles, Line, Area, Brick, Block, Kagi, Column }
 
         /// <summary>The shape a chart type draws the price series in.</summary>
         public static Kind For(PriceChartStyle style) => style switch
@@ -82,6 +87,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Renko => Kind.Brick,
             PriceChartStyle.LineBreak => Kind.Block,
             PriceChartStyle.Kagi => Kind.Kagi,
+            PriceChartStyle.PointAndFigure => Kind.Column,
             _ => Kind.Candles,
         };
 
@@ -93,6 +99,7 @@ namespace AccessibleTrader.Core.Services.Charts
             if (only.Name == BrickPart) return Kind.Brick;
             if (only.Name == BlockPart) return Kind.Block;
             if (only.Name == KagiPart) return Kind.Kagi;
+            if (only.Name == PnfPart) return Kind.Column;
             if (only.Name == LinePart)
                 return only.DisplayType == ComponentDisplayType.Area ? Kind.Area : Kind.Line;
             return Kind.Candles;
@@ -112,7 +119,7 @@ namespace AccessibleTrader.Core.Services.Charts
             int at = state.ActiveSeries.FindIndex(s => s.Id == CoreSeriesIds.Candles);
             if (at < 0) return state;
             var series = state.ActiveSeries[at];
-            var reshaped = WithKagiThickness(Apply(series, state.ChartStyle, state.IsHeikinAshi), state);
+            var reshaped = WithPnfBoxes(WithKagiThickness(Apply(series, state.ChartStyle, state.IsHeikinAshi), state), state);
             if (ReferenceEquals(reshaped, series)) return state;
 
             var next = state with { ActiveSeries = state.ActiveSeries.SetItem(at, reshaped) };
@@ -142,8 +149,44 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             if (state.ChartStyle != PriceChartStyle.Kagi || state.Data == null || Of(series.Config) != Kind.Kagi)
                 return series;
-            var thick = KagiThickness(state.Data);
-            if (series.Data.ComponentData.TryGetValue(KagiThickKey, out var held) && ReferenceEquals(held, thick))
+            return WithHidden(series, KagiThickKey, KagiThickness(state.Data));
+        }
+
+        /// <summary>
+        /// Each point and figure column's number of boxes, in the price series' buffer under this
+        /// key, so the parts that see only the series (its sound, its part's words, the status line
+        /// and the drawing) know a column of 2 boxes from one of 12, as the chart shows it.
+        /// Hidden, as <see cref="KagiThickKey"/> is.
+        /// </summary>
+        public const string PnfBoxesKey = "__pnf_boxes";
+
+        private sealed record PnfBoxesHeld(double Box, double[] Boxes);
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IReadOnlyList<Ohlcv>, PnfBoxesHeld> PnfBoxesCache = new();
+
+        /// <summary>The boxes in every column of <paramref name="columns"/> at <paramref name="box"/>,
+        /// as <see cref="PnfBoxesKey"/> holds it: one array per column list and box.</summary>
+        public static double[] PnfBoxes(IReadOnlyList<Ohlcv> columns, double box)
+        {
+            if (PnfBoxesCache.TryGetValue(columns, out var held) && held.Box.Equals(box)) return held.Boxes;
+            var boxes = columns.Select(c => (double)PointFigureColumns.Boxes(c, box)).ToArray();
+            PnfBoxesCache.AddOrUpdate(columns, new PnfBoxesHeld(box, boxes));
+            return boxes;
+        }
+
+        private static ChartSeries WithPnfBoxes(ChartSeries series, WorkspaceState state)
+        {
+            if (state.ChartStyle != PriceChartStyle.PointAndFigure || state.Data == null
+                || Of(series.Config) != Kind.Column)
+                return series;
+            return WithHidden(series, PnfBoxesKey, PnfBoxes(state.Data, state.BrickBoxSize));
+        }
+
+        /// <summary><paramref name="series"/> with <paramref name="values"/> under the hidden
+        /// <paramref name="key"/>; the same instance when it already holds that very array.</summary>
+        private static ChartSeries WithHidden(ChartSeries series, string key, double[] values)
+        {
+            if (series.Data.ComponentData.TryGetValue(key, out var held) && ReferenceEquals(held, values))
                 return series;
 
             var data = series.Data;
@@ -151,7 +194,7 @@ namespace AccessibleTrader.Core.Services.Charts
             {
                 SeriesId = data.SeriesId,
                 FirstBarDate = data.FirstBarDate,
-                ComponentData = new Dictionary<string, double[]>(data.ComponentData) { [KagiThickKey] = thick },
+                ComponentData = new Dictionary<string, double[]>(data.ComponentData) { [key] = values },
                 ProfileBins = data.ProfileBins,
                 HeatmapData = data.HeatmapData,
             };
@@ -192,7 +235,7 @@ namespace AccessibleTrader.Core.Services.Charts
         {
             var missing = config.Components.Where(c => !data.ComponentData.ContainsKey(c.Name)).ToList();
             if (missing.Count == 0) return data;
-            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart, KagiPart }.FirstOrDefault(data.ComponentData.ContainsKey);
+            string? closeKey = new[] { "body", LinePart, BrickPart, BlockPart, KagiPart, PnfPart }.FirstOrDefault(data.ComponentData.ContainsKey);
             if (closeKey == null) return data;
             var copy = new SeriesDataBuffer
             {
@@ -298,7 +341,7 @@ namespace AccessibleTrader.Core.Services.Charts
             var type = target switch
             {
                 Kind.Area => ComponentDisplayType.Area,
-                Kind.Brick or Kind.Block or Kind.Kagi => ComponentDisplayType.Brick,
+                Kind.Brick or Kind.Block or Kind.Kagi or Kind.Column => ComponentDisplayType.Brick,
                 _ => ComponentDisplayType.Line,
             };
             (part.Name, part.DisplayName) = target switch
@@ -306,6 +349,7 @@ namespace AccessibleTrader.Core.Services.Charts
                 Kind.Brick => (BrickPart, "Brick"),
                 Kind.Block => (BlockPart, "Block"),
                 Kind.Kagi => (KagiPart, "Kagi line"),
+                Kind.Column => (PnfPart, "Column"),
                 _ => (LinePart, "Close"),
             };
             part.DisplayType = type;

@@ -37,7 +37,9 @@ namespace AccessibleTrader.Core.Services.Charts
         /// bar completed none, when there are fewer than two bars, or when the box is unusable.
         /// <paramref name="bars"/>' last entry is the bar that has just opened. On Kagi only a line
         /// that bar TURNED is news: a line growing on (its end moving to the new close) is the
-        /// same line, and saying it on every bar would be every close again.
+        /// same line, and saying it on every bar would be every close again. On point and figure a
+        /// column that bar grew IS news, box by box, as each Renko brick is: a column whose newest
+        /// box that bar reached.
         /// </summary>
         public static IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> CompletedAtClose(
             IReadOnlyList<Ohlcv> bars, double box, ChartIdentity? identity,
@@ -85,22 +87,32 @@ namespace AccessibleTrader.Core.Services.Charts
         /// it is about the newest brick.
         /// </summary>
         public static string Sentence(ChartIdentity identity, IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            string? ladder = null, PriceChartStyle style = PriceChartStyle.Renko)
+            string? ladder = null, PriceChartStyle style = PriceChartStyle.Renko, double box = 0)
         {
             string what = string.Join(" ", new[] { identity.Symbol ?? "", identity.Timeframe ?? "" }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             string lead = what.Length == 0 ? "" : what + ": ";
             string tail = string.IsNullOrWhiteSpace(ladder) ? "" : " " + ladder.Trim();
-            return lead + Summary(bricks, style) + "." + tail;
+            return lead + Summary(bricks, style, box) + "." + tail;
         }
 
         /// <summary>"new up brick, 95,000.00 to 95,500.00" without the symbol, for a toast body
-        /// whose title already names the chart. Range bars say "range bar", line break "block".</summary>
+        /// whose title already names the chart. Range bars say "range bar", line break "block".
+        /// A point and figure column, new or grown, says its mark and boxes and not "new":
+        /// "up column, X, 6 boxes, 100.00 to 106.00".</summary>
         public static string Summary(IReadOnlyList<(Ohlcv Brick, BrickSpan Span)> bricks,
-            PriceChartStyle style = PriceChartStyle.Renko)
+            PriceChartStyle style = PriceChartStyle.Renko, double box = 0)
         {
             if (bricks.Count == 0) return "";
             bool up = bricks[^1].Span.Up;
+            if (style == PriceChartStyle.PointAndFigure)
+            {
+                var column = bricks[^1].Brick;
+                return $"{(up ? "up" : "down")} {BuiltCharts.Noun(style)}, "
+                     + PointFigureColumns.Words(up, PointFigureColumns.Boxes(column, box)) + ", "
+                     + $"{SpeechPriceFormatter.FormatPrice(column.Open)} to "
+                     + $"{SpeechPriceFormatter.FormatPrice(column.Close)}";
+            }
             string count = bricks.Count == 1 ? "new" : $"{bricks.Count} new";
             string noun = BuiltCharts.Noun(style, bricks.Count);
             return $"{count} {(up ? "up" : "down")} {noun}, "
@@ -108,11 +120,14 @@ namespace AccessibleTrader.Core.Services.Charts
                  + $"{SpeechPriceFormatter.FormatPrice(bricks[^1].Brick.Close)}";
         }
 
-        /// <summary>"BTCUSDT 1h: new brick" — the toast title.</summary>
+        /// <summary>"BTCUSDT 1h: new brick" — the toast title. "BTCUSDT 1h: column moved" on point
+        /// and figure, whose news may be a column growing.</summary>
         public static string Title(string symbol, string timeframe, PriceChartStyle style = PriceChartStyle.Renko)
         {
             string noun = BuiltCharts.Noun(style);
             string what = string.Join(" ", new[] { symbol, timeframe }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            if (style == PriceChartStyle.PointAndFigure)
+                return what.Length == 0 ? "Column moved" : $"{what}: column moved";
             return what.Length == 0 ? $"New {noun}" : $"{what}: new {noun}";
         }
     }

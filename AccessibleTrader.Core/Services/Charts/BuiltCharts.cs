@@ -4,13 +4,15 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Core.Services.Charts
 {
     /// <summary>
-    /// The one door to the charts built off the clock — Renko, range bars, line break and Kagi. Every
+    /// The one door to the charts built off the clock — Renko, range bars, line break, Kagi and
+    /// point and figure. Every
     /// reducer, background monitor, dialog and command that builds one asks here with the chart
     /// type, so a new type is added in this file and its builder, not at each caller.
     ///
     /// <para>
     /// The "box" every caller freezes is the type's own size: Renko's box, the range bars' range,
-    /// Kagi's reversal amount.
+    /// Kagi's reversal amount, point and figure's box (its reversal count, like line break's
+    /// lines, is read from the settings at the build).
     /// Line break has none; its frozen value is its line count, so the callers' "is a box
     /// resolved" test holds unchanged, and the build reads the count from the settings.
     /// </para>
@@ -23,11 +25,12 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.RangeBars => "Range bars",
             PriceChartStyle.LineBreak => "Line break",
             PriceChartStyle.Kagi => "Kagi",
+            PriceChartStyle.PointAndFigure => "Point and figure",
             _ => "Renko",
         };
 
-        /// <summary>What one drawn bar is called: "brick", "range bar", "block" or "Kagi line"
-        /// (never plain "line", which is the Line chart).</summary>
+        /// <summary>What one drawn bar is called: "brick", "range bar", "block", "Kagi line" (never
+        /// plain "line", which is the Line chart) or "column".</summary>
         public static string Noun(PriceChartStyle style, int count = 1) => (style, count == 1) switch
         {
             (PriceChartStyle.RangeBars, true) => "range bar",
@@ -36,6 +39,8 @@ namespace AccessibleTrader.Core.Services.Charts
             (PriceChartStyle.LineBreak, false) => "blocks",
             (PriceChartStyle.Kagi, true) => "Kagi line",
             (PriceChartStyle.Kagi, false) => "Kagi lines",
+            (PriceChartStyle.PointAndFigure, true) => "column",
+            (PriceChartStyle.PointAndFigure, false) => "columns",
             (_, true) => "brick",
             _ => "bricks",
         };
@@ -51,6 +56,8 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.LineBreak => a.LineBreakLines == b.LineBreakLines,
             PriceChartStyle.Kagi => a.KagiMode == b.KagiMode && a.KagiSize == b.KagiSize
                                     && a.KagiAtrLength == b.KagiAtrLength,
+            PriceChartStyle.PointAndFigure => a.PnfMode == b.PnfMode && a.PnfSize == b.PnfSize
+                                              && a.PnfAtrLength == b.PnfAtrLength && a.PnfReversal == b.PnfReversal,
             _ => a.Mode == b.Mode && a.BoxSize == b.BoxSize && a.AtrLength == b.AtrLength,
         };
 
@@ -69,6 +76,11 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.Kagi => current with
             {
                 KagiMode = typed.KagiMode, KagiSize = typed.KagiSize, KagiAtrLength = typed.KagiAtrLength,
+            },
+            PriceChartStyle.PointAndFigure => current with
+            {
+                PnfMode = typed.PnfMode, PnfSize = typed.PnfSize, PnfAtrLength = typed.PnfAtrLength,
+                PnfReversal = typed.PnfReversal,
             },
             _ => current with { Mode = typed.Mode, BoxSize = typed.BoxSize, AtrLength = typed.AtrLength },
         };
@@ -97,6 +109,15 @@ namespace AccessibleTrader.Core.Services.Charts
                 case PriceChartStyle.Kagi:
                     return BrickChartBuilder.TryResolveSize(bars, settings.KagiMode, settings.KagiSize,
                         settings.KagiAtrLength, "Kagi", "reversal amount", out box, out refusal);
+                case PriceChartStyle.PointAndFigure:
+                    if (settings.PnfReversal is < PointFigureBuilder.MinReversal or > PointFigureBuilder.MaxReversal)
+                    {
+                        box = 0;
+                        refusal = PointFigureBuilder.ReversalRefusal;
+                        return false;
+                    }
+                    return BrickChartBuilder.TryResolveSize(bars, settings.PnfMode, settings.PnfSize,
+                        settings.PnfAtrLength, "Point and figure", "box", out box, out refusal);
                 case PriceChartStyle.LineBreak:
                     box = settings.LineBreakLines;
                     refusal = null;
@@ -123,6 +144,7 @@ namespace AccessibleTrader.Core.Services.Charts
             PriceChartStyle.LineBreak => LineBreakBuilder.Build(bars, settings.LineBreakLines, barLength, max),
             PriceChartStyle.Kagi => KagiBuilder.Build(bars, box, barLength, max,
                 percent: settings.KagiMode == RenkoBoxMode.Percent),
+            PriceChartStyle.PointAndFigure => PointFigureBuilder.Build(bars, box, settings.PnfReversal, barLength, max),
             _ => BrickChartBuilder.Build(bars, box, barLength, max),
         };
 
@@ -185,6 +207,8 @@ namespace AccessibleTrader.Core.Services.Charts
                         $"No Kagi lines: price has not moved {BrickChartSpeech.Percent(box)} percent in the loaded bars.",
                     PriceChartStyle.Kagi =>
                         $"No Kagi lines: price has not moved a reversal amount of {size} in the loaded bars.",
+                    PriceChartStyle.PointAndFigure =>
+                        $"No point and figure columns: price has not moved one box of {size} in the loaded bars.",
                     _ => $"No Renko bricks: price has not moved one box of {size} in the loaded bars.",
                 };
                 return false;

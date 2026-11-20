@@ -19,6 +19,7 @@ namespace AccessibleTrader.Core.Services.GoBar
         RangeBars,
         LineBreak,
         Kagi,
+        PointFigure,
         GoTo,
         Find,
         Settings,
@@ -65,6 +66,8 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "LINEBREAK", "LBREAK" }, SystemCommand.ShowLineBreakChart),
             new GoBarVerbSpec(GoBarVerb.Kagi,
                 new[] { "KAGI" }, SystemCommand.ShowKagiChart),
+            new GoBarVerbSpec(GoBarVerb.PointFigure,
+                new[] { "PNF", "PF", "POINTFIGURE" }, SystemCommand.ShowPointFigureChart),
             new GoBarVerbSpec(GoBarVerb.GoTo,
                 new[] { "GOTO", "DATE" }, null),
             new GoBarVerbSpec(GoBarVerb.Find,
@@ -300,6 +303,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             GoBarVerb.RangeBars => PriceChartStyle.RangeBars,
             GoBarVerb.LineBreak => PriceChartStyle.LineBreak,
             GoBarVerb.Kagi => PriceChartStyle.Kagi,
+            GoBarVerb.PointFigure => PriceChartStyle.PointAndFigure,
             _ => PriceChartStyle.Renko,
         };
 
@@ -339,6 +343,31 @@ namespace AccessibleTrader.Core.Services.GoBar
                    && percent <= Charts.KagiBuilder.MaxPercent;
         }
 
+        /// <summary>
+        /// PNF's argument: the box in RENKO's forms ("500", "ATR", "ATR 20"), then a reversal of 1
+        /// to 20 boxes if wanted ("500 3", "ATR 20 3"). "ATR 3" is ATR 3, not a reversal: the
+        /// reversal follows a whole size. Without one the reversal is three boxes.
+        /// </summary>
+        public static bool TryParsePointFigure(string? text, out RenkoSettings settings)
+        {
+            settings = new RenkoSettings();
+            var parts = (text ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            bool atr = parts.Length > 0 && parts[0].Equals("ATR", StringComparison.OrdinalIgnoreCase);
+            int sizeParts = atr ? Math.Min(parts.Length, 2) : Math.Min(parts.Length, 1);
+            if (parts.Length - sizeParts > 1) return false;
+
+            if (!TryParseSize(string.Join(' ', parts.Take(sizeParts)), out var mode, out double size, out int length))
+                return false;
+            int reversal = Charts.PointFigureBuilder.DefaultReversal;
+            if (parts.Length > sizeParts
+                && (!int.TryParse(parts[^1], NumberStyles.None, CultureInfo.InvariantCulture, out reversal)
+                    || reversal < Charts.PointFigureBuilder.MinReversal
+                    || reversal > Charts.PointFigureBuilder.MaxReversal))
+                return false;
+            settings = new RenkoSettings(PnfMode: mode, PnfSize: size, PnfAtrLength: length, PnfReversal: reversal);
+            return true;
+        }
+
         /// <summary>LINEBREAK's argument: a whole number of lines, 1 to 50.</summary>
         public static bool TryParseLineBreak(string? text, out RenkoSettings settings)
         {
@@ -356,6 +385,7 @@ namespace AccessibleTrader.Core.Services.GoBar
             PriceChartStyle.RangeBars => TryParseRange(text, out settings),
             PriceChartStyle.LineBreak => TryParseLineBreak(text, out settings),
             PriceChartStyle.Kagi => TryParseKagi(text, out settings),
+            PriceChartStyle.PointAndFigure => TryParsePointFigure(text, out settings),
             _ => TryParseRenko(text, out settings),
         };
 
@@ -437,6 +467,7 @@ namespace AccessibleTrader.Core.Services.GoBar
                 case GoBarVerb.RangeBars:
                 case GoBarVerb.LineBreak:
                 case GoBarVerb.Kagi:
+                case GoBarVerb.PointFigure:
                     var builtStyle = BuiltStyle(verb);
                     if (!TryParseBuiltChart(builtStyle, argument, out _))
                         return new GoBarParseResult(GoBarParseKind.Invalid, verb, argument,

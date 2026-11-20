@@ -102,7 +102,13 @@ None of this has been seen or heard in the app yet.
   120.00."* `KAGI 500` sets a fixed reversal amount, `KAGI ATR 20` an ATR length, and
   `KAGI 2%` a percentage of the line's end. You hear the thickness too: a thick line sounds
   heavy, a thin line nearly a pure tone, and the pitch still says up or down.
-- **Alerts on Renko, range bar, line break and Kagi charts fire on the real price.** An alert at 64,000
+- **Point and figure** is in the Chart type list too: columns of X while price rises and O while
+  it falls, one mark per box, turning only when a close comes back the reversal count of boxes
+  (three by default). You hear each column's mark and boxes as you arrow, *"Column. Up, X, 4
+  boxes. 100.00 to 104.00."*, a taller column sounds heavier, and live, each new box once: *"X
+  column, 6 boxes, 106.00."* `PNF 500` sets a fixed box, `PNF ATR 20` an ATR length, and a
+  second number the reversal, `PNF 500 2`.
+- **Alerts on Renko, range bar, line break, Kagi and point and figure charts fire on the real price.** An alert at 64,000
   fires when the market trades 64,000, not when a brick happens to end there; an alert on a drawn
   level does the same. Indicator alerts still read the indicator as the chart draws it, on the
   bricks.

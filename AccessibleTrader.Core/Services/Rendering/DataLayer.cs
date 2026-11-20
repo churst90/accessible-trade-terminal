@@ -142,6 +142,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                             StandardRenderers.RenderPriceLine(ctx, area: ctx.ChartStyle == PriceChartStyle.Area);
                         else if (ctx.ChartStyle == PriceChartStyle.Kagi)
                             StandardRenderers.RenderKagi(ctx, s);
+                        else if (ctx.ChartStyle == PriceChartStyle.PointAndFigure)
+                            StandardRenderers.RenderPointFigure(ctx, s);
                         else
                             StandardRenderers.RenderCandles(ctx, s, paint, candlePhaseData);
                     }
