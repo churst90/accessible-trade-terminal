@@ -137,9 +137,10 @@
         try
         {
             // 1. Filter the journal to today's strategy-related entries.
-            var today = DateTime.Now.Date;
+            // "Today" in the zone the user reads times in; entries are stamped in UTC.
+            var today = AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.ToDisplay(DateTime.UtcNow).Date;
             var entries = Journal.Snapshot()
-                .Where(e => e.Timestamp.Date == today
+                .Where(e => AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.ToDisplay(e.Timestamp).Date == today
                             && (e.Kind == JournalEntryKind.StrategySignal
                              || e.Kind == JournalEntryKind.Alert))
                 .ToList();
@@ -193,7 +194,7 @@
 
             // Mirror the review into the journal so the user can re-read it later.
             Journal.Add(new JournalEntry(
-                Timestamp: DateTime.Now,
+                Timestamp: DateTime.UtcNow,
                 Kind: JournalEntryKind.Info,
                 Source: "AI Analyst",
                 Symbol: null,

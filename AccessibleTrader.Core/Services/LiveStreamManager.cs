@@ -48,6 +48,9 @@ namespace AccessibleTrader.Core.Services
         private string? _currentMarket;
         private string? _currentProviderName;
         private string? _currentSymbol;
+        // Written by the tick callback (reset) and the watchdog (increment) on different
+        // threads, so every access is atomic: a plain ++ could read 2, lose a tick's reset to 0,
+        // and write 3, leaving a healthy feed one silence closer to giving up.
         private int _reconnectAttempts;
 
         // Tunable (internal) so tests can drive a sweep without real waits — the
@@ -145,7 +148,7 @@ namespace AccessibleTrader.Core.Services
             _currentMarket = market;
             _currentProviderName = providerName;
             _currentSymbol = symbol;
-            _reconnectAttempts = 0;
+            Interlocked.Exchange(ref _reconnectAttempts, 0);
             _lastTickAtMs = Environment.TickCount64;
 
             SubscribeToProvider(provider, market, providerName, symbol, timeframe, resetConsolidator: true);
@@ -218,7 +221,7 @@ namespace AccessibleTrader.Core.Services
             {
                 _lastTickAtMs = Environment.TickCount64;
                 _fallbackAnnounced = false;
-                _reconnectAttempts = 0;
+                Interlocked.Exchange(ref _reconnectAttempts, 0);
 
                 var bar = consolidator.Apply(tick);
                 if (bar.HasValue)
@@ -280,7 +283,7 @@ namespace AccessibleTrader.Core.Services
         internal async Task<WatchdogAction> RunWatchdogSweepAsync(string market, string provider, string symbol, string timeframe)
         {
             var action = EvaluateSilence(
-                Environment.TickCount64 - _lastTickAtMs, _lastConnectionState, _fallbackAnnounced, _reconnectAttempts);
+                Environment.TickCount64 - _lastTickAtMs, _lastConnectionState, _fallbackAnnounced, Volatile.Read(ref _reconnectAttempts));
 
             switch (action)
             {
@@ -314,13 +317,13 @@ namespace AccessibleTrader.Core.Services
                     break;
 
                 case WatchdogAction.Reconnect:
-                    _reconnectAttempts++;
+                    int attempt = Interlocked.Increment(ref _reconnectAttempts);
                     _logger.LogWarning(
                         "Live stream for {Provider} silent for {Seconds}s. Reconnect attempt {Attempt}/{Max}.",
-                        provider, SilenceThresholdMs / 1000.0, _reconnectAttempts, MaxReconnectAttempts);
+                        provider, SilenceThresholdMs / 1000.0, attempt, MaxReconnectAttempts);
 
                     _errorCoordinator.ReportError(
-                        $"{provider} stream delayed. Reconnecting ({_reconnectAttempts}/{MaxReconnectAttempts})...",
+                        $"{provider} stream delayed. Reconnecting ({attempt}/{MaxReconnectAttempts})...",
                         ErrorSeverity.Low, ErrorCategory.Informational);
 
                     try
@@ -329,7 +332,7 @@ namespace AccessibleTrader.Core.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Reconnect attempt {Attempt} for {Provider} failed.", _reconnectAttempts, provider);
+                        _logger.LogWarning(ex, "Reconnect attempt {Attempt} for {Provider} failed.", attempt, provider);
                     }
                     break;
             }

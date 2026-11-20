@@ -14,7 +14,11 @@ Cody, 2026-11-20: "from the code review, start on each of the issues you found, 
 - **The old in-process script runner is gone.** `ScriptingService` ran user C# with no sandbox at all, was registered in both hosts and used by nothing; the sandboxed `RoslynScriptingService` is what the custom scripts dialog uses. Its `ScriptResult` and `ScriptGlobals` types moved to `ScriptTypes.cs` because the sandboxed path uses them; the two tests that walled the old class off went with it.
 - **Two comments fixed.** The Shift+H / Shift+M note pasted twice in `WorkspaceStore`'s action list is once now; the hosted head's My Data comment no longer says it is "NOT registered in demo mode" two lines above the code that registers it.
 
-Caveats: MEXC's and Tradier's addresses are fixed in code, so their call sites are covered through the shared helper's test, not a provider-level test; Kraken's is tested end to end.
+- **The journal's times follow your clock setting.** Entries were stamped with this computer's local time and printed as-is, so the F12 UTC and 12-hour choices never reached the journal (Ctrl+J). They are stamped in UTC now and shown through the same clock as the chart; the AI Analyst's "today's setups" uses the same day boundary. Tests: `JournalClockTests` (4). Three sabotages, all red: a speech entry stamped in local time, the zone conversion removed, the 12-hour clock ignored.
+- **The "closed while you were away" record cannot drop a venue.** Each venue's save loads `position_snapshot.json`, sets its own entry and writes it back, and venues connect on their own threads; two saves that loaded together lost one venue's positions, so its overnight close was never reported. One lock around the load and write. Test: 24 venues saving at once all survive; with the lock removed it went red on both runs.
+- **The live feed's reconnect count is atomic.** The tick callback reset it while the watchdog added to it on another thread; a lost reset left a healthy feed one silence closer to "stream lost". No new test: a race this narrow cannot be made to fail on demand, and the existing watchdog tests still pass.
+
+Caveats: MEXC's and Tradier's addresses are fixed in code, so their call sites are covered through the shared helper's test, not a provider-level test; Kraken's is tested end to end. The journal test of "UTC off" can only tell the clocks apart on a computer not set to UTC: it does here (Central time), not on CI.
 
 ### Deployed to the hosted server with email and the leaderboard switched on, 2026-11-20 — not yet seen by Cody
 

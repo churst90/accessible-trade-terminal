@@ -245,7 +245,7 @@
         foreach (var e in visible)
         {
             // [HH:MM:SS] KIND  source  symbol  text
-            sb.Append('[').Append(e.Timestamp.ToString("HH:mm:ss")).Append("] ");
+            sb.Append('[').Append(JournalService.ClockText(e)).Append("] ");
             sb.Append(KindLabel(e.Kind).PadRight(7)).Append(' ');
             if (!string.IsNullOrEmpty(e.Source)) sb.Append(e.Source).Append("  ");
             if (!string.IsNullOrEmpty(e.Symbol)) sb.Append('(').Append(e.Symbol).Append(") ");

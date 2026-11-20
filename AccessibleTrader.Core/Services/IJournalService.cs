@@ -29,6 +29,7 @@ namespace AccessibleTrader.Core.Services
     /// <param name="Source">Free-form source label, e.g. indicator code, strategy name, "TTS".</param>
     /// <param name="Symbol">Symbol associated with the entry, or null if not bound to a chart.</param>
     /// <param name="Text">Plain text body — exactly what would be spoken or displayed.</param>
+    /// <remarks><c>Timestamp</c> is UTC; show it with <see cref="JournalService.ClockText"/>.</remarks>
     public record JournalEntry(
         DateTime Timestamp,
         JournalEntryKind Kind,

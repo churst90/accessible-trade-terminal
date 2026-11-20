@@ -324,7 +324,7 @@ namespace AccessibleTrader.BlazorClient.Services
             _logger.LogInformation("{Detail}", detail);
             try
             {
-                Journal?.Add(new JournalEntry(DateTime.Now, JournalEntryKind.Info,
+                Journal?.Add(new JournalEntry(DateTime.UtcNow, JournalEntryKind.Info,
                                               "Speech", null, detail));
             }
             catch { /* best-effort */ }
@@ -346,7 +346,7 @@ namespace AccessibleTrader.BlazorClient.Services
             _logger.LogError(message);
             try
             {
-                Journal?.Add(new JournalEntry(DateTime.Now, JournalEntryKind.Error,
+                Journal?.Add(new JournalEntry(DateTime.UtcNow, JournalEntryKind.Error,
                                               "Speech", null, message));
             }
             catch { /* best-effort */ }

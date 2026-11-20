@@ -100,7 +100,7 @@ namespace AccessibleTrader.Core.Services
                 try
                 {
                     _services.GetService<IJournalService>()?.Add(new JournalEntry(
-                        DateTime.Now, JournalEntryKind.Error, "Startup", null, message));
+                        DateTime.UtcNow, JournalEntryKind.Error, "Startup", null, message));
                 }
                 catch { /* the report must not itself throw */ }
 

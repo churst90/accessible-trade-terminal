@@ -41,6 +41,11 @@ namespace AccessibleTrader.Core.Services
         private readonly DemoPolicy _demo;
         private readonly ILogger<TradingReconciliationCoordinator> _logger;
         private readonly string _snapshotPath;
+        // One provider's save is load, change its entry, write. Each venue's connect and the
+        // post-fill refresh save on their own threads, so without this two saves could load the
+        // same file and the later write would drop the other venue's positions from the
+        // "closed while you were away" record.
+        private readonly object _snapshotLock = new();
 
         // Providers already reconciled this session — announce once, not on every
         // reconnect blip. This set is the ONLY suppression: an earlier version of this
@@ -266,20 +271,23 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private void SaveSnapshotFor(string provider, List<Position> positions)
+        internal void SaveSnapshotFor(string provider, List<Position> positions)
         {
             try
             {
-                var snapshot = LoadSnapshot() ?? new PositionSnapshot();
-                snapshot.SavedAtUtc = DateTime.UtcNow;
-                snapshot.ByProvider[provider] = positions.ConvertAll(p => new SnapshotPosition
+                lock (_snapshotLock)
                 {
-                    Symbol = p.Symbol,
-                    Quantity = p.Quantity,
-                    AveragePrice = p.AveragePrice,
-                });
-                AtomicFile.WriteAllText(_snapshotPath,
-                    Newtonsoft.Json.JsonConvert.SerializeObject(snapshot, Newtonsoft.Json.Formatting.Indented));
+                    var snapshot = LoadSnapshot() ?? new PositionSnapshot();
+                    snapshot.SavedAtUtc = DateTime.UtcNow;
+                    snapshot.ByProvider[provider] = positions.ConvertAll(p => new SnapshotPosition
+                    {
+                        Symbol = p.Symbol,
+                        Quantity = p.Quantity,
+                        AveragePrice = p.AveragePrice,
+                    });
+                    AtomicFile.WriteAllText(_snapshotPath,
+                        Newtonsoft.Json.JsonConvert.SerializeObject(snapshot, Newtonsoft.Json.Formatting.Indented));
+                }
             }
             catch (Exception ex)
             {

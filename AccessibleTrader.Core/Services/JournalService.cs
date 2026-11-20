@@ -29,7 +29,7 @@ namespace AccessibleTrader.Core.Services
                 string conf = double.IsNaN(sig.Confidence) ? "" : $" (confidence {sig.Confidence:F2})";
                 string text = $"{sig.Side} setup{conf}: {sig.Rationale}";
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.StrategySignal,
                     e.StrategyName,
                     _store.State.Identity.Symbol,
@@ -46,7 +46,7 @@ namespace AccessibleTrader.Core.Services
                 string targets = string.Join(", ", e.ResolvedPlan.TpPrices.Select(
                     (tp, k) => $"target {k + 1} {tp:F4}"));
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.StrategySignal,
                     e.StrategyName,
                     _store.State.Identity.Symbol,
@@ -58,7 +58,7 @@ namespace AccessibleTrader.Core.Services
             _subs.Add(bus.Subscribe<SetupEntryReachedEvent>(e =>
             {
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.StrategySignal,
                     e.StrategyName,
                     _store.State.Identity.Symbol,
@@ -69,7 +69,7 @@ namespace AccessibleTrader.Core.Services
             {
                 if (e.DroppedLeafLabels == null || e.DroppedLeafLabels.Count == 0) return;
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.StrategySignal,
                     e.StrategyName,
                     _store.State.Identity.Symbol,
@@ -82,7 +82,7 @@ namespace AccessibleTrader.Core.Services
             {
                 var a = e.Alert;
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.Alert,
                     a?.Definition?.Name ?? "Alert",
                     _store.State.Identity.Symbol,
@@ -94,7 +94,7 @@ namespace AccessibleTrader.Core.Services
             {
                 if (e.IsDuplicate) return;
                 Add(new JournalEntry(
-                    DateTime.Now,
+                    DateTime.UtcNow,
                     JournalEntryKind.Error,
                     e.Source,
                     _store.State.Identity.Symbol,
@@ -116,12 +116,23 @@ namespace AccessibleTrader.Core.Services
         {
             if (string.IsNullOrWhiteSpace(text)) return;
             Add(new JournalEntry(
-                DateTime.Now,
+                DateTime.UtcNow,
                 JournalEntryKind.Speech,
                 "TTS",
                 _store.State.Identity.Symbol,
                 text));
         }
+
+        /// <summary>
+        /// An entry's time as the journal shows it: the user's zone or UTC, 24- or 12-hour, the
+        /// same choice (F12, Speech) every other clock in the app follows. Entries are stamped
+        /// in UTC; until 2026-11-20 they were stamped in this computer's zone and shown as-is,
+        /// so the UTC setting never reached the journal.
+        /// </summary>
+        public static string ClockText(JournalEntry entry) =>
+            Accessibility.SpeechTimeFormatter.ToDisplay(entry.Timestamp)
+                .ToString(Accessibility.SpeechTimeFormatter.Clock("HH:mm:ss"),
+                    System.Globalization.CultureInfo.InvariantCulture);
 
         public IReadOnlyList<JournalEntry> Snapshot()
         {

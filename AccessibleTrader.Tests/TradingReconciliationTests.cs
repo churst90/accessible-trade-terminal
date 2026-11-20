@@ -188,6 +188,30 @@ public class TradingReconciliationTests
     }
 
     [Fact]
+    public async Task Venues_saving_at_once_all_keep_their_positions_in_the_snapshot()
+    {
+        // Code review, 2026-11-20: each save loads the file, sets its own venue and writes,
+        // with each venue's connect on its own thread. Two saves that load before either
+        // writes lose one venue, and its overnight close is never reported.
+        var dir = TestTemp.NewDir("att-snap-race-");
+        var h = Build(paperMode: false, dataDir: dir);
+        const int venues = 24;
+        using var start = new Barrier(venues);
+
+        var savers = Enumerable.Range(0, venues).Select(i => Task.Run(() =>
+        {
+            start.SignalAndWait();
+            h.Coordinator.SaveSnapshotFor($"Venue{i}", new List<Position> { Pos($"SYM{i}/USD") });
+        })).ToArray();
+        await Task.WhenAll(savers);
+
+        var saved = JObject.Parse(File.ReadAllText(Path.Combine(dir, "position_snapshot.json")));
+        var byProvider = (JObject)saved["ByProvider"]!;
+        Assert.Equal(venues, byProvider.Count);
+        h.Coordinator.Dispose();
+    }
+
+    [Fact]
     public async Task Position_closed_while_away_is_reported_with_realized_pnl()
     {
         var dir = TestTemp.NewDir("att-away-");
