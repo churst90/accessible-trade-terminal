@@ -108,6 +108,7 @@ public sealed class LeaderboardPublisherTests : IDisposable
         Assert.Equal(1, (int)entries[0]["rank"]!);
         Assert.Equal("Cody", (string?)entries[0]["displayName"]);
         Assert.Equal(12.4, (double)entries[0]["returnPct"]!, 6);
+        Assert.Equal(112_400.0, (double)entries[0]["accountValue"]!, 6);
         Assert.Equal(1_240.55, (double)entries[0]["realizedPnL"]!, 6);
         Assert.Equal(18, (int)entries[0]["tradeCount"]!);
         Assert.Equal(0.6111, (double)entries[0]["winRate"]!, 6);
@@ -117,6 +118,7 @@ public sealed class LeaderboardPublisherTests : IDisposable
         Assert.Equal(2, (int)entries[1]["rank"]!);
         Assert.Equal("Ada", (string?)entries[1]["displayName"]);
         Assert.Equal(5.0, (double)entries[1]["returnPct"]!, 6);
+        Assert.Equal(105_000.0, (double)entries[1]["accountValue"]!, 6);
 
         string text = File.ReadAllText(OutputPath);
         Assert.DoesNotContain("@", text);
@@ -229,6 +231,7 @@ public sealed class LeaderboardPublisherTests : IDisposable
         var entry = Assert.Single((JArray)JObject.Parse(File.ReadAllText(OutputPath))["entries"]!);
         Assert.True((bool)entry["markToMarketStale"]!);
         Assert.Equal(0.0, (double)entry["returnPct"]!, 6);   // (50000 + 1*50000 - 100000)
+        Assert.Equal(100_000.0, (double)entry["accountValue"]!, 6);   // the stale position at what was paid
     }
 
     // ── Open positions (Cody, 2026-11-20: "be it closed or open position") ──

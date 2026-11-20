@@ -69,10 +69,9 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
   "Top traders: paper trading leaderboard" (CHANGES). Skipped by Cody: replacing the feature list with
   three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
   (not yet).
-- [ ] **Account value on the leaderboard**: Cody asked whether to show the balance. Answered in chat
-  (recommended "Account value" = $100,000 times the return, beside Return); not built until he says.
-- [ ] Dark mode: the site's main button is navy on a near-black page (true before 2026-11-20, every
-  `btn--primary`); the white text reads fine but the button's edge barely shows. Offered, not changed.
+- [x] **Account value on the leaderboard** and the **gold edge on dark-mode main buttons**: Cody said
+  yes, built 2026-11-20 (CHANGES). Market Cipher taken off the home page (Cody: not to be advertised as
+  clones).
 - [ ] Phone: the leaderboard table's caption runs off the right edge with the table (scrolls with it;
   true before 2026-11-20).
 

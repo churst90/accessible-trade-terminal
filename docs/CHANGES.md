@@ -4,7 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Website home page: one main button, the why line, one stat, "Top traders" leaderboard, 2026-11-20 — not yet seen by Cody
+### Leaderboard account value, Market Cipher off the home page, dark-mode button edge, Cody's paper history cleaned, 2026-11-20 — not yet seen by Cody
+
+- **Account value column** (Cody: "add the balance column to the table, yes"). The publisher writes
+  `accountValue` per entry: the standing's own equity (cash, positions at their mark, collateral),
+  rounded to cents, beside `returnPct`. The site shows "Account value (USD)" after Return, and until
+  the terminal with this change is running it works the value out from the rounded return (close to
+  the dollar). The footnote now says return and account value count open positions at their latest
+  price. `LeaderboardPublisherTests` check it on three accounts (112,400, 105,000, and 100,000 for a
+  position with no price, counted at what was paid); proven red by publishing equity minus realized
+  profit, green again once restored.
+- **Market Cipher off the home page** (Cody: cool, but not to be advertised as clones): the "New in
+  2.13" line no longer says the Market Cipher indicators match the originals, and "Charting and
+  analysis" lost its last sentence about the Market Cipher family. Nothing else on the home page names
+  them; the other pages were not changed.
+- **Dark mode main buttons** get a gold edge (`--brand-accent`) on every `btn--primary`, hover and
+  focus included, so the navy button shows on the near-black page.
+- Site backups on the server: `*.bak-20261120-balance` beside `includes/home.php`,
+  `includes/leaderboard-section.php` and `style.css`. Checked headless before and live after: no
+  "cipher" left on the page, the column filled, light and dark, desktop and phone, no sideways scroll.
+- **Cody's hosted paper history cleaned** (Cody: the losing trades were a terminal bug, "they aren't
+  real trades anyway"). On the VPS, `users/49698e84…/paper_account.json`: the fills grouped into round
+  trips by the position returning to zero; the 10 trips that lost (11 losing closes, one trip closed in
+  two halves: 21 fills) removed, the 4 winning trips (+10,995.44, +450.51, +268.35, +10.37; 9 fills)
+  and the fill that opened today's short kept. Cash rebuilt as if the removed trips never happened:
+  100,000 + kept realized 11,724.67 - kept fees 294.64 - the short's 75,993.89 from cash = 35,436.14
+  (was 22,072.93; the same sum on the old file gives its cash to the cent, which is why the rebuild can
+  be trusted). Open orders (the stop and take-profit), collateral, charts untouched. Done with the
+  terminal stopped for a few seconds; backups `paper_account.json.bak-1120-before-clean` beside it and
+  `~/paper_account.bak-1120-before-clean.json`. The leaderboard now shows 4 closed trades, 100% won,
+  +11,724.67 realized, return about +28% (was 15 trades, 27% won, -968.06, about +15%). Cody expected
+  "1 or 2" winners; there were 4. His desktop copy (`~/.local/share/AccessibleTrader/paper_account.json`)
+  was NOT changed.
+
+## Website home page: one main button, the why line, one stat, "Top traders" leaderboard, 2026-11-20 — not yet seen by Cody
 
 Cody's answers to the advice on the site's call to action. On the server only (no git there); the
 drafts are in `strategy-lab-data/site-drafts/home-1120b/` beside `.orig` copies of what was live.

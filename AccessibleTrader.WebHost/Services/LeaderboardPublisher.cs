@@ -156,6 +156,7 @@ namespace AccessibleTrader.WebHost.Services
                     rank,
                     user.DisplayName!,
                     returnPct,
+                    Round2(standing.Equity),
                     Round2(standing.RealizedPnL),
                     standing.TradeCount,
                     standing.WinRate is double rate ? Round4(rate) : null,
@@ -315,6 +316,7 @@ namespace AccessibleTrader.WebHost.Services
             int Rank,
             string DisplayName,
             double ReturnPct,
+            double AccountValue,   // cash + positions at their mark + collateral (Cody, 2026-11-20)
             double RealizedPnL,
             int TradeCount,
             double? WinRate,
