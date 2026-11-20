@@ -89,7 +89,28 @@ namespace AccessibleTrader.Core.Services.ChangeLog
 
         public async Task SetLastPresentAsync(DateTime timeUtc)
         {
-            await MutateAsync(doc => doc with { LastPresentUtc = timeUtc })
+            // A new away mark drops the last one's positions: they belong to an earlier leave.
+            await MutateAsync(doc => doc with { LastPresentUtc = timeUtc, AwayPositions = null })
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// The open positions when the user left. Kept only while <paramref name="leftUtc"/> is
+        /// still the newest away mark: a slow read finishing after a later leave never replaces
+        /// that leave's own.
+        /// </summary>
+        public async Task SetAwayPositionsAsync(DateTime leftUtc, IReadOnlyList<HeldPositionMark> positions)
+        {
+            await MutateAsync(doc => doc.LastPresentUtc == leftUtc
+                    ? doc with { AwayPositions = new ChangeLogAwayPositions(leftUtc, positions.ToList()) }
+                    : doc)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>Forgets the kept positions once they have been said.</summary>
+        public async Task ClearAwayPositionsAsync()
+        {
+            await MutateAsync(doc => doc.AwayPositions == null ? doc : doc with { AwayPositions = null })
                 .ConfigureAwait(false);
         }
 

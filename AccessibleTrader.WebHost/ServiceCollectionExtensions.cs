@@ -779,6 +779,7 @@ namespace AccessibleTrader.WebHost
             // headless session and the hosted monitor agree about one user's file.
             services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogStore>();
             services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogRecorder>();
+            services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.IHeldPositionsReader, AccessibleTrader.Core.Services.ChangeLog.HeldPositionsReader>();
             services.AddScoped<AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);

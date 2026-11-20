@@ -10,9 +10,11 @@ namespace AccessibleTrader.Core.Services.ChangeLog
     public static class ChangeLogWording
     {
         public static string Press(
-            ChangeLogDocument doc, ChangeLogPlan plan, DateTime nowUtc, bool followUp = false)
+            ChangeLogDocument doc, ChangeLogPlan plan, DateTime nowUtc, bool followUp = false,
+            string? positions = null)
         {
-            if (plan.Items.Count == 0) return Nothing(doc);
+            if (plan.Items.Count == 0)
+                return positions == null ? Nothing(doc) : $"{Nothing(doc)} {positions}";
 
             var parts = new List<string>();
 
@@ -31,6 +33,10 @@ namespace AccessibleTrader.Core.Services.ChangeLog
                     $"{plan.TotalUnheard} {(plan.TotalUnheard == 1 ? "change" : "changes")} "
                     + $"since {Time(since)}, {Age(since, nowUtc)} ago.");
             }
+
+            // How your positions moved since you left, straight after the header: the one
+            // thing in the catch-up about money, before the list of what happened.
+            if (positions != null) parts.Add(positions);
 
             var seen = new HashSet<ChangeLogCategory>();
             foreach (var entry in plan.Items)

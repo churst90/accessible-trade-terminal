@@ -800,6 +800,7 @@ namespace AccessibleTrader.BlazorClient
             // are scoped per circuit, with one shared per-path file lock.
             services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogStore>();
             services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogRecorder>();
+            services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.IHeldPositionsReader, AccessibleTrader.Core.Services.ChangeLog.HeldPositionsReader>();
             services.AddSingleton<AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService>();
             // The live-notice timer's clock. Tests inject a hand-written fake instead.
             services.AddSingleton<TimeProvider>(_ => TimeProvider.System);

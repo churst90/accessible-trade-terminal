@@ -407,8 +407,16 @@ as proposed.
   recorded (it is spoken inside the feedback coordinator, which publishes no text); chart
   formations (`,`) are not in the ladder, so they are not recorded; a covered chart's ladder with
   the browser open but the tab not live is not recorded.
-- [ ] **Stage 5c: position profit and loss since you left.** The change log currently records
-  money events (fills, stops, take-profits), not the mark-to-market move of open positions.
+- [x] **Stage 5c: position profit and loss since you left.** The away mark keeps every open
+  position (paper account in paper mode, else every active key's venue, never a withdrawal key) in
+  `change-log.json`; the next Alt+U reads them again and says, after the header, *"Positions since
+  09:40: BTC/USDT made 42.10, SOL/USDT opened, ETH/USDT closed."* Once, then forgotten. **Built
+  2026-11-20, not heard, not tried with a live venue.** Caveats: the amount is the change in the
+  venue's unrealized profit, in the venue's own currency, with no currency named; a position whose
+  size changed says "size changed", not an amount; any venue that fails makes the whole read
+  unknown ("could not be read") rather than calling its positions closed; the read runs after the
+  mark without the caller waiting, so a desktop app that exits within the read keeps the mark and
+  loses the positions; Alt+U waits at most 5 seconds on the venues.
 - [ ] **Stage 5c: market events released while the browser is closed.** The same blocker as the
   stage 3a item above: one process-wide owner is needed, or a closed tab and the headless
   session would both speak/record it.

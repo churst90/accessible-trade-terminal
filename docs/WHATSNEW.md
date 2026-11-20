@@ -154,6 +154,8 @@ None of this has been seen or heard in the app yet.
 - **Alt+U now includes unusual moves and signals.** A bar that closed at least five times its
   chart's usual move: *"BTC/USDT 1h up 4.2% in one bar, 9 times its usual move."* And the
   narration ladder of your background tabs, and of saved tabs while the browser is closed.
+- **Alt+U says how your positions moved while you were away**: *"Positions since 09:40: BTC/USDT
+  made 42.10, SOL/USDT opened, ETH/USDT closed."* Once, after the first sentence.
 - **Alt+G or slash opens the Go bar**: type a short code such as `PULSE`, `NEWS AAPL` or `RENKO`.
 
 ### Market events: the Fed rate

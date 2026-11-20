@@ -35,7 +35,8 @@ namespace AccessibleTrader.Core.Services.ChangeLog
     public sealed record ChangeLogDocument(
         List<ChangeLogEntry> Entries,
         DateTime? LastCatchUpUtc = null,
-        DateTime? LastPresentUtc = null)
+        DateTime? LastPresentUtc = null,
+        ChangeLogAwayPositions? AwayPositions = null)
     {
         public static ChangeLogDocument Empty => new(new List<ChangeLogEntry>());
     }

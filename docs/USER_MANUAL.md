@@ -2221,6 +2221,16 @@ nothing is said when one happens.
 with the browser closed, from the saved tabs the monitor narrates. The same chart and bar from the
 browser and the monitor is kept once.
 
+**Your positions since you left.** When you leave, the terminal notes every open position (the
+paper account in paper mode, otherwise every venue with an active trading key, never a key that can
+withdraw). The next Alt+U says how each moved, straight after the first sentence: *"Positions since
+09:40: BTC/USDT made 42.10, ETH/USDT lost 8.30, SOL/USDT opened, XRP/USDT closed."* The amount is
+the change in the position's unrealized profit, in the venue's own currency. A position you added
+to or reduced says *"size changed"* instead, a symbol held on two venues names the venue, and if a
+venue cannot be reached you hear *"Positions since 09:40 could not be read."* rather than a wrong
+"closed". It is said once; the next press does not repeat it. Alt+U waits up to five seconds for
+the venues.
+
 **The top five, then ask again.** A press reads at most five items and ends with **"Press Alt+U
 again for N more."** when anything remains. The next press starts **"N more."** and continues. The
 **caught-up mark moves past the items that were actually spoken**, so an interrupted catch-up keeps
@@ -2244,8 +2254,8 @@ stored once. If the file is unreadable it is moved aside as a `.corrupt-*` copy 
 starts, rather than being overwritten.
 
 Not yet recorded: the ladder of the chart you are looking at (you hear it as it happens), chart
-formations (the `,` list), position profit and loss since you left, market events released while
-the browser is closed, and the morning brief.
+formations (the `,` list), market events released while the browser is closed, and the morning
+brief.
 
 ### The Go bar (Alt+G)
 

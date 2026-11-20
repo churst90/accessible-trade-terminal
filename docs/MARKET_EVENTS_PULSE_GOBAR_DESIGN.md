@@ -251,6 +251,12 @@ the depth once. Signals are the ladder of background tabs and of the monitor's n
 by chart and bar so both heads make one entry. Not recorded: the focused chart's ladder and chart
 formations.
 
+**Built 2026-11-20 (stage 5c, part 2): position profit and loss since you left.** Not an entry in
+the log: the away mark keeps the open positions (`ChangeLogDocument.AwayPositions`, read by
+`HeldPositionsReader` as the pulse reads holdings), and the next Alt+U compares them with a fresh
+read and says one sentence after the header, then forgets them. A partial read is never compared:
+one failed venue makes it "could not be read".
+
 ---
 
 ## 3. The Go bar (Alt+G, free on 2026-11-18; and `/` since 2026-11-20, Cody)

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alt+U: position profit and loss since you left (stage 5c), 2026-11-20 — not heard, not on the VPS
+
+- **The away mark keeps the open positions** (`ChangeLogCatchUpService.SetLastPresentAsync` writes
+  the mark, then reads `IHeldPositionsReader` without the caller waiting, 30 s limit, into
+  `ChangeLogDocument.AwayPositions`; a later mark drops an earlier mark's positions and a slow read
+  never overwrites a later mark's). `HeldPositionsReader` reads the paper account in paper mode,
+  else every active, non-withdrawal key's venue; one failed venue makes the read null.
+- **The next Alt+U says them after the header** (`AwayPositionsWording`): made/lost the change in
+  unrealized profit (two decimals, under half a cent "unchanged"), "opened", "closed", "size
+  changed"; the venue is named when one symbol is on two venues; "could not be read" when the
+  fresh read fails (5 s limit). With nothing else new: "Nothing new since 09:40. Positions since
+  ...". Not on a follow-up press; cleared after it is said.
+- Tests: `ChangeLogAwayPositionsTests` (15). 20 sabotages, all red (two needed a new test each; list in the commit).
+- **Caveats:** no currency named; the desktop loses the positions (not the mark) if it exits
+  within the read; not heard; not tried against a live venue.
+
 ### Alt+U: unusual moves and signals on watched charts (stage 5c), 2026-11-20 — not heard, not on the VPS
 
 - **Unusual moves** (`UnusualMoveRules`, `ChangeLogCategory.Unusual`): at a bar close, the closed
