@@ -39,7 +39,6 @@ The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fix
 - [ ] **No kill switch, daily-loss limit or close-all.** Nothing caps the day or the account; for a
   trader who cannot see the screen "one more trade" is the failure this exists to stop. Needs Cody's
   design input before building.
-- [ ] **Clock-skew warning and a deep health check** (`/healthz/deep`) for the hosted server.
 - [ ] Optional: `PaperTradingProvider` raises some events while holding its lock.
 
 ## Accounts, leaderboard and charting asks (Cody, 2026-11-18)

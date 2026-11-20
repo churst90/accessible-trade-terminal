@@ -113,6 +113,7 @@ namespace AccessibleTrader.BlazorClient
             // the 60-second session cache discussed in docs/TODO.md is justified.
             services.AddSingleton<AccessibleTrader.Core.Services.Diagnostics.CheckoutLatencyTracker>();
             services.AddSingleton<AccessibleTrader.Sdk.Services.IApiKeyCheckout, MauiApiKeyCheckoutAdapter>();
+            services.AddSingleton<AccessibleTrader.Core.Services.ClockSkewMonitor>();
             services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, MauiPluginHttpClientFactory>();
 
             // Ring-buffer audit log for security-relevant runtime events

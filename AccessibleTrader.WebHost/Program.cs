@@ -170,6 +170,7 @@ if (hostMode == HostMode.Full)
 // their configured channels. Per-user scopes are seeded with ICurrentUser so
 // the whole per-user stack resolves as if inside that user's circuit; users
 // with a live circuit are skipped (their session owns delivery).
+string? healthDataRoot = null, healthLeaderboard = null;
 if (hostMode == HostMode.Hosted)
 {
     var instanceRoot = string.IsNullOrWhiteSpace(accountsDataRoot)
@@ -204,6 +205,8 @@ if (hostMode == HostMode.Hosted)
     string leaderboardOutput = builder.Configuration["Leaderboard:OutputPath"] ?? "";
     if (string.IsNullOrWhiteSpace(leaderboardOutput))
         leaderboardOutput = Path.Combine(instanceRoot, "public", "leaderboard.json");
+    healthDataRoot = instanceRoot;
+    healthLeaderboard = leaderboardOutput;
     builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
         new AccessibleTrader.WebHost.Services.LeaderboardPublisher(
             sp.GetRequiredService<IServiceScopeFactory>(),
@@ -580,6 +583,19 @@ app.MapGet("/healthz", (HttpContext ctx) =>
 {
     ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
     return Results.Text("ok", "text/plain");
+}).AllowAnonymous();
+
+// The operator's view (code review, 2026-11-20): version, uptime, the clock against the venues',
+// free disk, the leaderboard's last write. Answers only a request made on the server itself
+// (curl 127.0.0.1 over ssh); through nginx it is a 404. See DeepHealth.
+app.MapGet("/healthz/deep", (HttpContext ctx) =>
+{
+    if (!AccessibleTrader.WebHost.Services.DeepHealth.IsLocalOperator(ctx)) return Results.NotFound();
+    ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+    return Results.Text(AccessibleTrader.WebHost.Services.DeepHealth.Report(
+        ctx.RequestServices.GetService<AccessibleTrader.Core.Services.ClockSkewMonitor>(),
+        healthDataRoot ?? new AccessibleTrader.WebHost.Services.WebHostPathService().AppDataDirectory,
+        healthLeaderboard, DateTime.UtcNow), "text/plain");
 }).AllowAnonymous();
 
 // Rate limiter + auth middleware run only when accounts are enabled. The limiter goes

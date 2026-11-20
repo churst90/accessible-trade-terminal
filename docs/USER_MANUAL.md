@@ -294,6 +294,14 @@ activating it announces "Opening Schwab sign-in in browser", hands you off to
 Schwab's own login in your default browser, and on return confirms "Schwab sign-in
 complete for {name}".
 
+**A wrong clock is said.** Venues stamp every signed request with the time and refuse one whose
+time is too far from theirs, usually with words that do not mention the clock. The terminal
+compares this computer's clock with the time on each venue's answers, and when three answers in
+a row are more than 15 seconds off the same way it says, once: "This computer's clock is about 60
+seconds fast next to Kraken's. Venues refuse signed orders when the clock is off, and the newest
+bar's time will be wrong. Set the clock to sync automatically." In Windows that is Settings,
+Time and language, Date and time, **Set time automatically** on.
+
 Not every provider needs a key. Several crypto sources and the free historical
 archives chart happily with no credentials at all, so if you only want to study
 those you can skip this dialog entirely and go straight to the toolbar. The

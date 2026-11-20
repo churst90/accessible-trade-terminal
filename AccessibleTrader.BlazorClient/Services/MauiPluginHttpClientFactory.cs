@@ -28,8 +28,15 @@ namespace AccessibleTrader.BlazorClient.Services
         /// link-local address is refused at connect time. Null fails CLOSED — a factory built
         /// with no policy behaves as the public server does, never as the desktop does.
         /// </param>
-        public MauiPluginHttpClientFactory(AccessibleTrader.Core.Services.DemoPolicy? policy = null)
-            => _blockPrivateNetworks = policy?.BlockPrivateNetworkTargets ?? true;
+        private readonly AccessibleTrader.Core.Services.ClockSkewMonitor? _clock;
+
+        /// <param name="clock">Reads every answer's Date header; null leaves the clock unread.</param>
+        public MauiPluginHttpClientFactory(AccessibleTrader.Core.Services.DemoPolicy? policy = null,
+                     AccessibleTrader.Core.Services.ClockSkewMonitor? clock = null)
+        {
+            _blockPrivateNetworks = policy?.BlockPrivateNetworkTargets ?? true;
+            _clock = clock;
+        }
 
         public HttpClient Create(HttpClientPolicy policy)
         {
@@ -46,7 +53,11 @@ namespace AccessibleTrader.BlazorClient.Services
             // only AllowAutoRedirect switched off, in both copies of this file — the redirect
             // half of the hole closed, the DNS half open: the allow-list
             // matched the NAME and never what it resolved to. See OutboundNetworkGuard.
-            var inner = AccessibleTrader.Core.Services.Alerts.OutboundNetworkGuard.CreateHandler(_blockPrivateNetworks);
+            HttpMessageHandler inner = AccessibleTrader.Core.Services.Alerts.OutboundNetworkGuard.CreateHandler(_blockPrivateNetworks);
+            // Every venue's answer carries the venue's time; a computer clock far from it is said
+            // once (code review, 2026-11-20). See ClockSkewMonitor.
+            if (_clock != null)
+                inner = new AccessibleTrader.Core.Services.ClockSkewHandler(_clock, policy.ProviderId, inner);
             var handler = new HostAllowListHandler(policy, inner);
             var http    = new HttpClient(handler)
             {

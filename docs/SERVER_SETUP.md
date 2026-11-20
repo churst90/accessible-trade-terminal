@@ -91,6 +91,23 @@ journalctl -p err since deploy       empty
 browser harness                      128/128
 ```
 
+**`/healthz/deep`**, asked on the server itself, is the operator's one-screen check (a 404
+through nginx, so the public cannot read it):
+
+```
+$ curl -s http://127.0.0.1:5150/healthz/deep
+version: 2.13.1+bcb6b097
+now: 2026-11-20 12:53:32 UTC
+up: 3 h 12 min
+memory: 410 MB
+clock: 0.3 s in step next to Kraken, read 12 s ago      (WARNED when > 15 s off, 3 in a row)
+disk: 41.2 GB free (52%) under the data root             (LOW under 10%)
+leaderboard: written 2 min ago                           (STALE after 15 min; hosted only)
+```
+
+`/healthz` stays the trivial readiness probe (no disk, no providers); do not point systemd or
+nginx at the deep one.
+
 The single cheapest tell that a build is correct, and the only one that does not depend on
 the test suite having been run:
 

@@ -134,6 +134,10 @@ namespace AccessibleTrader.WebHost
             // static, so the bridge in Program.cs was impossible and the allow-list was never
             // installed on this head at all — every plugin fell through to a bare HttpClient
             // with no host check, on the one head that faces the public internet.
+            // The error coordinator is per circuit here, so the server's clock is only logged and
+            // reported by /healthz/deep, never spoken to a visitor.
+            services.AddSingleton(sp => new AccessibleTrader.Core.Services.ClockSkewMonitor(
+                null, sp.GetService<ILogger<AccessibleTrader.Core.Services.ClockSkewMonitor>>()));
             services.AddSingleton<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory, WebHostPluginHttpClientFactory>();
 
             // Security audit log + optional file sink. Identical environment-variable
