@@ -738,9 +738,11 @@ namespace AccessibleTrader.Plugins.Kraken
                 catch (Exception ex)
                 {
                     // A dead book used to be silent: the task's exception went nowhere and the
-                    // order book simply never filled. Say so, and let the next open try again.
-                    _errorStream.OnNext($"Kraken order book for {pair} could not subscribe ({ex.GetType().Name}): {ex.Message}");
+                    // order book simply never filled. Forget the symbol FIRST, then say so: a
+                    // listener that reopens the book on hearing the failure must get a fresh
+                    // attempt, not this dead subscription (CI caught the other order, 2026-11-20).
                     if (_orderBookSymbol == pair) _orderBookSymbol = null;
+                    _errorStream.OnNext($"Kraken order book for {pair} could not subscribe ({ex.GetType().Name}): {ex.Message}");
                 }
             });
 

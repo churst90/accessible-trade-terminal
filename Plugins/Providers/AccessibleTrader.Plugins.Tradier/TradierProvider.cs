@@ -234,9 +234,11 @@ namespace AccessibleTrader.Plugins.Tradier
             _ = accountWs.ConnectOrReportAsync(ex =>
             {
                 _accountStreamUp = false;
-                _errorStream.OnNext($"Tradier account stream could not connect ({ex.Message}); order status is polled instead.");
                 // Let the next start try again instead of finding this dead socket in place.
+                // Forgotten before the failure is said, so a listener restarting on hearing it
+                // gets a fresh attempt.
                 if (ReferenceEquals(_accountWs, accountWs)) _accountWs = null;
+                _errorStream.OnNext($"Tradier account stream could not connect ({ex.Message}); order status is polled instead.");
             });
         }
 

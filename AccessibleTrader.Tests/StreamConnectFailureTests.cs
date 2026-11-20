@@ -50,23 +50,25 @@ public class StreamConnectFailureTests
     {
         var p = new AccessibleTrader.Plugins.Kraken.KrakenProvider { WsUrl = RefusingUrl() };
         var errors = new List<string>();
-        var first = new TaskCompletionSource();
-        var second = new TaskCompletionSource();
+        var second = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var sub = p.ErrorStream.Subscribe(e =>
         {
+            int count;
             lock (errors)
             {
                 if (!e.Contains("order book", StringComparison.OrdinalIgnoreCase)) return;
                 errors.Add(e);
-                if (errors.Count == 1) first.TrySetResult();
-                if (errors.Count == 2) second.TrySetResult();
+                count = errors.Count;
             }
+            // The listener reopens the book the moment it hears the failure, from inside the
+            // announcement. The failed symbol must already be forgotten by then, or this open
+            // hands back the dead subscription and nothing ever tries again. CI caught the
+            // provider saying it first and forgetting it after, by timing, 2026-11-20; doing the
+            // reopen here makes that order fail every time instead of now and then.
+            if (count == 1) p.SubscribeOrderBook("BTC/USD");
+            if (count == 2) second.TrySetResult();
         });
 
-        p.SubscribeOrderBook("BTC/USD");
-        await first.Task.WaitAsync(Ceiling);
-        // The failed symbol is forgotten, so opening the book again makes a fresh attempt
-        // rather than handing back the dead subscription.
         p.SubscribeOrderBook("BTC/USD");
         await second.Task.WaitAsync(Ceiling);
 

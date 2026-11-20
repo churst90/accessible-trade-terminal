@@ -20,6 +20,13 @@ apart), the replay and the live bar-by-bar trail agreeing at every bar, and no l
 earlier trail; sabotages (one bar stale live, one bar stale in the replay, the newest bar's ATR in
 place of this bar's) each turned them red. Not seen in a live strategy.
 
+**A dead stream is forgotten before it is announced.** CI caught it by timing on 2026-11-20: when
+Kraken's order book, MEXC's order book or Tradier's account stream could not connect, the provider
+said so first and forgot the dead stream second, so a listener that reopened the book the moment it
+heard the failure got the dead one back and nothing tried again. All three now forget first. The
+Kraken test reopens the book from inside the failure announcement, which fails every time on the
+old order (sabotage: red); MEXC and Tradier have the same two-line swap and no test of their own.
+
 **The server's clock monitor is registered by its type.** The push of 2026-11-20 failed CI on one
 test: the two-heads parity scan reads `AddSingleton<Type>` and the hosted head registered the clock
 monitor through a factory without naming the type, so the scan could not see it. Nothing was wrong
