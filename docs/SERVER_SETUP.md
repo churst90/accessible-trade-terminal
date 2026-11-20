@@ -214,6 +214,17 @@ fix the ownership/permissions rather than widening the file.
 The file contains only display names and paper-trading figures. A user appears only after
 opting in and setting a display name; emails and user ids are never written.
 
+### Signed in or not, for the website
+
+`GET {PathBase}/account/status` (hosted only, anonymous) answers
+`{"signedIn": true|false, "displayName": "..."|null}` with `Cache-Control: no-store`. The
+public website uses it to show "My account" and "Sign out" instead of "Create your free
+account". It only works when the website and the terminal share a host (accessibletrader.com
+serves the terminal under `/terminal/` through `snippets/terminal-proxy.conf`), because the
+session cookie is `__Host-` and goes only to the host that set it; the endpoint sends no CORS
+headers, so another site cannot read it. The user is looked up on every ask, so a deleted
+account reads as signed out. The display name is the only thing it reveals, never the email.
+
 ### Account email (Brevo SMTP)
 
 Account mail is optional. It is off unless **both** `AccountEmail__User` and

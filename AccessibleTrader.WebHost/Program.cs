@@ -664,6 +664,11 @@ if (accountsEnabled)
         return Results.Ok();
     }).RequireAuthorization();
 
+    // Lets the public website say "My account" / "Sign out" to a signed-in visitor.
+    // Anonymous on purpose; see AccountStatusEndpoint.
+    app.MapGet(AccessibleTrader.WebHost.Account.AccountStatusEndpoint.Path,
+        AccessibleTrader.WebHost.Account.AccountStatusEndpoint.HandleAsync).AllowAnonymous();
+
     app.MapPost("/push/unsubscribe", async (HttpContext ctx,
         AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore store) =>
     {

@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The website knows you are signed in, 2026-11-20 — not yet seen or heard by Cody
+
+Cody, 2026-11-20: he signed in to the terminal, set a display name and joined the leaderboard,
+and accessibletrader.com still offered "Create your free account" as if he were a stranger — "that
+was confusing to me". The site is PHP and could not see the terminal's session. The terminal now
+answers `GET /terminal/account/status` with whether this browser is signed in and its display
+name (never the email; `no-store`; anonymous, so a stranger gets "signed out", not a login page;
+the account is looked up, so a deleted one reads as signed out). The site's header now has
+"Sign in", which becomes "My account" and "Sign out" when signed in, and the front page's account
+section becomes "Your paper-trading account" with Open the terminal, My account and Sign out. The
+site asks again whenever its tab comes back into view, so signing in or out in the terminal's tab
+shows without a reload, and says "You are now signed in" or "signed out" once when it changes.
+Tests: a stranger, signed in with and without a display name, the very next ask after signing
+out, and a deleted account holding its old cookie; sabotages (trust the cookie without the
+lookup, drop `no-store`, send the email, require sign-in) each turned them red. **Caveats:** the
+site files are not in this repository (live on the server, drafts in strategy-lab-data);
+"Sign out" opens the terminal's sign-out page in a new tab, which ends on the terminal's sign-in
+page rather than back on the site; with JavaScript off the header always says "Sign in".
+
 ### Code review fixes, 2026-11-20 — not yet seen or heard by Cody
 
 **The ATR trailing stop measures ATR the way the chart does.** Cody, 2026-11-20: "make them
