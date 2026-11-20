@@ -69,6 +69,11 @@ The site's files live on the server (`/var/www/html/trade.codyhurst.com`), draft
   "Top traders: paper trading leaderboard" (CHANGES). Skipped by Cody: replacing the feature list with
   three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
   (not yet).
+- [ ] **Email signup on the website**: explained to Cody 2026-11-20 (Brevo list + double opt-in form, he
+  writes and sends from Brevo or from a Markdown file I send for him); waiting for his choice, nothing built.
+- [ ] The full FAQ at /faq (site database `faqs`) has older answers that no longer match the code: macOS
+  keys "in Keychain" (the app uses its own encrypted store), and the web account storing "nothing more"
+  than a login (it keeps settings, workspaces, the paper record and the leaderboard choice). Not changed.
 - [x] **Account value on the leaderboard** and the **gold edge on dark-mode main buttons**: Cody said
   yes, built 2026-11-20 (CHANGES). Market Cipher taken off the home page (Cody: not to be advertised as
   clones).

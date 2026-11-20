@@ -4,7 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Leaderboard account value, Market Cipher off the home page, dark-mode button edge, Cody's paper history cleaned, 2026-11-20 — not yet seen by Cody
+### Website home page: shorter intro, audio tour moved up, FAQ, From the blog, a line for VR counselors, 2026-11-20 — not yet seen by Cody
+
+Cody's answers to the "what would you add" list, installed on the live site (files in
+`/var/www/html/trade.codyhurst.com`, backups `*.bak-20261120-faq`; the old intro paragraph saved as
+`~/hero_lead.bak-20261120-faq.txt` on the server).
+- **The intro under the why line** (the `hero_lead` setting in the site database) is one sentence:
+  "A free, open-source trading terminal you run entirely by keyboard, and read through speech, sound or
+  braille." The old paragraph listed features "What it does" already covers.
+- **"Take the audio tour" and the live demo moved up** to straight after the page's contents list, so
+  hearing a chart comes before reading about it. The contents list follows the new order.
+- **"Questions people ask first"**: five questions above "Why financial literacy matters" (is it free;
+  does it ever hold my money; where are my exchange keys kept; which screen readers; do I need to know
+  how to trade), with a link to the full FAQ. Answers written from the code: the web account trades play
+  money only (real money is desktop-only), and the desktop app encrypts exchange keys on your own
+  computer. The plus and minus signs on every FAQ question (here and on /faq) are now hidden from
+  screen readers, which read them as part of the question before.
+- **"From the blog"**: up to three newest published posts from the blog's own database, ONLY those
+  tagged "trading", "Accessible Trade Terminal" or "Accessible Trader" (Cody: no unrelated posts). Today
+  that is two posts (16 November update, 12 August). The Market Cipher deep dive (18 November) has no
+  tags, so it is not shown. A post with no matching tag never appears; the section disappears, with its
+  contents link, if none match or the blog database cannot be read.
+- **"For vocational rehabilitation counselors"**: a short paragraph at the end of "Why financial
+  literacy matters" pointing them to the free account and the support page.
+- The section backgrounds alternate again after the move (the account section lost its grey; the
+  leaderboard and the blog have it).
+- Checked headless before installing and live after: desktop and phone, light and dark, no sideways
+  scroll, no page errors, no broken images, headings in order, no repeated ids, Enter opens a question.
+
+## Leaderboard account value, Market Cipher off the home page, dark-mode button edge, Cody's paper history cleaned, 2026-11-20 — not yet seen by Cody
 
 - **Account value column** (Cody: "add the balance column to the table, yes"). The publisher writes
   `accountValue` per entry: the standing's own equity (cash, positions at their mark, collateral),
