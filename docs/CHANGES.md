@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ### Code review fixes, 2026-11-20 — not yet seen or heard by Cody
 
+**The ATR trailing stop measures ATR the way the chart does.** Cody, 2026-11-20: "make them
+consistent. I am not worried about changed replayed backtest right now." The trail that takes over
+after the first target (`StopAdjust: TrailByAtr`) used a plain mean of the last N true ranges; the
+chart's ATR pane and a strategy's ATR stop use Wilder's smoothing, so the trail sat a different
+distance from the ATR the chart read out. It now uses the chart's own `IndicatorMath.Atr`, in the
+backtester, in live trading and in the lab's setup grader alike, so the replay and the live trail
+still agree with each other. **Caveat:** every replayed backtest with an ATR trail moves. Wilder
+reacts more slowly to one wide bar and keeps more of its memory, so trails mostly sit at a
+different distance than before; one hand-worked test moved from an exit at 108.5 to 113.25. Tests
+pin the trail to the chart's ATR (with a check that the series really tells the two averages
+apart), the replay and the live bar-by-bar trail agreeing at every bar, and no later bar moving an
+earlier trail; sabotages (one bar stale live, one bar stale in the replay, the newest bar's ATR in
+place of this bar's) each turned them red. Not seen in a live strategy.
+
+**The server's clock monitor is registered by its type.** The push of 2026-11-20 failed CI on one
+test: the two-heads parity scan reads `AddSingleton<Type>` and the hosted head registered the clock
+monitor through a factory without naming the type, so the scan could not see it. Nothing was wrong
+at run time; the type is named now and the scan passes.
+
 Cody, 2026-11-20: "from the code review, start on each of the issues you found, in the best order or smallest to largest." The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`. Smallest first:
 
 - **Docs that said what the app does not do.** The root README called all 18 provider folders "trading venues"; 14 can place orders and Finnhub, FMP, Polygon and Twelve Data only serve prices, so it now says 14 trading venues and 4 market-data feeds. Quick Start said 0 on the price pane marks the price under the cursor; since 2026-10-09 it does nothing there and says why. SHORTCUTS and the technical README named a method that does not exist (`CommandDispatcher.HandleTrendlineCrossJump`; it is `IndicatorCrossingEngine.HandleCrossJump`). The analytics notes said the AI Analyst covers news lookups; it reads only the candles and indicators it is given.

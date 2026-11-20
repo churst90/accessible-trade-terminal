@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
@@ -97,7 +98,7 @@ namespace AccessibleTrader.Core.Services.Trading
         /// Where the stop goes once the first ladder rung clears.
         /// <see cref="StopAdjustOnTp1.MoveToBreakeven"/> and
         /// <see cref="StopAdjustOnTp1.TrailByAtr"/> both anchor at the entry — the trail then
-        /// ratchets away from it bar by bar via <see cref="AtrTrailStop"/> — and
+        /// ratchets away from it bar by bar via <see cref="AtrTrailStop(IReadOnlyList{Ohlcv},int,int,double,OrderSide,double)"/> — and
         /// <see cref="StopAdjustOnTp1.None"/> leaves the original stop alone.
         /// </summary>
         public static double? StopAfterFirstTarget(StopAdjustOnTp1 mode, double entryPrice, double? currentStop) =>
@@ -114,11 +115,13 @@ namespace AccessibleTrader.Core.Services.Trading
         /// market has already walked past.
         ///
         /// <para>
-        /// The average is a plain mean of true range over <paramref name="period"/> bars ending
-        /// at <paramref name="barIndex"/>. That is the arithmetic the backtester has always run,
-        /// and it is shared verbatim rather than "corrected" to Wilder's smoothing here: the
-        /// point of this method is that the live trail sits where the replayed one sat. Changing
-        /// the average is a change to both, deliberately, in one place.
+        /// The average is Wilder's ATR over <paramref name="bars"/> — the same
+        /// <see cref="IndicatorMath.Atr"/> the chart's ATR pane reads out and the strategy's
+        /// stop is sized from (<c>RiskPlanResolver</c>). Until 2026-11-20 this was a plain mean
+        /// of the last <paramref name="period"/> true ranges, so the trail sat at a different
+        /// distance from the one the chart spoke (code review; Cody chose consistency over
+        /// keeping old replays where they were). The backtester and the live manager both come
+        /// through here, so the live trail still sits where the replayed one sat.
         /// </para>
         ///
         /// <para>Returns <paramref name="currentStop"/> unchanged whenever the trail cannot be
@@ -133,28 +136,34 @@ namespace AccessibleTrader.Core.Services.Trading
             OrderSide positionSide,
             double currentStop)
         {
-            if (bars == null || period <= 0 || !double.IsFinite(multiple)) return currentStop;
+            if (bars == null || period <= 0) return currentStop;
             if (barIndex < period || barIndex >= bars.Count) return currentStop;
 
-            double atrSum = 0;
-            for (int a = barIndex - period + 1; a <= barIndex; a++)
-            {
-                double tr = bars[a].High - bars[a].Low;
-                if (a > 0)
-                {
-                    tr = Math.Max(tr, Math.Abs(bars[a].High - bars[a - 1].Close));
-                    tr = Math.Max(tr, Math.Abs(bars[a].Low  - bars[a - 1].Close));
-                }
-                atrSum += tr;
-            }
+            // Wilder's average depends on every bar before it, so it runs over the bars up to
+            // this one — never past it, which would let a later bar move an earlier trail.
+            var upTo = new Ohlcv[barIndex + 1];
+            for (int a = 0; a <= barIndex; a++) upTo[a] = bars[a];
+            double atr = IndicatorMath.Atr(upTo, period)[barIndex];
+            return AtrTrailStop(atr, bars[barIndex].Close, multiple, positionSide, currentStop);
+        }
 
-            double atr = atrSum / period;
-            if (!double.IsFinite(atr)) return currentStop;
+        /// <summary>
+        /// The same trail from an ATR already worked out — the backtester computes Wilder's
+        /// series once per run with <see cref="TrailAtrSeries"/> rather than once per bar.
+        /// </summary>
+        public static double AtrTrailStop(
+            double atr,
+            double close,
+            double multiple,
+            OrderSide positionSide,
+            double currentStop)
+        {
+            if (!double.IsFinite(atr) || !double.IsFinite(multiple)) return currentStop;
 
             double trailDistance = atr * multiple;
             double newStop = positionSide == OrderSide.Buy
-                ? bars[barIndex].Close - trailDistance
-                : bars[barIndex].Close + trailDistance;
+                ? close - trailDistance
+                : close + trailDistance;
 
             if (!double.IsFinite(newStop)) return currentStop;
 
@@ -162,6 +171,19 @@ namespace AccessibleTrader.Core.Services.Trading
             if (positionSide == OrderSide.Buy  && newStop > currentStop) return newStop;
             if (positionSide == OrderSide.Sell && newStop < currentStop) return newStop;
             return currentStop;
+        }
+
+        /// <summary>
+        /// Wilder's ATR for every bar, NaN until <paramref name="period"/> bars have passed —
+        /// the series <see cref="AtrTrailStop(double,double,double,OrderSide,double)"/> reads.
+        /// Wilder's value at a bar uses only that bar and the ones before it, so one series
+        /// computed up front is the same number bar by bar as computing it as the run goes.
+        /// </summary>
+        public static double[] TrailAtrSeries(IReadOnlyList<Ohlcv> bars, int period)
+        {
+            if (bars == null || period <= 0) return Array.Empty<double>();
+            var all = bars as Ohlcv[] ?? bars.ToArray();
+            return IndicatorMath.Atr(all, period);
         }
 
         /// <summary>The side that closes a position — a long is exited by a sell.</summary>

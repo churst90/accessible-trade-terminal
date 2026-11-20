@@ -143,11 +143,14 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task A_runner_stopped_on_an_ATR_trail_is_scored_against_the_initial_stop()
         {
-            // Trail period 2, multiple 1. At bar 2's close (120) the 2-bar ATR is (2 + 21) / 2 =
-            // 11.5, so the trail sits at 108.5 and holds there on bar 3. Bar 4 trades through it:
-            // the runner exits at 108.5 = +0.85R. Position: 0.5 × 2 + 0.5 × 0.85 = +1.425R.
-            // The defect dropped the runner row from Average R (risk 100 − 108.5 < 0) and scored
-            // it +1R in the bootstrap (|100 − 108.5| of "risk").
+            // Trail period 2, multiple 1, Wilder's ATR (the chart's). At bar 2's close (120) the
+            // ATR is seeded at (2 + 21) / 2 = 11.5, so the trail sits at 108.5. Bar 3's true range
+            // is 4: Wilder gives (11.5 × 1 + 4) / 2 = 7.75 and the trail climbs to 121 − 7.75 =
+            // 113.25. (The plain mean it used until 2026-11-20 gave (21 + 4) / 2 = 12.5 and held
+            // at 108.5.) Bar 4 trades through it: the runner exits at 113.25 = +1.325R.
+            // Position: 0.5 × 2 + 0.5 × 1.325 = +1.6625R. The defect dropped the runner row from
+            // Average R (risk 100 − 113.25 < 0) and scored it +1R in the bootstrap
+            // (|100 − 113.25| of "risk").
             var bars = new List<Ohlcv>
             {
                 Bar(0, 100, 101, 99, 100),
@@ -161,9 +164,9 @@ namespace AccessibleTrader.Tests
             var r = await Run(bars, new() { [0] = Ladder(StopAdjustOnTp1.TrailByAtr, tp2: 200, trailPeriod: 2, trailMult: 1.0) });
 
             Assert.Equal(2, r.Trades.Count);
-            Assert.Equal(108.5, r.Trades[1].ExitPrice!.Value, 9);   // the trail really moved
-            Assert.Equal(1.425, r.AverageR, 9);
-            Assert.Equal(1.425, Assert.Single(BootstrapCi.ExtractRs(r.Trades)), 9);
+            Assert.Equal(113.25, r.Trades[1].ExitPrice!.Value, 9);  // the trail really moved
+            Assert.Equal(1.6625, r.AverageR, 9);
+            Assert.Equal(1.6625, Assert.Single(BootstrapCi.ExtractRs(r.Trades)), 9);
             // Every row names the stop the position was opened with — the documented meaning of
             // BacktestTrade.StopPrice ("original stop price ... for R-multiple math").
             Assert.All(r.Trades, t => Assert.Equal(90.0, t.StopPrice!.Value, 9));

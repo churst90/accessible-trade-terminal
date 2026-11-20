@@ -497,7 +497,7 @@ internal static class SetupGraderCore
     /// <summary>
     /// X1 and X2: 50% off at 2R, 50% at 4R; after the 2R exit the stop moves to the entry and then
     /// trails at 3 x ATR(14) exactly as the backtest engine's TrailByAtr does
-    /// (<see cref="ManagedExitRules.AtrTrailStop"/>). R is PER POSITION from the INITIAL risk:
+    /// (<see cref="ManagedExitRules.AtrTrailStop(double,double,double,OrderSide,double)"/>). R is PER POSITION from the INITIAL risk:
     /// sum over exits of portion x (exit - entry) / (entry - initial stop). The engine's per-row R,
     /// which divides by the stop in force at each exit, is not used (section 2.2).
     /// </summary>
@@ -531,7 +531,7 @@ internal static class SetupGraderCore
                 pnl += rem * (Math.Max(b[k].Open, t2) - entry);
                 return Book(pnl, entry, risk, atr, k - e, true);
             }
-            if (tp1) stop = ManagedExitRules.AtrTrailStop(b, k, 14, 3.0, OrderSide.Buy, stop);
+            if (tp1) stop = ManagedExitRules.AtrTrailStop(atrs[k], b[k].Close, 3.0, OrderSide.Buy, stop);
         }
         pnl += rem * (b[n - 1].Close - entry);
         return Book(pnl, entry, risk, atr, n - 1 - e, false);

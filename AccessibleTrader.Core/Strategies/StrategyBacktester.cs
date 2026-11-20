@@ -308,6 +308,9 @@ public class StrategyBacktester : IStrategyBacktester
         StopAdjustOnTp1 openStopAdjust = StopAdjustOnTp1.MoveToBreakeven;
         int openTrailAtrPeriod = 14;
         double openTrailAtrMultiple = 1.5;
+        // Wilder's ATR for the trail, kept for the period it was computed with.
+        double[] trailAtr = Array.Empty<double>();
+        int trailAtrPeriod = -1;
         // Which POSITION the exit rows below belong to. Every row this method emits is an
         // EXIT: a 3-rung take-profit ladder produces three rows from one entry. Stamping the
         // position lets the metrics aggregate per position while the log keeps every rung.
@@ -571,10 +574,17 @@ public class StrategyBacktester : IStrategyBacktester
             if (openSide.HasValue && stopMovedToBreakeven && openStopAdjust == StopAdjustOnTp1.TrailByAtr
                 && openStop.HasValue)
             {
-                // The average, the ratchet and the "not before `period` bars" gate all live in
-                // ManagedExitRules so the live trail sits exactly where this one does.
-                openStop = ManagedExitRules.AtrTrailStop(
-                    data, i, openTrailAtrPeriod, openTrailAtrMultiple, openSide.Value, openStop.Value);
+                // The average (Wilder's, as the chart reads it) and the ratchet live in
+                // ManagedExitRules so the live trail sits exactly where this one does. The series
+                // is worked out once per period, not once per bar.
+                if (trailAtrPeriod != openTrailAtrPeriod)
+                {
+                    trailAtr = ManagedExitRules.TrailAtrSeries(data, openTrailAtrPeriod);
+                    trailAtrPeriod = openTrailAtrPeriod;
+                }
+                if (i < trailAtr.Length)
+                    openStop = ManagedExitRules.AtrTrailStop(
+                        trailAtr[i], bar.Close, openTrailAtrMultiple, openSide.Value, openStop.Value);
             }
 
             // Drawdown and the equity curve belong to the account, not just its closed trades.
