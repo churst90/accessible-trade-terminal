@@ -40,23 +40,28 @@ and Identity already has 2FA, lockout and rate limits.
   (Gmail answered), but a new IP's deliverability and the shared IP of every hosted site are the risk.
   Done 2026-11-18: server side by Cody and Claude; this run wired the app
   (`IAccountEmailSender`/`SmtpAccountEmailSender`, ForgotPassword, change-email confirm, notices).
-  **Left:** put `AccountEmail__User`/`AccountEmail__Password` on the VPS and send one real test email
-  to confirm delivery and Brevo branding.
+  Both settings went on the VPS 2026-11-20 and one real password-reset email was sent through Brevo
+  (the app logged it as sent). **Left:** Cody to say whether it arrived, landed in spam, or carries
+  Brevo branding.
 - [x] **Account page.** Display name, change password, change email (needs the email above), leaderboard
   opt-in (OFF by default), download my data (a zip of the user's folder), delete account; and a minimum
   fill time on the register form's honeypot. Built with its tests on 2026-11-18. **Left:** the
   leaderboard itself (next item) reading the stored display name and opt-in.
-- [ ] **Leaderboard on the accessibletrader.com front page.** Per `~/ATT-ACCOUNTS-LEADERBOARD-SPEC.md` on
+- [x] **Leaderboard on the accessibletrader.com front page.** Per `~/ATT-ACCOUNTS-LEADERBOARD-SPEC.md` on
   the VPS: a pure calculator, a publisher every 5 minutes writing `public/leaderboard.json` atomically,
   opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real
   `<table>` with caption and column headers in the PHP page. Paper only (the hosted terminal is paper).
   **Server side done 2026-11-18 (`CHANGES.md`):** lifetime stats, the calculator and the publisher.
   Open positions on every row, and an account listed once it holds one, done 2026-11-20 (Cody).
-- [ ] **Website leaderboard section (VPS PHP, Claude).** Render the published JSON on the
+  Deployed 2026-11-20 with `Leaderboard__OutputPath` set; the first file was written (no one has
+  opted in yet, so it is empty and the page shows "be the first").
+- [x] **Website leaderboard section (VPS PHP, Claude).** Render the published JSON on the
   accessibletrader.com front page: a real `<table>` with a caption and column headers, "be the first"
   under 3 entries, no email address anywhere. The file, its 0640 mode and
   `Leaderboard__OutputPath` are documented in `SERVER_SETUP.md`; the publisher is the part this
-  repository owns.
+  repository owns. Installed 2026-11-20 as `includes/leaderboard-section.php`, after the free-account section,
+  with a contents link; the open positions column lists each holding. Not yet seen with real rows:
+  it needs three opted-in accounts.
 - [ ] **Seed Cody's P&L.** Replace his VPS `users/49698e84…/paper_account.json` with his local one, NO
   "imported" label (Cody: they are his practice trades). Back up the VPS file first; confirm before
   writing to production.

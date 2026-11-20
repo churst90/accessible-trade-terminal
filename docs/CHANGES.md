@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Deployed to the hosted server with email and the leaderboard switched on, 2026-11-20 — not yet seen by Cody
+
+Server and website work only; no code changed in this entry.
+
+- **`171f3d18` deployed to both VPS services** at 11:14 UTC after CI was green on all three workflows. Gates held: the capability lines matched before and after, no restarts, no error lines, and the login page and demo answered. The `AccountProfileFields` migration (display name, leaderboard opt-in) ran on start.
+- **Email through Brevo is on.** `AccountEmail__User` joined `AccountEmail__Password` in the server's environment file (backed up first). One real password-reset email to Cody's own address was sent; the app logged it as sent at 11:15 UTC.
+- **The leaderboard is on.** `Leaderboard__OutputPath` points at `/var/lib/accessible-trader-public/leaderboard.json` (folder 0750, readable by the web server's group). The first file was written 30 seconds after start, with no rows: no one has opted in yet.
+- **The website section is live** on accessibletrader.com, after the free-account section, with a link in the contents list. Under three entries it shows the "be one of the first" invitation.
+
+Caveats: delivery of the test email (inbox or spam, Brevo branding) is not confirmed; only Cody can see that. The table with real rows has not been seen on the live page, only rendered from sample data. Cody's practice P&L is not copied to the server yet; that waits for his yes.
+
 ### Leaderboard shows open positions; two browser tests caught up with this batch, 2026-11-20 — not yet seen by Cody
 
 Cody, 2026-11-20: "if the user has an open position, make that visible in the leaderboard as well be it closed or open position."
