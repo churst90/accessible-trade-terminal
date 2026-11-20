@@ -54,13 +54,13 @@ public sealed class ChartKeyboardNavigationTests
         private readonly MockMainThreadService _main = new();
         private readonly NavigationEngine _engine;
 
-        public Harness(int bars = 300)
+        public Harness(int bars = 300, Func<int, Ohlcv>? bar = null)
         {
             Store = new WorkspaceStore(Bus, new ViewportRangeCalculator(),
                 new ViewportNavigationService(), new VolumeStateService());
             var data = Enumerable.Range(0, bars)
-                .Select(i => new Ohlcv(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i),
-                    100 + i % 7, 102 + i % 7, 98 + i % 7, 101 + i % 7, 1000))
+                .Select(bar ?? (i => new Ohlcv(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i),
+                    100 + i % 7, 102 + i % 7, 98 + i % 7, 101 + i % 7, 1000)))
                 .ToList();
             Store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(data), IsInitialLoad: true));
             // The primary series, as MarketOrchestrator adds it on a load.
@@ -159,6 +159,60 @@ public sealed class ChartKeyboardNavigationTests
         Assert.True(h.HistoryWasRequested,
             "Left at bar 10 of 300 did not ask for older history: walking left reaches the start of "
           + "what was loaded and stops there for good");
+    }
+
+    /// <summary>A slow climb on a Renko chart with a box of 1: a brick every ten real bars, the
+    /// way a point and figure column or a Renko brick on a daily chart covers weeks.</summary>
+    private static Harness BuiltChart()
+    {
+        var h = new Harness(300, i => new Ohlcv(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i),
+            100 + i * 0.1, 100.05 + i * 0.1, 99.95 + i * 0.1, 100 + i * 0.1, 1000));
+        h.Store.Dispatch(new SetRenkoSettingsAction(new RenkoSettings(Mode: RenkoBoxMode.Fixed, BoxSize: 1)));
+        h.Store.Dispatch(new SetChartStyleAction(PriceChartStyle.Renko, false));
+        Assert.InRange(h.Store.State.Data.Count, 20, 40);
+        return h;
+    }
+
+    [Fact]
+    public void On_a_built_chart_walking_left_asks_for_history_only_near_the_start_of_the_REAL_bars()
+    {
+        // Cody, 2026-11-20, on a daily point and figure chart: "it loaded all the chart history
+        // ... and yet I'm only viewing 58 bars". "Near the start" was 50 DRAWN bars, which is
+        // years of daily bars there, so nearly every Left fetched more until it was all in.
+        var h = BuiltChart();
+        h.Store.Dispatch(new NavigateAction(10));
+        Assert.True(h.Store.State.RealBarIndex(10) >= 50, "brick 10 should start well past the 50th real bar");
+
+        h.Press("NAV_LEFT");
+
+        Assert.False(h.HistoryWasRequested,
+            "brick 10 starts about 100 real bars in: older history is not near yet");
+    }
+
+    [Fact]
+    public void On_a_built_chart_walking_left_from_the_first_bricks_still_asks_for_history()
+    {
+        var h = BuiltChart();
+        h.Store.Dispatch(new NavigateAction(2));
+
+        h.Press("NAV_LEFT");
+
+        Assert.True(h.HistoryWasRequested, "the first bricks are the first real bars: older ones are wanted");
+    }
+
+    [Theory]
+    [InlineData(12, false)]   // the view starts about 120 real bars in
+    [InlineData(1, true)]     // the view starts in the first real bars
+    public void On_a_built_chart_panning_left_asks_for_history_only_near_the_start_of_the_REAL_bars(int viewStart, bool asks)
+    {
+        var h = BuiltChart();
+        h.Store.Dispatch(new ZoomAction(10));
+        h.Store.Dispatch(new PanAction(viewStart - h.Store.State.ViewportStartIndex));
+        Assert.Equal(viewStart, h.Store.State.ViewportStartIndex);
+
+        h.Press("VIEW_PAN_LEFT");
+
+        Assert.Equal(asks, h.HistoryWasRequested);
     }
 
     [Fact]

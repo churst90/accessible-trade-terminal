@@ -948,16 +948,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>Resolves an OHLCV column reference (case-insensitive DataMapping value) to its bar field.</summary>
         private static double MapOhlcvField(Ohlcv bar, string? mapping)
         {
-            if (string.IsNullOrEmpty(mapping)) return bar.Close;
-            return mapping.ToLowerInvariant() switch
-            {
-                "open"   => bar.Open,
-                "high"   => bar.High,
-                "low"    => bar.Low,
-                "close"  => bar.Close,
-                "volume" => bar.Volume,
-                _        => bar.Close,
-            };
+            // The recalculation's own mapper, so the High-low bar's middle ("hl2") is what the
+            // mouse finds too, not the close.
+            return Indicators.IndicatorStateMapper.MapBar(mapping) is { } field ? field(bar) : bar.Close;
         }
 
         private void SafelyRenderStrip(string text)

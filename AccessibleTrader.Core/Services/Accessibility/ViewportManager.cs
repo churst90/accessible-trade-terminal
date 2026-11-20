@@ -69,7 +69,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var state = _store.State;
                 
                 // PROACTIVE BACKFILL: If panning left and near the data edge, trigger history fetch
-                if (direction < 0 && state.ViewportStartIndex < HistoryBackfillThreshold)
+                if (direction < 0 && state.RealBarIndex(state.ViewportStartIndex) < HistoryBackfillThreshold)
                 {
                     _eventBus.Publish(new RequestHistoryEvent());
                 }

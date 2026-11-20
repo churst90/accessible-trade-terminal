@@ -496,7 +496,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // Panning left (whole > 0 → viewport start decreases) toward the data edge:
             // proactively backfill history so the drag can keep going, like the keys do.
-            if (whole > 0 && state.ViewportStartIndex < PanHistoryBackfillThreshold)
+            if (whole > 0 && state.RealBarIndex(state.ViewportStartIndex) < PanHistoryBackfillThreshold)
                 _eventBus.Publish(new RequestHistoryEvent());
 
             _store.Dispatch(new PanAction(-whole));

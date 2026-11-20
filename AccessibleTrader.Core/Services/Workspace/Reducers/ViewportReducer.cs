@@ -182,15 +182,11 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             TimeSeriesBuffer<Ohlcv> list,
             bool initial)
         {
-            static double ExtractValue(Ohlcv bar, string mapping) => mapping.ToLower() switch
-            {
-                "open"   => (double)bar.Open,
-                "high"   => (double)bar.High,
-                "low"    => (double)bar.Low,
-                "close"  => (double)bar.Close,
-                "volume" => (double)bar.Volume,
-                _        => double.NaN
-            };
+            // The one mapper the full recalculation uses, so a live tick writes what a reload
+            // would. This kept its own list without "hl2", so the newest High-low bar was NaN on
+            // every tick and made no sound (Cody, 2026-11-20).
+            static double ExtractValue(Ohlcv bar, string mapping) =>
+                Indicators.IndicatorStateMapper.MapBar(mapping) is { } field ? field(bar) : double.NaN;
 
             return series.Select(s =>
             {

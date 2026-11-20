@@ -548,6 +548,21 @@ namespace AccessibleTrader.Sdk.Models
         /// box edge, not the market price.
         /// </summary>
         public TimeSeriesBuffer<Ohlcv> MarketBars => TimeBars ?? Data;
+
+        /// <summary>
+        /// The real bar (an index into <see cref="MarketBars"/>) that drawn bar
+        /// <paramref name="drawnIndex"/> starts at: its span's first bar on a brick chart, the
+        /// index itself on every other chart. "Near the start of the history" is measured in
+        /// these: 50 point and figure columns can be years of daily bars, so asking for older
+        /// history whenever the cursor was within 50 DRAWN bars of the start fetched on nearly
+        /// every Left arrow until the whole history was in (Cody, 2026-11-20: "it loaded all
+        /// the chart history on the daily chart ... and yet I'm only viewing 58 bars").
+        /// </summary>
+        public int RealBarIndex(int drawnIndex)
+        {
+            if (BrickSpans.IsDefaultOrEmpty || drawnIndex < 0) return drawnIndex;
+            return BrickSpans[Math.Min(drawnIndex, BrickSpans.Length - 1)].FirstBar;
+        }
     }
 
     public abstract record WorkspaceAction;

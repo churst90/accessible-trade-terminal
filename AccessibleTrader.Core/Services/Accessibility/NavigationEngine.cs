@@ -126,7 +126,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private void NavigateX(INavigationStrategy strategy, int delta)
         {
             var state = _store.State;
-            if (delta < 0 && state.CurrentDataIndex < HistoryBackfillThreshold)
+            if (delta < 0 && state.RealBarIndex(state.CurrentDataIndex) < HistoryBackfillThreshold)
             {
                 _eventBus.Publish(new RequestHistoryEvent());
             }

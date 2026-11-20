@@ -169,7 +169,12 @@ namespace AccessibleTrader.Core.Services.Charts
             if (ReferenceEquals(reshaped, series)) return state;
 
             var next = state with { ActiveSeries = state.ActiveSeries.SetItem(at, reshaped) };
-            if (state.FocusedSeriesId == CoreSeriesIds.Candles)
+            // Back to the body only when the SHAPE changed. The hidden values (hollow colours,
+            // volumes, ranges, Kagi thickness, column boxes) are refreshed on every tick, and
+            // resetting then threw focus off a wick onto the body as the newest bar moved
+            // (Cody, 2026-11-20: "I'll hear the sound of the body of the bar and focus will jump
+            // to the body").
+            if (state.FocusedSeriesId == CoreSeriesIds.Candles && !ReferenceEquals(reshaped.Config, series.Config))
                 next = next with { FocusedComponentIndex = DefaultPart(reshaped.Config) };
             return next;
         }

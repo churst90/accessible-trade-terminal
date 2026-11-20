@@ -177,6 +177,85 @@ public sealed class MoreChartTypesTests
                 (95, 115), 1f, prevVal: prev, dataIndex: index);
     }
 
+    // ---- Live ticks (Cody, 2026-11-20) -----------------------------------------------------------
+
+    /// <summary>A store holding <paramref name="state"/>, as a loaded tab holds it.</summary>
+    private static WorkspaceStore Store(WorkspaceState state)
+    {
+        var store = new WorkspaceStore(new SpyEventBus(), new ViewportRangeCalculator(),
+            new MockViewportNavigationService(), new MockVolumeStateService());
+        store.Dispatch(new UpdateSettingsAction(_ => state));
+        return store;
+    }
+
+    /// <summary>The bars with the newest one ticked: a new high and a new close.</summary>
+    private static List<Ohlcv> Ticked(IReadOnlyList<Ohlcv> bars)
+    {
+        var list = bars.ToList();
+        var last = list[^1];
+        list[^1] = new Ohlcv(last.Date, last.Open, last.High + 4, last.Low, last.Close + 3, last.Volume + 5);
+        return list;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_newest_high_low_bar_holds_its_middle_through_live_ticks(bool newBar)
+    {
+        // Cody, 2026-11-20: "the latest rightmost high low bar doesn't make a sound". The live
+        // tick wrote each part's newest value from its own list of fields, which had no "hl2",
+        // so the bar being formed was NaN, and NaN is silence.
+        using var store = Store(State(PriceChartStyle.HighLow));
+        var bars = Ticked(Sample);
+        if (newBar) bars.Add(new Ohlcv(Start.AddHours(10), 108, 111, 104, 110, 10));
+
+        store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(bars), false));
+
+        var middles = Price(store.State).Data.ComponentData[PriceSeriesShape.HighLowPart];
+        Assert.Equal(bars.Count, middles.Length);
+        var newest = bars[^1];
+        Assert.Equal((newest.High + newest.Low) / 2.0, middles[^1], 9);
+        var sound = Sound(store.State, PriceSeriesShape.HighLowPart, bars.Count - 1);
+        Assert.False(double.IsNaN(sound.Frequency), "the newest high-low bar must have a pitch");
+    }
+
+    [Theory]
+    [InlineData(PriceChartStyle.HollowCandles)]
+    [InlineData(PriceChartStyle.VolumeCandles)]
+    public void A_live_tick_leaves_focus_on_the_wick_it_is_on(PriceChartStyle style)
+    {
+        // Cody, 2026-11-20: "I'll hear the sound of the body of the bar and focus will jump to
+        // the body". Each tick refreshes the hidden colours or volumes, which replaced the price
+        // series, and every replacement put focus back on the body.
+        var start = State(style);
+        int wick = Price(start).Components.FindIndex(c => c.Name == "upper_wick");
+        Assert.True(wick >= 0);
+        Assert.NotEqual(PriceSeriesShape.DefaultPart(Price(start).Config), wick);
+        using var store = Store(start with { FocusedComponentIndex = wick });
+
+        store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(Ticked(Sample)), false));
+        store.Dispatch(new UpdateDataAction(new TimeSeriesBuffer<Ohlcv>(
+            Ticked(Sample).Append(new Ohlcv(Start.AddHours(10), 108, 111, 104, 110, 10)).ToList()), false));
+
+        Assert.Equal(wick, store.State.FocusedComponentIndex);
+        // The tick did reach the hidden values, so the test is not passing on an unchanged series.
+        var key = style == PriceChartStyle.HollowCandles ? PriceSeriesShape.HollowGreenKey : PriceSeriesShape.VolumeKey;
+        Assert.Equal(Sample.Length + 1, Price(store.State).Data.ComponentData[key].Length);
+    }
+
+    [Fact]
+    public void Choosing_another_type_still_puts_focus_on_the_new_shape_s_price_part()
+    {
+        var start = State(PriceChartStyle.HollowCandles);
+        int wick = Price(start).Components.FindIndex(c => c.Name == "upper_wick");
+        using var store = Store(start with { FocusedComponentIndex = wick });
+
+        store.Dispatch(new SetChartStyleAction(PriceChartStyle.HighLow, false));
+
+        Assert.Equal(0, store.State.FocusedComponentIndex);
+        Assert.Equal(PriceSeriesShape.HighLowPart, Price(store.State).Components[0].Name);
+    }
+
     [Fact]
     public void A_bar_sounds_thinner_than_a_candle_and_keeps_its_direction()
     {

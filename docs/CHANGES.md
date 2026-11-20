@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cody's three findings on the new chart types, 2026-11-20 — fixed, not yet re-heard
+
+Cody tried the six new types ("everything sounds good") and found three faults:
+
+- **"The latest rightmost high low bar doesn't make a sound."** A live tick writes each price part's newest value from its own list of bar fields (`ViewportReducer`), and that list had no `hl2`, the middle of the high and the low that a high-low bar is pitched at. So the bar being formed was NaN on every tick, and NaN is silence. A reload filled it, which is why only the newest bar was silent. The tick now uses `IndicatorStateMapper.MapBar`, the mapper the full recalculation uses. Mouse and touch exploration (`TactileCanvasCoordinator`) had the same short list and read the close there instead; it uses the same mapper now.
+- **"I'll hear the sound of the body of the bar and focus will jump to the body."** `PriceSeriesShape.Apply` put focus back on the body whenever it replaced the price series. Hollow and volume candles carry hidden values (each bar's colour, each bar's volume) that are refreshed on every tick, so every tick replaced the series and threw a wick-focused user onto the body. Focus now goes back to the price part only when the shape itself changes (a new chart type).
+- **"Point and figure ... loaded all the chart history on the daily chart ... and yet I'm only viewing 58 bars."** Walking left, panning, dragging or wheeling asked for older history whenever the cursor or view was within 50 bars of the start. On a built chart those were 50 DRAWN bars, and 58 point and figure columns on a daily chart are years of days, so nearly every Left arrow fetched another 200 days until the whole history (or the 5,000-bar limit) was in. "Near the start" is now measured in real bars (`WorkspaceState.RealBarIndex`: a drawn bar's first real bar on Renko, range bars, line break, Kagi and point and figure; the index itself on every other chart). Note that a built chart is always built from every bar loaded, so 58 columns covering the loaded years is how point and figure looks on TradingView too; the fault was only the loading.
+
+Tests: `MoreChartTypesTests` +5 (the newest high-low middle through an in-place tick and a new bar, with a pitch; focus staying on the wick through ticks on hollow and volume candles, with a check that the tick did reach the hidden values; choosing another type still moving focus) and `ChartKeyboardNavigationTests` +4 (Left and keyboard pan on a Renko chart with a brick every ten real bars ask for history only near the first real bars). Six sabotages, all red: the tick without `hl2`, focus reset on every tick, the walk measured in drawn bars, `RealBarIndex` returning the drawn index, `RealBarIndex` never near, and the keyboard pan measured in drawn bars.
+
+Caveats: the mouse-drag pan (`DrawingInteractionManager`) and the wheel pan (`GlobalInputService`) got the same one-line change but have no test of their own. The mouse/touch `hl2` fix is not tested. Not yet heard by Cody.
+
 ### Six more chart types: bars, hollow candles, baseline, high-low, HLC area, volume candles, 2026-11-20 — not yet heard by Cody
 
 Cody, 2026-11-20, "1. Yes" to building six of TradingView's time-bar chart types (step line,

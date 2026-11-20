@@ -140,7 +140,7 @@ namespace AccessibleTrader.BlazorClient.Services
         [JSInvokable]
         public void OnWheelPan(int direction)
         {
-            if (direction < 0 && _store.State.ViewportStartIndex < 50)
+            if (direction < 0 && _store.State.RealBarIndex(_store.State.ViewportStartIndex) < 50)
                 _eventBus.Publish(new RequestHistoryEvent());
             _store.Dispatch(new WorkspacePanEvent(direction));
         }
