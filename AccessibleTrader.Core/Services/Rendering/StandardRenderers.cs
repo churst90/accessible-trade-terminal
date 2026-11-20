@@ -655,12 +655,21 @@ namespace AccessibleTrader.Core.Services.Rendering
             (bullish, bearish) = ApplyColorVision(ctx.Theme, bullish, bearish);
             bool hollowUp = ctx.Theme.HollowUpCandles;
 
-            // Wick color: read from the wick components' own ColorHex so users can style
-            // wicks independently from the candle body via the Properties modal.
+            // Wick colour: the theme's rising and falling wick colours, like the body. A colour the
+            // user picked for the wick in the Properties modal is one colour for every candle.
+            // (Until 2026-11-20 every wick took the rising colour, so a falling candle had a green
+            // wick and CandleBearishWick was dead code, as the body colours once were.)
             var wickComp = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Wick);
-            SKColor wickColor = ctx.Theme.CandleBullishWick;
+            SKColor wickUp = ctx.Theme.CandleBullishWick, wickDown = ctx.Theme.CandleBearishWick;
             if (wickComp is { IsUserStyled: true } && !string.IsNullOrEmpty(wickComp.ColorHex))
-                SKColor.TryParse(wickComp.ColorHex, out wickColor);
+            {
+                SKColor.TryParse(wickComp.ColorHex, out wickUp);
+                wickDown = wickUp;
+            }
+            else
+            {
+                (wickUp, wickDown) = ApplyColorVision(ctx.Theme, wickUp, wickDown);
+            }
             float wickThickness = wickComp?.Thickness ?? 1f;
 
             bool hasPhaseOverride = phaseData != null && phaseData.Length > 0;
@@ -725,7 +734,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     using var wickLease = SKPaintPool.Rent();
                     var wickPaint = wickLease.Paint;
                     // On hollow candles the wick is the candle's colour, as TradingView draws it.
-                    wickPaint.Color = hollowGreen != null ? bodyColor : wickColor;
+                    wickPaint.Color = hollowGreen != null ? bodyColor : bar.Close >= bar.Open ? wickUp : wickDown;
                     wickPaint.Style = SKPaintStyle.Stroke;
                     wickPaint.StrokeWidth = wickThickness;
                     ctx.Canvas.DrawLine(x, yHigh, x, yLow, wickPaint);

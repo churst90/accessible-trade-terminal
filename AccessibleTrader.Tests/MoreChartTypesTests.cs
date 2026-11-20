@@ -580,6 +580,22 @@ public sealed class MoreChartTypesTests
     }
 
     [Fact]
+    public void A_falling_candle_has_the_falling_wick_colour()
+    {
+        // Seen in the 2026-11-20 chart-type screenshots: every wick was drawn in the rising
+        // colour, so a red candle had a green wick.
+        var theme = Theme();
+        Assert.False(CloseTo(theme.CandleBullishWick, theme.CandleBearishWick, 30), "the theme's two wick colours are alike; this test proves nothing");
+        using var bmp = Draw(State(PriceChartStyle.Candles), theme);
+
+        // Bar 1 falls (102 to 101, high 104); bar 2 rises (101 to 103, high 106). Above each body is wick only.
+        var falling = bmp.GetPixel(Mid(1), Y(103));
+        var rising = bmp.GetPixel(Mid(2), Y(105));
+        Assert.True(CloseTo(falling, theme.CandleBearishWick, 30), $"falling wick drawn {falling}, theme says {theme.CandleBearishWick}");
+        Assert.True(CloseTo(rising, theme.CandleBullishWick, 30), $"rising wick drawn {rising}, theme says {theme.CandleBullishWick}");
+    }
+
+    [Fact]
     public void A_heavier_volume_candle_is_wider()
     {
         var theme = Theme();

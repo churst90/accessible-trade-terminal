@@ -35,6 +35,13 @@ namespace AccessibleTrader.Core.Services
         // Set to true when a recalculation trigger is suppressed during LoadingHistorical.
         // Cleared and a single full recalc fires when DataStatus transitions to Ready.
         private volatile bool _pendingRecalcAfterLoad;
+        // A full recalculation was asked for and has not yet finished. Every trigger cancels the
+        // one before it, so without this a viewport move just after a chart type change (which
+        // asks for the cheap last-bar update) cancelled the full one still waiting for the lock,
+        // and the buffers stayed sized for the old bars: a blank volume pane on Renko, 2026-11-20.
+        private volatile bool _fullOwed;
+        // The built chart the indicator buffers were last computed on (see BuiltShape).
+        private BuiltShape _lastBuilt;
 
         public DataOrchestrationService(
             IWorkspaceStore store,
@@ -52,6 +59,20 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
 
             _dataManager.DataUpdated += OnDataUpdated;
+            _lastBuilt = BuiltShape.Of(_store.State);
+
+            // Built charts (Renko, range bars, line break, Kagi, point and figure): the indicators
+            // compute on the bars the chart draws, which the store rebuilds from the feed's bars
+            // (ViewportReducer.UpdateBrickData). Found in the chart-type photographs, 2026-11-20:
+            // every indicator and the volume pane were computed on the feed's time bars and drawn
+            // one value per brick, so a Kagi chart of four lines had two hundred volume bars under
+            // it, and choosing a built type recomputed nothing at all. The feed's own update can
+            // land before the store has rebuilt, so on a built chart the store's bars, not the
+            // feed, start the recalculation: a new type, box or bar count is a full one, a change
+            // to the last bar alone the cheap one.
+            _subscriptions.Add(_store.StateStream
+                .Select(BuiltShape.Of)
+                .Subscribe(OnBuiltShape));
 
             // Viewport/series-change trigger — recalculate when viewport moves or series list changes.
             // When profiles (VPVR/TPO) are active, viewport changes require a full recalculation
@@ -105,6 +126,9 @@ namespace AccessibleTrader.Core.Services
 
         private void OnDataUpdated()
         {
+            // On a built chart the store's rebuild starts the recalculation (OnBuiltShape).
+            if (_store.State.ChartStyle.IsBrickStyle()) return;
+
             // Detect historical prepend: new data arrives with an earlier first-bar date.
             // Prepend invalidates all indicator buffers (they were indexed against the old start),
             // so we must force a full recalculation instead of an incremental last-bar update.
@@ -151,6 +175,7 @@ namespace AccessibleTrader.Core.Services
             // Asset/timeframe switch → every indicator buffer belongs to the previous chart.
             // Nothing incremental can repair that; only a full recalculation can.
             if (ConsumeIdentityChange()) forceFull = true;
+            if (forceFull) _fullOwed = true;
 
             // Suppress per-bar recalculations while the data pipeline is still loading or resampling.
             // This prevents dozens of racing full recalculations as bars trickle in (especially on
@@ -173,7 +198,7 @@ namespace AccessibleTrader.Core.Services
             var token = _tickCts.Token;
 
             SafeFireAndForget.Run(async () => {
-                var data = _dataManager.Data;
+                var data = ChartBars();
                 if (data == null || !data.Any()) return;
 
                 var activeSeries = _store.State.ActiveSeries;
@@ -187,7 +212,7 @@ namespace AccessibleTrader.Core.Services
                 // has no component data yet (newly added indicator, fresh market load).
                 // Profile/heatmap series rely on the history service and RecalculateAllAsync,
                 // so they are excluded from the "empty data" trigger below.
-                bool needsFull = forceFull || activeSeries.Any(s =>
+                bool needsFull = _fullOwed || activeSeries.Any(s =>
                     !string.IsNullOrEmpty(s.IndicatorCode) &&
                     !s.IsProfile &&
                     s.Data.ComponentData.Count == 0);
@@ -199,6 +224,7 @@ namespace AccessibleTrader.Core.Services
                     if (book.Bids?.Count > 0 || book.Asks?.Count > 0)
                         _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, book.Bids ?? new(), book.Asks ?? new());
                     await RecalculateAllAsync(data, token).ConfigureAwait(false);
+                    if (!token.IsCancellationRequested) _fullOwed = false;
                 }
                 else
                 {
@@ -206,6 +232,40 @@ namespace AccessibleTrader.Core.Services
                     await RecalculateLastAsync(data, token, book.Bids, book.Asks).ConfigureAwait(false);
                 }
             }, _logger, "TickProcessing");
+        }
+
+        /// <summary>The bars the indicators compute on: the chart's drawn bars on a built chart,
+        /// the feed's bars otherwise.</summary>
+        private IReadOnlyList<Ohlcv> ChartBars()
+        {
+            var state = _store.State;
+            return state.ChartStyle.IsBrickStyle() ? state.Data : _dataManager.Data;
+        }
+
+        private void OnBuiltShape(BuiltShape now)
+        {
+            var before = _lastBuilt;
+            _lastBuilt = now;
+            if (now == before || (!now.Built && !before.Built)) return;
+            bool sameBars = now.Built && before.Built && now.Style == before.Style
+                && now.Box.Equals(before.Box) && now.Count == before.Count && now.First == before.First;
+            OnDataUpdated(forceFull: !sameBars);
+        }
+
+        /// <summary>What decides whether a built chart's indicator buffers still fit its bars.
+        /// Off a built chart every field but <see cref="Built"/> is left at its default, so a
+        /// time chart's ticks never reach <see cref="OnBuiltShape"/>.</summary>
+        private readonly record struct BuiltShape(
+            bool Built, PriceChartStyle Style, double Box, int Count, DateTime First, Ohlcv Last)
+        {
+            public static BuiltShape Of(WorkspaceState s)
+            {
+                if (!s.ChartStyle.IsBrickStyle()) return default;
+                var bars = s.Data;
+                return bars.Count == 0
+                    ? new BuiltShape(true, s.ChartStyle, s.BrickBoxSize, 0, default, default)
+                    : new BuiltShape(true, s.ChartStyle, s.BrickBoxSize, bars.Count, bars[0].Date, bars[^1]);
+            }
         }
 
         public async Task RecalculateAllAsync(IReadOnlyList<Ohlcv> data, CancellationToken token)

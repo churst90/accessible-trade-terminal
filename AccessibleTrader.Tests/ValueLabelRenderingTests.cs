@@ -331,11 +331,19 @@ public sealed class ValueLabelRenderingTests
         var wide = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, start: 260, length: 40);
         using (wide.Bmp) Assert.NotEmpty(InkPixels(wide.Bmp, BullInk(wide.Theme), 0, W, (int)wide.PlotTop, (int)wide.PlotBottom));
         var narrow = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, start: 0, length: 300, dump: "narrow");
+        // The same chart with no numbers to label: since 2026-11-20 a falling candle's wick is
+        // red, and DBSI's own red shape blended over one can land within the ink tolerance, so
+        // "no label" means the labels add no pixel of their colours, not "no such pixel".
+        var unlabelled = Fixed(bars, double.NaN, double.NaN, labelBars: 0);
+        var bare = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), unlabelled }, W, H, D, start: 0, length: 300);
         using (narrow.Bmp)
+        using (bare.Bmp)
         {
             Assert.True(narrow.Slot < 8 * D, $"fixture: slot {narrow.Slot}");
-            Assert.Empty(InkPixels(narrow.Bmp, BullInk(narrow.Theme), 0, W, (int)narrow.PlotTop, (int)narrow.PlotBottom));
-            Assert.Empty(InkPixels(narrow.Bmp, BearInk(narrow.Theme), 0, W, (int)narrow.PlotTop, (int)narrow.PlotBottom));
+            Assert.Equal(InkPixels(bare.Bmp, BullInk(bare.Theme), 0, W, (int)bare.PlotTop, (int)bare.PlotBottom),
+                         InkPixels(narrow.Bmp, BullInk(narrow.Theme), 0, W, (int)narrow.PlotTop, (int)narrow.PlotBottom));
+            Assert.Equal(InkPixels(bare.Bmp, BearInk(bare.Theme), 0, W, (int)bare.PlotTop, (int)bare.PlotBottom),
+                         InkPixels(narrow.Bmp, BearInk(narrow.Theme), 0, W, (int)narrow.PlotTop, (int)narrow.PlotBottom));
         }
     }
 

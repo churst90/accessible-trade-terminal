@@ -118,6 +118,69 @@ public sealed class ChartScreenshotProbe
                 new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    /// <summary>Every value of the toolbar's Chart type list, in its order.</summary>
+    private static readonly string[] ChartTypes =
+    {
+        "candles", "heikin", "bars", "hollow", "volumecandles", "line", "area", "baseline",
+        "highlow", "hlcarea", "renko", "rangebars", "linebreak", "kagi", "pnf",
+    };
+
+    /// <summary>
+    /// Cody, 2026-11-20: "take headless screenshots yourself to make sure the new main pane chart
+    /// types are drawn and render correctly". One picture per chart type in
+    /// <c>chart_types/</c> under the output folder. The assertion is the one a script can make
+    /// without eyes: every type paints a picture of its own. A type that fell back to candles, or
+    /// drew nothing new, would repeat an earlier picture byte for byte.
+    /// </summary>
+    [BrowserFact]
+    public async Task Photograph_every_chart_type_and_each_paints_its_own_picture()
+    {
+        var outDir = Path.Combine(OutputDir(), "chart_types");
+        Directory.CreateDirectory(outDir);
+        var report = new List<Dictionary<string, object?>>();
+
+        await using var t = await _fixture.NewPageAsync();
+        await t.LoadSeededChartAsync();
+        await t.FocusChartAsync();
+        await t.WaitForPaintAsync();
+
+        var seen = new Dictionary<string, string>();
+        for (int i = 0; i < ChartTypes.Length; i++)
+        {
+            var type = ChartTypes[i];
+            if (i > 0) await Choose(t, "#chart-type-select", type);
+            await Settle(t);
+            var name = $"{i + 1:00}_{type}";
+            await Snap(t, outDir, report, name);
+            var src = await t.Page.Locator("#chart-interact-zone img").GetAttributeAsync("src") ?? "";
+            Assert.True(src.Length > 1000, $"{type}: the chart image is empty ({src.Length} bytes of data URL).");
+            Assert.False(seen.TryGetValue(src, out var earlier),
+                $"{type} painted exactly the same picture as {earlier}.");
+            seen[src] = type;
+        }
+
+        File.WriteAllText(Path.Combine(outDir, "report.json"),
+            JsonSerializer.Serialize(new { states = report },
+                new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    /// <summary>
+    /// The first repaint after a chart type change can come before the indicators are worked out
+    /// again on the new bars; wait until the picture holds still for a second (at most ten).
+    /// </summary>
+    private static async Task Settle(TerminalPage t)
+    {
+        var src = await t.Page.Locator("#chart-interact-zone img").GetAttributeAsync("src") ?? "";
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var stillSince = DateTime.UtcNow;
+        while (DateTime.UtcNow < deadline && DateTime.UtcNow - stillSince < TimeSpan.FromSeconds(1))
+        {
+            await Task.Delay(100);
+            var now = await t.Page.Locator("#chart-interact-zone img").GetAttributeAsync("src") ?? "";
+            if (now != src) { src = now; stillSince = DateTime.UtcNow; }
+        }
+    }
+
     /// <summary>Press a chord on the chart and wait for the chart image to repaint.</summary>
     private static async Task Toggle(TerminalPage t, string chord)
     {

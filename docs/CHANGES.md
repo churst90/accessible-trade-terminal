@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Built charts compute their indicators on their own bars; falling wicks are red, 2026-11-20 — found in headless screenshots, not yet seen or heard by Cody
+
+Cody, 2026-11-20: "take headless screenshots yourself to make sure the new main pane chart types
+are drawn and render correctly". A new browser test photographs all fifteen chart types on the
+seeded market and fails if a type paints nothing or repeats another's picture byte for byte. All
+fifteen draw their own shape. Looking at the pictures found two bugs:
+
+- **On Renko, range bars, line break, Kagi and point and figure, every indicator and the volume
+  pane were computed on the time bars** and then drawn one value per brick. A Kagi chart of five
+  lines had two hundred volume bars under it and a Price line that wandered off the bricks.
+  Choosing a built type recomputed nothing. The manual and the store already said "indicators read
+  the bricks". The headless chart, background tabs and alerts did; the open chart did not, because
+  the recompute read the feed's bars. Now, on a built chart, the store's drawn bars start the
+  recompute and are what the indicators get. A new type, box or bar count recomputes every bar,
+  and a change to the last bar alone takes the cheap update. A related race is fixed too: a
+  viewport move straight after a type change cancelled the full recompute still waiting its turn,
+  which left the volume pane blank. A full recompute that was asked for now stays owed until one
+  finishes without being cancelled. **What you will hear differently:** arrowing an indicator or
+  volume on a built chart now reads the value for that brick, where before it read the value for
+  some time bar.
+- **Falling candles' wicks were drawn in the rising colour.** Every wick took the theme's rising
+  wick colour, and the falling one was never used. This goes back to before the new chart types
+  (the September screenshots show it). Falling wicks now take the falling colour, mapped for the
+  colour-vision palettes like the bodies. A wick colour you set yourself still colours every wick.
+
+Tests: the photograph test (browser); a falling wick is the falling colour and a rising one the
+rising colour; five on built charts (choosing one recomputes on the bricks, a feed tick alone
+starts nothing, a new brick is full, a moved last brick is incremental, leaving recomputes on the
+time bars, another built type with as many bars is full); two on the cancelled-full race. A
+value-label test that compared pixels against a chart with no labels now compares against the same
+indicator without labels, since the red wick under a label shape changed a blended pixel.
+Sabotages each turned them red: one wick colour, the feed's bars, no feed guard, always full, no
+subscription, the owed flag ignored, the owed flag cleared on cancel. **Caveats:** the seeded test
+market gives Kagi five lines and point and figure seven columns, so in the pictures they sit at the
+left of a 100-bar view; on a real market they fill it. The pictures were checked by me, not by a
+sighted person.
+
 ### The order log is a tab in the trading dashboard, 2026-11-20 — not yet seen or heard by Cody
 
 Cody, 2026-11-20: "add the order log to that new tab as a table in the trading dashboard". The

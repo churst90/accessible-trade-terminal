@@ -163,6 +163,192 @@ namespace AccessibleTrader.Tests
             svc.Dispose();
         }
 
+        // ── Built charts compute on the bars they draw ───────────────────────
+        //
+        // Found in the chart-type photographs, 2026-11-20: on Renko, range bars, line break, Kagi
+        // and point and figure every indicator (the volume pane included) was computed on the
+        // feed's time bars and drawn one value per brick, and choosing a built type recomputed
+        // nothing.
+
+        /// <summary>Bricks: what the store holds as Data on a built chart while the feed
+        /// still holds its twenty time bars.</summary>
+        private static TimeSeriesBuffer<Ohlcv> Bricks(int count, double lastClose = 0)
+        {
+            var t0 = new DateTime(2026, 08, 20, 0, 0, 0, DateTimeKind.Utc);
+            var bars = Enumerable.Range(0, count)
+                .Select(i => new Ohlcv(t0.AddHours(i * 5), 100 + i, 101 + i, 100 + i, 101 + i, 1))
+                .ToList();
+            if (lastClose > 0) bars[^1] = bars[^1] with { Close = lastClose, High = lastClose };
+            return new TimeSeriesBuffer<Ohlcv>(bars);
+        }
+
+        private static WorkspaceState Built(TimeSeriesBuffer<Ohlcv> bricks, PriceChartStyle style = PriceChartStyle.Renko) =>
+            ReadyState("Bitstamp", "BTC/USD", "1h") with
+            {
+                ChartStyle = style,
+                BrickBoxSize = 1,
+                Data = bricks,
+                TimeBars = new TimeSeriesBuffer<Ohlcv>(MakeBars(20)),
+            };
+
+        [Fact]
+        public async Task Choosing_a_built_chart_recomputes_every_indicator_on_its_bricks()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            var bricks = Bricks(4);
+            store.EmitState(Built(bricks));
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.FullCalls > 0, "choosing Renko must recalculate every bar");
+            Assert.Same(bricks, spy.LastData);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task A_new_brick_is_a_full_recalculation_on_the_bricks_and_the_feed_does_not_start_one()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(Built(Bricks(4)));
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            // The feed's tick alone: the store has not rebuilt yet, so nothing may compute on
+            // the time bars (or on the old bricks) from it.
+            data.SetBars(MakeBars(21));
+            data.RaiseDataUpdated();
+            await Task.Delay(200);
+            Assert.Equal(0, spy.FullCalls + spy.LastOnlyCalls);
+
+            var five = Bricks(5);
+            store.EmitState(Built(five));
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.FullCalls > 0, "a new brick shifts every index the buffers were built for");
+            Assert.Same(five, spy.LastData);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task A_change_to_the_last_brick_alone_takes_the_incremental_path_on_the_bricks()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(Built(Bricks(4)));
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            var moved = Bricks(4, lastClose: 103.5);
+            store.EmitState(Built(moved));
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.LastOnlyCalls > 0);
+            Assert.Equal(0, spy.FullCalls);
+            Assert.Same(moved, spy.LastData);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task Leaving_a_built_chart_recomputes_on_the_time_bars()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(Built(Bricks(4), PriceChartStyle.Kagi));
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.FullCalls > 0);
+            Assert.Same(data.Data, spy.LastData);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task Another_built_type_with_as_many_bars_is_still_a_full_recalculation()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(Built(Bricks(4), PriceChartStyle.Renko));
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            store.EmitState(Built(Bricks(4), PriceChartStyle.LineBreak));
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.FullCalls > 0);
+            Assert.Equal(0, spy.LastOnlyCalls);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task A_full_recalculation_cancelled_by_a_later_tick_is_still_owed()
+        {
+            // Every trigger cancels the one before it. A viewport move straight after a chart type
+            // change asks only for the last bar; it cancelled the full recalculation still waiting
+            // its turn, and the buffers stayed sized for the old bars (a blank Renko volume pane).
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            spy.HoldNextFull = hold;
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h") with { IsHeikinAshi = true });
+            await spy.WaitForAnyCallAsync();       // the full one has started and holds the lock
+
+            data.SetBars(MakeBars(21));
+            data.RaiseDataUpdated();               // a plain tick: cancels the full one's token
+            await Task.Delay(100);
+            spy.Reset();
+            hold.SetResult();
+            await spy.WaitForAnyCallAsync();       // the tick's own recalculation
+
+            Assert.True(spy.LastWasFull, "the tick after a cancelled full recalculation must do the full one");
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task A_cancelled_full_recalculation_does_not_mark_the_debt_paid()
+        {
+            // Three triggers in a row: the full one (1) is overtaken by a tick (2) that takes the
+            // owed full recalculation but must wait for the lock; when (1) finishes, cancelled, it
+            // must not clear the debt, or a third tick (3) that overtakes (2) goes back to the
+            // last-bar update while nothing full has finished.
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            var hold1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            spy.HoldNextFull = hold1;
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h") with { IsHeikinAshi = true });
+            await spy.WaitForAnyCallAsync();       // (1) holds the lock
+
+            var hold2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            data.SetBars(MakeBars(21));
+            data.RaiseDataUpdated();               // (2): owed full, waiting for the lock
+            await Task.Delay(100);
+            spy.HoldNextFull = hold2;
+            spy.Reset();
+            hold1.SetResult();
+            await spy.WaitForAnyCallAsync();       // (2) has the lock and holds it
+
+            data.SetBars(MakeBars(22));
+            data.RaiseDataUpdated();               // (3) cancels (2)
+            await Task.Delay(100);
+            spy.Reset();
+            hold2.SetResult();
+            await spy.WaitForAnyCallAsync();
+
+            Assert.True(spy.LastWasFull, "nothing full finished uncancelled, so (3) still owes it");
+            svc.Dispose();
+        }
+
         // ── Fixtures ─────────────────────────────────────────────────────────
 
         private static (DataOrchestrationService svc, MockWorkspaceStore store, FakeDataManager data, SpyIndicatorOrchestrator spy)
@@ -246,18 +432,32 @@ namespace AccessibleTrader.Tests
 
             public int FullCalls;
             public int LastOnlyCalls;
+            public IReadOnlyList<Ohlcv>? LastData;
+            public bool LastWasFull;
+            /// <summary>When set, the next full recalculation waits for it (holding the
+            /// service's lock, as a slow real one does).</summary>
+            public TaskCompletionSource? HoldNextFull;
 
-            public Task RecalculateAllAsync(IReadOnlyList<Ohlcv> data, IEnumerable<ChartSeries> series,
+            public async Task RecalculateAllAsync(IReadOnlyList<Ohlcv> data, IEnumerable<ChartSeries> series,
                 CancellationToken ct, List<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)>? historicalBooks = null)
             {
+                var hold = Interlocked.Exchange(ref HoldNextFull, null);
+                if (hold != null)
+                {
+                    _called.Release();
+                    await hold.Task;
+                }
+                LastData = data;
+                LastWasFull = true;
                 Interlocked.Increment(ref FullCalls);
-                _called.Release();
-                return Task.CompletedTask;
+                if (hold == null) _called.Release();
             }
 
             public Task RecalculateLastAsync(IReadOnlyList<Ohlcv> data, IEnumerable<ChartSeries> series,
                 CancellationToken ct, List<OrderBookEntry>? lastBids = null, List<OrderBookEntry>? lastAsks = null)
             {
+                LastData = data;
+                LastWasFull = false;
                 Interlocked.Increment(ref LastOnlyCalls);
                 _called.Release();
                 return Task.CompletedTask;
@@ -265,6 +465,7 @@ namespace AccessibleTrader.Tests
 
             public void Reset()
             {
+                LastData = null;
                 Interlocked.Exchange(ref FullCalls, 0);
                 Interlocked.Exchange(ref LastOnlyCalls, 0);
                 while (_called.CurrentCount > 0) _called.Wait(0);
