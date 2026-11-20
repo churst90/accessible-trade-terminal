@@ -3886,7 +3886,7 @@ positions and fills, and reading the live order book — runs through the tradin
 dashboard, which you open with Alt+T. Your screen reader announces it as "Trading
 Dashboard". It gathers three things in one place: the market you are trading and its
 environment, an order ticket, and a row of account tabs — Positions, Balances, Orders,
-History, and Book. This chapter assumes you already
+History, Order log, and Book. This chapter assumes you already
 know what market, limit, stop, and trailing orders are, and concentrates on how you
 express and hear those decisions here, and on what the terminal does and does not do
 on your behalf.
@@ -4209,8 +4209,8 @@ never stops in it. To change how it looks or turn it off, open Settings (F12), A
 
 ### Positions, orders, balances, and history
 
-The right-hand side of the dashboard carries five tabs — Positions, Balances, Orders,
-History, and Book — and switching to one speaks its name and count, like "Positions, 2".
+The right-hand side of the dashboard carries six tabs — Positions, Balances, Orders,
+History, Order log, and Book — and switching to one speaks its name and count, like "Positions, 2".
 
 - **Positions** lists each open position as the instrument as held ("BTCUSDT isolated
   1x"), its direction spelled out, the exchange, quantity, average price, value,
@@ -4227,6 +4227,18 @@ History, and Book — and switching to one speaks its name and count, like "Posi
   status — each with a Cancel button to pull a resting limit or protective stop.
 - **History** is your fill log, newest first: time, symbol, side, quantity, price,
   realized profit or loss, and fee — the place to review how a session actually went.
+- **Order log** is the terminal's own record of what it did, newest first, up to the last
+  200 entries: every order it sent, refused or could not confirm, every cancel, and every
+  fill or cancel the venue or paper broker reported back, stops and take-profits included.
+  History is what the venue says filled; the order log also has what never reached it. Its
+  columns are time (the time alone for today, the date first for any other day), **What
+  happened** ("Sent", "Refused", "Filled by stop", "Part filled", "Cancelled"…), symbol,
+  exchange, side, type, quantity, price, and **Details** — the refusal reason as you heard
+  it first, then the trigger, stop loss, take profit, leverage, reduce only, what is left,
+  the profit or loss and the order number. **Filter by symbol or exchange** narrows the
+  table as you type; **Save as CSV** saves what is shown. The table scrolls sideways
+  inside its own region. On the public web demo the tab is empty with a sentence saying
+  why: every visitor shares one paper account there, so it would show strangers' orders.
 - **Balances** shows, for every asset you hold: the **free** and **locked**
   quantities, what the holding is **worth** in the account's quote currency, its
   **share** of the account as a percentage, and the **day's change**. Above the table
@@ -5591,8 +5603,9 @@ was refused, in `OrderAudit/orders-2026-11.jsonl` in the same data folder (a new
 Each line is one event with its time in UTC: the order (venue, symbol, side, type, quantity,
 prices, stop, take profit), what became of it (sent, refused with the reason you heard, failed,
 or uncertain), each cancel, and each fill or cancel the venue or the paper broker reported back,
-with the leg that fired and the realised profit or loss. It holds no keys or passwords. The app
-does not read it back; open it in a text editor to answer "did I really send that?".
+with the leg that fired and the realised profit or loss. It holds no keys or passwords. The
+trading dashboard's **Order log** tab (Alt+T) reads it back as a table; the file itself opens in
+any text editor.
 
 ---
 

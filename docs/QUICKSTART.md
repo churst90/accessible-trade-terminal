@@ -370,8 +370,8 @@ practice environment (Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Fu
 Schwab) is **refused**, never routed live.
 
 **The dashboard (Alt+T).** A ticket (BUY/SELL, quantity in the base unit or, with **Size in**, a value in the quote currency, type, stop loss, take profit,
-trailing exits, a **Size** button that sizes from a risk percentage and a stop) and five tabs:
-Positions, Balances, Orders, History, Book. Positions has inline stop and target editors and
+trailing exits, a **Size** button that sizes from a risk percentage and a stop) and six tabs:
+Positions, Balances, Orders, History, Order log, Book. Positions has inline stop and target editors and
 **Close position** / **Close at limit** buttons; Close at limit has a percent field (100 = all of it) for closing part of a position.
 While you hold a position, a strip under the indicator bar (the **Open trades** region) lists it
 with its profit or loss; Settings → Appearance changes or hides it.

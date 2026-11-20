@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The order log is a tab in the trading dashboard, 2026-11-20 — not yet seen or heard by Cody
+
+Cody, 2026-11-20: "add the order log to that new tab as a table in the trading dashboard". The
+order log written since earlier today (`OrderAudit/orders-yyyy-MM.jsonl`) could only be read in a
+text editor. The trading dashboard (Alt+T) now has an **Order log** tab between History and Book: a
+table of the newest 200 entries, newest first, reading back across months, with columns Time,
+What happened ("Sent", "Refused", "Sent, not confirmed", "Filled by stop", "Part filled", "Cancel
+sent"…), Symbol, Exchange, Side, Type, Quantity, Price and Details (the refusal reason first, then
+trigger, stop loss, take profit, leverage, reduce only, what is left, profit or loss, order
+number). A filter narrows it by symbol or exchange as you type, and **Save as CSV** saves what is
+shown (cells that would start a spreadsheet formula are made harmless). The table scrolls sideways
+in its own labelled region. The file is read only when the tab is chosen or refreshed. A line that
+does not parse — an append still being written — is skipped, and the file is opened so reading
+never blocks an order being written. **On the public web demo the tab shows a sentence instead of
+the table**, because every visitor there shares one paper account and one file. Tests: newest
+first across months, the limit, a half-written line, no folder yet, a stop fill and a refusal in
+words, the CSV quoting and formula guard, and the tab itself (rows, caption, filter, empty, demo);
+sabotages (oldest month first, a bad line fatal, the demo shown, the filter ignored, the tab never
+loading, the CSV guard off, the stop leg dropped) each turned them red. **Caveats:** only orders
+from 2026-11-20 on are in the log; a fill the terminal never heard about (a venue's stream down,
+or an order placed on the venue's own website) is not in it — History, which asks the venue,
+still has those.
+
 ### The website knows you are signed in, 2026-11-20 — not yet seen or heard by Cody
 
 Cody, 2026-11-20: he signed in to the terminal, set a display name and joined the leaderboard,

@@ -164,6 +164,74 @@ namespace AccessibleTrader.Core.Services.Trading
             }
         }
 
+        /// <summary>One line of the log, read back for the trading dashboard's Order log tab.</summary>
+        public sealed record Record(
+            DateTime Utc, string Event, string? Outcome, string Provider, string? Symbol,
+            string? Side, string? Type, double? Quantity, double? Price, double? Trigger,
+            double? StopLoss, double? TakeProfit, double? Leverage, bool ReduceOnly, string? OrderId,
+            double? FilledQuantity, double? FilledPrice, double? Remaining, string? Leg,
+            double? RealizedPnL, string? Reason);
+
+        /// <summary>
+        /// The newest <paramref name="max"/> lines, newest first, from this month's file back
+        /// through older months'. A line that does not parse — the half-written last line of an
+        /// append still in flight, or a hand edit — is skipped, not fatal: the tab shows what can
+        /// be read. Opened for shared read and write so a read never blocks an order's append.
+        /// </summary>
+        public IReadOnlyList<Record> Recent(int max = 200)
+        {
+            var result = new List<Record>();
+            if (max <= 0) return result;
+            try
+            {
+                string folder = Path.Combine(_paths.AppDataDirectory, FolderName);
+                if (!Directory.Exists(folder)) return result;
+                // yyyy-MM sorts as text, so descending name order is newest month first.
+                var files = Directory.GetFiles(folder, "orders-*.jsonl")
+                                     .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal);
+                foreach (string file in files)
+                {
+                    var lines = new List<string>();
+                    using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read,
+                                                   FileShare.ReadWrite | FileShare.Delete))
+                    using (var reader = new StreamReader(fs))
+                    {
+                        string? line;
+                        while ((line = reader.ReadLine()) != null) lines.Add(line);
+                    }
+                    for (int i = lines.Count - 1; i >= 0 && result.Count < max; i--)
+                    {
+                        var rec = Parse(lines[i]);
+                        if (rec != null) result.Add(rec);
+                    }
+                    if (result.Count >= max) break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Order audit log could not be read back.");
+            }
+            return result;
+        }
+
+        private static Record? Parse(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return null;
+            try
+            {
+                var e = JsonConvert.DeserializeObject<Entry>(line);
+                if (e == null || string.IsNullOrEmpty(e.Event)) return null;
+                return new Record(DateTime.SpecifyKind(e.Utc, DateTimeKind.Utc), e.Event, e.Outcome,
+                    e.Provider, e.Symbol, e.Side, e.Type, e.Quantity, e.Price, e.Trigger, e.StopLoss,
+                    e.TakeProfit, e.Leverage, e.ReduceOnly == true, e.OrderId, e.FilledQuantity,
+                    e.FilledPrice, e.Remaining, e.Leg, e.RealizedPnL, e.Reason);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
         private static string? Clip(string? s) =>
             string.IsNullOrEmpty(s) ? null : s.Length <= MaxReasonChars ? s : s[..MaxReasonChars] + "…";
 

@@ -29,13 +29,27 @@ Cody, 2026-11-20: "start on each of the issues you found, in the best order or s
 The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fixed is in CHANGES
 ("Code review fixes, 2026-11-20"). Left, smallest first:
 
-- [ ] Maybe: a **Restore from yesterday** button for the paper account and workspaces (the daily copies
-  exist since 2026-11-20; going back is a hand copy today).
-- [ ] Maybe: a way to **read the order log** in the app (`OrderAudit/orders-yyyy-MM.jsonl`, since
-  2026-11-20; today it is a file for a text editor).
-- [ ] **No kill switch, daily-loss limit or close-all.** Nothing caps the day or the account; for a
-  trader who cannot see the screen "one more trade" is the failure this exists to stop. Needs Cody's
-  design input before building.
+- [ ] **Kill switch** (Cody, 2026-11-20: "kill switch, add this to the todo"). Nothing caps the day
+  or the account; for a trader who cannot see the screen "one more trade" is the failure this exists
+  to stop. Suggested in two steps, design to agree with Cody before building:
+  1. **Close everything** on one key: cancels every working order and closes every position on the
+     focused venue (then optionally all venues), after one spoken confirmation that says what it will
+     do ("Close 3 positions and cancel 5 orders on MEXC?"), and reads back what each venue answered.
+     Close-position and cancel already exist per row; this is the one-key version.
+  2. **Daily loss limit** you set yourself (an amount or a percent of the account): once the day's
+     realised loss reaches it, new entries are refused out loud until the next day; stops, targets
+     and closing trades still work. Open questions: the day's boundary (midnight local or UTC),
+     whether unrealised loss counts, and whether it can be lifted early.
+- Declined for now (Cody, 2026-11-20: "restore from yesterday, nah, I'm good on this for now"): a
+  **Restore from yesterday** button. The daily copies exist; going back is a hand copy.
+- [x] The **order log** is read in the app: trading dashboard → **Order log** tab (2026-11-20, CHANGES).
+
+## Website (accessibletrader.com), Cody's notes 2026-11-20
+
+The site's files live on the server (`/var/www/html/trade.codyhurst.com`), drafts in
+`strategy-lab-data/site-drafts/`; what was changed is in CHANGES.
+- [ ] **"Take the audio tour"** needs redoing to show the different kinds of data (Cody: "leave it
+  alone for now but flag for later").
 
 ## Accounts, leaderboard and charting asks (Cody, 2026-11-18)
 
