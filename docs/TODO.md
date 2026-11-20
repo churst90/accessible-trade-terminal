@@ -23,6 +23,33 @@ The agreed order, unchanged:
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
 never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
 
+## Code review findings left (2026-11-20)
+
+Cody, 2026-11-20: "start on each of the issues you found, in the best order or smallest to largest."
+The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fixed is in CHANGES
+("Code review fixes, 2026-11-20"). Left, smallest first:
+
+- [ ] **Kalshi keeps its private key in a plain field**, parsed once at `Configure`
+  (`KalshiProvider.cs`), where Kraken checks the secret out at sign time and zeroes it after.
+- [ ] **Duplicate helpers into one place**: price rounding, the date ternary, symbol splitting,
+  bar-by-date lookup, the environment-variable helper. Check each copy for a deliberate difference first.
+- [ ] **Q: the ATR trailing stop.** `ManagedExitRules.AtrTrailStop` is a plain mean of true range; the
+  chart's ATR and (since 2026-11-20) a strategy's ATR stop are Wilder. It is shared by the backtester and
+  live trading on purpose, so switching it moves every replayed trail. Cody's call.
+- [ ] **Deploy-only settings are not documented**: list every `appsettings` / environment key the hosted
+  server needs (`AccountEmail__*`, `Leaderboard__OutputPath`, …) in one place.
+- [ ] **WorkspaceStore echo tests**: `SetIdentityAction_UpdatesIdentity`, `ChangeModeAction_UpdatesMode`,
+  `ToggleHeikinAshiAction_FlipsFlag` only read back the field they set; make them assert a consequence.
+  `AddTabAction_AppendsSnapshotAndSwitchesToIt` asserts `>=` where equality is the point.
+- [ ] **State files have no rotated backups** (paper account, workspace, snapshots): a bad write is the
+  only copy.
+- [ ] **No per-order audit log**: an append-only JSONL of every order sent, refused, filled or cancelled.
+- [ ] **No kill switch, daily-loss limit or close-all.** Nothing caps the day or the account; for a
+  trader who cannot see the screen "one more trade" is the failure this exists to stop. Needs Cody's
+  design input before building.
+- [ ] **Clock-skew warning and a deep health check** (`/healthz/deep`) for the hosted server.
+- [ ] Optional: `PaperTradingProvider` raises some events while holding its lock.
+
 ## Accounts, leaderboard and charting asks (Cody, 2026-11-18)
 
 Agreed order: the toolbar fixes (done 2026-11-18, CHANGES), then the account page, the leaderboard and
@@ -41,8 +68,8 @@ and Identity already has 2FA, lockout and rate limits.
   Done 2026-11-18: server side by Cody and Claude; this run wired the app
   (`IAccountEmailSender`/`SmtpAccountEmailSender`, ForgotPassword, change-email confirm, notices).
   Both settings went on the VPS 2026-11-20 and one real password-reset email was sent through Brevo
-  (the app logged it as sent). **Left:** Cody to say whether it arrived, landed in spam, or carries
-  Brevo branding.
+  (the app logged it as sent). Cody, 2026-11-20: "Yes i did receive the password reset email. No
+  brevo branding that I could tell." Nothing left.
 - [x] **Account page.** Display name, change password, change email (needs the email above), leaderboard
   opt-in (OFF by default), download my data (a zip of the user's folder), delete account; and a minimum
   fill time on the register form's honeypot. Built with its tests on 2026-11-18. **Left:** the

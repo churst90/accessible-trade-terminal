@@ -120,5 +120,36 @@ namespace AccessibleTrader.Tests
             Assert.NotNull(resolved);
             Assert.Equal(new[] { 0.3, 0.3 }, resolved!.ClosePortions);
         }
+
+        // ── ATR stop: Wilder, the chart's own ATR ───────────────────────────────
+
+        [Fact]
+        public void AtrStop_is_sized_from_Wilders_ATR_not_a_plain_mean()
+        {
+            // Code review, 2026-11-20: the stop used a plain mean of the last N true ranges while
+            // the chart's ATR pane is Wilder-smoothed. Closes sit mid-bar at 100, so each true
+            // range is the bar's own range: 10, 10, 1, 1 after the first bar. Period 2:
+            // Wilder 10 → (10 + 1) / 2 = 5.5 → (5.5 + 1) / 2 = 3.25; the plain mean of the
+            // last two is 1. A long from 100 at 1 × ATR stops at 96.75, not 99.
+            var t0 = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var bars = new[]
+            {
+                new Ohlcv(t0,              100, 100.5, 99.5, 100, 1000),
+                new Ohlcv(t0.AddHours(1),  100, 105,   95,   100, 1000),
+                new Ohlcv(t0.AddHours(2),  100, 105,   95,   100, 1000),
+                new Ohlcv(t0.AddHours(3),  100, 100.5, 99.5, 100, 1000),
+                new Ohlcv(t0.AddHours(4),  100, 100.5, 99.5, 100, 1000),
+            };
+            var plan = new RiskPlan(
+                Stop: new StopSource(StopSourceKind.AtrMultiple, AtrPeriod: 2, AtrMultiple: 1.0),
+                TpLadder: new List<TpLadderRung> { new(TargetSourceKind.RiskRewardMultiple, Multiple: 2.0, ClosePortion: 1.0) },
+                Sizing: new PositionSizing(Mode: SizingMode.FixedRiskPercent, RiskPercent: 0.005),
+                Entry: new EntryTrigger(EntryTriggerKind.Immediate));
+
+            var resolved = new RiskPlanResolver(levels: null).Resolve(plan, OrderSide.Buy, bars, WorkspaceState.Initial);
+
+            Assert.NotNull(resolved);
+            Assert.Equal(96.75, resolved!.StopPrice, 9);
+        }
     }
 }

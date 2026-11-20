@@ -400,20 +400,17 @@ namespace AccessibleTrader.Core.Services.Strategies
 
         // ── ATR helper ────────────────────────────────────────────────────────
 
-        private static double ComputeAtr(IReadOnlyList<Ohlcv> history, int period)
+        /// <summary>
+        /// Wilder's ATR on the newest bar, the smoothing the chart's ATR pane uses. Until
+        /// 2026-11-20 this was a plain mean of the last <paramref name="period"/> true ranges,
+        /// so a stop sized here and the ATR the chart read out were two different numbers for
+        /// one trade (code review).
+        /// </summary>
+        internal static double ComputeAtr(IReadOnlyList<Ohlcv> history, int period)
         {
-            if (history.Count < period + 1) return double.NaN;
-            double sum = 0.0;
-            for (int i = history.Count - period; i < history.Count; i++)
-            {
-                var bar  = history[i];
-                var prev = history[i - 1];
-                double tr = Math.Max(bar.High - bar.Low,
-                            Math.Max(Math.Abs(bar.High - prev.Close),
-                                     Math.Abs(bar.Low  - prev.Close)));
-                sum += tr;
-            }
-            return sum / period;
+            if (period <= 0 || history.Count < period + 1) return double.NaN;
+            var bars = history as Ohlcv[] ?? history.ToArray();
+            return AccessibleTrader.Sdk.Indicators.IndicatorMath.Atr(bars, period)[^1];
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
