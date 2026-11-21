@@ -88,6 +88,13 @@ public sealed class ShortcutWordsTests
                               .Select(b => $"{b.Description}: {b.DisplayString}").ToList();
             Assert.True(raw.Count == 0, "key codes shown as key names:\n" + string.Join("\n", raw));
 
+            // A punctuation key alone ("Alt+,") is silent at a screen reader's usual punctuation
+            // level, so it is named: "Alt+Comma".
+            var marks = bindings.Where(b => b.DisplayString.Split('+').Any(k => k.Length == 1 && !char.IsLetterOrDigit(k[0])))
+                                .Select(b => $"{b.Description}: {b.DisplayString}").ToList();
+            Assert.True(marks.Count == 0, "punctuation shown as a bare mark:\n" + string.Join("\n", marks));
+            Assert.Contains(bindings, b => b.DisplayString == "Alt+Comma");
+
             var camel = bindings.Select(b => ShortcutWords.ActionName(b.Description))
                                 .Where(n => System.Text.RegularExpressions.Regex.IsMatch(n, "[a-z][A-Z]"))
                                 .ToList();

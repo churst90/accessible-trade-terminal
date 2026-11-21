@@ -16,10 +16,10 @@ public class MarketEventSeedTests
     {
         var events = Seed().Events;
 
-        Assert.Equal(928, events.Count(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)));
-        Assert.Equal(854, events.Count(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)));
-        Assert.Equal(582, events.Count(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)));
-        Assert.Equal(807, events.Count(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)));
+        Assert.Equal(933, events.Count(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)));
+        Assert.Equal(859, events.Count(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)));
+        Assert.Equal(587, events.Count(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)));
+        Assert.Equal(812, events.Count(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)));
         Assert.Equal(248, events.Count(e => e.Id.StartsWith("fomc-", StringComparison.Ordinal)));
     }
 
@@ -29,10 +29,10 @@ public class MarketEventSeedTests
         var sources = Seed().Sources;
 
         Assert.Equal(5, sources.Count);
-        Assert.Contains(sources, s => s.Id == "cpi" && s.Url.Contains("release_id=10") && s.Fetched == "2026-08-01");
-        Assert.Contains(sources, s => s.Id == "nfp" && s.Url.Contains("release_id=50") && s.Fetched == "2026-08-01");
-        Assert.Contains(sources, s => s.Id == "ppi" && s.Url.Contains("release_id=46") && s.Fetched == "2026-08-01");
-        Assert.Contains(sources, s => s.Id == "gdp" && s.Url.Contains("release_id=53") && s.Fetched == "2026-08-01");
+        Assert.Contains(sources, s => s.Id == "cpi" && s.Url.Contains("release_id=10") && s.Fetched == "2026-11-21");
+        Assert.Contains(sources, s => s.Id == "nfp" && s.Url.Contains("release_id=50") && s.Fetched == "2026-11-21");
+        Assert.Contains(sources, s => s.Id == "ppi" && s.Url.Contains("release_id=46") && s.Fetched == "2026-11-21");
+        Assert.Contains(sources, s => s.Id == "gdp" && s.Url.Contains("release_id=53") && s.Fetched == "2026-11-21");
         Assert.Contains(sources, s => s.Id == "fomc" && s.Fetched == "2026-07-31");
         Assert.All(sources, s =>
         {
@@ -91,13 +91,13 @@ public class MarketEventSeedTests
         var events = Seed().Events;
 
         Assert.Equal(new DateOnly(1949, 3, 24), events.Where(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)).Min(e => e.Date));
-        Assert.Equal(new DateOnly(2026, 7, 14), events.Where(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)).Max(e => e.Date));
+        Assert.Equal(new DateOnly(2026, 12, 10), events.Where(e => e.Id.StartsWith("cpi-", StringComparison.Ordinal)).Max(e => e.Date));
         Assert.Equal(new DateOnly(1955, 5, 6), events.Where(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)).Min(e => e.Date));
-        Assert.Equal(new DateOnly(2026, 7, 2), events.Where(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)).Max(e => e.Date));
+        Assert.Equal(new DateOnly(2026, 12, 4), events.Where(e => e.Id.StartsWith("nfp-", StringComparison.Ordinal)).Max(e => e.Date));
         Assert.Equal(new DateOnly(1978, 2, 10), events.Where(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)).Min(e => e.Date));
-        Assert.Equal(new DateOnly(2026, 7, 15), events.Where(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)).Max(e => e.Date));
+        Assert.Equal(new DateOnly(2026, 12, 15), events.Where(e => e.Id.StartsWith("ppi-", StringComparison.Ordinal)).Max(e => e.Date));
         Assert.Equal(new DateOnly(1947, 7, 20), events.Where(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)).Min(e => e.Date));
-        Assert.Equal(new DateOnly(2026, 7, 30), events.Where(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)).Max(e => e.Date));
+        Assert.Equal(new DateOnly(2026, 12, 23), events.Where(e => e.Id.StartsWith("gdp-", StringComparison.Ordinal)).Max(e => e.Date));
         Assert.Equal(new DateOnly(2000, 2, 2), events.Where(e => e.Id.StartsWith("fomc-", StringComparison.Ordinal)).Min(e => e.Date));
         Assert.Equal(new DateOnly(2027, 12, 8), events.Where(e => e.Id.StartsWith("fomc-", StringComparison.Ordinal)).Max(e => e.Date));
     }

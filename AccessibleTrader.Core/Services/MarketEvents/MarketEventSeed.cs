@@ -44,7 +44,8 @@ namespace AccessibleTrader.Core.Services.MarketEvents
     /// </para>
     ///
     /// <para>
-    /// The seed ends where its inputs end — July 2026 for the releases, 2027 for the Fed. Stage 2
+    /// The seed ends where its inputs end — 23 December 2026 for the releases (the last five are
+    /// scheduled, with no figures yet), 2027 for the Fed. Stage 2
     /// fetches the rest. Nothing here is fetched at run time.
     /// </para>
     /// </summary>

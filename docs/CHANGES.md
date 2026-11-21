@@ -2,13 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.14.0] — 2026-11-21
 
 Everything since 2.13.1 (2026-11-16), one entry per piece of work, newest first, with what is
 still unproven. The full entries as first written (every class, test and sabotage) are in
 [`archive/CHANGES_DETAIL_SINCE_2.13.1.md`](archive/CHANGES_DETAIL_SINCE_2.13.1.md), condensed here
 on 2026-11-21. **On the VPS:** everything up to c51a402f (deployed 2026-11-21 13:37 UTC, after
 Cody's OK). **Nothing here has been tried with money.**
+
+### 2026-11-21: Renko's narrow margin; the ticket's lists in full; a wider Find box; money amounts; release dates to December
+
+Cody's answers to the second shoot's findings ("fix the renko bug", "fix order ticket being cut off",
+"fix the symbol box issue", the release dates "add them if you want", "smaller nits: all of them").
+In the same message: **"Headlines, brief, alt u all work"**, the first time any of the news desk has
+been heard.
+
+- **Renko, Kagi, Line break and Point and figure keep a narrow right margin.** The empty space after
+  the last brick was the 10-bar margin candles have, so 23 daily bricks filled 23 of 33 slots. While a
+  brick chart shows, the margin is a tenth of the bricks, from 2 to 10 (`PlaybackReducer.BrickMargin`):
+  23 bricks leave 2 empty slots, 100 or more leave 10 as before. Going back to candles, and a new tab
+  opened from a brick tab, give the 10 back. The smallest zoom is margin plus 10 on either. Two panning
+  tests started at bar 12, which is now past the last start on their short series; they start at 10.
+  Proved: with the margin fixed at 10 again, six of the new tests fail. Not looked at on screen yet.
+- **The order ticket's lists show their whole choice.** Every list in the ticket was 120px wide, so the
+  Margin, Time in force and Order type lists cut off past about sixteen letters ("Isolated — loss c").
+  They now size to their longest choice and stop at the ticket's edge. The Margin choices are shorter
+  too: "Isolated — loss capped at this position", "Cross — risks your whole balance". Measured in the
+  CSS only; not re-photographed.
+- **"No API key" on the ticket is amber, not green.** It is a step to take; green says all is well.
+- **The Find symbol box is 12 characters wide** (was 8, which showed "TS" of TSLA).
+- **A profit or loss reads as money**: "-120.00", "1,234.57", "0.50". It was formatted as a price
+  ("-120.0000", "0.00250000"). An amount under a cent keeps its digits ("0.0025") so a tiny loss is
+  never shown as 0.00. `PriceFormatter.FormatPnL`, used by the dashboard's positions and fills, the order log, and the
+  strategy backtest's totals and trade list.
+- **Shortcut names say "Comma", not ",".** Settings > Keyboard, Help and the shortcut list wrote
+  "Alt+," for Custom scripts; a screen reader often skips a lone comma. Help's own table and the
+  Custom scripts button's tooltip, which spelled it by hand, say "Alt+Comma" too. Every key that is a symbol
+  is now written as its name, as the rebind announcements already did (`ShortcutWords.KeyWords`).
+- **US release dates stored to 23 December 2026** (were 30 July). Fetched from FRED on 2026-11-21: CPI
+  12 August to 10 December, jobs 7 August to 4 December, PPI 13 August to 15 December, GDP 26 August
+  to 23 December. The ones already out (to 10 November) carry their first-print figures from the
+  fresh ALFRED vintages; the scheduled ones (CPI 10 December, jobs 4 December, PPI and GDP from 25
+  November) are kept with no figures: the builder now keeps any date after the fetch day
+  (`FETCHED` in `scripts/build_market_events_seed.py`). The 3,171 earlier release dates and their figures
+  are unchanged; the fresh fetch also lists 12 older dates the August one did not (for
+  example CPI 29 February 2000), which were NOT added, so nothing before August changes. Proved: with
+  the scheduled-date line taken out, nine seed tests fail. Without a FRED key, release countdowns stop
+  after 23 December; FRED had no 2027 schedule on 2026-11-21. Fed decisions run to 2027 as before.
+- **Not changed (Cody):** the non-emoji symbols (⚙ ⚠ ✔ ✕) stay as they are, and the hosted
+  terminal's Compile button (no sandbox on the server) is not needed.
 
 ### 2026-11-21: every dialog laid out again; Renko opens full; no "Data link" line; no emoji — on the VPS 13:37 UTC; website re-shot
 

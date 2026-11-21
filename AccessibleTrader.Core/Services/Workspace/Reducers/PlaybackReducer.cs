@@ -171,7 +171,11 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
 
             int idx = Math.Max(0, built.Bricks.Count - 1);
             int timeLength = TimeBarsLength(state);
-            var fitted = state with { ViewportLength = FitBricks(state, timeLength, built.Bricks.Count) };
+            var fitted = state with
+            {
+                RightMarginBars = BrickMargin(built.Bricks.Count),
+                ViewportLength = FitBricks(timeLength, built.Bricks.Count),
+            };
             return fitted with
             {
                 ChartStyle = style,
@@ -195,6 +199,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             int idx = Math.Max(0, time.Count - 1);
             if (state.TimeBarsViewportLength > 0)
                 state = state with { ViewportLength = state.TimeBarsViewportLength };
+            state = state with { RightMarginBars = TimeBarsMargin };
             return state with
             {
                 TimeBarsViewportLength = 0,
@@ -216,15 +221,27 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 ? state.TimeBarsViewportLength
                 : state.ViewportLength;
 
+        /// <summary>The empty slots to the right of the newest candle: room for the bars to come.</summary>
+        internal const int TimeBarsMargin = 10;
+
+        /// <summary>
+        /// The empty slots to the right of the newest brick. Ten slots beside twenty-three daily
+        /// bricks left a third of the Renko chart empty (the website photographs, 2026-11-21),
+        /// so a built chart keeps about a tenth of its bricks as margin: two at the least, the
+        /// candles' ten at the most.
+        /// </summary>
+        internal static int BrickMargin(int brickCount) => Math.Clamp(brickCount / 10, 2, TimeBarsMargin);
+
         /// <summary>
         /// The zoom a built chart opens at. A view sized for a hundred time bars held seventeen
         /// bricks in its left sixth and nothing to the right (the website photographs,
         /// 2026-11-21), so when the bricks are fewer than the time bars' view holds, the view
-        /// fits them; otherwise it keeps the time bars' zoom. Never under the zoom-in limit.
+        /// fits them and their <see cref="BrickMargin"/>; otherwise it keeps the time bars' zoom.
+        /// Never under the zoom-in limit (the margin plus ten).
         /// </summary>
-        internal static int FitBricks(WorkspaceState state, int timeLength, int brickCount)
+        internal static int FitBricks(int timeLength, int brickCount)
         {
-            int margin = state.RightMarginBars;
+            int margin = BrickMargin(brickCount);
             if (brickCount >= timeLength - margin) return timeLength;
             return Math.Max(margin + 10, brickCount + margin);
         }

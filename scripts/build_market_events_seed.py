@@ -2,13 +2,18 @@
 """Rebuild AccessibleTrader.Core/Resources/MarketEvents/us_events_seed.json.
 
 Inputs (gitignored, copied into strategy-lab-data/events-seed-input/):
-  events_cpi.json  FRED release dates, release_id 10, fetched 2026-08-01
-  events_nfp.json  FRED release dates, release_id 50, fetched 2026-08-01
-  events_ppi.json  FRED release dates, release_id 46, fetched 2026-08-01
-  events_gdp.json  FRED release dates, release_id 53, fetched 2026-08-01
+  events_cpi.json  FRED release dates, release_id 10
+  events_nfp.json  FRED release dates, release_id 50
+  events_ppi.json  FRED release dates, release_id 46
+  events_gdp.json  FRED release dates, release_id 53
+                   Each is the 2026-08-01 fetch, with the dates after its last
+                   (30 July 2026) appended from a 2026-11-21 fetch made with
+                   include_release_dates_with_no_data=true, which also lists the
+                   dates already scheduled (to December 2026).
   events_fomc.json Federal Reserve FOMC decision dates 2000-2027, fetched 2026-07-31
   alfred/{CPIAUCSL,CPILFESL,PAYEMS,UNRATE,GDPC1}_vintages.csv
-                   ALFRED vintage histories, downloaded 2026-11-18. Columns
+                   ALFRED vintage histories, fetched 2026-11-21 (FRED API
+                   series/observations over all real-time periods). Columns
                    period,value,realtime_start,realtime_end; an empty realtime_end
                    means still current; a '.' value is missing and its row is skipped.
 
@@ -24,7 +29,8 @@ CPI, jobs and PPI, its newest period is newer than the previous kept date's. GDP
 keeps any date a GDPC1 vintage starts because second and third estimates
 republish the same quarter. PPI has no offline vintages, so two PPI dates in the
 same February no more than 7 days apart drop the earlier one; that is inferred
-from CPI's pattern, not checked against PPI data.
+from CPI's pattern, not checked against PPI data. A date after FETCHED is a
+scheduled release nothing can check yet: it is kept, with no figures.
 
 Figure columns, aligned by index with each source's date array:
   cpi: [cpi, previous, core, corePrevious]
@@ -102,6 +108,9 @@ ALFRED_URL = "https://alfred.stlouisfed.org/series/downloaddata?seid={series}"
 KEY_SERIES = {"cpi": "CPIAUCSL", "nfp": "PAYEMS", "gdp": "GDPC1"}
 
 END_OF_TIME = date(9999, 12, 31)
+
+# When the release dates and vintages were last fetched. A date after this is scheduled.
+FETCHED = date(2026, 11, 21)
 
 
 def load_dates(name: str) -> list[date]:
@@ -192,7 +201,7 @@ def release_days(
     dropped: list[date] = []
     previous_newest: date | None = None
     for day in days:
-        if day < first_vintage:
+        if day < first_vintage or day > FETCHED:
             kept.append(day)
             continue
         if not has_start(rows, day):
@@ -331,7 +340,7 @@ def main() -> int:
               ("CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE", "GDPC1")}
 
     header = {
-        "generated": "2026-11-18",
+        "generated": FETCHED.isoformat(),
         "note": (
             "US release dates and Fed decisions, with the source and fetch date of each. "
             "The kinds, names, importance, scope and release times live in MarketEventSeed.cs. "
@@ -346,7 +355,8 @@ def main() -> int:
             "cpi [CPI month change %, previous, core CPI month change %, previous]; "
             "nfp [payrolls change thousands, previous, unemployment %, previous]; "
             "gdp [growth % annualized, estimate number, previous, period]. "
-            "Percentages are 1 decimal, payrolls whole thousands; ppi_figures is all null."
+            "Percentages are 1 decimal, payrolls whole thousands; ppi_figures is all null. "
+            "A date after the fetch day is a scheduled release, kept with no figures."
         ),
         "sources": [],
     }
@@ -356,7 +366,7 @@ def main() -> int:
             "id": key,
             "name": f"FRED release dates: {spec['long']} (release {spec['release_id']})",
             "url": spec["url"],
-            "fetched": "2026-08-01",
+            "fetched": FETCHED.isoformat(),
         }
         if spec["alfred"]:
             entry["alfred"] = [

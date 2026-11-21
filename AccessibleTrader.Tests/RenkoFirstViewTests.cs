@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Workspace.Reducers;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -173,5 +174,61 @@ public sealed class RenkoFirstViewTests
             Assert.Equal(CandleZoom, lib.LoadProfile("renko-zoom")!.Tabs[0].ViewportLength);
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch { } }
+    }
+
+    // Twenty-three daily bricks beside the candles' ten-slot margin left a third of the chart
+    // empty (the second website shoot, 2026-11-21). A built chart's margin is about a tenth of
+    // its bricks, two at the least.
+    [Fact]
+    public void A_few_bricks_keep_a_narrow_right_margin_so_the_chart_is_mostly_bricks()
+    {
+        var renko = Reduce(Candles(SlowRise()), new SetChartStyleAction(PriceChartStyle.Renko, false));
+
+        Assert.InRange(renko.Data.Count, 12, 29);
+        Assert.Equal(2, renko.RightMarginBars);
+        Assert.True(renko.RightMarginBars * 10 <= renko.ViewportLength,
+            $"{renko.RightMarginBars} empty slots of {renko.ViewportLength} is more than a tenth");
+        Assert.Equal(renko.Data.Count - 1, renko.ViewportStartIndex + renko.ViewportLength - renko.RightMarginBars - 1);
+    }
+
+    [Theory]
+    [InlineData(5, 2)]
+    [InlineData(23, 2)]
+    [InlineData(45, 4)]
+    [InlineData(100, 10)]
+    [InlineData(900, 10)]
+    public void The_brick_margin_is_a_tenth_of_the_bricks_between_two_and_ten(int bricks, int margin)
+    {
+        Assert.Equal(margin, PlaybackReducer.BrickMargin(bricks));
+    }
+
+    [Fact]
+    public void Leaving_Renko_and_opening_a_tab_from_it_give_the_candles_their_margin_back()
+    {
+        var renko = Reduce(Candles(SlowRise()), new SetChartStyleAction(PriceChartStyle.Renko, false));
+        Assert.NotEqual(PlaybackReducer.TimeBarsMargin, renko.RightMarginBars);
+
+        Assert.Equal(PlaybackReducer.TimeBarsMargin,
+            Reduce(renko, new SetChartStyleAction(PriceChartStyle.Candles, false)).RightMarginBars);
+
+        var twoTabs = Reduce(renko, new AddTabAction());
+        Assert.Equal(PlaybackReducer.TimeBarsMargin, twoTabs.RightMarginBars);
+        Assert.Equal(CandleZoom, twoTabs.ViewportLength);
+
+        // ...and the Renko tab keeps its own when switched back to.
+        Assert.Equal(renko.RightMarginBars, Reduce(twoTabs, new SwitchTabAction(0)).RightMarginBars);
+    }
+
+    [Fact]
+    public void A_restored_Renko_tab_gets_the_narrow_margin_with_its_first_bricks()
+    {
+        var chosen = Reduce(Candles(new TimeSeriesBuffer<Ohlcv>()) with { CurrentDataIndex = -1 },
+            new SetChartStyleAction(PriceChartStyle.Renko, false),
+            new ZoomAction(CandleZoom));
+
+        var loaded = Reduce(chosen, new UpdateDataAction(SlowRise(), IsInitialLoad: true), new ZoomAction(CandleZoom));
+
+        Assert.Equal(PlaybackReducer.BrickMargin(loaded.Data.Count), loaded.RightMarginBars);
+        Assert.Equal(2, loaded.RightMarginBars);
     }
 }

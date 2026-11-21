@@ -101,7 +101,7 @@
                                 <div class="stat"><span>Price</span><strong>@GetLastPrice()</strong></div>
                                 @* "Env: None" was accurate and meaningless — it is what shows when no API keys are
    configured, which is a thing the user can act on and "None" does not tell them. *@
-<div class="stat"><span>Mode</span><strong>@ModeCellText()</strong></div>
+<div class="stat"><span>Mode</span><strong class='@(NoKeyToTrade ? "stat-todo" : null)'>@ModeCellText()</strong></div>
                             </div>
                         </section>
 
@@ -328,8 +328,8 @@
                                             aria-label="Margin mode for this order"
                                             @bind="_marginType"
                                             @oninput='() => VoidReviewIfArmed("Margin mode")'>
-                                        <option value="Isolated">Isolated — loss capped at this position's collateral</option>
-                                        <option value="Cross">Cross — draws on the whole balance, and takes it</option>
+                                        <option value="Isolated">Isolated — loss capped at this position</option>
+                                        <option value="Cross">Cross — risks your whole balance</option>
                                     </select>
                                 </div>
                             }
@@ -914,11 +914,16 @@
     .stat { display: flex; flex-direction: column; }
     .stat span { font-size: 0.75rem; color: var(--text-muted); }
     .stat strong { font-size: 1.1rem; color: #4ec9b0; }
+    /* "No API key" is a step to take, not a success: amber, as the AI Analyst shows the same. */
+    .stat strong.stat-todo { color: #ffb300; }
 
     /* A row wraps on a phone-width window rather than pushing Size past the dialog's edge. */
     .order-entry .entry-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
     .order-entry label { flex: 1; font-size: 0.85rem; }
     .order-entry input, .order-entry select { background: #222; border: 1px solid var(--border-color); color: #fff; padding: 5px; border-radius: 3px; width: 120px; min-width: 0; }
+    /* A list is as wide as its longest choice, up to the ticket's width: at 120px "Isolated — loss c"
+       and "IOC — immediate or c" were cut off (the website photographs, 2026-11-21). */
+    .order-entry select { width: auto; max-width: 100%; }
 
     /* Large, high-contrast circular BUY/SELL controls. Unselected dims to make
        the active side unmistakable at a glance; a thick focus ring keeps it
@@ -2159,10 +2164,12 @@
 
     /// <summary>The Mode cell. Names the KEY as well as the environment: with two profiles stored
     /// for one venue, "Live" alone does not say which account is about to be traded.</summary>
+    private bool NoKeyToTrade => !_paperMode && !_availableKeys.Any();
+
     private string ModeCellText()
     {
         if (_paperMode) return "Paper (simulated)";
-        if (!_availableKeys.Any()) return "No API key";
+        if (NoKeyToTrade) return "No API key";
         string word = _isLiveEnvironment ? "Live" : "Paper";
         return string.IsNullOrEmpty(_activeKeyNickname) ? word : $"{word} — {_activeKeyNickname}";
     }

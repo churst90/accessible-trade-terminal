@@ -29,6 +29,18 @@ namespace AccessibleTrader.BlazorClient.Services
             return qty.ToString("F8", CultureInfo.InvariantCulture);
         }
 
-        public static string FormatPnL(double pnl) => FormatPrice(pnl);
+        /// <summary>
+        /// A profit or loss in the quote currency: cents from a cent up ("-120.00", "1,234.57"),
+        /// and below a cent as many places as it takes, trailing zeros dropped ("0.0025"). As a
+        /// price it read "0.00250000" and "-120.0000".
+        /// </summary>
+        public static string FormatPnL(double pnl)
+        {
+            if (double.IsNaN(pnl) || double.IsInfinity(pnl)) return "—";
+            double abs = Math.Abs(pnl);
+            if (abs == 0) return "0.00";
+            if (abs >= 0.01) return pnl.ToString("N2", CultureInfo.InvariantCulture);
+            return pnl.ToString("0.00######", CultureInfo.InvariantCulture);
+        }
     }
 }

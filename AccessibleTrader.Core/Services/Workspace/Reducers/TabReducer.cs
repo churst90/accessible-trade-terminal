@@ -176,8 +176,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 FocusedBinIndex: -1,
                 CurrentDataIndex: -1,
                 ViewportStartIndex: 0,
-                ViewportLength: state.ViewportLength,   // carry over viewport preference
-                RightMarginBars: state.RightMarginBars, // carry over right margin
+                // The new tab is candles: a brick tab's own fitted zoom and narrow margin stay with it.
+                ViewportLength: PlaybackReducer.TimeBarsLength(state),
+                RightMarginBars: PlaybackReducer.TimeBarsMargin,
                 ViewportRange: (0, 0),
                 PaneRanges: ImmutableDictionary<string, (double, double)>.Empty,
                 IsHeikinAshi: false,

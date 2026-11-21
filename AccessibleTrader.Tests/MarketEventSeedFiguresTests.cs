@@ -30,6 +30,11 @@ public class MarketEventSeedFiguresTests
     [InlineData("gdp-2025-07-30", "GDP", 3.0, -0.5)]
     [InlineData("gdp-2025-08-28", "GDP", 3.3, 3.0)]
     [InlineData("gdp-2026-07-30", "GDP", 1.5, 2.1)]
+    // From the 2026-11-21 fetch.
+    [InlineData("cpi-2026-11-10", "CPI", 0.4, 0.6)]
+    [InlineData("nfp-2026-11-06", "payrolls", 165.0, 60.0)]
+    [InlineData("nfp-2026-11-06", "unemployment", 4.1, 4.2)]
+    [InlineData("gdp-2026-10-29", "GDP", 3.4, 2.2)]
     public void TableAValuesAreStoredExactly(string id, string figure, double actual, double previous)
     {
         var e = FiguresEvent(id);
@@ -37,6 +42,19 @@ public class MarketEventSeedFiguresTests
 
         Assert.Equal(actual, f.Actual);
         Assert.Equal(previous, f.Previous);
+    }
+
+    [Theory]
+    [InlineData("cpi-2026-12-10")]
+    [InlineData("nfp-2026-12-04")]
+    [InlineData("ppi-2026-12-15")]
+    [InlineData("gdp-2026-11-25")]
+    [InlineData("gdp-2026-12-23")]
+    public void AScheduledReleaseIsStoredWithNoFigures(string id)
+    {
+        // Dates after the fetch day are FRED's schedule: the countdown has them, but nothing
+        // has been published yet, so there is nothing to say about them.
+        Assert.Null(FiguresEvent(id).Figures);
     }
 
     [Fact]
@@ -113,9 +131,9 @@ public class MarketEventSeedFiguresTests
     }
 
     [Theory]
-    [InlineData("cpi", 648, 928)]
-    [InlineData("nfp", 854, 854)]
-    [InlineData("gdp", 417, 807)]
+    [InlineData("cpi", 652, 933)]
+    [InlineData("nfp", 858, 859)]
+    [InlineData("gdp", 420, 812)]
     public void CoverageCountsMatchTheInputFiles(string source, int withFigures, int dates)
     {
         var root = Newtonsoft.Json.Linq.JObject.Parse(SeedText());
@@ -133,9 +151,9 @@ public class MarketEventSeedFiguresTests
         var cpi = (Newtonsoft.Json.Linq.JArray)root["cpi_figures"]!;
         var nfp = (Newtonsoft.Json.Linq.JArray)root["nfp_figures"]!;
 
-        Assert.Equal(355, cpi.Count(row =>
+        Assert.Equal(359, cpi.Count(row =>
             row is Newtonsoft.Json.Linq.JArray values && values[2].Type != Newtonsoft.Json.Linq.JTokenType.Null));
-        Assert.Equal(796, nfp.Count(row =>
+        Assert.Equal(800, nfp.Count(row =>
             row is Newtonsoft.Json.Linq.JArray values && values[2].Type != Newtonsoft.Json.Linq.JTokenType.Null));
     }
 
@@ -149,11 +167,11 @@ public class MarketEventSeedFiguresTests
 
         Assert.Equal(5, sources.Count);
         Assert.NotNull(cpi.Alfred);
-        Assert.Contains(cpi.Alfred!, a => a.Series == "CPIAUCSL" && a.Newest == "2026-10-14");
-        Assert.Contains(cpi.Alfred!, a => a.Series == "CPILFESL" && a.Newest == "2026-10-14");
-        Assert.Contains(jobs.Alfred!, a => a.Series == "PAYEMS" && a.Newest == "2026-10-02");
-        Assert.Contains(jobs.Alfred!, a => a.Series == "UNRATE" && a.Newest == "2026-10-02");
-        Assert.Contains(gdp.Alfred!, a => a.Series == "GDPC1" && a.Newest == "2026-09-30");
+        Assert.Contains(cpi.Alfred!, a => a.Series == "CPIAUCSL" && a.Newest == "2026-11-10");
+        Assert.Contains(cpi.Alfred!, a => a.Series == "CPILFESL" && a.Newest == "2026-11-10");
+        Assert.Contains(jobs.Alfred!, a => a.Series == "PAYEMS" && a.Newest == "2026-11-06");
+        Assert.Contains(jobs.Alfred!, a => a.Series == "UNRATE" && a.Newest == "2026-11-06");
+        Assert.Contains(gdp.Alfred!, a => a.Series == "GDPC1" && a.Newest == "2026-10-29");
         Assert.All(cpi.Alfred!, a =>
         {
             Assert.StartsWith("https://alfred.stlouisfed.org/", a.Url, StringComparison.Ordinal);

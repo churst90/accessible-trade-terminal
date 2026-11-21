@@ -285,7 +285,7 @@ public sealed class ChartMouseInteractionTests
     }
 
     [Theory]
-    [InlineData(12, false)]   // the view starts about 120 real bars in
+    [InlineData(10, false)]   // the view starts about 100 real bars in (12 is past the last start: PlaybackReducer.BrickMargin)
     [InlineData(3, true)]     // the view starts in the first real bars
     public void On_a_built_chart_dragging_toward_older_bars_asks_for_history_only_near_the_start_of_the_REAL_bars(
         int viewStart, bool asks)
@@ -303,7 +303,7 @@ public sealed class ChartMouseInteractionTests
     }
 
     [Theory]
-    [InlineData(12, false)]
+    [InlineData(10, false)]
     [InlineData(3, true)]
     public void On_a_built_chart_wheel_panning_back_asks_for_history_only_near_the_start_of_the_REAL_bars(
         int viewStart, bool asks)

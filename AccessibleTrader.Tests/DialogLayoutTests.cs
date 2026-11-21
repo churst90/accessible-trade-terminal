@@ -136,6 +136,34 @@ public sealed class DialogLayoutTests
     }
 
     [Fact]
+    public void The_order_tickets_lists_show_their_whole_choice()
+    {
+        string razor = File.ReadAllText(Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components", "TradingDashboardModal.razor"));
+        string css = DialogContrastScanTests.StripComments(
+            string.Join("\n", Regex.Matches(razor, @"<style>(.*?)</style>", RegexOptions.Singleline).Select(m => m.Groups[1].Value)));
+
+        // At 120px every list was cut off past about sixteen letters: "Isolated — loss c",
+        // "IOC — immediate or c" (the website photographs, 2026-11-21).
+        Assert.Equal("auto", FinalValue(css, ".order-entry select", "width"));
+        Assert.Equal("100%", FinalValue(css, ".order-entry select", "max-width"));
+        // A missing key is a step to take, not shown in the success colour.
+        Assert.Equal("#ffb300", FinalValue(css, ".stat strong.stat-todo", "color"));
+        Assert.Contains("NoKeyToTrade ? \"stat-todo\"", razor);
+    }
+
+    [Fact]
+    public void The_find_symbol_box_fits_a_ticker()
+    {
+        // At 8ch the search box's own padding and clear button left room for "TS".
+        string razor = File.ReadAllText(Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components", "Toolbar.razor"));
+        var box = Regex.Match(razor, @"<input id=""symbol-find""[^>]*>", RegexOptions.Singleline);
+        Assert.True(box.Success, "the Find symbol box is gone; the check would pass on nothing");
+        var width = Regex.Match(box.Value, @"width:\s*(\d+)ch");
+        Assert.True(width.Success, "the Find symbol box has no width in ch");
+        Assert.True(int.Parse(width.Groups[1].Value) >= 12, $"the Find symbol box is {width.Value}");
+    }
+
+    [Fact]
     public void Final_value_follows_the_cascade()
     {
         const string css = ".a, .b { color: red; } .b { color: blue } .c { color: green; }";

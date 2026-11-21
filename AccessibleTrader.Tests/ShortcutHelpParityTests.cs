@@ -84,6 +84,9 @@ public class ShortcutHelpParityTests
         // The apostrophe's OEM spelling (bound beside the character, as backslash is) is the same
         // physical key the help dialog names as ' — so the documents need not print "OEM7".
         ["OEM7"] = "'",
+        // The punctuation keys by the names ShortcutWords gives them ("Alt+Comma"), which is how
+        // Help and the manual write them: a screen reader often skips a lone comma.
+        ["Comma"] = ",", ["Period"] = ".", ["Semicolon"] = ";", ["Apostrophe"] = "'", ["Slash"] = "/",
         [" "] = "SPACE", ["Spacebar"] = "SPACE",
         ["Esc"] = "ESCAPE", ["Del"] = "DELETE", ["Application"] = "CONTEXTMENU",
     };

@@ -201,7 +201,8 @@ public sealed class ChartKeyboardNavigationTests
     }
 
     [Theory]
-    [InlineData(12, false)]   // the view starts about 120 real bars in
+    [InlineData(10, false)]   // the view starts about 100 real bars in (12 is past the last start since a
+                              // brick chart's margin is a tenth of its bricks, PlaybackReducer.BrickMargin)
     [InlineData(1, true)]     // the view starts in the first real bars
     public void On_a_built_chart_panning_left_asks_for_history_only_near_the_start_of_the_REAL_bars(int viewStart, bool asks)
     {

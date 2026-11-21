@@ -604,7 +604,7 @@ Windows.
 | Alt+T / Alt+B | Trading dashboard / order book |
 | Alt+J / Alt+S | Alerts / strategies |
 | Alt+O | Object tree |
-| Alt+W / Alt+, | Sound designer / custom scripts |
+| Alt+W / Alt+Comma | Sound designer / custom scripts |
 | Alt+M / Alt+R / Alt+I | Market watch / respect report / asset dossier |
 | Alt+G or / | Go bar |
 | Alt+E / Alt+P / Alt+U | Market events calendar / market pulse / what changed |

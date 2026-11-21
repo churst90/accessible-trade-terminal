@@ -1804,12 +1804,13 @@ and nothing more. **PPI has no figure without a FRED key**; with one it is read 
 when the PPI final-demand headline series begins.
 
 **Keeping dates current.** The dates ship with the terminal: US release dates from FRED and Fed
-decisions from the Federal Reserve through July 2026 and 2027 respectively, plus the rule-worked
+decisions from the Federal Reserve through 23 December 2026 and 2027 respectively (the release
+dates from late November 2026 on are the scheduled ones, with no figures until FRED has them), plus the rule-worked
 expiries, holidays and halvings. One-off closures such as a national day of mourning are not listed.
 If you add a **FRED key in API Keys**, the terminal also refreshes release dates and figures from
 FRED — including PPI — in the background: at most once every 12 hours, never while you are reading,
 and only while **Level** is not Off. The status line under the Level setting says which state it is
-in: *"Release dates stored up to 30 July 2026. Add a FRED key in API Keys to keep them current and
+in: *"Release dates stored up to 23 December 2026. Add a FRED key in API Keys to keep them current and
 get PPI figures."*, the date and time of the last successful update, or the time and a short reason
 for the last failure (*"no answer"* for a network or timeout problem). A failure keeps the copy from
 the last success and never interrupts navigation or makes a sound. **Update release dates now** does
@@ -5854,7 +5855,7 @@ and `%LOCALAPPDATA%\AccessibleTrader\` on Windows. The pieces:
 | Sound patches and wavetables | `patches.json` | Sound designer (Alt+W) → **Export JSON** / **Import Patch JSON** |
 | Earcon assignments | `earcon-settings.json` | copying the file |
 | Strategies | `strategies.json` | Strategy manager → **Export .atstrat** / **Import strategies** (a `.json` file or pasted text) |
-| Custom scripts | script library | Custom scripts (Alt+,) → **Export .atpkg** / **Import** |
+| Custom scripts | script library | Custom scripts (Alt+Comma) → **Export .atpkg** / **Import** |
 | Workspaces | `Workspaces/<name>.json` | copying the file |
 | Indicator templates | `IndicatorTemplates/<name>.json` | copying the file |
 | Keyboard rebinds | `shortcuts.json` | copying the file |

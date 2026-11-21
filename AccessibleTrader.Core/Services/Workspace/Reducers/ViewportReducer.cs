@@ -52,15 +52,17 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         /// </summary>
         private static WorkspaceState SetZoom(WorkspaceState state, int newLength)
         {
-            int length = Math.Clamp(newLength, state.RightMarginBars + 10, 5000);
             if (!state.ChartStyle.IsBrickStyle())
-                return state with { ViewportLength = length };
+                return state with { ViewportLength = Math.Clamp(newLength, state.RightMarginBars + 10, 5000) };
+            // The remembered zoom is the candles', so it is clamped by the candles' margin.
+            int length = Math.Clamp(newLength, PlaybackReducer.TimeBarsMargin + 10, 5000);
+            if (state.Data.Count == 0)
+                return state with { TimeBarsViewportLength = length, ViewportLength = length };
             return state with
             {
                 TimeBarsViewportLength = length,
-                ViewportLength = state.Data.Count > 0
-                    ? PlaybackReducer.FitBricks(state, length, state.Data.Count)
-                    : length,
+                RightMarginBars = PlaybackReducer.BrickMargin(state.Data.Count),
+                ViewportLength = PlaybackReducer.FitBricks(length, state.Data.Count),
             };
         }
 
@@ -138,7 +140,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 withBricks = withBricks with
                 {
                     TimeBarsViewportLength = timeLength,
-                    ViewportLength = PlaybackReducer.FitBricks(state, timeLength, built.Bricks.Count),
+                    RightMarginBars = PlaybackReducer.BrickMargin(built.Bricks.Count),
+                    ViewportLength = PlaybackReducer.FitBricks(timeLength, built.Bricks.Count),
                 };
             }
 

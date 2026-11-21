@@ -25145,3 +25145,27 @@ shot's old colour key is the only detail out of date).
   alerts on a replaced indicator behave as when you delete it by hand. See `CHANGES.md`.
 
 
+
+## Closed 2026-11-21: the second website shoot's findings (TODO "Found by the website screenshots")
+
+Fixed or answered by Cody the same day; see CHANGES, "Renko's narrow margin". As they stood:
+
+Seen in the second shoot (c51a402f, after the deploy, 2026-11-21):
+
+- [ ] **Renko still opens with a third of the chart empty when there are few bricks.** The fit keeps
+  the fixed 10-bar right margin (`WorkspaceState.RightMarginBars`), so 23 daily bricks fill 23 of 33
+  slots. Fine at 100 candles (10%); at 23 bricks it is 30%, and at the 20-slot minimum zoom half. A
+  margin of a few bricks while Renko shows would fill it; the margin also gives drawings room in the
+  future, so it needs care.
+- [ ] **The ticket's Margin list is clipped**: "Isolated — loss c" at the ticket's 360px width.
+- [ ] **The Find symbol box is too narrow** for "TSLA" (the last letter is cut).
+- [ ] **Symbols that are not emoji are still drawn as text**: Compile's ⚙ (`&#9881;`), the condition
+  editor's ⚠ (read aloud as "warning sign" before each warning), ✔ Active and the ✕ buttons in API
+  Keys and Properties. They drew correctly in Chromium on Linux; the emoji guard covers the emoji
+  planes only. Unchecked on Windows.
+
+- [ ] **Market events say "Release dates stored up to 30 July 2026"**: without a FRED key no CPI, jobs or
+  GDP date shows after that (`MarketEventFredFeed.Describe`). The stored table needs refreshing for 2027
+  each release, or the hosted terminal needs a FRED key of its own.
+- [ ] **Custom scripts do not compile on the VPS**: "bwrap binary was not found" (the sandbox is
+  missing on the server). The hosted terminal's Compile button fails there.

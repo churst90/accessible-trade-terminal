@@ -13,8 +13,9 @@ running the sabotage is what found real ones. Test one thing, write down what th
 
 The order:
 
-1. **Heard by Cody.** Almost everything since 2.13.1 (the news desk, the chart types after the first six,
-   scales, templates) is built and CI green but not heard. What he says comes first.
+1. **Heard by Cody.** Headlines, the morning brief and Alt+U are heard and work (Cody, 2026-11-21). The
+   rest since 2.13.1 (the chart types after the first six, scales, templates, the pulse, unusual moves,
+   the Go bar) is built and CI green but not heard. What he says comes first.
 2. **Trading through the venues** is built but has not been tried on a demo, practice or real account.
    Treat it as unverified until an account answers.
 3. Cody's open questions (**Q**), then the open items below, then the older audit findings at the end.
@@ -57,21 +58,20 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Look at the rest of the dialogs** (2026-11-21 layout pass, CHANGES; on the VPS since 13:37 UTC):
   Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
   Cody, 11-21, "read better now".
-- **Cut a release** when ready: the website's screenshots (2026-11-21) show the HEAD toolbar with the
-  chart type and price scale lists (Alt+C, Alt+L), which the 2.13.1 download does not have.
 
 ## To hear (built since 2.13.1, not heard by Cody)
 
 Each item's caveats are in CHANGES (Unreleased) and in full in
 `archive/CHANGES_DETAIL_SINCE_2.13.1.md`. Questions to ask once heard:
 
-- [ ] **Headlines.** **Q:** is the importance table right for EDGAR filings (should a Form 4 insider
+- [x] **Headlines: heard, "work"** (Cody, 2026-11-21). Still open, **Q:** is the importance table right for EDGAR filings (should a Form 4 insider
   trade be medium for a held stock?) and for the wire (plain "declares quarterly dividend" moved from
   medium to low; is a minute per symbol the right cap)? Too many Finnhub stories per event (twelve on one
   AMD short-seller report on 2026-11-20)? If so, a per-symbol cap per quarter hour, or Medium and up only.
   Should a first look at a stock also say a filing from the last 15 minutes rather than 5?
 - [ ] **Unusual moves.** **Q:** the 46-bar median and the 5x line are my choice, not tuned on data.
-- [ ] **Morning brief**: with market events off it falls back to the important ones (my choice).
+- [x] **Morning brief (Ctrl+Alt+B) and Alt+U: heard, "work"** (Cody, 2026-11-21). Still my choice, not
+  his: with market events off the brief falls back to the important ones.
 - [ ] **The Dot Pad's pulse line**: no Dot Pad here; pages are cut by characters, and Grade 2 may make an
   item longer or shorter than the 20 cells.
 - [ ] **Chart types**: is a brick's direction right in the type slot? Line break reads as "Block".
@@ -100,6 +100,9 @@ Each item's caveats are in CHANGES (Unreleased) and in full in
   socket fixes it. Finnhub is polled per window (each at most 15 a minute of the key's 60).
 - [ ] **Unchecked**: the Alpaca coin symbol form (`BTCUSD` assumed; no coin story came) and its
   402/406/409 codes; class shares (BRK.B) in EDGAR and Finnhub; foreign listings' (20-F) company names.
+- [ ] **The stored US release dates end 23 December 2026** (refreshed 2026-11-21). Without a FRED key
+  no CPI, jobs, PPI or GDP countdown shows after that. Refresh with `scripts/build_market_events_seed.py`
+  once FRED lists the 2027 schedule (it had none on 2026-11-21), before the release after that date.
 - [ ] **Never run end to end against the live services from the app**: EDGAR's poller (parsers pinned
   by real captures), Finnhub earnings (shapes checked live), FRED (no network where it was built),
   Kalshi (fixtures are real responses).
@@ -121,25 +124,12 @@ what the screen showed; why is not yet proven unless it says so.
 Fixed 2026-11-21 (CHANGES, "every dialog laid out again"): the "Data link: HistoricalFilling" line, the
 positions table's one-letter columns, the half-empty Renko first view, the paper banner's emoji box.
 
-Seen in the second shoot (c51a402f, after the deploy, 2026-11-21):
+Seen in the second shoot (c51a402f) and answered by Cody, 2026-11-21: Renko's wide right margin with
+few bricks, the ticket's clipped lists, the narrow Find box and the release dates ending in July are
+fixed (CHANGES, "Renko's narrow margin"). The symbols drawn as text (⚙ ⚠ ✔ ✕) stay: "text symbols are
+ok / already known". The hosted terminal's Compile button failing (no bwrap on the server) is not
+needed: "don't worry about the custom scripts on the hosted vps".
 
-- [ ] **Renko still opens with a third of the chart empty when there are few bricks.** The fit keeps
-  the fixed 10-bar right margin (`WorkspaceState.RightMarginBars`), so 23 daily bricks fill 23 of 33
-  slots. Fine at 100 candles (10%); at 23 bricks it is 30%, and at the 20-slot minimum zoom half. A
-  margin of a few bricks while Renko shows would fill it; the margin also gives drawings room in the
-  future, so it needs care.
-- [ ] **The ticket's Margin list is clipped**: "Isolated — loss c" at the ticket's 360px width.
-- [ ] **The Find symbol box is too narrow** for "TSLA" (the last letter is cut).
-- [ ] **Symbols that are not emoji are still drawn as text**: Compile's ⚙ (`&#9881;`), the condition
-  editor's ⚠ (read aloud as "warning sign" before each warning), ✔ Active and the ✕ buttons in API
-  Keys and Properties. They drew correctly in Chromium on Linux; the emoji guard covers the emoji
-  planes only. Unchecked on Windows.
-
-- [ ] **Market events say "Release dates stored up to 30 July 2026"**: without a FRED key no CPI, jobs or
-  GDP date shows after that (`MarketEventFredFeed.Describe`). The stored table needs refreshing for 2027
-  each release, or the hosted terminal needs a FRED key of its own.
-- [ ] **Custom scripts do not compile on the VPS**: "bwrap binary was not found" (the sandbox is
-  missing on the server). The hosted terminal's Compile button fails there.
 - [ ] **Dialogs in other browsers**: the 2026-11-21 layout pass measured Chromium only. Check Firefox,
   the Windows desktop app's WebView2 and a real phone.
 
