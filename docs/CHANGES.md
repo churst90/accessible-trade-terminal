@@ -2,13 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.14.1] — 2026-11-21
+
+### 2026-11-21: the Linux and macOS WebHost downloads build again
+
+- **v2.14.0's release built four of its seven downloads.** The Linux, macOS Apple Silicon and macOS
+  Intel WebHost jobs stopped at "Package (Linux, macOS)" with exit code 126: `packaging/webhost/package.sh`
+  (new on 2026-11-17, the one-folder WebHost zips) was committed as 644, and the workflow runs it as
+  `./packaging/webhost/package.sh`. The test that runs it for all three RIDs calls `bash package.sh`,
+  which never needs the bit, so nothing went red before a tag. The Windows setup, the Windows zip, the
+  Windows WebHost and the macOS app built and are on v2.14.0.
+- **Fixed:** the script is 755 in git. `ReleasePayloadManifestTests.EveryScriptAWorkflowRunsDirectlyIsExecutable`
+  reads every workflow for `./x.sh` or `./x.py` and fails on one that is not executable; red on the 644
+  script, green at 755 (checked).
+- **The app is 2.14.0's.** Nothing else changed. The hosted terminal stays on the 2.14.0 build
+  (a6f6d4bf, deployed 2026-11-21 14:50 UTC); its stamp says 2.14.0.
+
 ## [2.14.0] — 2026-11-21
 
 Everything since 2.13.1 (2026-11-16), one entry per piece of work, newest first, with what is
 still unproven. The full entries as first written (every class, test and sabotage) are in
 [`archive/CHANGES_DETAIL_SINCE_2.13.1.md`](archive/CHANGES_DETAIL_SINCE_2.13.1.md), condensed here
-on 2026-11-21. **On the VPS:** everything up to c51a402f (deployed 2026-11-21 13:37 UTC, after
-Cody's OK). **Nothing here has been tried with money.**
+on 2026-11-21. **On the VPS:** all of it (a6f6d4bf, the tagged commit, deployed 2026-11-21 14:50 UTC,
+Cody: "when done, update vps, cut 2.14"). **Nothing here has been tried with money.**
 
 ### 2026-11-21: Renko's narrow margin; the ticket's lists in full; a wider Find box; money amounts; release dates to December
 

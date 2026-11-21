@@ -55,6 +55,8 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
+- **Try 2.14.1** (released 2026-11-21: 2.14.0 with all seven downloads; the VPS runs the 2.14.0 build since 14:50 UTC): the Windows setup or zip from the
+  download page. What is not yet heard is listed under "The order" above.
 - **Look at the rest of the dialogs** (2026-11-21 layout pass, CHANGES; on the VPS since 13:37 UTC):
   Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
   Cody, 11-21, "read better now".
@@ -227,6 +229,12 @@ shapes are in the archive (the 2026-11-21 block at its end).
 - [ ] **CI flakes**: c0b44e9e needed three attempts (a WebSocket heartbeat test, then three bUnit waits,
   different each time); `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
   failed once locally (2026-11-04). Watch for a repeat; force the one that recurs.
+  - **`DataOrchestratorResilienceTests.A_tripped_provider_fails_fast_and_leaves_every_other_provider_alone`
+    is timing-bound, and failed once** (a6f6d4bf, xunit attempt 1, 2026-11-21: line 117, expected 10
+    calls, got 11; the test took 23 s, not its usual 7). The breaker stays open 5 s; a runner stalled
+    past that between tripping it and the `"polygon"` check lets the half-open trial call through, which
+    is the breaker working. Fix: give `DataOrchestrator` a `TimeProvider` (or the break length) so the
+    test holds the clock still. Attempt 2 was 12,770 of 12,770.
 - [ ] **Cipher C** (later, Cody: yes): read the check-box marks as events in the strategy catalog. Limits:
   4-hour daily and yearly readings off; 1-hour and shorter charts unmeasured; weekly charts match the
   original's weekly lows less well than daily (.516 vs .658 F1).

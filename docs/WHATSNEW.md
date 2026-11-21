@@ -6,7 +6,11 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
-## 2.14.0 — the news desk, and chart types you hear as well as see
+## 2.14.1 — the news desk, and chart types you hear as well as see
+
+**2.14.1 is 2.14.0 with all seven downloads.** 2.14.0's Linux and macOS browser downloads did not
+build (a packaging script had lost its "may run" mark); the app is the same in both, and everything
+below arrived in 2.14.0.
 
 **The terminal is now a news desk as well.** You cannot make a trade without all the information
 there is, and that includes the headlines, so the terminal gathers it the way a Bloomberg Terminal
@@ -22,9 +26,9 @@ brief and Alt+U; the rest has not been heard in the app yet, and none of it has 
 - **Trading through the venues is still untested.** Paper trading is the tried path; no order has
   been placed through any venue on a demo, practice or real account. Each venue's orders are proven
   only against copies of its public answers and docs.
-- **Windows:** run `AccessibleTrader-2.14.0-Windows-Setup.exe`, or unzip
-  `AccessibleTrader-Windows-2.14.0-win-x64.zip` and run **Accessible Trader.exe** in the
-  `Accessible Trader 2.14.0` folder, as in 2.13.1. Both need Microsoft's .NET 10 Desktop Runtime (the
+- **Windows:** run `AccessibleTrader-2.14.1-Windows-Setup.exe`, or unzip
+  `AccessibleTrader-Windows-2.14.1-win-x64.zip` and run **Accessible Trader.exe** in the
+  `Accessible Trader 2.14.1` folder, as in 2.13.1. Both need Microsoft's .NET 10 Desktop Runtime (the
   setup checks for it) and are unsigned, so Windows may say "Windows protected your PC": choose
   "More info", then "Run anyway". Installing over 2.13.1 keeps your settings and workspaces.
 

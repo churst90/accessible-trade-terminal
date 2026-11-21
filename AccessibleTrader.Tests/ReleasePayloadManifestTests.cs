@@ -323,6 +323,31 @@ public sealed class ReleasePayloadManifestTests
     }
 
     /// <summary>
+    /// A script a workflow runs as <c>./path.sh</c> must be executable in the checkout. v2.14.0's
+    /// release lost its Linux and both macOS WebHost downloads to exit code 126: package.sh was
+    /// committed 644, and the test above runs it through <c>bash</c>, which never asks.
+    /// </summary>
+    [Fact]
+    public void EveryScriptAWorkflowRunsDirectlyIsExecutable()
+    {
+        if (!OperatingSystem.IsLinux()) return; // Unix modes; CI's xunit job is Linux
+        var dir = Path.Combine(RepoRoot(), ".github", "workflows");
+        var scripts = Directory.GetFiles(dir, "*.yml")
+            .SelectMany(f => System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(f), @"(?<![\w/.])\./([\w./-]+\.(?:sh|py))\b"))
+            .Select(m => m.Groups[1].Value)
+            .Distinct()
+            .ToList();
+        Assert.Contains("packaging/webhost/package.sh", scripts); // the scan reads the workflows at all
+        foreach (var script in scripts)
+        {
+            string full = Path.Combine(RepoRoot(), script);
+            Assert.True(File.Exists(full), $"a workflow runs ./{script}, which does not exist");
+            Assert.True(File.GetUnixFileMode(full).HasFlag(UnixFileMode.UserExecute),
+                $"a workflow runs ./{script} directly, and it is not executable (git update-index --chmod=+x)");
+        }
+    }
+
+    /// <summary>
     /// The Windows job lays out its download with the packaging script, which also builds and
     /// installs the installer, and the release publishes that installer. Without the step the
     /// zip goes back to 1,070 loose files; without <c>release/*.exe</c> the installer is built,
