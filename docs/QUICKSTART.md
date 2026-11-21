@@ -20,10 +20,11 @@ paper trade, and gives you the keys you will look up most. The
 9. Drawing tools
 10. Trading safely
 11. Alerts and monitoring
-12. Settings, workspaces and sharing
-13. Platform notes
-14. Keyboard reference
-15. First five minutes
+12. The news desk
+13. Settings, workspaces and sharing
+14. Platform notes
+15. Keyboard reference
+16. First five minutes
 
 ---
 
@@ -437,7 +438,31 @@ headless monitor.
 
 ---
 
-## 12. Settings, workspaces and sharing
+## 12. The news desk
+
+You cannot make a trade without all the information there is, and that includes the news, so the
+terminal gathers it for you, by keyboard and ear.
+
+- **Market events (Alt+E).** CPI, jobs, the Fed, GDP and the rest sit on the bars they happened
+  on, with the figure and, where Kalshi prices it, the expected figure. `'` and Shift+`'` walk
+  them at the bar you are on. Before a release you hear a countdown, and at release the figure
+  and the surprise. Company earnings sit on their own charts; a Fed decision says the rate.
+- **Headlines.** `.` and Shift+`.` walk the headlines on the bar you are on: SEC filings from
+  EDGAR (free, for everyone), and news from Finnhub (your own free key in API Keys, Alt+K) and
+  Alpaca's Benzinga wire (optional). `NEWS AAPL` in the Go bar lists them.
+- **Market pulse (Alt+P).** The S&P, Nasdaq, Bitcoin, Ethereum, the ten-year yield, the dollar,
+  gold, oil and the VIX in one sentence. Ctrl+Alt+P reads it in detail.
+- **What changed (Alt+U).** Fills, stops, alerts, released events, unusual moves, signals on your
+  charts and how your positions moved, since you last listened.
+- **The morning brief (Ctrl+Alt+B).** What changed, the pulse and today's events in one go.
+- **The Go bar (Alt+G or `/`).** Type a short code and press Enter: `PULSE`, `BRIEF`, `NEWS AAPL`,
+  `RENKO`, `BUY 0.1`. Down and Up move through the suggestions; Tab completes the highlighted one.
+- **On and off.** Ctrl+Alt+Shift with `,` turns chart formations on or off, with `.` headlines,
+  with `'` market events.
+
+---
+
+## 13. Settings, workspaces and sharing
 
 **Settings (F12).** Nine tabs on the desktop, eight on the web (no Braille tab there): General,
 Speech, Narration, Sonification, Braille, Appearance, Keyboard, License, About. A search box
@@ -468,7 +493,7 @@ Windows.
 
 ---
 
-## 13. Platform notes
+## 14. Platform notes
 
 - **Windows, macOS, iOS, Android:** the native app. Windows drives the Dot Pad; iOS cannot
   compile custom scripts.
@@ -481,7 +506,7 @@ Windows.
 
 ---
 
-## 14. Keyboard reference
+## 15. Keyboard reference
 
 **Time and viewport**
 
@@ -546,6 +571,8 @@ Windows.
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
 | Alt+C / Alt+L / Alt+H | Chart type list / Price scale list / volume heatmap |
+| , / . / ' (Shift for previous) | Next chart formation / headline / market event at the bar |
+| Ctrl+Alt+Shift+, / . / ' | Formations / headlines / market events on or off |
 | Alt+Z | Focus mode: hide the toolbar, tabs and indicator bar, or show them again |
 
 **Drawings**
@@ -579,6 +606,9 @@ Windows.
 | Alt+O | Object tree |
 | Alt+W / Alt+, | Sound designer / custom scripts |
 | Alt+M / Alt+R / Alt+I | Market watch / respect report / asset dossier |
+| Alt+G or / | Go bar |
+| Alt+E / Alt+P / Alt+U | Market events calendar / market pulse / what changed |
+| Ctrl+Alt+P / Ctrl+Alt+B | Market pulse detail / morning brief |
 | Ctrl+Alt+Shift+A / Ctrl+Alt+Shift+J | AI analyst / journal |
 | Ctrl+Alt+Shift+I | My Data import |
 | Ctrl+Alt+Shift+M | Background monitoring status |
@@ -596,7 +626,7 @@ Windows.
 
 ---
 
-## 15. First five minutes
+## 16. First five minutes
 
 1. Tab into the toolbar, pick Crypto, keep the first provider and symbol, press Load. Wait for
    "Ready."

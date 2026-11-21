@@ -53,6 +53,15 @@ namespace AccessibleTrader.Core.Services
             IsDemo = mode == HostMode.Demo;
         }
 
+        /// <summary>
+        /// The app's bottom line. The anonymous website demo can trade nothing and holds a cut-down
+        /// app, so its line tells the visitor what to do about that — create an account, which the
+        /// site's top menu offers (Cody, 2026-11-21). Every other build keeps the copyright and risk line.
+        /// </summary>
+        public string FooterText => IsDemo
+            ? "Create an account for full functionality."
+            : "Accessible Trade Terminal \u00a9 2026. Trading carries risk.";
+
         /// <summary>Back-compat ctor: <c>true</c> → Demo, <c>false</c> → Full (desktop/local).</summary>
         public DemoPolicy(bool isDemo) : this(isDemo ? HostMode.Demo : HostMode.Full) { }
 

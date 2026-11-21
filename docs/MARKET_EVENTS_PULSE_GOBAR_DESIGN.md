@@ -243,7 +243,7 @@ unavailable, Finnhub key not set".
   offers; it never reads unasked.
 - Later, a **morning brief**: catch-up, pulse and today's events.
 
-**Built 2026-11-20 (stage 5c, part 3): the morning brief.** Go bar `BRIEF`, no key.
+**Built 2026-11-20 (stage 5c, part 3): the morning brief.** Go bar `BRIEF`; Ctrl+Alt+B since 2026-11-21 (Cody; Alt+B stays the order book).
 `MorningBriefService` says "Gathering the brief.", then one sentence: the catch-up's press
 (`ChangeLogCatchUpService.PrepareAsync`, which returns the words and a mark step so Alt+U and the
 brief share one path), the pulse (`IMarketPulseReader.SentenceAsync`: Alt+P's list, quotes and

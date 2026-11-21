@@ -482,6 +482,8 @@ public class HeadlineNewsListTests
     [InlineData(".", true, true, SystemCommand.ToggleHeadlines)]
     [InlineData("'", true, true, SystemCommand.ToggleMarketEvents)]
     [InlineData("\"", true, true, SystemCommand.ToggleMarketEvents)]
+    [InlineData("B", false, true, SystemCommand.MorningBrief)]
+    [InlineData("b", false, true, SystemCommand.MorningBrief)]
     public void CommaFormationsPeriodHeadlinesSlashTheGoBar(string key, bool shift, bool ctrlAlt, SystemCommand expected)
         => Assert.Equal(expected, new ShortcutManager(new TempPaths())
             .GetCommand(key, shift, ctrl: ctrlAlt, alt: ctrlAlt));

@@ -8,33 +8,14 @@
 
 ## Unreleased
 
-None of this has been seen or heard in the app yet.
+**The terminal is now a news desk as well.** You cannot make a trade without all the information
+there is, and that includes the headlines, so the terminal gathers it the way a Bloomberg Terminal
+does, by keyboard and ear: market events and company earnings on the bars they happened on, SEC
+filings and news wires, a one-sentence market pulse, what changed while you were away, a morning
+brief of all three, and a Go bar that reaches every command by typing a short code.
 
-### Your account on the hosted terminal
-
-- **Your account page** (Settings → General → Your account, or `/account/manage`): choose a
-  display name and whether to join the public leaderboard, change your password or email,
-  download a zip of your own data, and delete the account. Deleting needs your current
-  password, the cannot-be-undone checkbox, and a 2FA code when it is on. A forgotten
-  password now arrives by email when the server has the mail service. The register form
-  quietly refuses anything submitted in under three seconds.
-
-### Colour words and the buying/selling profile
-
-- **Bars and heatmap cells say what they look like.** With "Say what lines and signals look like"
-  on, a histogram or volume bar says *"Green bar."* on arrival and again only when its colour
-  changes, and a heatmap cell says *"Dark cell."*, *"Medium cell."* or *"Light cell."* from how
-  strongly it is drawn. A volume-profile row now ends with *"62 percent buying"* or *"58 percent
-  selling"* (or *"even"*), and its sound is a triangle when buyers lead, a sine otherwise — the
-  profile's pitch by part and grit by size are unchanged.
-
-### Chart context menu
-
-- **Right-click or the Application key now does more.** Add a text label or horizontal line at the
-  clicked bar, value and pane; open an alert or a limit ticket prefilled; copy the price or the whole
-  bar; start replay from here; remove every drawing with one undo. The per-series menu can preselect
-  an alert, copy a reading and move an indicator into its own pane or back to price. Text labels and
-  horizontal lines now work on any pane, not just price.
+Cody has tried the first market-events stage and the new chart types; the rest has not been heard
+in the app yet, and none of it has been tried with money.
 
 ### Market events on the chart
 
@@ -80,6 +61,47 @@ None of this has been seen or heard in the app yet.
 - **Future dates.** For CPI, jobs, PPI and GDP the future dates come from FRED, so without a key
   the only future countdowns are Fed decisions; the shipped dates run through July 2026 for releases and 2027 for
   Fed decisions.
+
+### Market events: the calendar, alerts and release history
+
+- **Toolbar fix.** The Market events button has its own calendar icon instead of sharing the
+  Levels one.
+- **Alt+E opens a calendar of the days ahead.** Days are headings, each event is one line —
+  "8:30, CPI, important, previous up 2.9%." — and filters choose the range, importance, kinds, or only
+  the events touching your charts and positions. The FRED status sentence sits at the top. The
+  screen opens even when market events are off.
+- **Enter on a line takes the chart to that event's bar**, with the same jump reading as the
+  apostrophe key. If the event is not on the loaded bars it says so and stays open.
+- **"Alert me before"** watches one event by name. It is counted down and read out even if it
+  touches nothing you hold, its kind or importance is filtered out, or market events are off.
+  The setting's countdowns are used; with countdowns off it uses 15 and 1 minutes.
+- **History** on a line lists the last six releases of the same source, newest first, with each
+  figure and — when that bar is on your chart — what price did over it.
+- **Not yet while the browser is closed.** Watched alerts, released events and headlines are said
+  only while the terminal is open in your browser; that part is on hold for now.
+
+### Market events: company earnings
+
+- **A company's earnings on its own charts.** With market events on and your Finnhub key in API
+  Keys, a stock chart's report days are events: "AAPL earnings after the close, EPS 1.85, beat 1.77
+  expected, revenue 102.5 billion, beat 102.2 billion expected". After the close goes on that day's
+  last bar, before the open on its first; when SEC EDGAR has the results filing, the event takes its
+  exact minute. Apostrophe reaches them like any other event, and `Alt+Shift+D` adds the estimate's
+  source and the quarter before's EPS.
+- **Only that company's charts.** Apple's reports never appear on MSFT, and a countdown or the
+  Alt+E calendar's "only touching" counts a report only while one of its charts is open.
+- **A new tick box**, "Company earnings, on that company's charts", in Settings → Narration and on
+  the Alt+E screen, on by default. The Alt+E screen says whether earnings could be read.
+- **Limits.** Finnhub's calendar holds only the latest report and the coming ones, so older
+  quarters appear only where EDGAR's twenty newest filings date them; a coming report has a day and
+  a session but no minute, so it gets no countdown; each company is read again every six hours.
+
+### Market events: the Fed rate
+
+- **A Fed decision says the rate.** Before a meeting, what Kalshi's traders priced: *"Fed
+  decision, expected 4.25%, in 15 minutes."* After it, the move and the surprise on the bar:
+  *"held at 4.00%, as expected"*, *"raised to 4.25% from 4.00%, higher than expected"*. No key;
+  meetings from 2022 on.
 
 ### Headlines: company filings
 
@@ -140,7 +162,7 @@ None of this has been seen or heard in the app yet.
 - Shift+comma, Shift+period and Shift+apostrophe never reached the terminal from the browser before;
   they do now, on the chart only.
 
-### The market pulse, what changed, and the Go bar
+### The market pulse, what changed, the morning brief and the Go bar
 
 - **Alt+P says the market in one sentence**: *"S&P up 0.4, Bitcoin down 1.2, ten-year 4.31, up 3
   basis points, gold up 0.2, 4 minutes old, VIX closed, up 2.1 Friday."* It reads a watchlist
@@ -156,32 +178,9 @@ None of this has been seen or heard in the app yet.
   narration ladder of your background tabs, and of saved tabs while the browser is closed.
 - **Alt+U says how your positions moved while you were away**: *"Positions since 09:40: BTC/USDT
   made 42.10, SOL/USDT opened, ETH/USDT closed."* Once, after the first sentence.
-- **The morning brief**: type `BRIEF` in the Go bar to hear what changed, the market pulse and
+- **The morning brief, Ctrl+Alt+B** (or `BRIEF` in the Go bar): hear what changed, the market pulse and
   today's market events in one go: *"... Today: 13:30, CPI, important."*
 - **Alt+G or slash opens the Go bar**: type a short code such as `PULSE`, `NEWS AAPL` or `RENKO`.
-
-### Market events: the Fed rate
-
-- **A Fed decision says the rate.** Before a meeting, what Kalshi's traders priced: *"Fed
-  decision, expected 4.25%, in 15 minutes."* After it, the move and the surprise on the bar:
-  *"held at 4.00%, as expected"*, *"raised to 4.25% from 4.00%, higher than expected"*. No key;
-  meetings from 2022 on.
-
-### Market events: company earnings
-
-- **A company's earnings on its own charts.** With market events on and your Finnhub key in API
-  Keys, a stock chart's report days are events: "AAPL earnings after the close, EPS 1.85, beat 1.77
-  expected, revenue 102.5 billion, beat 102.2 billion expected". After the close goes on that day's
-  last bar, before the open on its first; when SEC EDGAR has the results filing, the event takes its
-  exact minute. Apostrophe reaches them like any other event, and `Alt+Shift+D` adds the estimate's
-  source and the quarter before's EPS.
-- **Only that company's charts.** Apple's reports never appear on MSFT, and a countdown or the
-  Alt+E calendar's "only touching" counts a report only while one of its charts is open.
-- **A new tick box**, "Company earnings, on that company's charts", in Settings → Narration and on
-  the Alt+E screen, on by default. The Alt+E screen says whether earnings could be read.
-- **Limits.** Finnhub's calendar holds only the latest report and the coming ones, so older
-  quarters appear only where EDGAR's twenty newest filings date them; a coming report has a day and
-  a session but no minute, so it gets no countdown; each company is read again every six hours.
 
 ### Chart types and price scales
 
@@ -242,35 +241,47 @@ None of this has been seen or heard in the app yet.
   and, with "Also speak bar closes from other tabs" on, in speech. A close that completed no brick
   is silent, and a brick the forming bar made and took back is never said. The same happens with
   the browser closed.
+- **Indicators on Renko, range bars, line break, Kagi and point and figure read the built bars.**
+  They used to be computed on the time bars underneath and drawn one value per brick. Now an RSI or
+  the volume pane on a Kagi chart is the Kagi lines' own. Falling candles' wicks are drawn red.
 
-### Market events: the calendar, alerts and release history
+### Indicator templates
 
-- **Toolbar fix.** The Market events button has its own calendar icon instead of sharing the
-  Levels one.
-- **Alt+E opens a calendar of the days ahead.** Days are headings, each event is one line —
-  "8:30, CPI, important, previous up 2.9%." — and filters choose the range, importance, kinds, or only
-  the events touching your charts and positions. The FRED status sentence sits at the top. The
-  screen opens even when market events are off.
-- **Enter on a line takes the chart to that event's bar**, with the same jump reading as the
-  apostrophe key. If the event is not on the loaded bars it says so and stays open.
-- **"Alert me before"** watches one event by name. It is counted down and read out even if it
-  touches nothing you hold, its kind or importance is filtered out, or market events are off.
-  The setting's countdowns are used; with countdowns off it uses 15 and 1 minutes.
-- **History** on a line lists the last six releases of the same source, newest first, with each
-  figure and — when that bar is on your chart — what price did over it.
-- **Still to come.** Expected figures (and the surprise word they make possible), earnings from
-  Finnhub, and the market pulse. Watched alerts still do not arrive while the browser is closed.
+- **Save a chart's indicators and put them on another chart** without changing its symbol or
+  timeframe. The toolbar's workspace group has Save indicator template and Apply indicator
+  template; in the Go bar, `TPLS` saves and `TPL Oscillators` applies. Applying replaces the
+  chart's indicators, and Ctrl+Z undoes it.
 
-### Downloads
+### Your account on the hosted terminal
 
-- **The web host's zip is one tidy folder.** It used to unzip to about 470 loose files. It now unzips to
-  one folder, `AccessibleTrader-WebHost-<version>`, holding a `README.txt`, the program in `app`, and one
-  file to start it: **Accessible Trader.exe** on Windows, `./accessible-trader` on Linux, **Accessible
-  Trader.command** on macOS. Start it with that file, not from inside `app`.
-- **On Windows, if the server cannot start** (most often because it is already running), a message says
-  so and points you at `http://localhost:5145`, instead of a window that flashes and closes.
-- **The web host no longer leaves a data cache in the folder you started it from.** It goes to your
-  system's cache folder (`~/.cache/AccessibleTrader` on Linux).
+- **Your account page** (Settings → General → Your account, or `/account/manage`): choose a
+  display name and whether to join the public leaderboard, change your password or email,
+  download a zip of your own data, and delete the account. Deleting needs your current
+  password, the cannot-be-undone checkbox, and a 2FA code when it is on. A forgotten
+  password now arrives by email when the server has the mail service. The register form
+  quietly refuses anything submitted in under three seconds.
+- **The public leaderboard** on accessibletrader.com lists the accounts that opted in, with their
+  return, trades, win rate and the positions they hold now.
+- **An Order log tab in the trading dashboard (Alt+T)**: the newest 200 orders sent, refused,
+  filled or cancelled, as a table you can filter by symbol or exchange and save as CSV.
+- **The website's demo** says at the bottom *"Create an account for full functionality."*
+
+### Colour words and the buying/selling profile
+
+- **Bars and heatmap cells say what they look like.** With "Say what lines and signals look like"
+  on, a histogram or volume bar says *"Green bar."* on arrival and again only when its colour
+  changes, and a heatmap cell says *"Dark cell."*, *"Medium cell."* or *"Light cell."* from how
+  strongly it is drawn. A volume-profile row now ends with *"62 percent buying"* or *"58 percent
+  selling"* (or *"even"*), and its sound is a triangle when buyers lead, a sine otherwise — the
+  profile's pitch by part and grit by size are unchanged.
+
+### Chart context menu
+
+- **Right-click or the Application key now does more.** Add a text label or horizontal line at the
+  clicked bar, value and pane; open an alert or a limit ticket prefilled; copy the price or the whole
+  bar; start replay from here; remove every drawing with one undo. The per-series menu can preselect
+  an alert, copy a reading and move an indicator into its own pane or back to price. Text labels and
+  horizontal lines now work on any pane, not just price.
 
 ### Indicators
 
@@ -331,6 +342,17 @@ None of this has been seen or heard in the app yet.
   held twenty research strategies that can no longer fire. On the next start they are moved to
   `strategies.retired.json` beside your `strategies.json`, not deleted. If that file cannot be written,
   your library is left as it was.
+
+### Downloads
+
+- **The web host's zip is one tidy folder.** It used to unzip to about 470 loose files. It now unzips to
+  one folder, `AccessibleTrader-WebHost-<version>`, holding a `README.txt`, the program in `app`, and one
+  file to start it: **Accessible Trader.exe** on Windows, `./accessible-trader` on Linux, **Accessible
+  Trader.command** on macOS. Start it with that file, not from inside `app`.
+- **On Windows, if the server cannot start** (most often because it is already running), a message says
+  so and points you at `http://localhost:5145`, instead of a window that flashes and closes.
+- **The web host no longer leaves a data cache in the folder you started it from.** It goes to your
+  system's cache folder (`~/.cache/AccessibleTrader` on Linux).
 
 ## 2.13.1 — a Windows installer, and a tidy Windows zip
 

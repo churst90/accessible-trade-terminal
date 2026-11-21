@@ -26,6 +26,14 @@ It is free, donation-supported, and developed in the open by a blind trader who 
   been tried yet, on their demo and practice accounts or with money. Each venue's orders and refusals
   are checked only against copies of its public answers. Try a venue on its demo or practice account,
   with small sizes, before trusting it with money.
+- **A news desk, because you cannot trade without all the information.** Market events (CPI,
+  jobs, the Fed, earnings) on the bars they happened on, with the expected figure and a spoken
+  read-out at release; headlines from SEC filings (EDGAR), Finnhub and Alpaca's Benzinga wire on
+  the bars and in a list; a one-sentence market pulse (Alt+P); what changed while you were away
+  (Alt+U); a morning brief of all three (Ctrl+Alt+B); and a Go bar (Alt+G or `/`) that reaches
+  every command by typing a short code, as on a Bloomberg Terminal.
+- **Fifteen chart types and four price scales**, from candles and Heikin Ashi to Renko, Kagi and
+  point and figure, each heard as well as drawn: the arrows speak bricks, lines or columns.
 - **Indicators, drawings and alerts**, all reachable and editable from the keyboard.
 - **Your own indicators**, written in C# or transpiled from Pine Script, compiled and run in
   an OS-level sandbox.

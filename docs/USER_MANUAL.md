@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, chart types, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, the Alt+P market pulse, the Alt+U catch-up, the Alt+G Go bar, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, headlines (SEC filings, Finnhub, Alpaca), the Alt+P market pulse, the Alt+U catch-up, the Ctrl+Alt+B morning brief, the Alt+G Go bar, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -54,6 +54,12 @@ an order, is reachable from the keyboard, and nothing requires a mouse. What mak
 the application different from a conventional platform with a screen reader bolted
 on is that it was designed around sound from the start, and it treats your screen
 reader and its own audio engine as two halves of one instrument.
+
+It is also a news desk. You cannot make a trade without all the information there is, and that
+includes the headlines, so the terminal gathers it the way a Bloomberg Terminal does: market
+events and company earnings on the bars they happened on, SEC filings and news wires on the bars
+and in a list, a one-sentence market pulse, what changed while you were away, and a morning brief
+of all three. *Reading the Chart* covers each of them.
 
 ### The Hybrid Voice model
 
@@ -2256,7 +2262,7 @@ starts, rather than being overwritten.
 Not yet recorded: the ladder of the chart you are looking at (you hear it as it happens), chart
 formations (the `,` list), and market events released while the browser is closed.
 
-**The morning brief.** Type **`BRIEF`** in the Go bar (Alt+G or `/`) to hear three things as one
+**The morning brief (Ctrl+Alt+B).** Press **Ctrl+Alt+B**, or type **`BRIEF`** in the Go bar (Alt+G or `/`), to hear three things as one
 sentence: what Alt+U would say, the market pulse (the same words as Alt+P), then today's market
 events: *"3 changes since 22:10, 9 hours ago. ... gold up 0.4, S&P down 0.2. Today: 13:30, CPI,
 important."* It first says *"Gathering the brief."*; pressing
@@ -2265,7 +2271,7 @@ terminal speaks (F12, local or UTC), whole, so an event earlier today is still l
 follow your market-events level, kind boxes and open or held markets like the live notices; with
 market events off it still says the important ones, since you asked. At most six are read, then
 *"N more in the calendar."* What changed is marked heard only after the whole sentence is said,
-and Ctrl+Alt+P afterwards reads the brief's pulse in detail. It has no key of its own.
+and Ctrl+Alt+P afterwards reads the brief's pulse in detail. Alt+B stays the order book.
 
 ### The Go bar (Alt+G)
 

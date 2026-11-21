@@ -678,6 +678,7 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenMarketEventCalendar, "E", Alt: true)); // Alt+E: market event calendar
             s.Add(new(SystemCommand.MarketPulse, "P", Alt: true)); // Alt+P: the market pulse in one sentence
             s.Add(new(SystemCommand.MarketPulseDetail, "P", Ctrl: true, Alt: true)); // Ctrl+Alt+P: that pulse in detail
+            s.Add(new(SystemCommand.MorningBrief, "B", Ctrl: true, Alt: true)); // Ctrl+Alt+B: the morning brief
             s.Add(new(SystemCommand.WhatChanged, "U", Alt: true)); // Alt+U: what changed while you were not listening
             s.Add(new(SystemCommand.OpenGoBar, "G", Alt: true)); // Alt+G: one text box that reaches every action
             // Slash opens it too (Cody, 2026-11-20), as on GitHub and YouTube. keyboard.js keeps it

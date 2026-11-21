@@ -105,8 +105,8 @@ namespace AccessibleTrader.Core.Models
         OpenNewsList,
 
         /// <summary>
-        /// The Go bar's BRIEF: what changed, the pulse, then today's market events, as one
-        /// sentence. No key of its own, so a user may bind one.
+        /// Ctrl+Alt+B (Cody, 2026-11-21; Alt+B stays the order book), Go bar BRIEF: what changed,
+        /// the pulse, then today's market events, as one sentence.
         /// </summary>
         MorningBrief,
 

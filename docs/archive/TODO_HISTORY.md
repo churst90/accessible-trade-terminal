@@ -24268,3 +24268,880 @@ The walk-forward decay pattern across v2-v6 (better in first half than second ha
 - [x] **SonifyHeatmap null safety:** Guarded `SelectMany` against null inner lists.
 - [x] **Series nav shortcuts corrected:** Page Up/Down = series; Up/Down arrows = component.
 - [x] **All 21 tests passing** (as of 2026-03-25 sprint).
+
+---
+
+## docs/TODO.md's top half as it stood on 2026-11-21 (moved when it was condensed)
+
+Everything above "From the 2026-09-25 to 2026-10-01 test and mutation passes", word for word, with its finished [x] items and full caveat lists. Headings are demoted one level.
+
+## TODO — Accessible Trading Terminal
+
+This file lists what is LEFT to do. What was done, with its caveats, is in `docs/CHANGES.md`. Everything
+that used to be in this file (finished items, old audits, superseded START HERE blocks, old phase plans) was
+moved on 2026-11-04 to `docs/archive/TODO_HISTORY.md`, unedited. Line numbers below like "archive line 9300"
+point into that file.
+
+### How to work from this file
+
+The rule that has held since 2026-08-25: **demonstrate the defect, or mark it explicitly unverified.**
+Reading code for bugs filed 283 findings in 2026-08 and about half were wrong; compiling the escape or
+running the sabotage is what found real ones. Test one thing, write down what the test could not show.
+
+The agreed order, unchanged:
+
+1. The first section below is trading through the venues, which is BUILT but has not been tried on a
+   demo, practice or real account. Treat it as unverified until an account answers. Everything else built
+   up to 2.13 was seen and heard by Cody on 2026-11-16.
+2. Then Cody's open questions (marked **Q** in the second section).
+3. Then the older audit findings in the last section. None of them has been re-checked since it was
+   filed (2026-08 and earlier), and many may have shipped since: check CHANGES and the code before taking one.
+
+Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
+never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
+
+### Cody to do: turn on the website's email list (filed 2026-11-20)
+
+The list is live at accessibletrader.com (the "Get the news by email" box on the home page) and saves
+signups, but sends nothing until these are done. Only Cody can do steps 1, 2 and 5; the rest I can do
+once he says so.
+
+1. **Make a Brevo API key.** Log in at app.brevo.com, open the menu under your name at the top right,
+   choose **SMTP & API**, then the **API keys** tab, then **Generate a new API key**. Name it
+   `accessibletrader-site`. Copy it straight away; Brevo shows it once. It starts `xkeysib-`. This is
+   NOT the SMTP key the terminal's password emails use.
+2. **Put the key on the server.** `ssh debian@codyhurst.com`, then open
+   `/home/cody/site_env/.env_trade_codyhurst_com` in nano (with `sudo` if it will not save) and add one
+   line at the end: `BREVO_API_KEY=` followed by the key, no quotes, no spaces. Save. No restart is
+   needed: the site reads that file on every page.
+3. **Check it took.** On the server: `php /home/debian/att-mail/newsletter.php status`. The line
+   `sending set up:` should now say `yes`. (It never prints the key.)
+4. **A postal address for the foot of list emails.** US law (CAN-SPAM) requires one in every list
+   email; a PO box or a mailbox service is fine. Tell me what to put and I store it in the site's
+   settings (`site_settings.mail_postal_address`). Until it is set, `send` refuses; signup
+   confirmations still go out without it.
+5. **Install the 10-minute timer** that sends confirmation emails (my install was refused by the
+   permission check because it needs sudo). On the server, run these three lines, or tell me I may:
+   `sudo cp /home/debian/att-mail/systemd/att-mail-confirm.* /etc/systemd/system/`, then
+   `sudo systemctl daemon-reload`, then `sudo systemctl enable --now att-mail-confirm.timer`.
+   Without it, signups wait until I run `newsletter.php confirm-pending` by hand.
+6. **Optional, in Brevo:** turn off open and click tracking for transactional email if you do not want
+   it (it rewrites links and adds a tracking pixel). I have not checked where Brevo keeps that switch
+   today, nor whether `accessibletrader.com` shows as an authenticated domain under **Senders, domains**;
+   the terminal's password emails arrived on 11-20, which suggests it is.
+7. **Tell me.** I run `confirm-pending` (anyone who signed up meanwhile gets their confirmation), send
+   you a test issue with `newsletter.php test`, and once you have read it in your inbox, your first real
+   issue goes out with `send ISSUE.md --confirm`. You write the issue as a Markdown file starting with
+   a `Subject: ...` line and a blank line.
+
+### Code review findings left (2026-11-20)
+
+Cody, 2026-11-20: "start on each of the issues you found, in the best order or smallest to largest."
+The review is in `strategy-lab-data/reviews/att-review-2026-11-20/`; what is fixed is in CHANGES
+("Code review fixes, 2026-11-20"). Left, smallest first:
+
+- [ ] **Kill switch** (Cody, 2026-11-20: "kill switch, add this to the todo"). Nothing caps the day
+  or the account; for a trader who cannot see the screen "one more trade" is the failure this exists
+  to stop. Suggested in two steps, design to agree with Cody before building:
+  1. **Close everything** on one key: cancels every working order and closes every position on the
+     focused venue (then optionally all venues), after one spoken confirmation that says what it will
+     do ("Close 3 positions and cancel 5 orders on MEXC?"), and reads back what each venue answered.
+     Close-position and cancel already exist per row; this is the one-key version.
+  2. **Daily loss limit** you set yourself (an amount or a percent of the account): once the day's
+     realised loss reaches it, new entries are refused out loud until the next day; stops, targets
+     and closing trades still work. Open questions: the day's boundary (midnight local or UTC),
+     whether unrealised loss counts, and whether it can be lifted early.
+- Declined for now (Cody, 2026-11-20: "restore from yesterday, nah, I'm good on this for now"): a
+  **Restore from yesterday** button. The daily copies exist; going back is a hand copy.
+- [x] The **order log** is read in the app: trading dashboard → **Order log** tab (2026-11-20, CHANGES).
+
+### CI flakiness seen 2026-11-20
+
+- [ ] c0b44e9e's xunit needed three attempts: first `ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload`
+  (the loopback connect hit its 10 s limit), then three bUnit waits (`SettingsModalTests` focus and factory
+  reset, `TradingDashboardDecouplingTests.Close_at_limit_...`). Different tests each time, all green locally
+  three runs out of three, suite time unchanged (5 to 6.5 minutes). Watch for a repeat before changing the
+  waits; if one test keeps showing up, that is the one to look at.
+
+### Website (accessibletrader.com), Cody's notes 2026-11-20
+
+The site's files live on the server (`/var/www/html/trade.codyhurst.com`), drafts in
+`strategy-lab-data/site-drafts/`; what was changed is in CHANGES.
+- [ ] **"Take the audio tour"** needs redoing to show the different kinds of data (Cody: "leave it
+  alone for now but flag for later").
+- [x] Title, "What it does" as eight plain-sentence sections, "Why financial literacy matters" moved
+  down by the story (2026-11-20, CHANGES).
+- [ ] **News headlines** for the News and fundamentals section: the terminal has the events calendar
+  and the asset dossier but no headline feed, so the site does not claim one.
+- [ ] **Speech input**: Cody's note lists speech as a way in; the terminal speaks but does not
+  listen, so the site says keyboard or touchscreen in, speech, sound or braille out.
+- [x] Cody's answers to the advice (2026-11-20): one main button at the top, the why line under the
+  heading, one stat line under the buttons, the leaderboard as a reason to sign up with the heading
+  "Top traders: paper trading leaderboard" (CHANGES). Skipped by Cody: replacing the feature list with
+  three steps (keep the list), testimonials and the YouTube video (coming later), a "coming soon" line
+  (not yet).
+- [ ] **Email list on the website**: BUILT and live 2026-11-20 (CHANGES), but it sends nothing yet.
+  **Step by step for Cody: "Cody to do: turn on the website's email list" at the top of this file.**
+  Waiting on Cody for: (1) a Brevo **API key** (Brevo > SMTP & API > API keys; not the SMTP key the
+  terminal uses) added by him to `/home/cody/site_env/.env_trade_codyhurst_com` as `BREVO_API_KEY=...`;
+  (2) a **postal address** for the foot of list emails (US CAN-SPAM; a PO box is fine), which goes in
+  `site_settings.mail_postal_address`; (3) yes to installing the 10-minute timer, which needs sudo
+  (`/home/debian/att-mail/systemd/INSTALL.txt`; my attempt was refused by the permission check). Until
+  the key is in, signups are saved as pending and get their confirmation email when the key arrives
+  (run `php /home/debian/att-mail/newsletter.php confirm-pending` if the timer is not installed). Not
+  checked: Brevo's sender and domain authentication for `noreply@accessibletrader.com` (the terminal's
+  password emails come from Brevo and arrived 11-20, so likely fine), and whether Brevo's open/click
+  tracking is on for transactional mail (Cody's choice; it is a Brevo setting).
+- [x] The full FAQ at /faq: two answers were out of date and are fixed (2026-11-20, CHANGES): the cost
+  answer pointed at a "pricing page" that now redirects to Donate, and "Where does my data go?" said the
+  web account keeps a login "and nothing more". **Correction:** this item first said the macOS
+  "Keychain" answer was stale too. It was not: the desktop app is MAUI and keeps keys through
+  `SecureStorage`, which is the Keychain on macOS and DPAPI on Windows, as the answer says.
+- [x] **Account value on the leaderboard** and the **gold edge on dark-mode main buttons**: Cody said
+  yes, built 2026-11-20 (CHANGES). Market Cipher taken off the home page (Cody: not to be advertised as
+  clones).
+- [ ] Phone: the leaderboard table's caption runs off the right edge with the table (scrolls with it;
+  true before 2026-11-20).
+
+### Accounts, leaderboard and charting asks (Cody, 2026-11-18)
+
+Agreed order: the toolbar fixes (done 2026-11-18, CHANGES), then the account page, the leaderboard and
+the P&L seed, then market events stages 4 to 6, then the charting items below "as outlined". The accounts
+stay on the terminal's own ASP.NET Identity (not the PHP sites' logins): different registrable domains,
+and Identity already has 2FA, lockout and rate limits.
+
+- [x] **Email through Brevo (Cody chose it, 2026-11-18).** Free plan, 300 a day. The terminal writes
+  every email itself (password reset, confirm a new address, "your password/email was changed" sent to
+  the old address); Brevo only delivers. Cody: Brevo account, add `accessibletrader.com` under Senders,
+  Domains, copy its records into NameSilo (brevo-code TXT on @, `brevo1._domainkey` and
+  `brevo2._domainkey` CNAMEs, `_dmarc` TXT), make an SMTP key, and put it on the VPS. Sender
+  `no-reply@accessibletrader.com`; the domain has no mailbox, so say "do not reply". Check the first test
+  email for Brevo branding. Self-hosting was checked and NOT chosen: port 25 is open from the VPS
+  (Gmail answered), but a new IP's deliverability and the shared IP of every hosted site are the risk.
+  Done 2026-11-18: server side by Cody and Claude; this run wired the app
+  (`IAccountEmailSender`/`SmtpAccountEmailSender`, ForgotPassword, change-email confirm, notices).
+  Both settings went on the VPS 2026-11-20 and one real password-reset email was sent through Brevo
+  (the app logged it as sent). Cody, 2026-11-20: "Yes i did receive the password reset email. No
+  brevo branding that I could tell." Nothing left.
+- [x] **Account page.** Display name, change password, change email (needs the email above), leaderboard
+  opt-in (OFF by default), download my data (a zip of the user's folder), delete account; and a minimum
+  fill time on the register form's honeypot. Built with its tests on 2026-11-18. **Left:** the
+  leaderboard itself (next item) reading the stored display name and opt-in.
+- [x] **Leaderboard on the accessibletrader.com front page.** Per `~/ATT-ACCOUNTS-LEADERBOARD-SPEC.md` on
+  the VPS: a pure calculator, a publisher every 5 minutes writing `public/leaderboard.json` atomically,
+  opt-in only, display names never emails, ranked by return %, "be the first" under 3 entries, a real
+  `<table>` with caption and column headers in the PHP page. Paper only (the hosted terminal is paper).
+  **Server side done 2026-11-18 (`CHANGES.md`):** lifetime stats, the calculator and the publisher.
+  Open positions on every row, and an account listed once it holds one, done 2026-11-20 (Cody).
+  Deployed 2026-11-20 with `Leaderboard__OutputPath` set; the first file was written (no one has
+  opted in yet, so it is empty and the page shows "be the first").
+- [x] **Website leaderboard section (VPS PHP, Claude).** Render the published JSON on the
+  accessibletrader.com front page: a real `<table>` with a caption and column headers, "be the first"
+  under 3 entries, no email address anywhere. The file, its 0640 mode and
+  `Leaderboard__OutputPath` are documented in `SERVER_SETUP.md`; the publisher is the part this
+  repository owns. Installed 2026-11-20 as `includes/leaderboard-section.php`, after the free-account section,
+  with a contents link; the open positions column lists each holding. Not yet seen with real rows:
+  it needs three opted-in accounts.
+- [x] **Seed Cody's P&L.** Cody, 2026-11-20: "Yes, copy my trade data including the open short from my
+  open trade to the leader board." Done 2026-11-20 (CHANGES). **Left, Cody:** on the hosted terminal's
+  Account page, set a display name and tick the leaderboard box; until both are set the publisher leaves
+  him off. The site shows the table only from 3 entries; under that it shows the invitation.
+- [x] **"Add label here..." in the chart's context menu (Application key / right-click).** Done
+  2026-11-18: the chart menu resolves one "here" (bar, price, pane) for mouse and keyboard, places the
+  label through the same prompt as Alt+Shift+L, and also adds the other context-menu items requested
+  for this pass (alerts, limit tickets, copy, replay, remove all, per-series actions). The limit items
+  only prefill the dashboard; they never place an order.
+- [x] **Text labels anywhere, as on TradingView, including another pane.** Done 2026-11-18 for text
+  labels and horizontal lines: they carry a pane and a price, use the focused/clicked pane's own
+  units, render/speak/nudge/save there, and survive the indicator's removal. What is left: the other
+  drawing types (trend line, Fibonacci, rectangle, etc.) still stay on the price pane.
+- [ ] **"Add symbol (own pane)".** A third Compare mode: the series' own values in its own pane, so any
+  of the 17 analytics sources (FRED, Glassnode, DefiLlama, …) can sit under a price chart without a
+  wrapper indicator each. Plus a picker using the toolbar's Market, Analytics type, Provider, Symbol
+  choices instead of typed text. Analytics stay providers (TradingView treats them as symbols too).
+  Caveat to solve: FRED dates a figure by the period it measures, not its release, so a forward-filled
+  CPI would show weeks before it was known; it needs a release delay or ALFRED vintages. Untested
+  today: whether the existing Compare already accepts an analytics market.
+- [ ] **Formula charts (BTC/ETH, spreads, baskets).** A "Formula" source in the Market list: a builder
+  (leg, operator, leg, add a leg) plus a typed form with quoted symbols, `Bitstamp:"BTC/USD" /
+  Bitstamp:"ETH/USD"`, since our symbols contain "/". Legs fetched on the chart's timeframe, matched by
+  time, last value held when one market is closed. Open and close exact; high and low by the formula on
+  each part (as TradingView) and kept valid, said in the manual to be approximate; no volume. Both live
+  streams feed the last bar. Never tradeable, paper included. Today's nearest thing is "Compare symbol
+  (ratio)", a close-only line.
+- [x] **The context menu items (Cody: "all recommended options", 2026-11-18).** Built 2026-11-18
+  (DeepSeek, branch `att-ctx-menu`, merged c52e20ab with Claude's fix; see the "Add label here" item above): add label here, horizontal line here, alert at this price, buy /
+  sell limit here (opens the dashboard filled in, never places), copy price, copy this bar, bar
+  replay from here, add indicator, object tree, remove all drawings (asks first); per series: alert
+  on this line, copy value, move to a new pane. Each names its shortcut.
+- [x] **Colour said the same way everywhere (Cody: "consistency", 2026-11-18).** Done 2026-11-18:
+  histograms and volume bars say "{colour} bar" as lines do (on arrival, then only where it
+  changes); heatmap cells say dark/medium/light from the alpha the renderer paints, with silence on
+  an empty cell; all behind the existing opt-in look setting. Renderer and words share one colour /
+  alpha function, pinned by pixel tests. What is left: the heatmap shade is a third of the 0–255
+  alpha range, so it is relative to the chart's heatmap volume multiplier rather than absolute
+  liquidity, and no new colour words were invented for display types that are not bars or lines.
+- [x] **Profiles split into buying and selling, as TradingView draws them (Cody, 2026-11-18).** Done
+  2026-11-18: `ProfileBin.BuyVolume`/`SellVolume`; a bar counts as buying when it closed up and
+  selling when down, with TradingView's doji-vs-previous-close rule and half each when that is
+  equal. Rows are drawn in the theme's bullish and bearish colours, spoken as "62 percent buying" /
+  "even", and sound a triangle when buyers lead, sine otherwise, keeping pitch by part and grit by
+  size. TotalVolume, POC, value area, levels and backtests are pinned unchanged; TPO rows have no
+  split. What is left: this is a split by **bar direction**, not real trade-by-trade buying; proper
+  delta needs lower-timeframe or tick data, and the profile is not split per trade or per price
+  inside a bar.
+- [ ] **"9-13 sequential" (Cody named it, 2026-11-18).** A DeMark-style count: setup 1 to 9 (close
+  against the close 4 bars back), then countdown 1 to 13 (close against the low/high 2 bars back),
+  with perfection, cancellation and recycle rules to settle from the published descriptions and to
+  check against a TradingView community script before calling it exact. A tick per count, a distinct
+  tone at 9 and at 13, spoken "Buy setup 9" / "Sell countdown 13". Not called "TD Sequential" (a
+  DeMark trademark).
+- [ ] **TradingView gaps, Cody's pick 2026-11-18 ("1, 2 and 3 for right now"):**
+  1. **More chart types.** **Line and area** — built 2026-11-19, not yet heard by Cody (toolbar
+     Chart type select and Go bar `CANDLE` / `LINE` / `AREA`; `PriceChartStyle` in the Sdk).
+     **Renko** — built 2026-11-19, not yet heard by Cody (toolbar select, Brick settings dialog,
+     Go bar `RENKO` / `bricks`; shared `BrickChart*` plumbing). Cody 2026-11-19: Price stays an
+     optional overlay; background Renko tabs announce their bricks (built 2026-11-19, not heard).
+     Same day, Cody: the series kept the name "Candles" and the line read values only → the price
+     series is now named after the chart type and reads "Close. line. X. …" / "Brick. Up. X to Y."
+     (built, not heard). Open: is the brick's direction right in the type slot?
+     **Range bars and line break** — built 2026-11-19, not yet heard by Cody (toolbar select,
+     per-type settings dialog, Go bar `RANGEBAR` / `LINEBREAK` / `LBREAK`; one-door
+     `BuiltCharts`; line break reads as "Block"). **Alerts split** (Cody's yes 2026-11-19) built
+     the same day, not heard: price, candle and drawn-level alerts read the real price on all three
+     built types, indicator alerts the bricks, and Candle gains New up / New down / Reversal (the
+     chart's own bars; not watched by the hosted no-chart monitor). Caveat: restoring a workspace across built
+     types re-resolves the size. **Kagi** — built 2026-11-19, not yet heard by Cody (toolbar select,
+     Kagi settings dialog, Go bar `KAGI 500` / `KAGI ATR 20`; thick/thin drawn and spoken, live
+     "Kagi turns thick at X." once per line). Cody's two answers (2026-11-19, "thickness audible,
+     yes if possible" / "yes percentage adjustment too") built 2026-11-20, not heard: a thick line
+     sounds heavy (square edge and sub-octave weight), a thin line nearly a pure sine, direction
+     still the pitch; and a **Percentage** reversal (dialog option, Go bar `KAGI 2%`), that
+     percentage of the line's end. **Point and figure** — built 2026-11-20, not yet heard by Cody
+     (toolbar select, settings dialog with Box and Reversal 1–20, Go bar `PNF 500 3` /
+     `PNF ATR 20`; X/O marks drawn, "Column. Up, X, 4 boxes." spoken, heavier sound for taller
+     columns, each new box said once live, background tabs say a column that grew). Cody's three
+     answers (2026-11-20) built the same day, not heard: **High and low** as the source (dialog
+     Source, Go bar `PNF 500 3 HL`), a **percentage box** (TradingView's "Percentage (LTP)", Go
+     bar `PNF 1%`; frozen at the price when chosen, TradingView's follows it), and spoken **buy
+     and sell signals** ("Buy signal, above the last X top at 105.00"; chart formations
+     untouched). **Bars, hollow candles, baseline, high-low, HLC area and volume
+     candles** (Cody's yes, 2026-11-20) — built 2026-11-20 and TRIED by Cody ("everything sounds
+     good"); his three findings fixed and re-heard the same day ("I heard the fixes, approved":
+     newest high-low bar silent, focus jumping to the body on a tick, point and figure fetching all
+     history) (toolbar select,
+     Go bar `BARS` / `HOLLOW` / `BASELINE 95000` / `HILO` / `HLC` / `VCANDLE`; each drawn, heard,
+     spoken and on the status line as its own shape; baseline clicks on crossing its base).
+     The baseline's base is fitted into the price axis (2026-11-20, not seen). Caveat: volume words weigh the 20 bars
+     before, not the view. Step line, line with markers and columns skipped. The brick and box types drop
+     time, so the bar cursor, playback and speech must say a brick's own start and end time, and
+     indicators run on the bricks.
+  2. **Percent and indexed-to-100 price scales.** **Built 2026-11-19, not yet heard by Cody**
+     (toolbar Price scale select and Go bar `REG` / `PCT` / `IDX`; `PriceScaleMode` in the Sdk).
+     Percent from the first visible bar (TradingView's), indexed to 100 the same way; speech says
+     "plus 4.2 percent" / "index 104.2"; COMPARE rebases to its own first visible value. Add symbol
+     and the formula charts are still open, and the scales have not been heard by Cody.
+  3. **Indicator templates.** **Built 2026-11-19, not yet heard by Cody** (toolbar workspace
+     group, Go bar `TPLS` / `TPL`, `IndicatorTemplates/<name>.json`). Replace-only; see
+     "Indicator template (Cody, 2026-11-05)" below for the details and caveats.
+
+  Not picked for now: several charts on one screen with linked symbol and crosshair; extended-hours
+  sessions for stocks.
+- [ ] **Full Pine Script in the script editor (Cody, 2026-11-19: "add that to the todo to be done
+  later").** Its own track, after the charting items above. Today `Core/PineScript/PineTranspiler.cs`
+  rewrites Pine to C# with regex patterns; that cannot follow indented blocks, user functions,
+  types/methods, arrays/maps/matrices, `[n]` on any expression, `var`/`varip` or tuples, and
+  `line.new`, `label.new`, `strategy.*` and `request.security` are stubs. Nothing in the language
+  needs TradingView's internals; it is documented. The order:
+  1. **Conformance bank first (cheap, can go alone):** 30–50 popular open-source indicators run
+     through today's transpiler and compared value by value with TradingView's own export, the
+     way Stoch RSI and Cipher B were matched. This measures what "some may not work" really is.
+  2. **A real parser + bar-by-bar engine**, compiled to C# for the existing sandboxed worker:
+     per-value history, `var`, `varip`, live-bar rollback and re-run per tick.
+  3. **The built-in library** (`ta.*`, `math.*`, `str.*`, `array.*`, `map.*`, `matrix.*`, types),
+     matched against the bank, including seeding and `na` handling.
+  4. **`request.security`** with Pine's documented no-lookahead rules for higher timeframes.
+  5. **Drawings** (`line`, `label`, `box`, `table`, `polyline`) on the drawing layer, each with a
+     spoken form (a table read out, a label as an event).
+  6. **Strategies**: an emulator of TradingView's documented broker (fill rules, intrabar order
+     path, pyramiding, commission, slippage, margin calls).
+
+  Can never work, and must be said in words when met: invite-only/protected scripts (no source),
+  `import user/lib/N` without pasted source, TradingView-only data (`request.financial`,
+  `request.economic`, `request.seed`, `EXCHANGE:SYMBOL` ids that do not map to a provider), and
+  tick-exact live-bar behaviour (their feed's ticks, not ours; closed bars can match exactly).
+  "Pine Script" is TradingView's trademark: describe it as "runs Pine Script v5/v6 indicators".
+  Replaces the old "Pine dialect fidelity was not assessed" line below once started.
+
+### Market events, market pulse and the Go bar (Cody, 2026-11-18)
+
+The plan, the reasons and Cody's decisions are in `docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md`. Built in
+stages by DeepSeek V4.1 Flash through OpenCode (Cody: saves Claude usage); Claude writes each handoff,
+reviews, re-runs the tests and sabotages, and merges locally. Docs and the user manual with every stage.
+Decisions: an event sits on the bar of its own day, as TradingView does (after-close earnings on the
+report day); events OFF by default; earnings from Finnhub (Cody is getting the free key); the pulse list
+as proposed.
+
+- [x] Stage 1: events on bars, the past (seeded US release dates and Fed decisions, rule-worked expiries,
+  holidays and halvings; the placement rule; the setting, off by default; the arrow clause; Alt+Shift+D;
+  apostrophe jumps). No figures, no live fetch. **Built 2026-11-18; Cody tried it the same day: "this works amazing."**
+- [x] Stage 2: live FRED dates with Cody's key, first-print actual figures, "hot" direction, landing
+  sound. **Built 2026-11-18, not yet heard by Cody.** Figures are in the seed for CPI (with core),
+  payrolls, unemployment and GDP; PPI needs the key. Caveats: the live fetch was never tried against
+  real FRED (no network in the build environment), PPI history before 2014 has no figures, ALFRED
+  refused automated requests for PPI so its history comes only through the key, and nothing here has
+  been heard by Cody yet.
+- [x] **Stage 3a: live notices.** Countdowns and position-aware warnings, the release read-out
+  (price reaction first), the FRED figure at T + 2/5/15/30/60 minutes, the bell with every notice,
+  the desktop toast when the window is hidden, and the "Countdowns before events" setting.
+  **Built 2026-11-18, not yet heard by Cody.** Caveats: no delivery while the browser is closed
+  (see the item below); for CPI, jobs, PPI and GDP future dates come only from FRED, so without a
+  key the only future countdowns are Fed decisions; the price reaction is the focused chart only;
+  FRED can lag, so the figure may never come within the hour.
+- [x] **Stage 3b: the Alt+E calendar.** Days as headings, range/importance/kind/only-touching
+  filters, Enter to the event's bar, "alert me before this" (the watched ids) and the release
+  history (the last six releases of the same source, with each figure and the focused chart's
+  price move). **Built 2026-11-18, not yet heard by Cody.** Caveats: its history's price part is
+  the focused chart only, and watched alerts are not delivered while the browser is closed (the
+  item below). Expected figures and the surprise word arrived in stage 4a.
+- [ ] **Live market-event notices while the browser is closed.** The design doc promised the
+  alerts route; stages 3a and 3b only speak while a session is open, including a watched event's countdowns. Doing it needs ONE process-wide
+  owner, as `LocalBackgroundMonitor` and `CircuitAlertCoverage` are for alerts: with a plain
+  second subscriber, a closed tab's circuit (alive for about three minutes) and the headless
+  session would both speak every countdown and read-out, and the bell would ring twice. Not done
+  yet, deliberately.
+- [x] **Stage 4a: Kalshi expected figures.** What Kalshi's prediction markets priced before CPI,
+  core CPI, payrolls, unemployment and GDP, said with its source (*"expected 0.3, by Kalshi"*),
+  and the surprise word wherever an actual and an expected both exist. **Built 2026-11-18, not
+  yet heard by Cody.** Caveats: those five figures only; history only as far as Kalshi's markets
+  (about mid-2021); Kalshi's traders, not economists, so it can differ from the consensus quoted
+  in the news; an upcoming release's expected moves until the release; the live fetch was never
+  run against the real API from the app (the fixtures are real responses saved 2026-11-18).
+- [x] **Stage 4b: earnings (Finnhub, Cody's key).** A stock's report days on its own charts only,
+  from Finnhub's calendar (day, before the open / after the close, EPS and revenue against the
+  analysts' estimates) and EPS history, timed to the minute by EDGAR's 8-K item 2.02 when it has
+  it. The "Company earnings" kind box (Settings and Alt+E, on by default) and the Alt+E status line.
+  **Built 2026-11-20, not yet heard by Cody, not on the VPS.** Caveats: Finnhub's calendar lists
+  only the latest report and the coming ones, so an older quarter appears only where EDGAR's
+  twenty newest filings date it (a busy filer loses the older ones); no countdown for a coming
+  report (a day and a session, no minute); the shapes were checked live with Cody's key on
+  2026-11-20 but the app's own read has not run against the real service; how soon after a report
+  Finnhub fills in the actuals was not measured; kept in memory, so a restart reads again; each
+  user needs their own key (Finnhub's terms allow no shared key, so the VPS cannot offer one).
+- [ ] **Token unlocks: blocked.** DefiLlama's emissions/unlocks API now answers "Upgrade to the
+  paid API plan" (checked 2026-11-18), so it needs a paid source or Cody's decision.
+- [x] **Fed expected rate.** Kalshi's KXFED (FED before 2026) ladder for the meeting's own
+  month: the expected upper bound before, the settled one after, the meeting before within 60
+  days as "from". **Built 2026-11-20, not heard, not on the VPS.** Caveats: the decided rate comes
+  from Kalshi's settlement, not FRED, so it lands minutes after the statement and only where
+  Kalshi had a market (2022 on; FED-22MAR and older use another shape and are skipped);
+  unscheduled meetings get nothing; Kalshi's traders are not the fed funds futures the news quotes;
+  the backfill of about forty past meetings shares the forty-releases-a-pass budget, so old bars
+  fill in over several ten-minute passes.
+- [x] **Stage 5a: the market pulse (Alt+P).** The "Pulse" watchlist, seeded from the nine-item
+  table and edited in Alt+M; fixed order; held positions appended for the reading only; one
+  sentence with percent changes, basis-point yields, closed sessions and minutes-old quotes; the
+  four-second limit and the one-second "Gathering the pulse."; and the "Pulse: crypto change
+  measured from" setting. **Built 2026-11-18, not yet heard by Cody.** Caveats: the four-second
+  limit, the US-hours closed rule's reliance on a stale bar instead of a holiday calendar, index
+  CFDs treated as closed outside 09:30–16:00, a fixed symbol-candidate table never probed live,
+  and the browser-closed delivery limits above.
+- [x] **Stage 5a follow-up: the compact braille line for the Dot Pad.** BUILT 2026-11-20, not
+  felt by Cody (no Dot Pad here either): "SPX +0.4, BTC -1.2, 10Y 4.31 +3bp, Gold +0.2 4m, Oil
+  n/a, VIX cl +2.1", one item a page, held through live ticks until the cursor or focus moves
+  or 60 seconds pass; the pan keys step it and pan right past the end gives the chart back.
+  Caveats: pages are cut by characters, and Grade 2 may make an item longer or shorter than the
+  20 cells; a screen reader's own braille display already shows the spoken sentence, so this is
+  for the Dot Pad only.
+- [x] **Stage 5a follow-up: a detail read of the pulse.** BUILT 2026-11-20 as **Ctrl+Alt+P** (Go
+  bar `PULSED`), not heard: the last Alt+P reading item by item — symbol and provider, last
+  price, the change to two decimals from its named start and that start's price, and how old
+  the minute bar was. Never fetches; before any Alt+P it says so. Caveat: an item read from
+  daily bars only says "daily bars only", not a time.
+- [x] **Stage 5b: "what changed" (Alt+U).** The change log and catch-up for the four
+  categories whose events exist: money (fills, stops, take-profits), alerts, market events
+  released and connection problems. It keeps the latest 500 entries for seven days under
+  `change-log.json`, de-duplicates a fill seen by a circuit and the headless session, reads the
+  top five per press in category order with "Press Alt+U again for N more", and marks only the
+  spoken items heard. "Offer a catch-up when I come back" (default on) appears in Settings →
+  Narration and only offers after five minutes. **Built 2026-11-18, not yet heard by Cody.**
+  Caveats: the sound was never heard; a market event released while the browser is closed is
+  still not recorded (the existing process-wide-owner item above); and the hosted head records
+  only its alerts, with in-circuit items through the circuit recorder.
+- [x] **Stage 5c: unusual moves.** `UnusualMoveRules`: the closed bar's close-to-close move
+  against the median of the 46 moves before it on the same chart, unusual at 5 times or more,
+  "times" rounded down. `UnusualMoveWatcher` checks the focused chart and the live background tabs
+  at each close (not in replay); `LocalBackgroundMonitor` checks every saved tab it watches with
+  the browser closed, keeping its own 49-bar history so only the first poll fetches more (a bar-only
+  tab's first fetch went from 3 to 49). Recorded for Alt+U only, never spoken. **Built 2026-11-20,
+  not heard.** Caveats: the 46 / 5x numbers are my choice, not tuned on data, and a question for
+  Cody; a poll gap longer than the 3-bar fetch restarts the monitor's history, so no unusual move
+  for 46 bars after it.
+- [x] **Stage 5c: signals on watched charts.** The `Signal` category: an open background tab's
+  ladder (`BackgroundBarClosedEvent` / `BackgroundBricksFormedEvent` with narration) and, with the
+  browser closed, the ladder the monitor speaks (`ChartSignalEvent`), keyed by chart and bar so the
+  two are one entry. **Built 2026-11-20, not heard.** Caveats: the focused chart's ladder is not
+  recorded (it is spoken inside the feedback coordinator, which publishes no text); chart
+  formations (`,`) are not in the ladder, so they are not recorded; a covered chart's ladder with
+  the browser open but the tab not live is not recorded.
+- [x] **Stage 5c: position profit and loss since you left.** The away mark keeps every open
+  position (paper account in paper mode, else every active key's venue, never a withdrawal key) in
+  `change-log.json`; the next Alt+U reads them again and says, after the header, *"Positions since
+  09:40: BTC/USDT made 42.10, SOL/USDT opened, ETH/USDT closed."* Once, then forgotten. **Built
+  2026-11-20, not heard, not tried with a live venue.** Caveats: the amount is the change in the
+  venue's unrealized profit, in the venue's own currency, with no currency named; a position whose
+  size changed says "size changed", not an amount; any venue that fails makes the whole read
+  unknown ("could not be read") rather than calling its positions closed; the read runs after the
+  mark without the caller waiting, so a desktop app that exits within the read keeps the mark and
+  loses the positions; Alt+U waits at most 5 seconds on the venues.
+- [ ] **SHELVED (Cody, 2026-11-21: "shelve the headline notification for later"). Stage 5c:
+  market events and headlines released while the browser is closed.** The same blocker as the
+  stage 3a item above: one process-wide owner is needed, or a closed tab and the headless
+  session would both speak/record it. Not to be started until Cody brings it back.
+- [x] **Stage 5c: the morning brief.** Go bar `BRIEF` (`SystemCommand.MorningBrief`, Ctrl+Alt+B since 11-21):
+  the Alt+U press, the pulse sentence and today's market events as one interface-tier sentence;
+  the catch-up items are marked heard after it is said. **Built 2026-11-20, not heard, not on the
+  VPS.** Caveats: Ctrl+Alt+B (Cody asked for Alt+B, which is the order book; he chose Ctrl+Alt+B 11-21); "today" is the
+  spoken clock's whole day, earlier events included; events with market events off fall back to
+  important only (my choice); the brief waits on the slowest pulse quote and up to 5 s on venues.
+- [x] **Stage 6a: the Go bar's registry, matcher and box (Alt+G).** One entry for every
+  `SystemCommand` except `None` (140) behind a guard test that goes red when one is removed; the
+  fixed order exact code → exact name/alias → prefix → word start → near miss; money exact-code or
+  exact-full-name only; the close-then-dispatch entry point; and the ARIA 1.2 combobox with the
+  polite read on the Interface tier. **Built 2026-11-18, not yet heard by Cody.** Caveats: no
+  arguments, no settings by name, no typed `BUY`/`SELL`/`FLAT`, and the box has not been heard.
+- [x] **Stage 6b: Go bar commands with arguments.** `TF 4h`, `IND rsi`, `ALERT 95000`,
+  `GOTO 2024-03-01`, `GOTO CPI`, `FIND hammer`, symbols, and words in either order (`BTC GP` /
+  `GP BTC`); the four 6a silent-drop commands now have real handlers and a guard; one load path
+  from the tab's identity, the shape-change refusal and the toolbar composer re-parse.
+  **Built 2026-11-18, not yet heard by Cody.** Caveats: other venues are not searched (no
+  in-memory cross-venue symbol list), `ALERT` opens the form rather than creating the alert, and
+  6c (settings by name, `HELP <code>`, typed `BUY`/`SELL`/`FLAT`) is still open.
+- [x] **Stage 6c: the rest of the typed surface.** Settings by name, `HELP <code>`, and the typed
+  money commands `BUY` / `SELL` / `FLAT` through the spoken order review; the Settings registry
+  moved to Core and `OpenSettingsEvent` can focus a named control. **Built 2026-11-18, not yet
+  heard by Cody.** Caveats: the money verb is first-word-only, `FLAT` takes no symbol, and the
+  handoff's `speech rate` example has no setting to reach in this build.
+- [x] **Second Go bar opener: slash (Cody, 2026-11-20).** Alt+G stays; `/` opens the bar too, from
+  anywhere but a text box (where it types a slash). On 2026-11-18 Cody had closed this as "Alt+G
+  only" (the backtick and `Shift+\` were the candidates; `Shift+\` is not one key on AltGr layouts).
+  Slash is one key on US layouts; on German it is Shift+7, which reaches the browser as `/` and opens
+  the bar the same way — unverified on a German keyboard. A saved shortcut profile gets slash only
+  while its Go bar is still on Alt+G.
+
+### Headlines (Cody, 2026-11-20)
+
+The plan is in `docs/MARKET_EVENTS_PULSE_GOBAR_DESIGN.md`, section 4. One headline store; said on
+arrival (own setting, Off by default, Shift+F2 mutes it, own sound), in the Alt+I dossier, and in
+Alt+U under Headlines; only symbols the trader touches.
+
+- [x] **Stage 1: SEC EDGAR filings.** **Built 2026-11-20, not yet heard by Cody, not on the VPS.**
+  "AAPL filed an 8-K: earnings results." within about a minute of EDGAR accepting it, for stocks on
+  open chart tabs and held stocks; the Headlines level setting; the Headline sound; the toast; the
+  Alt+U Headlines category; the dossier's Recent filings tab. Caveats: never run against live EDGAR
+  end to end (parsers pinned by fixtures captured from it on 2026-11-20; the poller tested on a fake
+  source and clock); the item and form importance table is my judgement, so Cody may want to move
+  things between levels; a stock is only known to EDGAR by its plain ticker (class shares such as
+  BRK.B and foreign listings may be missed); nothing while the browser is closed.
+- [x] **Stage 2: Alpaca news websocket.** **Built 2026-11-20, checked live that evening (read
+  only), retuned on real stories; not heard, not on the VPS.** On a free account the stories are
+  fiscal.ai's, in batches about every half hour, stocks only (no coin stories) — a slow second
+  source, which is why Finnhub (stage 3) matters. Wire stories for touched stocks and coins on the Headlines level, the "Include
+  news wire stories" switch (default on; nothing without an Alpaca key), a 3-second gather and a
+  1-minute cap per symbol, dedupe by story id, the dossier's Recent news tab. Caveats below.
+  - [x] **Key verified, frames captured (2026-11-20 evening).** Cody's new live pair works for news
+    (used read-only, never for orders); the fixtures are now real captures (a stream frame and two
+    AAPL REST stories, article text cut short); the 20:01 UTC batch matched REST story for story.
+    The importance rule was retuned on the day's 688 stories (Low 526, Medium 91, High 71) and
+    every new part of it is pinned by a real headline (21 sabotages, each red).
+  - [ ] **Cody: put the PAPER Alpaca pair in the app's API Keys** (the Alpaca slot also drives the
+    Alpaca trading venue, so never the live pair there). The paper pair in
+    `patches/api keys/alpaca-api-key.txt` still has no secret: regenerate it on the paper dashboard.
+    Then turn a level on, open stock charts, and listen around :01 and :31 past the hour.
+  - [ ] **Unchecked:** the crypto symbol form (`BTCUSD` assumed — no coin story came all day), and
+    the 402/406/409 error codes (none seen).
+  - [ ] **Q for Cody after hearing it:** is the wire importance rule right? It is my judgement,
+    retuned on real fiscal.ai headlines (results, guidance, takeovers, listing notices, FDA, hacks
+    important; upgrades, officer changes, contracts, probes, dividend rises medium; result dates,
+    law-firm ads, holdings notices, price targets and plain dividend declarations low). Plain
+    "declares quarterly dividend" moved from medium to low — right? Is a minute per symbol the
+    right cap?
+  - [x] **Alpaca is now a second source, off by default (Cody asked 2026-11-20 whether it is still
+    needed: no).** Finnhub covers the same stocks sooner and has coins; free Alpaca is fiscal.ai,
+    half-hourly, stocks only. Its own switch, Settings → Narration → "Also read Alpaca's news wire",
+    off by default; the dossier's Recent news still reads Alpaca's REST when a key is there. Turning
+    it off leaves the gate it shares with Finnhub alone (tested: clearing it would make Finnhub say
+    its stories again).
+  - [ ] **WebHost: one socket per browser circuit** (only with the Alpaca switch on). Alpaca allows
+    one news connection per account, so a second window gets 406 and waits five minutes, then tries
+    again. A per-user shared socket fixes it. Finnhub is polled per window, which spends that key's
+    60 a minute faster with two windows open (each window at most 15 a minute).
+  - [x] **`SymbolAssets.Split("XBTUSD")` fixed 2026-11-20:** the longest quote still wins unless it
+    leaves a base under three letters, so XBTUSD is XBT/USD, DOTUSD DOT/USD, BATUSD BAT/USD, and
+    BTCFDUSD stays BTC/FDUSD; OPUSDT (a real two-letter coin) still splits OP/USDT, from the shorter
+    quote when only a short base is left. Pinned by six cases.
+- [x] **Stage 2b: the news list (Go bar `NEWS`), built 2026-11-20, not heard.** Every headline kept
+  this session, said or not (up to 3000, the newest 200 listed), newest first, one line each:
+  "AAPL: headline. Important, Yahoo, Nov 20 14:02 UTC, not said." `NEWS AAPL` lists one symbol;
+  `NEWS` and other words search the headlines. Enter goes to the headline's bar when it is on this
+  chart, otherwise says which symbol it is for and `GP SYM`. Also `HDLN` (the headlines setting),
+  `EVTS` (market events) and `CPAT` (describe chart patterns) reach the settings by code.
+  - [ ] Kept in memory only: a restart starts an empty list (the backfill below refills the
+    focused chart's own).
+- [x] **Cross-source dedupe** (built with stage 3, 2026-11-20): one gate for both wires, keyed by
+  wire and id, and per symbol a headline sharing 60 percent of its words with one already offered is
+  the same story. EDGAR and the wire say different things and both stay.
+- [x] **Stage 3: Finnhub news. Built 2026-11-20, checked live read-only with Cody's key; not heard,
+  not on the VPS.** Polled (the news socket is paid-only): each touched stock's company news and the
+  crypto list once for all coins, every minute, at most 15 requests a minute; said only when the
+  headline names the stock, company or coin; a baseline first look; the dossier lists both wires.
+  Coins are covered here (Alpaca's free feed has none).
+  - [ ] **Measure Finnhub's listing delay** (a story's `datetime` to the moment it appears in the
+    list) during US hours: the 2026-11-20 recorder ran after Friday's close and caught almost
+    nothing new. Walmart's results: 8-K accepted 11:58:52 UTC on 11-19, first Yahoo story dated
+    12:00 — the stories are prompt, but when Finnhub listed them is unknown.
+  - [ ] **Q for Cody after hearing it:** too many stories per event? (Twelve differently worded
+    stories about one AMD short-seller report on 2026-11-20 — each says, at most one sentence a
+    minute.) If so, a per-symbol cap of a few per quarter hour, or Medium and up only from Finnhub.
+  - [ ] **Unchecked:** class shares (BRK.B) asked by their own symbol; the company names of
+    foreign listings (20-F filers) in EDGAR's list.
+- [ ] **B, companies' own press releases (RSS): assessed after stage 3, not needed now.** The
+  releases that move a stock (results, takeovers, guidance) are filed as an 8-K, which stage 1
+  says within a minute of EDGAR accepting it, and Finnhub's stories followed within minutes (Walmart,
+  2026-11-19: 8-K 11:58:52 UTC, Yahoo story 12:00). A press wire's feed might be a minute or two
+  ahead of the 8-K at best, needs a feed per company or a whole-wire firehose to match, and the free
+  wire feeds are mostly small companies. Revisit only if Finnhub's measured listing delay is long, or
+  Cody hears a release he wanted that neither the filing nor the news caught.
+- [x] **Headlines placed on the bar they arrived in, with period jumps — built 2026-11-20, not heard,
+  nothing looked at on screen.** A headline is on the bar whose time span holds it; one between bars
+  (overnight, weekends) on the next bar; after the last bar on the last bar; before the chart not at
+  all. The arrows read "Headline: X. 2 more headlines." (the most important first, at the Headlines
+  level); `Alt+Shift+D` reads every one with time, source and importance whatever the level; period
+  and Shift+period jump between them. Not on brick charts (no clock), forex, indices or futures.
+  Filled from what this session heard plus, on first look at a stock or coin chart, the chart's own
+  last 30 days (at most) of Finnhub company news that names it and its SEC filings, read again every
+  half hour (two minutes after a failure). Caveats: nothing is DRAWN on the bar yet (sound and speech
+  only); a coin's backfill is only Finnhub's newest hundred or so crypto stories; a headline's time
+  is the wire's time, and Alpaca's is its half-hourly batch time.
+- [x] **Keys rearranged (Cody, 2026-11-20): `,` formations, `.` headlines, `'` market events, Shift
+  for previous; Ctrl+Alt+Shift with the same key switches each on or off.** Formations were `,` back
+  and `.` forward. A saved profile still on the old pair is moved when it loads; a pair the user
+  rebound is left alone (tested). The browser never sent `Shift+,` `Shift+.` `Shift+'` or a bare
+  `'`, so none of those could have worked from a key before (apostrophe reached .NET only through the
+  chart's own handler, and Firefox's quick find opened as well): all are trapped now, on the chart
+  only. Unverified on a real browser with a screen reader: the browser tests drive Chromium only.
+- [ ] **CryptoPanic: only if crypto news proves thin after stage 3** (Finnhub's crypto list:
+  Cointelegraph and CoinDesk, about 90 stories over two days) (Cody asked whether it is strictly
+  necessary: no). If added, the credit goes in the user manual, never in speech (Cody); check its
+  terms first, which may ask for a visible "Powered by CryptoPanic" by the feed.
+- [ ] **Q for Cody after hearing it:** is the importance table right (for example, should a Form 4
+  insider trade be medium for a held stock)? Should the first look at a stock also say a filing from
+  the last 15 minutes rather than 5?
+
+### Trading not yet tried on a practice or real account
+
+Cody, 2026-11-16: everything else built up to 2.13 has been seen and heard; trading through the venues
+on demo or practice accounts has not. Later the same day: "I'll get to this as I can." Every item below is proven only against fixtures copied from each
+venue's public answers or docs. The README and WHATSNEW say so.
+
+- [ ] **Kalshi perpetual futures (2026-11-14; see CHANGES).** Not tried with money; no order placed,
+  not even on the demo venue. Cody to make a demo account first.
+  - Unverified until an account answers: whether `/margin/orders` lists only resting orders or
+    everything (the terminal keeps those with a remaining count); the positions, risk, balance and
+    fills shapes; whether `fill_count` is in an IOC's answer.
+  - Stops and targets (2026-11-15) are Kalshi's exit triggers, also untried. Unverified: that setting
+    an isolated bracket again replaces it; which margin type the main account is; the trigger answer
+    shapes. They fire on the MARK price as an immediate limit near the level, so a fast market can
+    leave part or all of it unfilled. A new entry's stop changes a bracket that covers the whole
+    position (said aloud). Trailing stops are not built (listed and cancelled only).
+  - Daily candles close at midnight New York time, not UTC; weekly and other timeframes are built
+    from 1h or 1d by the terminal.
+  - Prices are per contract; on a market whose contract is not one unit of the asset the chart is
+    the contract's price, not the asset's.
+  - Stock perps need Kalshi's stocks application; the refusal says so but the terminal cannot check
+    first.
+  - No websocket: the book and positions are polled.
+  - A failed `/margin/risk` read fails the whole positions read (by design, nothing swallowed).
+
+- [ ] **Coinbase US futures (2026-11-14; see CHANGES).** Cody is applying for a Coinbase futures
+  account. Not tried with money; no order placed.
+  - Unverified until an account answers: that `base_size` is counted in contracts (the product
+    steps of 1 say so; the docs do not), the `cfm/positions` and `cfm/balance_summary` shapes,
+    and what a spot-only account gets from them (assumed a 4xx).
+  - Coinbase documents an attached bracket (`attached_order_configuration` with
+    `trigger_bracket_gtc`) for spot and US derivatives. If it works, both Coinbase markets could
+    attach a stop and target instead of refusing. Not built.
+  - No liquidation price per position; the futures account's liquidation line
+    (`liquidation_threshold`, `liquidation_buffer_percentage`) is in the balance summary and is not
+    shown yet.
+  - Only unexpired contracts are listed. Funding on the perps is not shown.
+  - MEXC futures positions are in contracts but carry no `ContractSize` yet, so their percent move
+    is off by the contract size, as Coinbase's was.
+
+- [ ] **Stops on entries refused where the venue cannot attach them; Kraken Futures positions and sizes
+  (2026-11-14; see CHANGES).** Not tried with money.
+  - Kraken Futures could attach real legs (a reduce-only `stp` and `take_profit` after a market entry)
+    instead of refusing. That needs a funded account to see how the venue treats a reduce-only stop
+    while the entry is resting. Not built.
+  - Kraken Futures gives no liquidation price per position, so the near-liquidation warning cannot
+    fire there.
+  - Unverified, not demonstrated: Kraken spot `CanonicalKrakenPair` keeps "USDTZUSD" whole (only
+    pairs with BOTH halves prefixed are stripped). It may not match the "USDT/USD" spelling elsewhere.
+
+- [ ] **Every other crypto venue: market rules, leverage as asked, read pacing (2026-11-10, built, NOT
+  tried with money on any venue; see CHANGES).** Gemini, Binance, Coinbase, Bitstamp, MEXC and
+  Hyperliquid.
+  - Cody to try, wherever there is a live key: a tiny order under the venue's minimum should be refused
+    in words before anything is sent; a 1x perp order after a higher one should open at 1x; leverage above
+    a market's maximum should be refused and name it (Hyperliquid TAO 5, KAS 3 as read 2026-11-10). On
+    Gemini, the dashboard should no longer slow an order down.
+  - **Questions for Cody:**
+    - Gemini: a market not "open" (limit_only, post_only, cancel_only) refuses EVERY order. Should a
+      limit order go through on a limit_only market, and a post-only one on post_only?
+    - Binance: an order at a different leverage from a position already open on that market is refused
+      (Binance keeps one leverage per market and would change the open position too). Keep this, or
+      change the position's leverage after asking?
+    - MEXC: its API docs have marked futures order placement "under maintenance" since 2022. If MEXC
+      futures are wanted, it needs a live try; spot is unaffected.
+  - Unverified, needs a live account:
+    - Every venue: no real order sent, so the formatting and refusals are proven against fixtures copied
+      from each venue's public answers (2026-11-10), not against a real fill.
+    - Binance answers 451 from here: spot fixtures are from data-api.binance.vision, futures from the
+      testnet; leverageBracket and positionRisk follow the docs' shape; the mainnet futures BTCUSDT step
+      and minimum value are from memory; whether a US account can reach Binance at all.
+    - Coinbase: the private accounts paging (needs a login; follows the docs); base_max_size is read but
+      not checked.
+    - Bitstamp: whether instant (by-value) orders want `instant_order_counter_decimals` rather than the
+      pair's counter decimals.
+    - Hyperliquid: whether the $10 minimum applies to reduce-only orders (left to the exchange), and how
+      it values a market order.
+    - MEXC: leverage risk tiers above the contract's plain maximum.
+  - Not done:
+    - A market order's minimum VALUE is not checked on Coinbase, MEXC spot or Binance futures, because no
+      price is to hand; the venue still judges it.
+    - Binance hedge mode: the open-position leverage guard treats LONG and SHORT positions alike.
+    - Rules are kept six hours; a market that changes status in between is caught by the venue.
+
+- [ ] **Kraken live trading: balances, order minimums, leverage, read pacing (2026-11-10, built, NOT
+  tried with money; see CHANGES).** Cody plans to trade BTC, TAO and KAS on Kraken spot.
+  - Cody to try, on the DESKTOP app with a live Kraken key (the VPS is paper only): after a deposit, the
+    Balances tab should say USD (not ZUSD) with the amount under Free, and the risk sizer should find the
+    cash. Place a resting limit buy: its dollars should move to Locked. Try a 100 KAS order: it should be
+    refused with "Kraken's smallest KAS/USD order is 170 KAS". On KAS/USD the leverage field should read
+    "this pair takes 2 or 3".
+  - Unverified, needs a live account: BalanceEx (read from Kraken's docs; the fixture is shaped like the
+    docs, not like a real answer from this account); what `.HOLD` really holds (not documented by Kraken);
+    the margin close (an opposite order with the position's leverage and `reduce_only`; Kraken's docs do
+    not say a close must use the same leverage, and the position's leverage is rounded from cost/margin);
+    whether this account is allowed margin at all (Kraken limits margin by region and verification);
+    the account's real rate tier (the limiter assumes the lowest, Starter); Kraken Futures' PUT
+    /leveragepreferences (the signing of a query string is my reading of the docs).
+  - Not done: Kraken Futures positions still report leverage 1 (hard-coded); a close of a Kraken Futures
+    position sends no leverage (none is needed there: reduceOnly is enough). The pair rules are read
+    every six hours; a pair Kraken moves to cancel-only in between is caught by Kraken, not by us.
+  - **Cody's 2026-11-10 report, the error on editing a paper take profit (Positions tab, take-profit
+    column):** done again on 2026-11-13 through the real dashboard on a copy of Cody's own paper account,
+    and on a short in a unit test: the current code says nothing wrong. The server Cody heard it on was
+    started before the 2026-11-10 fix (21:42). Cody to try once more on the running server; if it still
+    happens, the exact words and the position (long or short, which legs) are needed.
+
+- [ ] **Trading with several tabs and venues, and the stop-edit error (2026-11-05, built, NOT tried; see
+  CHANGES).**
+  - Cody to try, on PAPER:
+    - Open a position with both a stop and a take profit, then move the stop on the Positions tab. It
+      should be silent (no error sound, no "may be unprotected"), and the take profit should still be
+      listed.
+    - Arm a quick trade on one tab, switch tabs and press Ctrl+Enter. It should say where it was armed and
+      place nothing.
+    - With BTCUSDT on Kraken and on Bitstamp in two tabs, buy on one. Then buy from the other: it should
+      be refused.
+  - Question for Cody: **paper accounts per venue?** Paper mode keeps one position per symbol, so you
+    cannot hold paper BTC on Kraken and on Hyperliquid at once (the second is refused). Recommendation:
+    one paper account per venue, keyed by venue and symbol, so a paper session can rehearse exactly what
+    the live accounts would hold. That touches the paper ledger file, the Positions tab and the status
+    bar, so it waits for a yes.
+  - Unverified (built, no test drives it): the Positions tab's current price comes from the position's own
+    venue, and a second Enter while an edit is in flight is ignored.
+  - Open, mine:
+    - Before any paper position or order exists for a symbol, its last price is shared by every venue's
+      bars. A market order is priced from its own venue's tab, so this only matters with no such tab open.
+    - A recorded venue that returns no price at all turns the venue guard off for that symbol.
+
+- [ ] **Hyperliquid provider (2026-11-04, merged, NO order ever sent; see CHANGES and
+  docs/HYPERLIQUID_PROVIDER.md).**
+  - Cody: make an agent wallet on the TESTNET (app.hyperliquid-testnet.xyz), add a Paper profile and
+    validate it.
+  - Then place one small limit order, cancel it, and place a bracket.
+  - Mine, after that first order: record real `clearinghouseState` and `frontendOpenOrders` replies to
+    replace the documented-shape fixtures, and try the websocket live.
+  - Not built: HIP-3 dexes, TWAP, `expiresAfter`, the `orderUpdates` stream, the dead-man's switch,
+    funding as an indicator, vaults.
+
+- [ ] **Hyperliquid: research done, nothing built (2026-10-25; see `docs/archive/HYPERLIQUID_RESEARCH.md`).**
+  Questions for Cody before anything is built:
+  - Are you a US resident or citizen? If so, live trading (phase 4), and in practice testnet
+    (phase 2), break Hyperliquid's terms until the Payward/Bitnomial route opens.
+  - Is this for your own trading, or a feature for the terminal's users?
+  - Is a read-only data provider (phase 1: funding, open interest, HIP-3 stock perps) worth building on its own?
+  - Hand-written signing, Nethereum, or JKorf's HyperLiquid.Net?
+  - Should we watch Payward/Bitnomial and Kraken Pro instead?
+
+### Verified by Cody (2026-11-16): what is still open
+
+The items that waited here for Cody's look and listen (2026-10-22 to 2026-11-15) moved word for word to
+`docs/archive/TODO_HISTORY.md`, "Verified by Cody 2026-11-16". A question that only asked whether something
+sounded or looked right is taken as answered by that. What they still ask is below. **Q** marks a
+question for Cody; the rest are known limits I wrote down.
+
+- [ ] **Cipher A names, "faint", Cipher B Sell dot (2026-11-15).** The two red diamonds' size: DONE
+  2026-11-16 (one factor per indicator; the Blood Diamond stays larger at every zoom). Limits: the Sell dot is our rule (the buy dot's mirror), with no chart to
+  check it against; the hidden keys keep the shape names ("Blood Diamond").
+- **Cody's answers, 2026-11-16** ("take all of your suggestions to the questions. drop the gold dot, not
+  needed."), recorded here so they are not asked again; what was built is in CHANGES. Note the names: the
+  items below that say "Cycle Position" mean today's Cycle Position (the copy of the original, named
+  Cipher C until 2026-11-04), and "Cipher C" today's Cipher C. Decided, nothing to build: Cycle
+  Position's "Yearly lows found from price" stays off; the dollar's 15-24 day table beside its 16-25
+  band stays, as in the original; confirmed lows keep saying their confluence; untuned assets keep
+  their weekly lows drawn; a pending low's later tag change is not announced; no white dotted zero
+  line. Cipher C: no two-daily-cycles rule for a weekly cycle; the 65% "low had come" share stays; the
+  per-asset rules stay off (not without refitting Low is in). Alerts do not describe what a marker
+  looks like. Bars stay named by their open time (no close-time option). The gold dot question is
+  dropped. The screenshots are not re-shot. Already built before the question (it was stale): Cycle
+  Position's "held, unconfirmed, N days" (2026-10-28) and Cipher C's "less reliable on this chart",
+  which is the weekly reading's "often missed here" (CYCLE_POSITION_DESIGN 9.8). Built 2026-11-16: the
+  rest (CHANGES, "Cody's answers to the open questions").
+- **Cody's answers, 2026-11-17**, to the eight questions left after that: (1) Cipher B's periods and
+  "Version" input stay gone; (2) the three setup graders keep refusing to run; (3) each "Read as" form
+  keeps its own saved sound: BUILT; (4) Add Indicator splits settings into Advanced: BUILT; (5) no trigger
+  or slow DSS adjustment settings for Cycle Position; (6) Ctrl+Alt+Shift+K stays as it is (it unhides
+  only what H hid, not left-out parts); (7) the Alerts dialog lists left-out parts, marked "(left out)":
+  BUILT; (8) the Market Cipher crypto 4h re-test is closed, not waited on (re-runnable later under its
+  own pre-registration). The "move Cipher B's Wave Trend periods to Advanced" question was stale: the
+  periods are gone (answer 1). Built: CHANGES, "Cody's answers, 2026-11-17".
+- [ ] **Cipher C on the chart's own clock (2026-11-07).** Low is in re-run on the time-counted lows:
+  DONE 2026-11-16, back on weekly charts (their own weekly lows and the yearly reading) and, on 4-hour
+  coin charts, the weekly reading only (CYCLE_POSITION_DESIGN 9.14). Limits: the 4-hour daily and yearly
+  readings stay off (94.8% and 9 of 11, under the daily chart's); 1-hour and shorter charts and 4-hour
+  stock charts were not measured and read none of it; on a weekly chart only 6 of Bitstamp's own weekly
+  files were tried, the rest are daily charts made weekly; the first weekly low after the count's start
+  is never said pending; weekly charts match the original's weekly lows less well than daily charts
+  (.516 vs .658 F1); a scroll-back on an intraday chart can move the daily lows for several cycles.
+- [ ] **Cycle Position (the copy of the original, 2026-10-21 to 10-28).** Every question answered (above).
+  The known gaps are listed in the archived item ("Cipher C drawn as the original").
+- [ ] **Cipher C (2026-10-28, named Cycle Position until 2026-11-04).** Low expected removed and the weekly
+  "high" mark added: DONE 2026-11-16. To build, LATER (Cody: yes, later): read the check-box marks as
+  events in the strategy catalog.
+- [ ] **Cipher B as Market Cipher B 2.4.0 (2026-10-31).** Grey lines on light themes and opaque waves on
+  Steel Gray: DONE 2026-11-16. Retired strategies and `TradeRanker`: DONE 2026-11-16 (the retired
+  built-ins move out of old libraries to `strategies.retired.json`; `TradeRanker` deleted; see CHANGES).
+  The periods and "Version" input stay gone and the setup graders keep refusing (Cody, 2026-11-17;
+  build 2e86d377 to re-run one). Each "Read as" form keeps its own saved sound: DONE 2026-11-17.
+  Limits: the waves' "overbought"/"oversold" uses ±53 whatever the Triggers say; the pane's floor is −103,
+  so Trigger 2 below −53 clips the bar; the buy dot is drawn at −96; a Different Timeframe shorter than the
+  chart's falls back to the chart; 4-hour and daily buckets on stocks are UTC-aligned.
+- [ ] **Properties (2026-10-23).** Every question answered 2026-11-17 (above). Add Indicator's Advanced
+  group and the Alerts dialog's left-out parts: DONE 2026-11-17. Limit: the browser-closed tab monitor's
+  memory of a left-out part has no test of its own (its test harness has no indicator engine); it uses
+  the same helper the chart and the hosted poll do, which are tested.
+- [x] **Cipher DBSI (the study).** CLOSED by Cody 2026-11-17 ("close the dbsi study"). The app's DBSI is the
+  study's last adopted model, `zu_hs66e` (ported 2026-11-02); re-checked 2026-11-17: both fixtures regenerated
+  from it equal the committed ones bar for bar, and every DBSI test passes. Left as limits, not to be chased:
+  the bear side misses more than the bull side; flat-price eras ("flat prices, may be 2 off" is said there);
+  the Stoch RSI top digit (TradingView's own `ta.stoch(ta.rsi(close, 12), 12)` equals ours to the last
+  binary digit, and DBSI treats the same value both ways, so the cause is in its hidden code); the
+  pinned-Stoch-RSI re-arms. Its Stoch RSI is on plain close: on log(close), as Cipher B's is, the model was
+  worse on 95 of 113 charts. The original's Start-grid numbers stay out of the public repo (Cody,
+  2026-11-16).
+- [x] **The Market Cipher strategy tests (2026-10-25).** CLOSED by Cody 2026-11-17 ("Don't wait on
+  it/close it"). The crypto 4h trigger-wave re-test can be run later under its own pre-registration; a
+  round with exits needs more than 2,380 random books.
+- [ ] **Heikin-Ashi (2026-10-22).** Custom compiled indicators are computed for strategies (on HA
+  candles when asked), in the backtester and in background tabs: DONE 2026-11-16 (CHANGES); not tried in
+  the app with a custom indicator. Limits: a background tab's candle type is read when its monitor starts; the hosted server's
+  alerts and the focused close line read the raw close; compiled and plugin strategies ignore "Signals from
+  Heikin-Ashi candles".
+- [ ] **Drawing tools (2026-11-01/02).** Limits: an alert on a drawn level stays at its price if the
+  drawing moves; sloped lines are not offered as alert lines.
+- [ ] **Smaller limits, mine.** Built timeframes: 7h buckets count from 1970, not from midnight (check what
+  TradingView does), and a 7h chart from Bitstamp's 1h loads about 142 bars. Trade status bar: no key
+  speaks the trades. Close at limit: no percent on the market Close position button, and "Size in" is not
+  remembered. Profiles are left out of playback, and the heatmap's sound is unheard. A bar close: the
+  hidden window's notification has no ladder, and with two browser windows the browser-closed monitor
+  watches the one that saved last. Bitstamp's new-bar open is provisional for its first seconds. Cipher A
+  pivots on sessions crossing midnight UTC and on weekly charts are unchecked. A drawing anchored before
+  the reachable history is drawn wrong.
+
+- [ ] **The VPS's browser harness is still on Playwright 1.55's Chromium.** CI moved to 1.64.1 on
+  ubuntu-latest (Ubuntu 26.04) on 2026-11-17 and passed there. Before the VPS's next browser-harness
+  run, run `npx playwright@1.64.1 install chromium` there (SERVER_SETUP.md).
+
+- [ ] **Flake, not forced yet (2026-11-04):** `TabKeepsItsMarketTests.A_stock_tab_on_a_provider_that_also_serves_crypto_stays_on_stock`
+  failed once in a full local run, then passed 3 of 3 alone. It polls `SelectedMarket` for at most
+  3 s (60 × 50 ms), so it is probably load. Force it (per the 2026-09-25 rule) before trusting either way.
+
+- [ ] **Heatmap and Profile Ctrl+Left/Right: DEFERRED by Cody 2026-10-22** ("it works fine and it's not hurting
+  anything"), and again 2026-11-16 ("not necessary right now"). The bins live outside the component, so Ctrl+Left/Right says "No points of interest" and
+  Alt+Shift+D says nothing. To build: Profile stops where price crosses the point of control and enters or
+  leaves the value area; heatmap stops where the biggest liquidity level moved.
+
+- [ ] **Cody's 2026-10-22 design points, still open:** nothing out of reach (every drawn thing must at least be
+  named in the series summary or Alt+Shift+D, even with nothing to step through). The yearly cycle low
+  sketch (a yearly low is a weekly cycle low confirmed when the next weekly low is confirmed higher, about 7
+  to 9 months on Bitcoin) was worked by hand on one asset only; Cipher C's "yearly lows found from price"
+  switch (above) is the built version.
+
+### After the 2.13 tag
+
+The Windows zip check, the website and the hosted terminal were done on 2026-11-16 (see CHANGES,
+Unreleased). Left:
+
+Nothing left: the screenshots are not re-shot (Cody, 2026-11-16, taking the recommendation; the hero
+shot's old colour key is the only detail out of date).
+
+### The Windows installer and tidy zip (2.13.1, 2026-11-16)
+
+- [ ] **Cody to try the setup with a screen reader.** The runner installs, upgrades and uninstalls it
+  silently and checks every file; nobody has gone through its screens with NVDA or JAWS. Inno Setup's
+  wizard is standard Windows controls, so it should read, but that is not shown.
+- [ ] **Unsigned.** SmartScreen warns on the setup and on Accessible Trader.exe ("More info", "Run
+  anyway"); the README in the zip says so. Signing needs a certificate.
+- [ ] **An upgrade empties `app\`** before copying the new version in. The app keeps nothing there (user
+  data is under `%LocalAppData%\AccessibleTrader`), but a Strategies drop-in put by hand into
+  `app\Strategies` would go. The documented place is `%LocalAppData%\AccessibleTrader\Strategies`.
+- [ ] **The tidy WebHost zips (2026-11-17, Cody: "structure these and all packaged zips") are tried only
+  on Linux.** Each unzips to `AccessibleTrader-WebHost-<version>/` with `app/`, `README.txt` and one
+  starter. The Linux zip was built and run here (started from another folder, it served the page from
+  `app/` and wrote nothing into its folder; the trial in `package.sh` fails when either is broken). Not
+  yet run anywhere: **`packaging/webhost/package.ps1`** (pwsh is not on this machine; the first
+  `diagnostic-build.yml` run or the next release is its first run, and its trial then runs the Windows
+  zip), the **WebHost launcher's message box** when the server stops as it starts, and the **macOS
+  `Accessible Trader.command`** (cross-built; Gatekeeper may want Control-click Open, which its README
+  says). Starting the server outside `app/` used to be how everyone ran it; old bookmarks to
+  `AccessibleTrader.WebHost` at the top of the folder no longer exist.
+
+- **The .NET runtime the WebHosts carry is 10.0.11**, older than the Brotli decoder fix in 10.0.14
+  (GHSA-p3jp-9v83-76w9, high). `global.json` pins SDK 10.0.301 (see its rzc note), and the self-contained
+  WebHost zips ship that SDK's runtime. Exposure needs Brotli decompression of untrusted data; no shipped
+  code enables it (only StrategyLab's MacroFetchCommand, a research tool, uses DecompressionMethods.All),
+  and HttpClient does not by default. Next release: install a newer 10.0.3xx SDK, or set the runtime
+  pack version, and check the WebHost zips' System.Private.CoreLib.dll version.
+
+### Asked for, not built yet
+
+- [x] **Where a signal sits (Cody, 2026-11-17).** DONE 2026-11-17 ("use the number of the level"): a mark
+  drawn at its value names the drawn level it has passed going out from the middle line, "Large green dot
+  below -60" (CHANGES). Not heard.
+- [x] **Line, wave or area fill (Cody, 2026-11-17).** DONE 2026-11-17: "area" when a fill is drawn under
+  it, "line" when not (CHANGES). Not heard.
+- [ ] **Cipher A above the candle (2026-11-17).** Built; not seen. The pad over a tall candle (0.35 of
+  its range, the existing rule) may look far; say if it does.
+
+- [x] **Indicator template (Cody, 2026-11-05).** **Built 2026-11-19, not yet heard by Cody.** Take
+  one chart's indicators and panes, with their settings, and put them on the chart in front, keeping
+  that chart's symbol and timeframe (TradingView calls this an indicator template). It is the toolbar
+  workspace group's **Save indicator template** / **Apply indicator template**, or the Go bar's
+  `TPLS` / `TPL` (`TPL name` applies directly); files live in `IndicatorTemplates/` beside
+  `Workspaces/`. Replace-only, one Ctrl+Z; no "add to this chart" mode, volume is not included, and
+  alerts on a replaced indicator behave as when you delete it by hand. See `CHANGES.md`.
+
+

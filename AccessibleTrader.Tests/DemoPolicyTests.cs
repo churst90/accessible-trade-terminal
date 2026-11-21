@@ -25,6 +25,26 @@ public class DemoPolicyTests
     }
 
     [Fact]
+    public void OnlyTheDemosBottomLineAsksForAnAccount()
+    {
+        Assert.Equal("Create an account for full functionality.", Demo.FooterText);
+        Assert.Equal("Accessible Trade Terminal \u00a9 2026. Trading carries risk.", Full.FooterText);
+        Assert.Equal(Full.FooterText, Hosted.FooterText);
+    }
+
+    [Fact]
+    public void TheAppFooterSaysThePolicysLine()
+    {
+        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        string layout = System.IO.File.ReadAllText(System.IO.Path.Combine(
+            dir!.FullName, "AccessibleTrader.BlazorClient.Components", "Layout", "MainLayout.razor"));
+        Assert.Contains("<span>@Demo.FooterText</span>", layout);
+    }
+
+    [Fact]
     public void Demo_Providers_AreWhitelisted()
     {
         Assert.True(Demo.IsProviderAllowed("Bitstamp"));

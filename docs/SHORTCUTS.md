@@ -569,6 +569,7 @@ there; `Escape` cancels a tool armed by accident.
 | `/` | Go bar, the same as Alt+G — slash, as a browser or a chat app uses it. Only where typing is not going on: in a text box it types a slash |
 | Alt+P | Market pulse — the "Pulse" watchlist spoken as one sentence (stocks, indices, crypto, forex, gold, oil, VIX, then what you hold) |
 | Ctrl+Alt+P | Market pulse detail — the last Alt+P reading item by item: symbol and source, last price, the change to two decimals from its stated start, and how old the quote is (never fetches) |
+| Ctrl+Alt+B | Morning brief — what changed (as Alt+U), the market pulse (as Alt+P, kept for Ctrl+Alt+P), then today's market events at your level for your markets, in one go (Go bar `BRIEF`) |
 | Alt+U | What changed — the catch-up of money, alerts, events released and connection problems since you last listened. Press again for the rest |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |
 | Alt+, | Custom scripts panel (PineScript / Roslyn) |
