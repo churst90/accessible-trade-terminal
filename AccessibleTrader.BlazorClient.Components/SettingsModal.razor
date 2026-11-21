@@ -2832,9 +2832,9 @@
         // later. They can re-bind the displaced command from this same dialog.
         if (displaced.Count > 0)
         {
-            var names = displaced.Select(c => c.ToString());
+            var names = displaced.Select(c => ShortcutWords.ActionName(c.ToString()));
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"{reboundName} rebound. This removed the only shortcut for {string.Join(", ", names)}; " +
+                $"{ShortcutWords.ActionName(reboundName)} rebound. This removed the only shortcut for {string.Join(", ", names)}; " +
                 "rebind from the Keyboard tab if you still need it.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
 
@@ -2845,7 +2845,7 @@
         if (!ShortcutService.LastSaveSucceeded)
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
-                $"{reboundName} rebound, but the shortcut file could not be saved. " +
+                $"{ShortcutWords.ActionName(reboundName)} rebound, but the shortcut file could not be saved. " +
                 "This change will be lost when you restart.", true));
         }
     }

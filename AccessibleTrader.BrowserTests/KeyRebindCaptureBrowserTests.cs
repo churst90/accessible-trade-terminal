@@ -37,7 +37,9 @@ public sealed class KeyRebindCaptureBrowserTests
         await t.PressAsync("F12");
         Assert.True(await t.WaitForDialogAsync(), "Settings did not open.");
         Assert.True(await t.ClickTopDialogTabAsync("Keyboard"), "Settings has no Keyboard tab.");
-        await t.Page.ClickAsync($"[aria-label='Rebind {command}']");
+        // The button is named with the action's words ("Rebind Toggle narration"), the same
+        // name the Go bar and Help use, so look it up the way the page builds it.
+        await t.Page.ClickAsync($"[aria-label='Rebind {AccessibleTrader.Core.Services.ShortcutWords.ActionName(command)}']");
         await t.Page.WaitForSelectorAsync("[aria-label='Cancel key capture']");
         // The capture field must hold focus: on a button, NVDA and JAWS stay in browse mode
         // and eat letters and arrows before the page sees them.
@@ -71,7 +73,8 @@ public sealed class KeyRebindCaptureBrowserTests
         t.Page.EvaluateAsync<string>(@"cmd => {
             const row = [...document.querySelectorAll('.shortcuts-table tr')]
                 .find(r => r.cells[0] && r.cells[0].textContent.trim() === cmd);
-            return row ? row.cells[1].textContent.trim() : 'NO ROW'; }", command);
+            return row ? row.cells[1].textContent.trim() : 'NO ROW'; }",
+            AccessibleTrader.Core.Services.ShortcutWords.ActionName(command));
 
     private static Task<bool> StillCapturingAsync(TerminalPage t) =>
         t.Page.EvaluateAsync<bool>("() => !!document.querySelector(\"[aria-label='Cancel key capture']\")");
@@ -102,13 +105,19 @@ public sealed class KeyRebindCaptureBrowserTests
                 "after the capture, focus did not return to the row's Rebind button");
             // And the new key is said; a successful rebind used to be silent.
             IReadOnlyList<Utterance> spoken = Array.Empty<Utterance>();
-            for (int i = 0; i < 25 && !spoken.Any(u => u.Text.Contains("OpenHelp is now", StringComparison.Ordinal)); i++)
+            for (int i = 0; i < 25 && !spoken.Any(u => u.Text.Contains("Open Help is now", StringComparison.Ordinal)); i++)
             {
                 await t.Page.WaitForTimeoutAsync(200);
                 spoken = await t.SpokenAsync();
             }
-            Assert.True(spoken.Any(u => u.Text.Contains("OpenHelp is now", StringComparison.Ordinal)),
+            Assert.True(spoken.Any(u => u.Text.Contains("Open Help is now", StringComparison.Ordinal)),
                 "the rebind was not announced; heard: " + string.Join(" | ", spoken.Select(u => u.Text)));
+            // Every line about the rebind names actions in words, including the one about the
+            // shortcut it took from another command (it said "OpenHelp rebound ... SpeakChartLayout").
+            await t.Page.WaitForTimeoutAsync(500);
+            spoken = await t.SpokenAsync();
+            Assert.DoesNotContain(spoken, u => u.Text.Contains("OpenHelp", StringComparison.Ordinal)
+                                            || u.Text.Contains("SpeakChartLayout", StringComparison.Ordinal));
 
             await t.PressAsync("Escape");
             Assert.True(await t.WaitForNoDialogAsync(), "Settings did not close.");

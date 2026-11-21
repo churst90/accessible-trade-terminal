@@ -30,7 +30,10 @@ photographed. What was wrong and what changed:
   a 16px gutter.
 - **Settings > Keyboard and Help** name each action as the Go bar does ("Zoom in", not "ZoomIn") and
   each key in words ("Semicolon", "Menu key", not "OEM1", "CONTEXTMENU"); a chord wraps only after a
-  "+"; the Rebind button is 28px. Settings is 780px wide.
+  "+"; the Rebind button is 28px. Settings is 780px wide. What a rebind SAYS uses the same words: it
+  said "OpenHelp rebound. This removed the only shortcut for SpeakChartLayout" (found by CI's browser
+  harness on fc09aa9c, whose rebind tests still looked up "Rebind ToggleNarration"; both fixed, and
+  the harness now fails on an internal name in anything said during a rebind).
 - **Levels report:** a styled table (numbers right-aligned in tabular figures, ATR to two places,
   thousands separated, dates kept whole), in its own scroll box; the summary's sentences start with a
   capital ("Below: 10 SMA at …").
