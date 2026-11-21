@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Nothing yet. **On the VPS:** the 2.14.0 build (a6f6d4bf, deployed 2026-11-21 14:50 UTC), which is
+2.14.1's app.
+
 ## [2.14.1] — 2026-11-21
 
 ### 2026-11-21: the Linux and macOS WebHost downloads build again
@@ -17,6 +22,16 @@ All notable changes to this project will be documented in this file.
   script, green at 755 (checked).
 - **The app is 2.14.0's.** Nothing else changed. The hosted terminal stays on the 2.14.0 build
   (a6f6d4bf, deployed 2026-11-21 14:50 UTC); its stamp says 2.14.0.
+- **Released 2026-11-21 15:24 UTC, all seven downloads.** Every release job passed; the six zips were
+  opened and counted (35 plugins and the trust manifest in each, the Windows zip with its NVDA, Dot
+  Pad and liblouis files; the Windows WebHost holds 2.13.1's 566 files plus the launcher and README);
+  the Windows setup installed, installed again over the top and uninstalled on the runner. The
+  v2.14.0 release notes now begin by pointing to 2.14.1.
+- **The website is on 2.14.1** (download page with the 2.14 news, sizes from the release, home page,
+  llms.txt, structured data, the six docs pages, llms-full.txt). **Caveat:** the first upload wrote
+  the three PHP files empty (`php -l` read the input before `cat` could) and the home and download
+  pages answered 500 for about two minutes, 15:29 to 15:31 UTC, until the backup went back; the second
+  upload was checked file by file against the drafts. Backup: `~/backups/trade-site-20261121-1529`.
 
 ## [2.14.0] — 2026-11-21
 
