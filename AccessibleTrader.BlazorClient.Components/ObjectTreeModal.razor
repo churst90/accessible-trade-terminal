@@ -243,15 +243,20 @@
         border-bottom: 1px solid #222;
     }
     .comp-name { color: var(--text-muted); }
-    .comp-actions { display: flex; gap: 2px; }
+    .comp-actions { display: flex; gap: 4px; }
 
+    /* A component row's Hide and Mute: smaller than the series row's buttons, still a 28px
+       target with a visible edge (they were 31 by 20 and borderless until 2026-11-21). */
     button.mini-btn {
-        padding: 2px 4px;
-        font-size: 0.7rem;
+        padding: 4px 10px;
+        min-height: 28px;
+        font-size: 0.8125rem;
         background: transparent;
-        border: none;
+        border: 1px solid #3a3a3a;
+        border-radius: 4px;
         cursor: pointer;
     }
+    button.mini-btn:hover { background: #262626; }
     
     button.danger-btn { color: #f44; background: transparent; border: none; cursor: pointer; }
     button.danger-btn:hover { background: #311; }

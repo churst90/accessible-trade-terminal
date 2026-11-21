@@ -39,7 +39,7 @@
                                     @onclick="() => SelectTool(tool.Key)"
                                     aria-label="@($"{tool.Name}, {PointsText(tool.Points)}")"
                                     aria-describedby="@hintId"
-                                    style="text-align: left;">
+                                    style="text-align: left; flex-direction: column; align-items: flex-start; gap: 2px; white-space: normal; width: 100%;">
                                 @tool.Name, @PointsText(tool.Points)
                                 <span id="@hintId" aria-hidden="true" style="display: block; font-weight: normal; color: var(--text-muted); font-size: 0.9em;">@tool.Hint</span>
                             </button>

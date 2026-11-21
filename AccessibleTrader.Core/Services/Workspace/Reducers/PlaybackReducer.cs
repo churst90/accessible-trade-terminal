@@ -170,7 +170,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             }
 
             int idx = Math.Max(0, built.Bricks.Count - 1);
-            return state with
+            int timeLength = TimeBarsLength(state);
+            var fitted = state with { ViewportLength = FitBricks(state, timeLength, built.Bricks.Count) };
+            return fitted with
             {
                 ChartStyle = style,
                 IsHeikinAshi = false,
@@ -179,8 +181,9 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 TimeBars = source,
                 Data = built.Bricks,
                 BrickSpans = built.Spans,
+                TimeBarsViewportLength = timeLength,
                 CurrentDataIndex = idx,
-                ViewportStartIndex = LiveStart(state, built.Bricks.Count),
+                ViewportStartIndex = LiveStart(fitted, built.Bricks.Count),
             };
         }
 
@@ -190,8 +193,11 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             var time = state.TimeBars ?? state.Data;
             int idx = Math.Max(0, time.Count - 1);
+            if (state.TimeBarsViewportLength > 0)
+                state = state with { ViewportLength = state.TimeBarsViewportLength };
             return state with
             {
+                TimeBarsViewportLength = 0,
                 Data = time,
                 TimeBars = null,
                 BrickSpans = ImmutableArray<BrickSpan>.Empty,
@@ -201,6 +207,26 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 CurrentDataIndex = idx,
                 ViewportStartIndex = LiveStart(state, time.Count),
             };
+        }
+
+        /// <summary>The zoom the time bars had: the one remembered on entering a built chart,
+        /// or the current one when the chart is not built yet.</summary>
+        internal static int TimeBarsLength(WorkspaceState state) =>
+            state.ChartStyle.IsBrickStyle() && state.TimeBarsViewportLength > 0
+                ? state.TimeBarsViewportLength
+                : state.ViewportLength;
+
+        /// <summary>
+        /// The zoom a built chart opens at. A view sized for a hundred time bars held seventeen
+        /// bricks in its left sixth and nothing to the right (the website photographs,
+        /// 2026-11-21), so when the bricks are fewer than the time bars' view holds, the view
+        /// fits them; otherwise it keeps the time bars' zoom. Never under the zoom-in limit.
+        /// </summary>
+        internal static int FitBricks(WorkspaceState state, int timeLength, int brickCount)
+        {
+            int margin = state.RightMarginBars;
+            if (brickCount >= timeLength - margin) return timeLength;
+            return Math.Max(margin + 10, brickCount + margin);
         }
 
         private static int LiveStart(WorkspaceState state, int count)

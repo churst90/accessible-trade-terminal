@@ -26,7 +26,7 @@
              role="dialog" data-modal-name="Trading dashboard"
              aria-modal="true"
              aria-labelledby="trade-title"
-             style="max-width:800px; min-height: 600px;"
+             style="max-width:min(1160px, calc(100vw - 32px));"
              @onclick:stopPropagation="true">
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -64,11 +64,11 @@
             }
             @if (_paperMode)
             {
-                <div class="alert-box" style="background:#332a00; color:#ffb300; border:1px solid #665500; font-weight:bold; padding:10px; border-radius:4px; margin-bottom:15px;">📄 PAPER TRADING — simulated orders, no real funds.</div>
+                <div class="alert-box paper"><svg class="inline-icon" aria-hidden="true" focusable="false" viewBox="0 0 28 28"><use href="#icon-paper"></use></svg><span>PAPER TRADING — simulated orders, no real funds.</span></div>
             }
             else if (_isLiveEnvironment)
             {
-                <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk@(string.IsNullOrEmpty(_activeKeyNickname) ? "" : $" (key: {_activeKeyNickname})").</div>
+                <div class="alert-box danger"><svg class="inline-icon" aria-hidden="true" focusable="false" viewBox="0 0 28 28"><use href="#icon-warning"></use></svg><span>LIVE TRADING — Real funds at risk@(string.IsNullOrEmpty(_activeKeyNickname) ? "" : $" (key: {_activeKeyNickname})").</span></div>
             }
 
                 <div class="dashboard-grid">
@@ -79,7 +79,7 @@
                             <section class="panel">
                                 <h3>Place Order</h3>
                                 <div class="alert-box warning" style="text-align: center; padding: 20px;">
-                                    <div style="font-size: 2rem; margin-bottom: 15px;" aria-hidden="true">🚫</div>
+                                    <svg class="inline-icon" aria-hidden="true" focusable="false" viewBox="0 0 28 28" style="width:2.25rem; height:2.25rem; margin-bottom:12px;"><use href="#icon-blocked"></use></svg>
                                     <p>
                                         @(string.IsNullOrEmpty(Store.State.Identity.Provider)
                                           ? "No chart is focused, so there is nothing to place an order on. Your accounts are shown alongside."
@@ -538,6 +538,7 @@
                                             </p>
                                         }
                                     }
+                                    <div class="table-scroll" tabindex="0" role="region" aria-label="Account balances and value">
                                     <table class="mini-table">
                                         <caption class="visually-hidden">Account balances and value</caption>
                                         <thead><tr>
@@ -590,6 +591,7 @@
                                             }
                                         </tbody>
                                     </table>
+                                    </div>
                                     @TabNote(_balancesNote, _accounts.Count > 0)
                                     @foreach (var acct in _accounts)
                                     {
@@ -605,6 +607,7 @@
                                 }
                                 else if (_accountTab == "Positions")
                                 {
+                                    <div class="table-scroll" tabindex="0" role="region" aria-label="Open positions">
                                     <table class="mini-table">
                                         <caption class="visually-hidden">Open positions</caption>
                                         @* The leading column is the instrument AS HELD — "BTCUSDT isolated 1x" —
@@ -695,10 +698,12 @@
                                             }
                                         </tbody>
                                     </table>
+                                    </div>
                                     @TabNote(_positionsNote, _positions.Any())
                                 }
                                 else if (_accountTab == "Orders")
                                 {
+                                    <div class="table-scroll" tabindex="0" role="region" aria-label="Open orders">
                                     <table class="mini-table">
                                         <caption class="visually-hidden">Open orders</caption>
                                         @* Symbol and Exchange lead, and neither column existed. The tab used
@@ -734,10 +739,12 @@
                                             }
                                         </tbody>
                                     </table>
+                                    </div>
                                     @TabNote(_openOrdersNote, _openOrders.Any())
                                 }
                                 else if (_accountTab == "History")
                                 {
+                                    <div class="table-scroll" tabindex="0" role="region" aria-label="Trade history">
                                     <table class="mini-table">
                                         <caption class="visually-hidden">Trade history</caption>
                                         <thead><tr><th scope="col">Time</th><th scope="col">Symbol</th><th scope="col">Exchange</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th><th scope="col">Fee</th></tr></thead>
@@ -762,6 +769,7 @@
                                             }
                                         </tbody>
                                     </table>
+                                    </div>
                                     @TabNote(_fillsNote, _fills.Any())
                                 }
                                 else if (_accountTab == "Log")
@@ -784,7 +792,7 @@
                                         </div>
                                         @* Nine columns do not fit the dashboard's right column at every width;
                                            the table scrolls sideways inside a region a keyboard can reach. *@
-                                        <div class="order-log-scroll" tabindex="0" role="region" aria-label="Order log table">
+                                        <div class="order-log-scroll table-scroll" tabindex="0" role="region" aria-label="Order log table">
                                         <table class="mini-table">
                                             <caption class="visually-hidden">Order log, newest first</caption>
                                             <thead><tr><th scope="col">Time</th><th scope="col">What happened</th><th scope="col">Symbol</th><th scope="col">Exchange</th><th scope="col">Side</th><th scope="col">Type</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Details</th></tr></thead>
@@ -831,7 +839,10 @@
                                             Spread: <strong>@GetSpread()</strong>
                                         </p>
 
-                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                        @* Side by side when they fit, asks over bids when they do not: "1fr 1fr"
+                                           would not shrink below a price, and on a phone-width window the
+                                           bids ran past the dialog's edge. *@
+                                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap:8px;">
                                             <section aria-labelledby="ob-asks-dash">
                                                 <h4 id="ob-asks-dash" style="font-size:0.8rem; color:#f44; margin:0 0 4px;">Asks</h4>
                                                 <table role="table" aria-label="Ask orders" style="width:100%; border-collapse:collapse; font-size:0.8rem; font-family:monospace;">
@@ -891,7 +902,11 @@
 }
 
 <style>
-    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    /* The order ticket needs about 340px; the account tables need every pixel left over.
+       They were two equal halves of an 800px dialog, which left eleven position columns
+       about 35px each — "Instr / umen / t". Under 900px the two stack, each full width. */
+    .dashboard-grid { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+    @@media (max-width: 900px) { .dashboard-grid { grid-template-columns: minmax(0, 1fr); } }
     .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; padding: 12px; margin-bottom: 15px; }
     .panel h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; }
     
@@ -900,9 +915,10 @@
     .stat span { font-size: 0.75rem; color: var(--text-muted); }
     .stat strong { font-size: 1.1rem; color: #4ec9b0; }
 
-    .order-entry .entry-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    /* A row wraps on a phone-width window rather than pushing Size past the dialog's edge. */
+    .order-entry .entry-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
     .order-entry label { flex: 1; font-size: 0.85rem; }
-    .order-entry input, .order-entry select { background: #222; border: 1px solid var(--border-color); color: #fff; padding: 5px; border-radius: 3px; width: 120px; }
+    .order-entry input, .order-entry select { background: #222; border: 1px solid var(--border-color); color: #fff; padding: 5px; border-radius: 3px; width: 120px; min-width: 0; }
 
     /* Large, high-contrast circular BUY/SELL controls. Unselected dims to make
        the active side unmistakable at a glance; a thick focus ring keeps it
@@ -948,11 +964,18 @@
     .order-log-tools input { min-width: 10rem; }
     .order-log-scroll { overflow-x: auto; }
     .order-log-scroll:focus-visible { outline: 2px solid #0078d4; outline-offset: 2px; }
-    .tabs-mini button { background: transparent; border: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px 5px; }
-    .tabs-mini button.active { color: #0078d4; border-bottom: 1px solid #0078d4; }
+    /* 32px tall: the tabs were 22px, under the 24px a pointer target needs. */
+    .tabs-mini button { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 0.875rem; cursor: pointer; padding: 6px 10px; min-height: 32px; border-radius: 3px 3px 0 0; }
+    .tabs-mini button:hover { color: var(--text-on-surface); background: rgba(255,255,255,0.05); }
+    .tabs-mini button.active { color: #4da3ff; border-bottom-color: #4da3ff; font-weight: 600; }
     
     .mini-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
-    .mini-table td { padding: 4px 0; border-bottom: 1px solid #222; }
+    .mini-table th { text-align: left; vertical-align: bottom; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); padding: 4px 8px 6px 0; border-bottom: 1px solid #3a3a3a; }
+    .mini-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid #262626; vertical-align: top; }
+    .mini-table th:last-child, .mini-table td:last-child { padding-right: 0; }
+    /* A row's buttons wrap their words ("Close / position") rather than widen the table: at
+       1280 wide the positions table needed 812px of 754 and cut the Close buttons off. */
+    .mini-table td button { white-space: normal; line-height: 1.2; min-height: 28px; margin: 0 0 4px; }
     .tab-note { font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0; }
     .plus { color: #4f4; }
     .minus { color: #f44; }
@@ -963,6 +986,10 @@
        app.css defines; VisuallyHiddenClassTests pins that. */
 
     .alert-box { padding: 10px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
+    /* The banners lead with a drawn mark, not an emoji: 📄 drew as an empty box where the
+       browser had no emoji font. */
+    .alert-box.paper, .alert-box.danger { display: flex; align-items: center; gap: 10px; }
+    .alert-box.paper { background: #332a00; color: #ffb300; border: 1px solid #665500; }
     .alert-box.warning { background: #443300; color: #ffcc00; border: 1px solid #665500; }
     .alert-box.danger { background: #440000; color: #ff4444; border: 1px solid #660000; }
 

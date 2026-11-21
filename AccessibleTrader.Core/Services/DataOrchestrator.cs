@@ -407,14 +407,13 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogInformation("DataOrchestrator state changed to: {NewState}.", newState);
 
-                // SILENT LIVE UPDATES: Only announce MAJOR transitions that the user is waiting for.
-                // We avoid announcing every tick-driven state change to keep the earcon noise low.
-                bool isMajorTransition = (PreviousState == DataState.Initializing || PreviousState == DataState.Faulted);
-                
-                if (isMajorTransition || newState == DataState.Faulted)
-                {
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Data link: {newState}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
-                }
+                // Logged, never said or shown. This used to publish "Data link: HistoricalFilling"
+                // (the enum name) on every chart load, and as nothing published the move to live
+                // it stayed on the status line under a chart that was streaming. Every fault that
+                // lands here already says itself in words ("Kraken is not responding. Pausing
+                // requests for 5 seconds.", "Failed to load data for …", "… connection restored."),
+                // so the state name added an internal word and no news.
+                // DataOrchestratorResilienceTests.No_state_change_says_an_internal_state_name pins it.
             }
         }
     }

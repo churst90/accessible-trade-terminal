@@ -323,7 +323,9 @@ namespace AccessibleTrader.Core.Services
             if (b.Ctrl)  parts.Add("Ctrl");
             if (b.Alt)   parts.Add("Alt");
             if (b.Shift) parts.Add("Shift");
-            parts.Add(b.Key.Length == 1 ? b.Key.ToUpperInvariant() : b.Key);
+            // A key's name as it is printed on the key, not the browser's code for it: the
+            // keyboard settings read "Shift+OEMMINUS" and "OEM5" until 2026-11-21.
+            parts.Add(b.Key.Length == 1 ? b.Key.ToUpperInvariant() : ShortcutWords.KeyWords(b.Key));
             return string.Join("+", parts);
         }
 

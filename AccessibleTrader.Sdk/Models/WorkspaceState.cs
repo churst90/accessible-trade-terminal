@@ -214,6 +214,10 @@ namespace AccessibleTrader.Sdk.Models
         /// box, the range, or line break's line count), so switching tabs rebuilds the same bars
         /// without recomputing the ATR. Zero when the tab never resolved one.</summary>
         public double BrickBoxSize { get; init; }
+
+        /// <summary>The tab's <see cref="WorkspaceState.TimeBarsViewportLength"/>, so a built tab
+        /// switched away from and back still returns to its candles' zoom.</summary>
+        public int TimeBarsViewportLength { get; init; }
     }
 
     /// <summary>
@@ -544,6 +548,13 @@ namespace AccessibleTrader.Sdk.Models
         /// bricks and this holds the feed's own bars.
         /// </summary>
         public TimeSeriesBuffer<Ohlcv>? TimeBars { get; init; }
+
+        /// <summary>
+        /// The zoom (<see cref="ViewportLength"/>) the time bars had when a built chart was chosen;
+        /// 0 off a built chart. A built chart with fewer bricks than the view holds is zoomed to
+        /// fit them, and leaving it puts this back, so candles return at the zoom they left at.
+        /// </summary>
+        public int TimeBarsViewportLength { get; init; }
 
         /// <summary>One per brick in <see cref="Data"/>; empty when this is not a brick chart.</summary>
         public ImmutableArray<BrickSpan> BrickSpans { get; init; } = ImmutableArray<BrickSpan>.Empty;

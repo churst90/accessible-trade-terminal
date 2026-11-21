@@ -193,6 +193,9 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.BrickSpans),
         nameof(WorkspaceState.BrickBoxSize),
         nameof(WorkspaceState.Renko),
+        // The candles' zoom kept while a built chart is fitted to its bricks: how the chart is
+        // drawn, never what a strategy reads.
+        nameof(WorkspaceState.TimeBarsViewportLength),
     };
 
     /// <summary>

@@ -36,7 +36,7 @@
              role="dialog" data-modal-name="Settings"
              aria-modal="true"
              aria-labelledby="settings-title"
-             style="max-width:660px;"
+             style="max-width:780px;"
              @onclick:stopPropagation="true">
 
             <h2 id="settings-title" tabindex="-1">Settings</h2>
@@ -1369,7 +1369,7 @@
                 @if (_capturingCommand != null)
                 {
                     <div style="background:#1a3a5c; color:#fff; padding:10px 16px; border-radius:4px; margin-bottom:12px; font-weight:bold;">
-                        <label for="rebind-capture">New shortcut for <em>@_capturingCommandName</em></label>
+                        <label for="rebind-capture">New shortcut for <em>@ShortcutWords.ActionName(_capturingCommandName)</em></label>
                         <input id="rebind-capture" type="text" readonly autocomplete="off"
                                aria-description="Press the new key or key combination now. Escape or Tab cancels."
                                style="margin-left:10px; width:12em;" value="" />
@@ -1391,16 +1391,29 @@
                         {
                             bool isCapturing = _capturingCommand?.ToString() == binding.Description;
                             <tr style="border-bottom:1px solid #eee; background:@(isCapturing ? "#1a3a5c" : "transparent");">
-                                <td style="padding:4px 8px; font-size:0.85rem; color:@(isCapturing ? "#fff" : "inherit");">@binding.Description</td>
-                                <td style="padding:4px 8px; font-size:0.85rem; font-family:monospace; color:@(isCapturing ? "#8cf" : "inherit");">
-                                    @(isCapturing ? "▶ waiting..." : binding.DisplayString)
+                                <td style="padding:4px 8px; font-size:0.85rem; color:@(isCapturing ? "#fff" : "inherit");">@ShortcutWords.ActionName(binding.Description)</td>
+                                @* A long chord ("Ctrl+Alt+Shift+Apostrophe") may break after a plus on a
+                                   phone-width window, never inside a key's name. *@
+                                <td style="padding:4px 8px; font-size:0.85rem; color:@(isCapturing ? "#8cf" : "inherit");">
+                                    @if (isCapturing)
+                                    {
+                                        @("▶ waiting...")
+                                    }
+                                    else
+                                    {
+                                        var keys = binding.DisplayString.Split('+');
+                                        for (int k = 0; k < keys.Length; k++)
+                                        {
+                                            @(k < keys.Length - 1 ? keys[k] + "+" : keys[k])<wbr />
+                                        }
+                                    }
                                 </td>
                                 <td style="padding:4px 8px; text-align:center;">
-                                    <GatedButton style="font-size:0.75rem; padding:2px 6px;"
+                                    <GatedButton style="font-size:0.8125rem; padding:4px 12px; min-height:28px;"
                                             ElementId="@RebindButtonId(binding.Description)"
                                             OnClick="() => StartCapture(binding)"
                                             Gate="@(() => RebindGate(isCapturing))"
-                                            aria-label="@($"Rebind {binding.Description}")">
+                                            aria-label="@($"Rebind {ShortcutWords.ActionName(binding.Description)}")">
                                         @(isCapturing ? "…" : "Rebind")
                                     </GatedButton>
                                 </td>
@@ -2812,7 +2825,7 @@
         // way to learn the new key was to read the table.
         string now = _uniqueBindings.FirstOrDefault(b => b.Description == reboundName)?.DisplayString ?? key;
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{reboundName} is now {now}.", false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            $"{ShortcutWords.ActionName(reboundName)} is now {now}.", false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         // Tell the user when this rebind stole another command's only shortcut, so a
         // keyboard-first user learns it went unbound now — not by pressing a dead key

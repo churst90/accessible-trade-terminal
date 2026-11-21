@@ -71,4 +71,36 @@ public sealed class ShortcutWordsTests
         var manager = new ShortcutManager(new Paths(TestTemp.NewDir("att-shortcut-words-")));
         Assert.Null(ShortcutWords.ForCommand(manager, SystemCommand.SelectNextSeries));
     }
+
+    // The Settings keyboard tab listed "ZoomIn" beside "Shift+OEMMINUS" and "OEM5" until
+    // 2026-11-21: the enum's spelling and the browser's key code, not anything a person says.
+    [Fact]
+    public void The_keyboard_settings_show_every_shortcut_in_words()
+    {
+        var dir = TestTemp.NewDir("att-shortcut-words-");
+        try
+        {
+            var bindings = new ShortcutManager(new Paths(dir)).GetAllBindings();
+            Assert.True(bindings.Count > 50, $"expected the full default profile, got {bindings.Count}");
+
+            var raw = bindings.Where(b => b.DisplayString.Contains("OEM", StringComparison.OrdinalIgnoreCase)
+                                       || b.DisplayString.Split('+').Any(k => k.Length > 1 && k == k.ToUpperInvariant() && !k.StartsWith('F')))
+                              .Select(b => $"{b.Description}: {b.DisplayString}").ToList();
+            Assert.True(raw.Count == 0, "key codes shown as key names:\n" + string.Join("\n", raw));
+
+            var camel = bindings.Select(b => ShortcutWords.ActionName(b.Description))
+                                .Where(n => System.Text.RegularExpressions.Regex.IsMatch(n, "[a-z][A-Z]"))
+                                .ToList();
+            Assert.True(camel.Count == 0, "action names still in code spelling:\n" + string.Join("\n", camel));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch { } }
+    }
+
+    [Fact]
+    public void An_action_is_named_as_the_Go_bar_names_it()
+    {
+        Assert.Equal(AccessibleTrader.Core.Services.GoBar.GoBarRegistry.All.First(e => e.Command == SystemCommand.ZoomIn).Name,
+            ShortcutWords.ActionName(nameof(SystemCommand.ZoomIn)));
+        Assert.Equal("Not Bound Anywhere", ShortcutWords.ActionName("NotBoundAnywhere"));
+    }
 }

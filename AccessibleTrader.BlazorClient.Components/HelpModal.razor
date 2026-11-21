@@ -474,8 +474,8 @@
                         @foreach (var binding in ShortcutManager.GetAllBindings())
                         {
                             <tr>
-                                <td style="white-space:nowrap; font-family:monospace;">@binding.DisplayString</td>
-                                <td>@FormatCommandName(binding.Description)</td>
+                                <td style="white-space:nowrap;">@binding.DisplayString</td>
+                                <td>@ShortcutWords.ActionName(binding.Description)</td>
                             </tr>
                         }
                     </tbody>
@@ -520,18 +520,5 @@
     }
 
     /// <summary>Converts a PascalCase SystemCommand name into readable text (e.g. "NavLeft" → "Nav Left").</summary>
-    private static string FormatCommandName(string name)
-    {
-        if (string.IsNullOrEmpty(name)) return name;
-        var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < name.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1]))
-                sb.Append(' ');
-            sb.Append(name[i]);
-        }
-        return sb.ToString();
-    }
-
     public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }
 }

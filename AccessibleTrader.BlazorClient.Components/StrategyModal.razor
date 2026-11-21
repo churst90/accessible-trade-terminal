@@ -439,7 +439,7 @@
                                title="Bars after this date are dropped from the run entirely. Leave blank to use the latest loaded bar."
                                @onchange="e => _btEndDate = ParseDate(e.Value?.ToString())" />
                     </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
                         <button type="button" @onclick="WalkForwardFirstHalf"
                                 aria-label="Walk-fwd: first half — set the date range to the first half of the loaded data for walk-forward testing"
                                 title="Splits the loaded chart data in half by time and sets the date range to the earlier half. Run the backtest, note the metrics, then click 'Last half' and run again to compare across regimes.">

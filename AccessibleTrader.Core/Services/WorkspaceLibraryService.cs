@@ -291,7 +291,9 @@ namespace AccessibleTrader.Core.Services
                 Symbol = state.Identity.Symbol,
                 Timeframe = state.Identity.Timeframe,
                 ViewportStartIndex = state.ViewportStartIndex,
-                ViewportLength = state.ViewportLength,
+                // A built chart's view may be fitted to its few bricks; the file keeps the
+                // candles' zoom, and the bricks are fitted again when the tab first loads.
+                ViewportLength = state.TimeBarsViewportLength > 0 ? state.TimeBarsViewportLength : state.ViewportLength,
                 IsHeikinAshi = state.IsHeikinAshi,
                 ChartStyle = state.ChartStyle,
                 ScaleMode = state.ScaleMode,
@@ -315,7 +317,7 @@ namespace AccessibleTrader.Core.Services
                 Symbol = snap.Identity.Symbol,
                 Timeframe = snap.Identity.Timeframe,
                 ViewportStartIndex = snap.ViewportStartIndex,
-                ViewportLength = snap.ViewportLength,
+                ViewportLength = snap.TimeBarsViewportLength > 0 ? snap.TimeBarsViewportLength : snap.ViewportLength,
                 IsHeikinAshi = snap.IsHeikinAshi,
                 ChartStyle = snap.ChartStyle,
                 ScaleMode = snap.ScaleMode,

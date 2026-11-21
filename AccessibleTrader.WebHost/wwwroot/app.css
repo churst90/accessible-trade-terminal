@@ -686,6 +686,111 @@ label {
     border-top: 1px solid var(--border-color);
 }
 
+/* ── Dialog layout, 2026-11-21 ───────────────────────────────────────────────
+   Every dialog was opened at 1280x760, 1920x1080 and 390x800 and measured: text crushed
+   into one-letter columns, words split mid-word, controls past the dialog's edge, dialogs
+   that scrolled sideways. Each rule below fixes one of those, and DialogLayoutTests pins
+   the rules a later edit could quietly drop. */
+
+/* A small window keeps a gutter, and a phone-width one is not overflowed by min-width. */
+.modal-overlay {
+    box-sizing: border-box;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+@media (max-width: 600px), (max-height: 600px) {
+    .modal-overlay { padding-top: 16px; }
+    .modal-content {
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 20px;
+        max-height: calc(100vh - 32px);
+    }
+}
+
+/* Never split a word inside a table cell. overflow-wrap:anywhere on the dialog also lets a
+   table squeeze each column to the width of one letter — the Trading Dashboard's positions
+   header read "Instr / umen / t". break-word still breaks an over-long string but no longer
+   shrinks the column to do it. */
+.modal-content th,
+.modal-content td {
+    overflow-wrap: break-word;
+}
+
+/* Fields fill their row without poking past it: width:100% plus padding and a border was
+   wider than the dialog (the script and sound import boxes). */
+.modal-content input:not([type="checkbox"]):not([type="radio"]),
+.modal-content select,
+.modal-content textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+/* An empty select collapsed to a 10px sliver (the screener's watchlist before any list). */
+.modal-content select {
+    min-width: 6rem;
+}
+
+/* A wide table scrolls inside its own box, never the dialog. The box is a labelled region
+   with tabindex=0 so a keyboard can scroll it. */
+.table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}
+.table-scroll:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* Marks drawn from IconSprite in place of emoji; they take the text colour. */
+.inline-icon {
+    width: 1.2em;
+    height: 1.2em;
+    flex: none;
+    vertical-align: -0.22em;
+}
+
+/* Date, number, text and file fields in a dialog are at least a 28px target. The backtest's
+   dates and the import file pickers were 21px tall. */
+.modal-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+    min-height: 28px;
+}
+
+/* A file picker's button matches the dialog's other buttons; the browser's own was a white
+   slab on the dark panel (My Data, the sound designer, strategy and script import). */
+.modal-content input[type="file"]::file-selector-button {
+    background-color: color-mix(in srgb, var(--bg-surface) 82%, transparent);
+    color: var(--text-primary);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 4px;
+    padding: 4px 12px;
+    margin-right: 10px;
+    font: inherit;
+    cursor: pointer;
+}
+.modal-content input[type="file"]::file-selector-button:hover {
+    border-color: var(--border-color);
+}
+
+/* A fieldset's default min-width is its widest content, so one long row inside Settings'
+   Narration or the strategy builder widened the whole dialog on a phone-width window. */
+.modal-content fieldset {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+/* The page-wide label rule keeps the toolbar's captions on one line; inside a dialog a long
+   checkbox label ("Break through mutes (fires even when alerts are muted…") ran past the
+   edge and the dialog scrolled sideways (Alerts, Narration, Market events, strategy builder). */
+.modal-content label {
+    max-width: 100%;
+    white-space: normal;
+}
+
+/* Tabs inside a dialog wrap onto a second row rather than running off its edge. */
+.modal-content [role="tablist"] {
+    flex-wrap: wrap;
+}
+
 /* Object tree list items */
 /* The ink, the rule and BOTH highlight fills move together. Recolouring only the
    text would have swapped one unreadable pairing for another — light ink on the

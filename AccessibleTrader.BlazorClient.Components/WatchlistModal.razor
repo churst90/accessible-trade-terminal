@@ -347,6 +347,11 @@
 
                         <label for="scr-list">Against watchlist:</label>
                         <select id="scr-list" @bind="_selectedListId" @bind:after="OnListChanged">
+                            @if (!Watchlists.All.Any())
+                            {
+                                @* An empty select drew as a 10px sliver and said nothing. *@
+                                <option value="" disabled>No watchlists yet</option>
+                            }
                             @foreach (var list in Watchlists.All)
                             {
                                 <option value="@list.Id">@list.Name (@list.Entries.Count)</option>
@@ -354,7 +359,7 @@
                         </select>
 
                         <label for="scr-tf">Timeframe:</label>
-                        <input id="scr-tf" type="text" @bind="_timeframe" style="width:8%;" />
+                        <input id="scr-tf" type="text" @bind="_timeframe" style="width:5rem;" />
                     </div>
 
                     <div class="modal-row">

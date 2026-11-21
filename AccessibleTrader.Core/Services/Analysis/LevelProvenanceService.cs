@@ -102,8 +102,10 @@ namespace AccessibleTrader.Core.Services.Analysis
             var above = reliable.Where(s => s.CurrentValue > close).Take(topN).ToList();
 
             var parts = new List<string>();
-            foreach (var s in below) parts.Add($"below: {Describe(s)}");
-            foreach (var s in above) parts.Add($"above: {Describe(s)}");
+            // Each part is a sentence, so it starts with a capital: the report shows this text
+            // as well as speaking it, and "below: 10 SMA… above: …" read as a fragment.
+            foreach (var s in below) parts.Add($"Below: {Describe(s)}");
+            foreach (var s in above) parts.Add($"Above: {Describe(s)}");
 
             return parts.Count == 0
                 ? "No well-tested level sits near price right now."

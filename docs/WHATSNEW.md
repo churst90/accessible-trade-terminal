@@ -245,6 +245,22 @@ in the app yet, and none of it has been tried with money.
   They used to be computed on the time bars underneath and drawn one value per brick. Now an RSI or
   the volume pane on a Kagi chart is the Kagi lines' own. Falling candles' wicks are drawn red.
 
+### Dialogs that fit the window
+
+- **Every dialog was laid out again** at a laptop, a large screen and a phone-width window. The
+  Trading Dashboard uses the window's width, so the positions table no longer squeezes each column
+  to a letter, and its Close buttons are never cut off; under 900 pixels the order ticket and the
+  tables stack. Labels and tab rows wrap, fields are easier to hit, and a table too wide for its
+  box scrolls inside that box instead of the whole dialog.
+- **Settings > Keyboard and Help name things in words:** "Zoom in", not "ZoomIn"; "Semicolon" and
+  "Menu key", not "OEM1" and "CONTEXTMENU".
+- **The Levels report** is a proper table, with the numbers lined up and rounded sensibly.
+- **Renko opens full.** A Renko chart with fewer bricks than the view holds now opens zoomed to fit
+  them, instead of seventeen bricks in the left sixth of an empty chart, and going back to candles
+  restores their zoom.
+- **No more "Data link: HistoricalFilling"** on the status line, and no emoji that drew as an empty
+  box: the paper-trading banner and the dashboard's marks are drawn icons now.
+
 ### Indicator templates
 
 - **Save a chart's indicators and put them on another chart** without changing its symbol or

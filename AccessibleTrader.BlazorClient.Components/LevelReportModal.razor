@@ -26,6 +26,18 @@
              aria-labelledby="levelreport-title" @onclick:stopPropagation="true"
              style="max-width: 900px;">
 
+            <style>
+                /* Line names read left to right and numbers line up on their decimal side; a
+                   date never breaks across two lines (dialog layout pass, 2026-11-21). */
+                .respect-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+                .respect-table th, .respect-table td { padding: 6px 10px; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
+                .respect-table thead th { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); vertical-align: bottom; text-align: right; }
+                .respect-table thead th:first-child, .respect-table tbody th { text-align: left; }
+                .respect-table tbody th { font-weight: 600; min-width: 12rem; }
+                .respect-table td { text-align: right; }
+                .respect-table td.date { white-space: nowrap; }
+            </style>
+
             <h2 id="levelreport-title" tabindex="-1">Respect report — @_symbol @_timeframe</h2>
 
             @if (!string.IsNullOrEmpty(_error))
@@ -76,7 +88,8 @@
                 }
                 else
                 {
-                    <table style="width:100%; border-collapse:collapse;">
+                    <div class="table-scroll" tabindex="0" role="region" aria-label="@(_tab == Tab.Levels ? "Levels near price" : "Moving averages")">
+                    <table class="respect-table">
                         <caption class="visually-hidden">
                             @(_tab == Tab.Levels ? "Levels near price" : "Moving averages"),
                             ranked by how often price held them
@@ -102,15 +115,16 @@
                                     <td>@Num(r.CurrentValue)</td>
                                     <td>@Pct(r.HoldRate)</td>
                                     <td>@r.Touches</td>
-                                    <td>@Num(r.MedianReactionAtr)</td>
+                                    <td>@Atr(r.MedianReactionAtr)</td>
                                     <td>@r.SupportHolds</td>
                                     <td>@r.ResistanceHolds</td>
-                                    <td>@(r.LastTouchTime?.ToString("yyyy-MM-dd") ?? "never")</td>
-                                    <td>@Num(r.DistanceAtr)</td>
+                                    <td class="date">@(r.LastTouchTime?.ToString("yyyy-MM-dd") ?? "never")</td>
+                                    <td>@Atr(r.DistanceAtr)</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    </div>
 
                     <p style="color:var(--text-muted); font-size:0.9em; margin:8px 0;">
                         A touch is counted when the bar's range reaches within
@@ -226,6 +240,11 @@
             EventBus.Publish(new AnnouncementEvent(_summary, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
-    private static string Num(double v) => double.IsNaN(v) ? "—" : v.ToString("0.####");
+    // A price as the chart's axis shows it: grouped thousands, and no more decimals than the
+    // price needs. The table printed "60026.0575" beside "62000" until 2026-11-21.
+    private static string Num(double v) =>
+        double.IsNaN(v) ? "—" : Math.Abs(v) >= 1000 ? v.ToString("#,##0.##") : v.ToString("0.####");
+    // A distance or reaction in ATRs: two places is finer than any decision this table informs.
+    private static string Atr(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00");
     private static string Pct(double v) => double.IsNaN(v) ? "—" : $"{v * 100:0}%";
 }

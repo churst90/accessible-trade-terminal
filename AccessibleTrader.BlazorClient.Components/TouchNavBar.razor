@@ -66,7 +66,7 @@
         <button class="touch-nav-btn" aria-label="@(_exploreMode ? "Explore mode on — drag to hear bars" : "Explore mode off")"
                 aria-pressed="@(_exploreMode ? "true" : "false")"
                 @onclick="ToggleExplore">
-            <span aria-hidden="true">@(_exploreMode ? "👆" : "✋")</span>
+            <svg class="inline-icon" aria-hidden="true" focusable="false" viewBox="0 0 28 28" style="opacity:@(_exploreMode ? "1" : "0.55")"><use href="#icon-touch"></use></svg>
         </button>
         <button class="touch-nav-btn" aria-label="Chart menu"
                 @onclick="OpenChartMenu">

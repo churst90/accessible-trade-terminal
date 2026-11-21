@@ -36,6 +36,33 @@ namespace AccessibleTrader.Core.Services
             return string.Join(" plus ", parts);
         }
 
+        /// <summary>
+        /// A command's name as a person says it, "Zoom in" and not "ZoomIn": the Go bar's name
+        /// for it (every command has one; GoBarRegistry's census test sees to that), else the
+        /// enum name split into words. The keyboard settings showed "NavLeft" and "JumpToLatest"
+        /// until 2026-11-21.
+        /// </summary>
+        public static string ActionName(string command) =>
+            Enum.TryParse<SystemCommand>(command, out var c) && Names.Value.TryGetValue(c, out var name)
+                ? name
+                : SplitWords(command);
+
+        private static readonly Lazy<Dictionary<SystemCommand, string>> Names = new(() =>
+            GoBar.GoBarRegistry.All
+                .GroupBy(e => e.Command)
+                .ToDictionary(g => g.Key, g => g.First().Name));
+
+        private static string SplitWords(string name)
+        {
+            var sb = new System.Text.StringBuilder(name.Length + 8);
+            for (int i = 0; i < name.Length; i++)
+            {
+                if (i > 0 && char.IsUpper(name[i]) && !char.IsUpper(name[i - 1])) sb.Append(' ');
+                sb.Append(name[i]);
+            }
+            return sb.ToString();
+        }
+
         private static bool IsPortable(string key) =>
             key.Length == 1 && char.IsLetterOrDigit(key[0]);
 
@@ -81,6 +108,7 @@ namespace AccessibleTrader.Core.Services
                 "LEFT" => "Left Arrow",
                 "RIGHT" => "Right Arrow",
                 "OEM5" => "Backslash",
+                "OEM1" => "Semicolon",
                 "OEMCOMMA" => "Comma",
                 "OEMPERIOD" => "Period",
                 "OEMSEMICOLON" => "Semicolon",
@@ -92,6 +120,7 @@ namespace AccessibleTrader.Core.Services
                 "OEM6" => "Right Bracket",
                 "OEMMINUS" => "Minus",
                 "OEMPLUS" => "Equals",
+                "CONTEXTMENU" => "Menu key",
                 _ => key,
             };
         }

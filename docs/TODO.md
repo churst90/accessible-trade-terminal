@@ -54,10 +54,9 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
-- **Approve or run the VPS deploy of c3eed63d** (the brief on Ctrl+Alt+B and the demo's "Create an
-  account for full functionality." line). My run was refused by the permission check. Publish folder
-  `/opt/at-publish-20261121` is built on the server; the script is the usual deploy procedure. Until
-  then the website's Chart page shows the old bottom line.
+- **Look at the dialogs** (2026-11-21 layout pass, CHANGES): the Trading Dashboard with a position open,
+  Settings > Keyboard, the Levels report, and anything at a narrow window. Then OK the VPS deploy; the
+  website's dashboard and Renko screenshots should be re-shot after it.
 - **Cut a release** when ready: the website's screenshots (2026-11-21) show the HEAD toolbar with the
   chart type and price scale lists (Alt+C, Alt+L), which the 2.13.1 download does not have.
 
@@ -119,23 +118,16 @@ Each item's caveats are in CHANGES (Unreleased) and in full in
 Seen in the HEAD build shot on the VPS (an isolated copy on port 5199, Chromium, 1280x760). Each one is
 what the screen showed; why is not yet proven unless it says so.
 
-- [ ] **"Data link: HistoricalFilling" on the status line**: the raw state name, in the hero shot and on
-  every chart. By the code (`DataOrchestrator.cs` around line 416) only a change out of Initializing or
-  Faulted is published, so the later change to live is never said and the line keeps the filling state.
-  Not demonstrated: whether the chart did reach live (the shots waited 20 seconds). Wanted: plain words
-  ("Loading history", "Live") and the live change said once.
-- [ ] **Trading Dashboard: the positions table squeezes to one-letter columns** ("B T C U S D" down the
-  cell) with one paper position open. The dialog is a fixed 866 pixels wide, so a wider window does not
-  help (also seen at 1680). The website card shows the order panel only, cropped.
+Fixed 2026-11-21 (CHANGES, "every dialog laid out again"): the "Data link: HistoricalFilling" line, the
+positions table's one-letter columns, the half-empty Renko first view, the paper banner's emoji box.
+
 - [ ] **Market events say "Release dates stored up to 30 July 2026"**: without a FRED key no CPI, jobs or
   GDP date shows after that (`MarketEventFredFeed.Describe`). The stored table needs refreshing for 2027
   each release, or the hosted terminal needs a FRED key of its own.
-- [ ] **Renko from the first view**: the bricks filled only the left part of the chart until panned left
-  four times. Unverified whether that is intended (fewer bricks than the view has room for).
 - [ ] **Custom scripts do not compile on the VPS**: "bwrap binary was not found" (the sandbox is
   missing on the server). The hosted terminal's Compile button fails there.
-- [ ] **The paper banner's warning sign** draws as an empty box in headless Chromium on the VPS (no emoji
-  font there); fine on a desktop, worth a text or SVG mark.
+- [ ] **Dialogs in other browsers**: the 2026-11-21 layout pass measured Chromium only. Check Firefox,
+  the Windows desktop app's WebView2 and a real phone.
 
 ## Asked for, not built yet
 

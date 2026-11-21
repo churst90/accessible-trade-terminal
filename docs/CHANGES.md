@@ -7,11 +7,59 @@ All notable changes to this project will be documented in this file.
 Everything since 2.13.1 (2026-11-16), one entry per piece of work, newest first, with what is
 still unproven. The full entries as first written (every class, test and sabotage) are in
 [`archive/CHANGES_DETAIL_SINCE_2.13.1.md`](archive/CHANGES_DETAIL_SINCE_2.13.1.md), condensed here
-on 2026-11-21. **On the VPS:** everything up to c1e62c9d (deployed 2026-11-20 17:01 UTC), so the
-website, accounts, leaderboard, chart types and Go bar are live there; the headlines and
-everything after them are not. **Nothing here has been tried with money.**
+on 2026-11-21. **On the VPS:** everything up to c3eed63d (deployed 2026-11-21 10:45 UTC); the
+dialog fixes below are not. **Nothing here has been tried with money.**
 
-### 2026-11-21: the brief gets Ctrl+Alt+B; the demo asks for an account; the website's Chart page and new screenshots — app changes not heard, not on the VPS (deploy refused by the permission check); website live
+### 2026-11-21: every dialog laid out again; Renko opens full; no "Data link" line; no emoji — not on the VPS, not seen by Cody
+
+Every dialog and every tab in it was opened in Chromium at 1280x760, 1920x1080 and 390x800 (phone
+width), measured for sideways scrolling, controls past the edge, squeezed text and small targets, and
+photographed. What was wrong and what changed:
+
+- **Trading Dashboard.** The ticket and the account tables were two equal halves of a fixed 866px
+  dialog, so the positions table squeezed each column to a letter ("B T C U S D" down a cell). Now the
+  dialog uses the window (up to 1160px), the ticket takes 300 to 360px and the tables the rest, and
+  under 900px they stack. Table cells break only between words; a table too wide for its box scrolls
+  inside its own labelled box rather than the whole dialog. A row's Close buttons wrap their words
+  ("Close / position") so at 1280 nothing is cut off. The ticket's rows wrap (Risk % and Size ran off
+  at phone width); the Order Book tab's asks and bids stack when they do not fit side by side.
+- **All dialogs (both app.css copies).** Labels wrap (the page-wide `label { white-space: nowrap }` is
+  for the toolbar and pushed Alerts, Narration, Market events and the strategy builder sideways at
+  phone width); fieldsets can shrink; text fields are at least 28px tall; tab rows wrap; a file
+  picker's button is drawn like the dialog's other buttons (it was a white slab); a small window keeps
+  a 16px gutter.
+- **Settings > Keyboard and Help** name each action as the Go bar does ("Zoom in", not "ZoomIn") and
+  each key in words ("Semicolon", "Menu key", not "OEM1", "CONTEXTMENU"); a chord wraps only after a
+  "+"; the Rebind button is 28px. Settings is 780px wide.
+- **Levels report:** a styled table (numbers right-aligned in tabular figures, ATR to two places,
+  thousands separated, dates kept whole), in its own scroll box; the summary's sentences start with a
+  capital ("Below: 10 SMA at …").
+- **Smaller:** Object Tree's buttons 28px with a border; Order Book, strategy walk-forward and script
+  import rows wrap; the screener's timeframe field 5rem (was 8%, unreadable at phone width); Drawing
+  tools' buttons and the watch list's empty option tidied.
+- **Renko opens full.** A chart with fewer bricks than the view holds opened with seventeen bricks in
+  its left sixth; it now opens zoomed to fit them, and going back to candles restores the zoom they
+  left at (remembered per tab and in a saved workspace). The first fix passed its tests and still
+  showed the half-empty view in the browser: the fresh-load `ZoomAction(100)` arrived after the fit
+  and undid it; the zoom now goes to the remembered candle zoom while bricks show.
+  `RenkoFirstViewTests` (9).
+- **"Data link: HistoricalFilling" is gone.** The enum name was published on every chart load and,
+  as nothing published the move to live, stayed on the status line. The state change is now logged
+  only; every fault already says itself in words.
+- **No emoji.** The paper banner's 📄, the dashboard's marks and Custom Scripts' folder (an HTML
+  entity) drew as an empty box without an emoji font; they are IconSprite symbols now.
+- **Guards:** `EmojiFreeUiTests` (every .razor and the UI code, comments skipped, entities caught),
+  `DialogLayoutTests` (the value each rule ends on after the cascade, in both sheets and the dashboard's
+  own), new `ShortcutWordsTests`. Each was reverted or sabotaged and went red: 13 sabotages in all.
+
+**Caveats.** Measured and photographed in Chromium only (no Firefox, no Windows WebView2, no real
+phone), and not seen by Cody or with a screen reader. Phone-width tables (dashboard, Levels, journal)
+still scroll sideways inside their own boxes, which is deliberate. The dashboard's Details column
+breaks a paper order id at its hyphen. The restored-tab Renko test pins the order of the actions as
+the initializer sends them today, not the initializer itself. The `accessibility-lead` review agent
+the hooks ask for is not registered, so no agent review was done.
+
+### 2026-11-21: the brief gets Ctrl+Alt+B; the demo asks for an account; the website's Chart page and new screenshots — app changes not heard; on the VPS 10:45 UTC (after Cody's OK); website live
 
 - **Website (live on accessibletrader.com, not in this repo):** the home page's "Drive it yourself"
   heading and small in-page demo are gone; a **Chart** link in the top navigation (and the footer)

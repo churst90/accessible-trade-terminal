@@ -25,8 +25,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             NavigateRelativeAction a    => navService.Navigate(state, state.CurrentDataIndex + a.Delta),
             SetCursorAction a           => CursorOnlyJump(state, a.NewIndex),
             PanAction a                 => navService.Pan(state, a.Delta),
-            ZoomAction a                => navService.ClampViewportToData(
-                                              state with { ViewportLength = Math.Clamp(a.NewLength, state.RightMarginBars + 10, 5000) }),
+            ZoomAction a                => navService.ClampViewportToData(SetZoom(state, a.NewLength)),
             WheelZoomAction a           => WheelZoom(state, a, navService),
             WorkspacePanEvent a         => navService.Pan(state,
                                               Math.Max(1, (int)Math.Round(state.ViewportLength * state.PanningGranularity / 100.0)) * a.Direction),
@@ -42,6 +41,28 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             },
             _ => state
         };
+
+        /// <summary>
+        /// A set zoom: a fresh chart's default (DataManager, after its first load) or a restored
+        /// tab's saved one (WorkspaceInitializer). Both are the candles' zoom, so on a built chart
+        /// that is what is remembered, and the bricks are fitted from it
+        /// (PlaybackReducer.FitBricks). Dispatched straight after the first bricks, the default
+        /// used to undo their fit and put seventeen bricks in the left sixth of the view again.
+        /// The user's own zooming (keys, wheel) has its own actions and is never refitted.
+        /// </summary>
+        private static WorkspaceState SetZoom(WorkspaceState state, int newLength)
+        {
+            int length = Math.Clamp(newLength, state.RightMarginBars + 10, 5000);
+            if (!state.ChartStyle.IsBrickStyle())
+                return state with { ViewportLength = length };
+            return state with
+            {
+                TimeBarsViewportLength = length,
+                ViewportLength = state.Data.Count > 0
+                    ? PlaybackReducer.FitBricks(state, length, state.Data.Count)
+                    : length,
+            };
+        }
 
         /// <summary>
         /// Handles live bar appends / intra-bar updates / historical prepends from
@@ -107,6 +128,19 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 BrickSpans = built.Ok ? built.Spans : ImmutableArray<BrickSpan>.Empty,
                 BrickBoxSize = box,
             };
+
+            // The first bricks of a built chart restored before its data (a saved Renko tab)
+            // fit the view the way choosing Renko does (PlaybackReducer.FitBricks); later loads
+            // keep whatever zoom the user has since chosen.
+            if (built.Ok && (initial || state.Data.Count == 0))
+            {
+                int timeLength = PlaybackReducer.TimeBarsLength(state);
+                withBricks = withBricks with
+                {
+                    TimeBarsViewportLength = timeLength,
+                    ViewportLength = PlaybackReducer.FitBricks(state, timeLength, built.Bricks.Count),
+                };
+            }
 
             return UpdateDataCore(withBricks, state.Data, withBricks.Data, initial, navService);
         }

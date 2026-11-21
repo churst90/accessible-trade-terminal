@@ -264,6 +264,37 @@ namespace AccessibleTrader.Tests
             Assert.Equal(DataState.LiveStreaming, o.CurrentState);
         }
 
+        /// <summary>
+        /// The status line under a streaming chart said "Data link: HistoricalFilling": the
+        /// enum name, published on Initializing → HistoricalFilling and never replaced because
+        /// the move to live was not published. Walk the whole lifecycle — load, go live, fail,
+        /// reset, load again — and nothing the orchestrator says may contain a state's name.
+        /// The faults still speak; they say what happened in words of their own.
+        /// </summary>
+        [Fact]
+        public async Task No_state_change_says_an_internal_state_name()
+        {
+            var f = new ScriptedFetcher { Next = _ => Task.FromResult(OneBar()) };
+            using var o = Build(f, out var bus);
+
+            await Fetch(o, "Binance");
+            await o.StartLiveStreamAsync("Crypto", "Binance", "BTC/USD", "1h");
+            f.Next = _ => Task.FromException<List<Ohlcv>>(new InvalidOperationException("boom"));
+            await Fetch(o, "Kraken");
+            await o.StopLiveStreamAsync();
+            f.Next = _ => Task.FromResult(OneBar());
+            await Fetch(o, "Binance");
+
+            var said = bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message ?? "").ToList();
+            var leaks = said.Where(m => m.Contains("Data link", StringComparison.OrdinalIgnoreCase)
+                    || Enum.GetNames<DataState>().Any(n => m.Contains(n, StringComparison.Ordinal)))
+                .ToList();
+            Assert.True(leaks.Count == 0, "An internal state name reached speech or the status line: "
+                + string.Join(" | ", leaks));
+            // The fault itself is still said, in words.
+            Assert.Contains(said, m => m.StartsWith("Failed to load data for BTC/USD from Kraken"));
+        }
+
         [Fact]
         public async Task Starting_a_live_stream_from_Initializing_is_ignored()
         {

@@ -10,7 +10,7 @@ namespace AccessibleTrader.Tests
     /// the interface, so nothing ever ran the real service. Two of A2m's survivors lived here, and
     /// both are statements a trader acts on with no visual to check them against:
     /// <list type="bullet">
-    ///   <item>which SIDE of price a level is on ("below: …" / "above: …", M38);</item>
+    ///   <item>which SIDE of price a level is on ("Below: …" / "Above: …", M38);</item>
     ///   <item>whether "prior day high" is the prior day's, or today's — a lookahead that makes the
     ///         level report the high the session has not finished making yet (M39).</item>
     /// </list>
@@ -38,10 +38,10 @@ namespace AccessibleTrader.Tests
 
             string text = Service().Narrate(ranked, bars);
 
-            Assert.Contains("below: 200 EMA at 58,000", text);
-            Assert.Contains("above: prior 1w high at 64,000", text);
-            Assert.DoesNotContain("below: prior 1w high", text);
-            Assert.DoesNotContain("above: 200 EMA", text);
+            Assert.Contains("Below: 200 EMA at 58,000", text);
+            Assert.Contains("Above: prior 1w high at 64,000", text);
+            Assert.DoesNotContain("Below: prior 1w high", text);
+            Assert.DoesNotContain("Above: 200 EMA", text);
         }
 
         /// <summary>

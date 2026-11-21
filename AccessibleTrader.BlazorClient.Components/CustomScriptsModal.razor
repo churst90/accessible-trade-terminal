@@ -128,9 +128,9 @@
             <details style="margin-top:12px;">
                 <summary style="cursor:pointer; font-weight:bold; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Import .atpkg</h3></summary>
                 <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
-                    <div style="display:flex; gap:8px; align-items:center;">
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
                         <button @onclick="ImportAtpkgFromFile" aria-label="Import from file: an .atpkg package on disk">
-                            &#128194; Import from file…
+                            <svg class="inline-icon" aria-hidden="true" focusable="false"><use href="#icon-load-workspace"></use></svg> Import from file…
                         </button>
                         @* The instruction that was already on screen is the field's label. A
                            placeholder alone is not a name: it vanishes once the field has content. *@

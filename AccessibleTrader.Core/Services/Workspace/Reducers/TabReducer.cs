@@ -80,6 +80,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             ScaleMode = s.ScaleMode,
             Renko = s.Renko,
             BrickBoxSize = s.BrickBoxSize,
+            TimeBarsViewportLength = s.TimeBarsViewportLength,
         };
 
         /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.
@@ -93,6 +94,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             Data = snap.Data,
             TimeBars = null,
             BrickSpans = ImmutableArray<BrickSpan>.Empty,
+            TimeBarsViewportLength = 0,
             BrickBoxSize = snap.BrickBoxSize,
             Renko = snap.Renko,
             ActiveSeries = snap.ActiveSeries,
@@ -138,6 +140,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                     Data = built.Bricks,
                     BrickSpans = built.Spans,
                     BrickBoxSize = box,
+                    TimeBarsViewportLength = snap.TimeBarsViewportLength,
                 };
             }
 
@@ -148,6 +151,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             {
                 ChartStyle = PriceChartStyle.Candles,
                 IsHeikinAshi = snap.IsHeikinAshi,
+                ViewportLength = snap.TimeBarsViewportLength > 0 ? snap.TimeBarsViewportLength : snap.ViewportLength,
             };
         }
 
