@@ -54,9 +54,9 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
-- **Look at the dialogs** (2026-11-21 layout pass, CHANGES): the Trading Dashboard with a position open,
-  Settings > Keyboard, the Levels report, and anything at a narrow window. Then OK the VPS deploy; the
-  website's dashboard and Renko screenshots should be re-shot after it.
+- **Look at the rest of the dialogs** (2026-11-21 layout pass, CHANGES; on the VPS since 13:37 UTC):
+  Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
+  Cody, 11-21, "read better now".
 - **Cut a release** when ready: the website's screenshots (2026-11-21) show the HEAD toolbar with the
   chart type and price scale lists (Alt+C, Alt+L), which the 2.13.1 download does not have.
 
@@ -120,6 +120,20 @@ what the screen showed; why is not yet proven unless it says so.
 
 Fixed 2026-11-21 (CHANGES, "every dialog laid out again"): the "Data link: HistoricalFilling" line, the
 positions table's one-letter columns, the half-empty Renko first view, the paper banner's emoji box.
+
+Seen in the second shoot (c51a402f, after the deploy, 2026-11-21):
+
+- [ ] **Renko still opens with a third of the chart empty when there are few bricks.** The fit keeps
+  the fixed 10-bar right margin (`WorkspaceState.RightMarginBars`), so 23 daily bricks fill 23 of 33
+  slots. Fine at 100 candles (10%); at 23 bricks it is 30%, and at the 20-slot minimum zoom half. A
+  margin of a few bricks while Renko shows would fill it; the margin also gives drawings room in the
+  future, so it needs care.
+- [ ] **The ticket's Margin list is clipped**: "Isolated — loss c" at the ticket's 360px width.
+- [ ] **The Find symbol box is too narrow** for "TSLA" (the last letter is cut).
+- [ ] **Symbols that are not emoji are still drawn as text**: Compile's ⚙ (`&#9881;`), the condition
+  editor's ⚠ (read aloud as "warning sign" before each warning), ✔ Active and the ✕ buttons in API
+  Keys and Properties. They drew correctly in Chromium on Linux; the emoji guard covers the emoji
+  planes only. Unchecked on Windows.
 
 - [ ] **Market events say "Release dates stored up to 30 July 2026"**: without a FRED key no CPI, jobs or
   GDP date shows after that (`MarketEventFredFeed.Describe`). The stored table needs refreshing for 2027

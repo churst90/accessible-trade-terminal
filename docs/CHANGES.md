@@ -7,10 +7,21 @@ All notable changes to this project will be documented in this file.
 Everything since 2.13.1 (2026-11-16), one entry per piece of work, newest first, with what is
 still unproven. The full entries as first written (every class, test and sabotage) are in
 [`archive/CHANGES_DETAIL_SINCE_2.13.1.md`](archive/CHANGES_DETAIL_SINCE_2.13.1.md), condensed here
-on 2026-11-21. **On the VPS:** everything up to c3eed63d (deployed 2026-11-21 10:45 UTC); the
-dialog fixes below are not. **Nothing here has been tried with money.**
+on 2026-11-21. **On the VPS:** everything up to c51a402f (deployed 2026-11-21 13:37 UTC, after
+Cody's OK). **Nothing here has been tried with money.**
 
-### 2026-11-21: every dialog laid out again; Renko opens full; no "Data link" line; no emoji — not on the VPS, not seen by Cody
+### 2026-11-21: every dialog laid out again; Renko opens full; no "Data link" line; no emoji — on the VPS 13:37 UTC; website re-shot
+
+Cody, before the deploy: "the dashboard and tables read better now". Deployed c51a402f to both
+services at 13:37 UTC (rollback-1121-133711; Capabilities unchanged, no error lines). The website's
+ten screenshots were then shot again from the deployed build in an isolated copy (Chromium, 1280x760):
+the hero's status line now says "Ready", the Renko card is the fitted first view, the TSLA shot is a
+fresh copy with no paper position, and every changed image has new alt text. The dashboard card stays
+cropped to the order ticket: the whole dialog shrank to about 470px in the site's two-column cards and
+could not be read. The replaced images are in `~/att-release-tools/shots-archive/2.13.1-head-20261121b/`
+on the VPS. The new shots showed four more small things, now in TODO ("Found by the website
+screenshots").
+
 
 Every dialog and every tab in it was opened in Chromium at 1280x760, 1920x1080 and 390x800 (phone
 width), measured for sideways scrolling, controls past the edge, squeezed text and small targets, and
