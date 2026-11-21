@@ -11,7 +11,20 @@ on 2026-11-21. **On the VPS:** everything up to c1e62c9d (deployed 2026-11-20 17
 website, accounts, leaderboard, chart types and Go bar are live there; the headlines and
 everything after them are not. **Nothing here has been tried with money.**
 
-### 2026-11-21: the brief gets Ctrl+Alt+B; the demo asks for an account — not heard, not on the VPS
+### 2026-11-21: the brief gets Ctrl+Alt+B; the demo asks for an account; the website's Chart page and new screenshots — app changes not heard, not on the VPS (deploy refused by the permission check); website live
+
+- **Website (live on accessibletrader.com, not in this repo):** the home page's "Drive it yourself"
+  heading and small in-page demo are gone; a **Chart** link in the top navigation (and the footer)
+  opens `/chart`, the demo terminal full screen under the site's own header, which stays visible.
+  `/preview` now redirects there (301). The nav's "Create account" link hides once signed in.
+  Sitemap and `llms.txt` updated. Backups on the server end `.bak-20261121-chart` and `-shots`.
+- **New screenshots**, shot from the HEAD build (ahead of the 2.13.1 download) in an isolated copy on
+  the VPS: the hero (the two toolbar rows with the chart type and price scale lists), Tesla, and one
+  per feature card (Market watch, Renko, Sound Designer, the order panel, the Go bar, Market events,
+  Alerts, Custom Scripts), each with written alt text; WebP checked against its PNG. The old images
+  are archived on the server in `att-release-tools/shots-archive/2.13.1-head-20261121/`. The Go bar
+  and News cards now name `/`, Ctrl+Alt+B and the headlines. What the shots showed wrong is in TODO
+  ("Found by the website screenshots"). Not checked with a screen reader.
 
 - **Ctrl+Alt+B** says the morning brief (Cody asked for Alt+B, which is the order book; he chose
   Ctrl+Alt+B). Saved shortcut sets pick it up through `UpgradeSavedProfile`. Help, SHORTCUTS and the
