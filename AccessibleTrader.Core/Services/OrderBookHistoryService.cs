@@ -22,12 +22,16 @@ namespace AccessibleTrader.Core.Services
         private readonly object _lock = new();
 
         public void AddSnapshot(string symbol, List<OrderBookEntry> bids, List<OrderBookEntry> asks)
+            => AddSnapshot(symbol, bids, asks, DateTime.UtcNow);
+
+        /// <summary>The same, stamped with the time given: the tests' clock.</summary>
+        internal void AddSnapshot(string symbol, List<OrderBookEntry> bids, List<OrderBookEntry> asks, DateTime at)
         {
             lock (_lock)
             {
                 if (!_history.ContainsKey(symbol)) _history[symbol] = new List<OrderBookSnapshot>();
                 
-                var snapshot = new OrderBookSnapshot(symbol, bids, asks, 0, DateTime.UtcNow);
+                var snapshot = new OrderBookSnapshot(symbol, bids, asks, 0, at);
                 _history[symbol].Add(snapshot);
 
                 // Memory management: keep last 5000 snapshots
@@ -35,37 +39,59 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// For each bar, the last book seen while that bar was open: taken at or after the bar's
+        /// own time and before the next bar's (the last bar, still forming, has no end). A bar
+        /// with no book of its own gets empty lists rather than an older bar's book.
+        ///
+        /// <para>
+        /// This used to take the newest snapshot at or before <c>bar.Date + 1 minute</c>, "assuming
+        /// 1m bars for now". A bar's date is when it OPENS, so on an hour chart a book taken at
+        /// 14:37 never matched the 14:00 bar's "14:01", and the heatmap was empty on every
+        /// timeframe but one minute. The bar's end is now the next bar's time, whatever the
+        /// timeframe. Snapshots arrive in time order, so each bar is a binary search rather than
+        /// a sort of every snapshot per bar.
+        /// </para>
+        /// </summary>
         public List<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetHistory(string symbol, IReadOnlyList<Ohlcv> bars)
         {
-            var result = new List<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)>();
+            var result = new List<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)>(bars.Count);
             lock (_lock)
             {
-                if (!_history.TryGetValue(symbol, out var snapshots) || !snapshots.Any())
+                if (!_history.TryGetValue(symbol, out var snapshots) || snapshots.Count == 0)
                 {
                     // No history: return empty lists for each bar
                     for (int i = 0; i < bars.Count; i++) result.Add((new(), new()));
                     return result;
                 }
 
-                foreach (var bar in bars)
+                for (int i = 0; i < bars.Count; i++)
                 {
-                    // Find the snapshot closest to the bar's close time but not after it
-                    var snapshot = snapshots
-                        .Where(s => s.Timestamp <= bar.Date.AddMinutes(1)) // Assuming 1m bars for now, logic can be more precise
-                        .OrderByDescending(s => s.Timestamp)
-                        .FirstOrDefault();
+                    DateTime start = bars[i].Date;
+                    DateTime? end = i + 1 < bars.Count ? bars[i + 1].Date : null;
 
-                    if (snapshot != null)
-                    {
-                        result.Add((snapshot.Bids, snapshot.Asks));
-                    }
+                    // The last snapshot before the bar's end, then whether it is inside the bar.
+                    int last = end is DateTime e ? LastBefore(snapshots, e) : snapshots.Count - 1;
+                    if (last >= 0 && snapshots[last].Timestamp >= start)
+                        result.Add((snapshots[last].Bids, snapshots[last].Asks));
                     else
-                    {
                         result.Add((new(), new()));
-                    }
                 }
             }
             return result;
+        }
+
+        /// <summary>The index of the last snapshot stamped strictly before <paramref name="end"/>, or -1.</summary>
+        private static int LastBefore(List<OrderBookSnapshot> snapshots, DateTime end)
+        {
+            int lo = 0, hi = snapshots.Count - 1, found = -1;
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (snapshots[mid].Timestamp < end) { found = mid; lo = mid + 1; }
+                else hi = mid - 1;
+            }
+            return found;
         }
 
         public void Clear(string symbol)
