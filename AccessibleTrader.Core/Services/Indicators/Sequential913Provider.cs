@@ -28,9 +28,16 @@ namespace AccessibleTrader.Core.Services.Indicators
     /// <para><b>Cancellation and recycle.</b> A countdown is cancelled when a setup the other way
     /// completes, or when price closes beyond its own setup's extreme (above a buy setup's highest
     /// high, below a sell setup's lowest low; those two prices are the Setup Resistance and Setup
-    /// Support lines). A new setup the same way restarts the countdown from its own bar 9 (the
-    /// simple recycle; the published method also compares the two setups' sizes, which this does
-    /// not).</para>
+    /// Support lines).</para>
+    ///
+    /// <para><b>Recycle</b> (the published rule, Cody 2026-11-22). A new setup the same way as a
+    /// running countdown is compared with the setup that countdown counts from. A setup's size is
+    /// its highest true high less its lowest true low (a true high is the high or the close before
+    /// it, whichever is higher); the running setup's size includes the bars its run went on past
+    /// 9. When the new size is at least the old one and less than 1.618 times it, the countdown
+    /// restarts from the new bar 9. When it is smaller, or 1.618 times or more, the old countdown
+    /// carries on. The rule as Perl's <i>DeMark Indicators</i> gives it; the 18-bar and
+    /// setup-within-a-setup refinements some platforms add are not here.</para>
     ///
     /// <para><b>Heard.</b> Every count is a marker with its number printed beside it, so every
     /// count ticks as you arrow and is said ("Buy setup 7."). The 9 and the 13 are components of
@@ -60,6 +67,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         public const string PerfectedSuffix = "_perfected";
 
         public const int SetupLength = 9, SetupLookback = 4, CountdownLength = 13, CountdownLookback = 2;
+
+        /// <summary>A new setup at least this many times the running one's size does not restart its countdown.</summary>
+        public const double RecycleLimit = 1.618;
 
         private const string BuyHex = "#26A69A", SellHex = "#EF5350";
         private const string Buy9Hex = "#00E676", Sell9Hex = "#FF1744";
@@ -152,6 +162,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             public bool BuyDeferred, SellDeferred;
             /// <summary>A countdown that ended on this bar without a 13, and why.</summary>
             public string? BuyCancelled, SellCancelled;
+            /// <summary>On a 9 while a countdown runs: whether it restarted or carried on, and why.</summary>
+            public string? BuyRecycle, SellRecycle;
             /// <summary>Where each countdown stands after this bar: -1 when none is running.</summary>
             public int BuyCountdownAt, SellCountdownAt;
             /// <summary>The setup run in progress after this bar (0 when none).</summary>
@@ -169,6 +181,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             double buyCd8 = double.NaN, sellCd8 = double.NaN;
             double resistance = double.NaN, support = double.NaN;
             double buyExtreme = double.NaN, sellExtreme = double.NaN;  // the running countdown's own setup's
+            double buySize = double.NaN, sellSize = double.NaN;        // and that setup's size so far
+            double buyTop = double.NaN, buyBottom = double.NaN, sellTop = double.NaN, sellBottom = double.NaN;
 
             for (int i = 0; i < n; i++)
             {
@@ -190,6 +204,18 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (buyRun > 0) b.BuySetup = buyRun;
                 if (sellRun > 0) b.SellSetup = sellRun;
 
+                // A run that goes on past its 9 is still the setup: its size grows with it.
+                if (buyRun == -1 && buyCd >= 0)
+                {
+                    buyTop = Math.Max(buyTop, TrueHigh(d, i)); buyBottom = Math.Min(buyBottom, TrueLow(d, i));
+                    buySize = buyTop - buyBottom;
+                }
+                if (sellRun == -1 && sellCd >= 0)
+                {
+                    sellTop = Math.Max(sellTop, TrueHigh(d, i)); sellBottom = Math.Min(sellBottom, TrueLow(d, i));
+                    sellSize = sellTop - sellBottom;
+                }
+
                 if (buyRun == SetupLength)
                 {
                     b.BuyPerfected = Low(d, i, 8) <= Math.Min(Low(d, i, 6), Low(d, i, 7))
@@ -197,7 +223,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     resistance = Max(d, i - SetupLength + 1, i, high: true);
                     if (sellCd >= 0) b.SellCancelled = "a buy setup completed";
                     sellCd = -1;
-                    buyCd = 0; buyCd8 = double.NaN; buyExtreme = resistance;   // start, or recycle
+                    var (top, bottom) = TrueSpan(d, i - SetupLength + 1, i);
+                    b.BuyRecycle = buyCd >= 0 ? Recycle(top - bottom, buySize) : null;
+                    if (buyCd < 0 || b.BuyRecycle!.StartsWith("restarted"))
+                    {
+                        buyCd = 0; buyCd8 = double.NaN; buyExtreme = resistance;
+                        buyTop = top; buyBottom = bottom; buySize = top - bottom;
+                    }
                     buyRun = -1;
                 }
                 if (sellRun == SetupLength)
@@ -207,7 +239,13 @@ namespace AccessibleTrader.Core.Services.Indicators
                     support = Max(d, i - SetupLength + 1, i, high: false);
                     if (buyCd >= 0) b.BuyCancelled = "a sell setup completed";
                     buyCd = -1;
-                    sellCd = 0; sellCd8 = double.NaN; sellExtreme = support;
+                    var (top, bottom) = TrueSpan(d, i - SetupLength + 1, i);
+                    b.SellRecycle = sellCd >= 0 ? Recycle(top - bottom, sellSize) : null;
+                    if (sellCd < 0 || b.SellRecycle!.StartsWith("restarted"))
+                    {
+                        sellCd = 0; sellCd8 = double.NaN; sellExtreme = support;
+                        sellTop = top; sellBottom = bottom; sellSize = top - bottom;
+                    }
                     sellRun = -1;
                 }
 
@@ -258,6 +296,27 @@ namespace AccessibleTrader.Core.Services.Indicators
                 r[i] = b;
             }
             return r;
+        }
+
+        /// <summary>What a new setup of <paramref name="size"/> does to a countdown counting from one of <paramref name="running"/>.</summary>
+        internal static string Recycle(double size, double running)
+        {
+            double times = running > 0 ? size / running : double.PositiveInfinity;
+            string ratio = $"{times.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} times the size of the setup it counts from";
+            if (size < running) return "kept, this setup is smaller than the one it counts from";
+            if (times >= RecycleLimit) return $"kept, this setup is {ratio}, 1.618 or more";
+            return $"restarted from this setup, {ratio}";
+        }
+
+        private static double TrueHigh(ReadOnlySpan<Ohlcv> d, int i) => i > 0 ? Math.Max(d[i].High, d[i - 1].Close) : d[i].High;
+        private static double TrueLow(ReadOnlySpan<Ohlcv> d, int i) => i > 0 ? Math.Min(d[i].Low, d[i - 1].Close) : d[i].Low;
+
+        /// <summary>The highest true high and lowest true low of bars <paramref name="from"/> to <paramref name="to"/>.</summary>
+        internal static (double Top, double Bottom) TrueSpan(ReadOnlySpan<Ohlcv> d, int from, int to)
+        {
+            double top = double.MinValue, bottom = double.MaxValue;
+            for (int k = from; k <= to; k++) { top = Math.Max(top, TrueHigh(d, k)); bottom = Math.Min(bottom, TrueLow(d, k)); }
+            return (top, bottom);
         }
 
         /// <summary>The low of setup bar <paramref name="k"/> (1–9) when bar 9 is <paramref name="i9"/>.</summary>
@@ -366,6 +425,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 parts.Add(c.BuySetup == SetupLength ? $"buy setup 9, {(c.BuyPerfected ? "perfected" : "not perfected")}" : $"buy setup {c.BuySetup}");
             if (c.SellSetup > 0)
                 parts.Add(c.SellSetup == SetupLength ? $"sell setup 9, {(c.SellPerfected ? "perfected" : "not perfected")}" : $"sell setup {c.SellSetup}");
+            if (c.BuyRecycle != null) parts.Add($"buy countdown {c.BuyRecycle}");
+            if (c.SellRecycle != null) parts.Add($"sell countdown {c.SellRecycle}");
             if (c.BuyCountdown > 0) parts.Add($"buy countdown {c.BuyCountdown}");
             if (c.SellCountdown > 0) parts.Add($"sell countdown {c.SellCountdown}");
             if (c.BuyDeferred) parts.Add("buy countdown 13 deferred, the low is above bar 8's close");

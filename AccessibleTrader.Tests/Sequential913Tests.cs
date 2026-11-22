@@ -167,19 +167,93 @@ public sealed class Sequential913Tests
             new Sequential913Provider().GetDetailFact(Code, bars.ToArray(), r, 17, new()));
     }
 
+    // ── Recycle: the published rule compares the two setups' sizes (Cody, 2026-11-22) ──
+    //
+    // The first setup is bars 7 to 15, its run going on to bar 16. Its size: the highest true
+    // high is bar 7's (the close before it, 113, above its high of 111.5), the lowest true low
+    // bar 16's low of 92.5, so 20.5. Bar 17 (100, a long lower wick to 90) breaks the run and is
+    // the flip for a second buy setup on bars 18 to 26, whose highest true high is bar 17's close
+    // of 100 seen from bar 18. The countdown stands at 2 (bars 15, 16) or more when it completes.
+
+    private static IEnumerable<(double, double)> FirstSetupThenBreak() =>
+        RiseThenFall(11).Select(c => (c, 0.5)).Append((100.0, 10.0));
+
+    private static string DetailAt(List<Ohlcv> bars, int index) =>
+        new Sequential913Provider().GetDetailFact(Code, bars.ToArray(), Calc(bars), index, new());
+
     [Fact]
-    public void A_new_buy_setup_restarts_the_countdown()
+    public void A_new_setup_a_little_larger_restarts_the_countdown()
     {
-        // Countdown 1 and 2 on bars 15 and 16. Bar 17 (100) breaks the run; bars 18 to 26 are a
-        // second buy setup whose long lower wicks keep every close above the low two bars back, so
-        // the countdown does not move. The steep fall after it counts again from 1, not from 3.
-        var seq = RiseThenFall(11).Select(c => (c, 0.5))
-            .Append((100.0, 10.0))
+        // Second setup 96 down to 80, long lower wicks (to 75) so the countdown does not move
+        // during it: size 100 - 75 = 25, 1.22 times 20.5. Restarted: the steep fall after it
+        // counts again from 1, not from 3.
+        var bars = Bars(FirstSetupThenBreak()
             .Concat(Enumerable.Range(0, 9).Select(k => (96.0 - 2 * k, 5.0)))
-            .Concat(Enumerable.Range(1, 4).Select(k => (78.0 - 2 * k, 0.5)));
-        var r = Calc(Bars(seq));
+            .Concat(Enumerable.Range(1, 4).Select(k => (78.0 - 2 * k, 0.5))));
+        var r = Calc(bars);
         Assert.Equal(new List<(int, int)> { (15, 9), (26, 9) }, Printed(r, CompBuySetup9));
         Assert.Equal(new List<(int, int)> { (15, 1), (16, 2), (27, 1), (28, 2), (29, 3), (30, 4) }, Printed(r, CompBuyCountdown));
+        Assert.Contains("Buy countdown restarted from this setup, 1.22 times the size of the setup it counts from", DetailAt(bars, 26));
+    }
+
+    [Fact]
+    public void A_new_setup_smaller_than_the_running_one_does_not_restart_it()
+    {
+        // Second setup 96.5 down to 89.5, short wicks: size 100 - 89 = 11, under 20.5. The
+        // countdown counts on through it (3 on bar 20 to 8 on bar 25) and its 9 lands on the new
+        // setup's 9, bar 26; the simple recycle would have made that bar a 1.
+        var bars = Bars(FirstSetupThenBreak().Concat(
+            new[] { 96.5, 94.5, 92.5, 92, 91.5, 91, 90.5, 90, 89.5 }.Select(c => (c, 0.5))));
+        var r = Calc(bars);
+        Assert.Equal(new List<(int, int)> { (15, 9), (26, 9) }, Printed(r, CompBuySetup9));
+        Assert.Equal(new List<(int, int)> { (15, 1), (16, 2), (20, 3), (21, 4), (22, 5), (23, 6), (24, 7), (25, 8), (26, 9) },
+            Printed(r, CompBuyCountdown));
+        Assert.Contains("Buy countdown kept, this setup is smaller than the one it counts from", DetailAt(bars, 26));
+    }
+
+    [Fact]
+    public void A_new_setup_1618_times_the_running_one_or_more_does_not_restart_it()
+    {
+        // Second setup 96 down to 64, 4 a bar: size 100 - 63.5 = 36.5, 1.78 times 20.5.
+        var bars = Bars(FirstSetupThenBreak().Concat(Enumerable.Range(0, 9).Select(k => (96.0 - 4 * k, 0.5))));
+        var r = Calc(bars);
+        Assert.Equal(new List<(int, int)> { (15, 9), (26, 9) }, Printed(r, CompBuySetup9));
+        Assert.Equal((26, 9), Printed(r, CompBuyCountdown).Last());
+        Assert.Contains("Buy countdown kept, this setup is 1.78 times the size of the setup it counts from, 1.618 or more", DetailAt(bars, 26));
+    }
+
+    [Fact]
+    public void The_running_setup_is_measured_with_the_bars_its_run_went_on_past_nine()
+    {
+        // The first run goes on to bar 20 (close 85, low 84.5): size 113 - 84.5 = 28.5, where
+        // bars 7 to 15 alone would be 18.5. Bar 21 (100, low 90) breaks it; the second setup,
+        // bars 22 to 30 with lower wicks of 5, measures 100 - 76 = 24. Under 28.5: kept, and the
+        // countdown that stood at 7 stays there. Measured on bars 1 to 9 only, 24 would be 1.30
+        // times 18.5 and restart it.
+        var bars = Bars(RiseThenFall(15).Select(c => (c, 0.5)).Append((100.0, 10.0))
+            .Concat(new[] { 88, 86, 84, 83.5, 83, 82.5, 82, 81.5, 81 }.Select(c => (c, 5.0))));
+        var r = Calc(bars);
+        Assert.Equal(new List<(int, int)> { (15, 9), (30, 9) }, Printed(r, CompBuySetup9));
+        Assert.Equal(7, Printed(r, CompBuyCountdown).Last().Label);
+        string said = DetailAt(bars, 30);
+        Assert.Contains("Buy countdown kept, this setup is smaller than the one it counts from", said);
+        Assert.Contains("Buy countdown at 7 of 13", said);
+    }
+
+    [Fact]
+    public void A_setups_size_uses_true_highs_and_lows()
+    {
+        // A gap up: bar 1 trades wholly above bar 0's close of 100. Its true low is that close.
+        var bars = new[]
+        {
+            new Ohlcv(Start, 100, 101, 99, 100, 1),
+            new Ohlcv(Start.AddDays(1), 110, 112, 109, 111, 1),
+            new Ohlcv(Start.AddDays(2), 105, 106, 104, 104.5, 1),
+        };
+        Assert.Equal((112.0, 100.0), Sequential913Provider.TrueSpan(bars, 1, 2));
+        Assert.Equal((112.0, 99.0), Sequential913Provider.TrueSpan(bars, 0, 2));
+        // And bar 2 gaps down from bar 1's close of 111: its true high is that close, not 106.
+        Assert.Equal((111.0, 104.0), Sequential913Provider.TrueSpan(bars, 2, 2));
     }
 
     [Fact]
