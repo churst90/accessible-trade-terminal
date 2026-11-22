@@ -143,7 +143,9 @@ public sealed class SpeechBrowserTests
         await t.ClearSpokenAsync();
 
         await t.PressAsync("F2");
-        var spoken = await t.WaitForSpeechAsync();
+        // Wait for the words themselves: the toggle also cuts off whatever was speaking, and that
+        // blank interrupt can land first (CI, 2026-11-22: "[Utterance { Text = , Interrupt = True }]").
+        var spoken = await t.WaitForSpeechAsync(u => u.Text.Contains("Speech off", StringComparison.OrdinalIgnoreCase));
 
         Assert.Contains(spoken, u => u.Text.Contains("Speech off", StringComparison.OrdinalIgnoreCase));
     }

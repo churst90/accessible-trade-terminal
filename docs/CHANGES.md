@@ -41,6 +41,11 @@ summary branch). The end-to-end test now also asserts "10, down" (red with the o
 Cody asked "if the volume bars switch when HA is on": they do not, on our chart or on TradingView,
 which also colours volume by the real candle; filed as a question for him.
 
+**A browser test race.** CI on 6a3a3d73 failed once in `Turning_speech_off_still_says_so`: it
+returned on the first utterance, and F2's blank interrupt landed before "Chart speech off". A rerun
+was green. The test now waits for the words themselves (red when the announcement is renamed, green
+restored).
+
 ### 2026-11-22: an alert fires on the chart it was set on, and nowhere else; volume bars sound the colour they are drawn
 
 Cody, 2026-11-22: he set "price touches 61,450" on his BTCUSDT chart and "it kept firing over and over
