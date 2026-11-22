@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;
 
@@ -71,6 +72,41 @@ namespace AccessibleTrader.Core.Services.Trading
                 }
         }
 
+        /// <summary>
+        /// The markets and spellings to try, in order, on a venue that trades
+        /// <paramref name="markets"/>: crypto first (as before), then a stock by its bare ticker
+        /// when the quote is dollars, then a currency pair.
+        ///
+        /// <para>
+        /// This asked the Crypto market for everything, so a stock or currency balance on a
+        /// broker could never be priced and showed "no AAPL/USD market" (audit, archive 12311).
+        /// Crypto stays first because a bare ticker can be a stock that is not the coin: on a
+        /// broker that trades both, the stock "BTC" is a fund, not bitcoin. A venue whose markets
+        /// are unknown is asked the Crypto market only, which is what it always was.
+        /// </para>
+        /// </summary>
+        internal static IEnumerable<(string Market, string Symbol)> Candidates(
+            string asset, string quote, IReadOnlyCollection<MarketType>? markets)
+        {
+            bool known = markets is { Count: > 0 };
+
+            if (!known || markets!.Contains(MarketType.Crypto))
+                foreach (string s in CandidateSymbols(asset, quote))
+                    yield return ("Crypto", s);
+            if (!known) yield break;
+
+            if (markets!.Contains(MarketType.Stock)
+                && quote.ToUpperInvariant() is "USD" or "USDT" or "USDC")
+                yield return ("Stock", asset);
+
+            if (markets.Contains(MarketType.Forex))
+            {
+                yield return ("Forex", $"{asset}/{quote}");
+                yield return ("Forex", $"{asset}{quote}");
+                yield return ("Forex", $"{asset}_{quote}");
+            }
+        }
+
         private static IEnumerable<string> Equivalents(string quote) =>
             quote.ToUpperInvariant() switch
             {
@@ -92,13 +128,17 @@ namespace AccessibleTrader.Core.Services.Trading
 
             (double, double?)? result = null;
 
-            foreach (string symbol in CandidateSymbols(asset, quote))
+            List<MarketType>? markets = null;
+            try { markets = await _data.GetSupportedMarketsForProviderAsync(provider).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogTrace(ex, "Markets of {Provider} unknown; pricing as crypto", provider); }
+
+            foreach (var (market, symbol) in Candidates(asset, quote, markets))
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
                     var (bars, _) = await _data
-                        .FetchOhlcvAsync(provider, new MarketDataRequest("Crypto", symbol, "1d", Limit: 2))
+                        .FetchOhlcvAsync(provider, new MarketDataRequest(market, symbol, "1d", Limit: 2))
                         .ConfigureAwait(false);
 
                     if (bars.Count == 0) continue;

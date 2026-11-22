@@ -1,5 +1,9 @@
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Models;
+using NSubstitute;
 
 namespace AccessibleTrader.Tests
 {
@@ -230,5 +234,64 @@ namespace AccessibleTrader.Tests
             Assert.True(c.IndexOf("ETHUSD") < c.IndexOf("ETHUSDT"),
                 "the exact quote must be preferred over an equivalent one");
         }
-    }
+    
+        // ── Markets other than crypto (audit, archive 12311; fixed 2026-11-22) ──
+
+        [Fact]
+        public void A_stock_on_a_broker_is_tried_by_its_ticker_after_crypto()
+        {
+            var c = MarketDataPriceSource.Candidates("AAPL", "USD",
+                new[] { MarketType.Crypto, MarketType.Stock }).ToList();
+
+            Assert.Contains(("Stock", "AAPL"), c);
+            Assert.True(c.FindIndex(x => x.Market == "Crypto") < c.IndexOf(("Stock", "AAPL")),
+                "crypto first: the stock BTC is a fund, not bitcoin");
+        }
+
+        [Fact]
+        public void A_currency_on_a_forex_venue_is_tried_as_a_pair()
+        {
+            var c = MarketDataPriceSource.Candidates("EUR", "USD", new[] { MarketType.Forex }).ToList();
+
+            Assert.Contains(("Forex", "EUR/USD"), c);
+            Assert.Contains(("Forex", "EUR_USD"), c);
+            Assert.DoesNotContain(c, x => x.Market != "Forex");
+        }
+
+        [Fact]
+        public void A_venue_whose_markets_are_unknown_is_asked_crypto_only_as_before()
+        {
+            var c = MarketDataPriceSource.Candidates("ETH", "USD", null).ToList();
+
+            Assert.All(c, x => Assert.Equal("Crypto", x.Market));
+            Assert.Equal(MarketDataPriceSource.CandidateSymbols("ETH", "USD"), c.Select(x => x.Symbol));
+        }
+
+        [Fact]
+        public async Task A_stock_balance_is_priced_through_the_stock_market()
+        {
+            var data = Substitute.For<IDataService>();
+            data.GetSupportedMarketsForProviderAsync("Alpaca")
+                .Returns(new List<MarketType> { MarketType.Crypto, MarketType.Stock });
+            data.FetchOhlcvAsync("Alpaca", Arg.Any<MarketDataRequest>(), Arg.Any<CancellationToken>())
+                .Returns(ci =>
+                {
+                    var r = ci.Arg<MarketDataRequest>();
+                    var bars = r is { Market: "Stock", Symbol: "AAPL" }
+                        ? new List<Ohlcv>
+                        {
+                            new(new DateTime(2026, 11, 20), 1, 1, 1, 200, 1),
+                            new(new DateTime(2026, 11, 21), 1, 1, 1, 210, 1),
+                        }
+                        : new List<Ohlcv>();
+                    return (bars, new List<(long, double)>());
+                });
+            var source = new MarketDataPriceSource(data,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<MarketDataPriceSource>.Instance);
+
+            var got = await source.TryGetDailyAsync("Alpaca", "AAPL", "USD");
+
+            Assert.Equal((210.0, (double?)200.0), got);
+        }
+}
 }
