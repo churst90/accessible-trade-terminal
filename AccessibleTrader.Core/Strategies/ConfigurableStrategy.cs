@@ -106,6 +106,9 @@ public class ConfigurableStrategy : BaseStrategy, IReadsHeikinAshiSignals
     // trigger was overridden.
     private volatile bool _autoPromotionNotified = false;
 
+    // The last "setup skipped" reason spoken, so a level source failing on every bar is said once.
+    private string? _lastResolveFailureSaid;
+
     // Live warmup gate. Factory-created strategies wait for at least the default backtest
     // warmup plus the bar being evaluated, as the backtest does, and longer when their
     // referenced indicators need more history. A custom BacktestConfig warmup is per-run and
@@ -531,8 +534,21 @@ public class ConfigurableStrategy : BaseStrategy, IReadsHeikinAshiSignals
         // against the actual balance. A user who left the default 10000 while holding a $500
         // account was sized 20x too large, and GeneralOrderService's only guard is
         // MaxOrderQuantity.
-        var resolved = _resolver.Resolve(_spec.Risk, _spec.Side, history, state, _accountEquity?.Invoke());
-        if (resolved == null) return null;
+        var resolved = _resolver.Resolve(_spec.Risk, _spec.Side, history, state, _accountEquity?.Invoke(), out string? whyNot);
+        if (resolved == null)
+        {
+            // A level source the plan needed threw: said once per distinct reason, since the
+            // setup confirms again on the next bar and would otherwise say it every bar. The
+            // ordinary refusals (reward to risk too low) carry no reason and stay quiet.
+            if (whyNot != null && publishEvents && whyNot != _lastResolveFailureSaid)
+            {
+                _lastResolveFailureSaid = whyNot;
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Alert,
+                    $"Strategy '{_spec.Name}': setup skipped, {whyNot}."));
+            }
+            return null;
+        }
 
         // EntryTrigger.Immediate → transition straight to Active and emit the order.
         // Anything else → transition to Armed and wait for the trigger on subsequent bars.

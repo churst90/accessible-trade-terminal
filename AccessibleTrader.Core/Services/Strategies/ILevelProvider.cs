@@ -46,5 +46,13 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// <see cref="NearestBelow"/>.
         /// </summary>
         PriceLevel? NearestAbove(double price, IReadOnlyList<Ohlcv> history, WorkspaceState state, LevelKind? kindFilter = null);
+
+        /// <summary>
+        /// The level sources that threw during this thread's last query, as one phrase ("the
+        /// Cipher SR levels (index out of range)"), or null when every source answered. A source
+        /// that throws is skipped and the others still count; this is how the caller says why a
+        /// level it needed was missing rather than looking as if the market had none.
+        /// </summary>
+        string? LastFailure => null;
     }
 }

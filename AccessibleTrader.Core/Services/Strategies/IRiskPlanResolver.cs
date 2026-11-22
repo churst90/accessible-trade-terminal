@@ -34,5 +34,22 @@ namespace AccessibleTrader.Core.Services.Strategies
             IReadOnlyList<Ohlcv> history,
             WorkspaceState state,
             double? accountEquity = null);
+
+        /// <summary>
+        /// The same, saying why when the plan cannot be resolved for a reason the user should
+        /// hear: a level source the stop or a target needed failed. Null otherwise, including the
+        /// ordinary refusals (reward to risk below the minimum, a stop on the wrong side).
+        /// </summary>
+        ResolvedRiskPlan? Resolve(
+            RiskPlan plan,
+            OrderSide side,
+            IReadOnlyList<Ohlcv> history,
+            WorkspaceState state,
+            double? accountEquity,
+            out string? whyNot)
+        {
+            whyNot = null;
+            return Resolve(plan, side, history, state, accountEquity);
+        }
     }
 }

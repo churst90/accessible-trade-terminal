@@ -31,7 +31,17 @@ namespace AccessibleTrader.Core.Services.Strategies
             IReadOnlyList<Ohlcv> history,
             WorkspaceState state,
             double? accountEquity = null)
+            => Resolve(plan, side, history, state, accountEquity, out _);
+
+        public ResolvedRiskPlan? Resolve(
+            RiskPlan plan,
+            OrderSide side,
+            IReadOnlyList<Ohlcv> history,
+            WorkspaceState state,
+            double? accountEquity,
+            out string? whyNot)
         {
+            whyNot = null;
             if (plan == null || history.Count == 0) return null;
 
             // Entry: only Immediate is honored at resolver level. Non-Immediate triggers go
@@ -40,7 +50,11 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             // Resolve the stop. Returns NaN if the plan references an unimplemented source.
             double stop = ResolveStop(plan.Stop, side, entry, history, state);
-            if (double.IsNaN(stop)) return null;
+            if (double.IsNaN(stop))
+            {
+                if (LevelFailure() is string failed) whyNot = $"no stop: {failed} failed";
+                return null;
+            }
 
             // Stop must be on the loss side of entry — invalid plans (stop above entry on a long)
             // are rejected here so callers don't have to defensive-check downstream.
@@ -51,14 +65,19 @@ namespace AccessibleTrader.Core.Services.Strategies
             // if a later rung references an unimplemented source. Drop unresolved rungs.
             var tpPrices = new List<double>();
             var portions = new List<double>();
+            string? targetFailure = null;
             foreach (var rung in plan.TpLadder)
             {
                 double tp = ResolveTarget(rung, side, entry, riskPerUnit, history, state);
-                if (double.IsNaN(tp)) continue;
+                if (double.IsNaN(tp)) { targetFailure ??= LevelFailure(); continue; }
                 tpPrices.Add(tp);
                 portions.Add(Math.Clamp(rung.ClosePortion, 0.0, 1.0));
             }
-            if (tpPrices.Count == 0) return null;
+            if (tpPrices.Count == 0)
+            {
+                if (targetFailure != null) whyNot = $"no target: {targetFailure} failed";
+                return null;
+            }
 
             // Normalise over-allocated ladders. Per-rung clamping can't catch portions
             // that individually sit in [0,1] but SUM past 1.0 ([0.5, 0.5, 0.5] = 150% of
@@ -103,6 +122,9 @@ namespace AccessibleTrader.Core.Services.Strategies
                 RiskCash: riskCash,
                 Notes: notes);
         }
+
+        /// <summary>The level sources that failed in the query just made, or null.</summary>
+        private string? LevelFailure() => _levels?.LastFailure;
 
         // ── Stop placement ────────────────────────────────────────────────────
 
