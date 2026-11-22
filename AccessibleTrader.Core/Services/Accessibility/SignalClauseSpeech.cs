@@ -32,6 +32,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
             => string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName;
 
         /// <summary>
+        /// A marker template's <c>{label}</c>: the number printed beside the marker on bar
+        /// <paramref name="index"/> (its <see cref="ComponentCompanions.Label"/> companion), said as
+        /// a whole number, or nothing when the bar has none. So "Buy setup {label}." says "Buy setup
+        /// 7." on the bar the 7 is printed on. A template without the word is returned unchanged.
+        /// </summary>
+        public static string FillLabel(string template, ChartSeries series, ComponentConfig comp, int index)
+        {
+            if (!template.Contains("{label}")) return template;
+            var labels = series.GetComponentData(comp.Name + ComponentCompanions.Label);
+            string said = index >= 0 && index < labels.Length ? Rendering.ValueLabelRenderer.Spoken(labels[index]) : "";
+            return template.Replace("{label}", said);
+        }
+
+        /// <summary>
         /// The clause with its component named in front — unless the clause already names it, or
         /// there is no component to name.
         /// </summary>

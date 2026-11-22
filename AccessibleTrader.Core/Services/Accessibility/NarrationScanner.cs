@@ -1397,7 +1397,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string valueStr = val.ToString("F1", CultureInfo.InvariantCulture);
 
             return !string.IsNullOrEmpty(comp.SignalSpeechTemplate)
-                ? comp.SignalSpeechTemplate
+                ? SignalClauseSpeech.FillLabel(comp.SignalSpeechTemplate, series, comp, barIndex)
                     .Replace("{price}", price)
                     .Replace("{value}", valueStr)
                     .Replace("{name}", !string.IsNullOrEmpty(comp.DisplayName) ? comp.DisplayName : comp.Name)

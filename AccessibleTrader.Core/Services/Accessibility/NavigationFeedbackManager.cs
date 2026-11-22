@@ -600,7 +600,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                     // Expand the signal speech template. Magnitude-aware formatting so
                     // sub-cent assets don't collapse {price} to "0".
-                    string speech = comp.SignalSpeechTemplate
+                    string speech = SignalClauseSpeech.FillLabel(comp.SignalSpeechTemplate, series, comp, dataIndex)
                         .Replace("{price}", SpeechPriceFormatter.FormatPrice(val))
                         .Replace("{name}", comp.DisplayName);
                     if (string.IsNullOrWhiteSpace(speech)) continue;
@@ -636,7 +636,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // Cap at 5 to match cluster audio tick limit.
             int maxSignals = Math.Min(signals.Count, 5);
-            var parts = signals.Take(maxSignals).Select(s => s.speech);
+            // Each clause's own full stop is taken off before the join puts one back: most
+            // templates end with one ("Swing high {price}."), and "Swing high 100.." was said.
+            var parts = signals.Take(maxSignals).Select(s => s.speech.TrimEnd().TrimEnd('.'));
             return string.Join(". ", parts) + ".";
         }
 

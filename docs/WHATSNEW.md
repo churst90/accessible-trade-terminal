@@ -6,6 +6,22 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## Unreleased
+
+- **The 9-13 sequential** (Add Indicator, Reversal): a setup counts 1 to 9, then a countdown 1 to
+  13, each count a numbered marker you hear as you arrow ("Buy setup 7."). The 9 and the 13 ring
+  their own bells; focused on a 9 you hear whether it is perfected. Not yet checked against
+  TradingView's version.
+- **"Near resistance" covers every level on the chart**: pivots, Cipher A's pivots, a volume
+  profile's levels, your own horizontal lines and your price alerts, each named after the price
+  ("Near resistance at 95,200.00, pivot R1.").
+- **Line-style charts no longer name candle patterns** as bars close or form, since no candle is
+  drawn; ask with Alt+Shift+D and it still tells you.
+- **Settings say less**, with clearer names: "Announce other markers on the bar while navigating"
+  and the rest. A **Donate** tab holds the ways to support the project.
+- **The heatmap is an indicator** (Add Indicator, Order Flow, or `HEAT` in the Go bar); the toolbar
+  button and Alt+H are gone.
+
 ## 2.14.1 — the news desk, and chart types you hear as well as see
 
 **2.14.1 is 2.14.0 with all seven downloads.** 2.14.0's Linux and macOS browser downloads did not

@@ -583,7 +583,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ? SpeechPriceFormatter.FormatPrice(ChartMath.BarAsDrawn(state.Data, barIndex, state.IsHeikinAshi).Close)
                 : SpeechPriceFormatter.FormatPrice(value);
 
-            string text = comp.SignalSpeechTemplate!
+            string text = SignalClauseSpeech.FillLabel(comp.SignalSpeechTemplate!, series, comp, barIndex)
                 .Replace("{price}", price)
                 .Replace("{value}", value.ToString("F1", CultureInfo.InvariantCulture))
                 .Replace("{name}", string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName)

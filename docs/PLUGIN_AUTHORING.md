@@ -610,7 +610,7 @@ All audio fields are nullable; null means "use the profile / display-type defaul
 | Field | Type | Description |
 |---|---|---|
 | `SpeechTemplate` | `string?` | Template for continuous line/oscillator speech. Tokens: `{value}`, `{value:F1}`, `{value:F2}`, `{name}`, `{date}`. Used when no `GetComponentSpeech()` override is active. |
-| `DefaultSignalSpeechTemplate` | `string?` | Template for marker/dot components when a non-NaN signal IS present. Tokens: `{price}` (formats the value as an integer price), `{name}`. Returns empty string (no speech) when value IS NaN. Takes precedence over `SpeechTemplate` for Dot/Arrow/Diamond/Square/CheckBox/RefreshBox/Cross/TriangleUp/TriangleUpRing/TriangleDown/ZeroDot display types. |
+| `DefaultSignalSpeechTemplate` | `string?` | Template for marker/dot components when a non-NaN signal IS present. Tokens: `{price}` (formats the value as an integer price), `{name}`, `{label}` (the bar's `_label` companion, the number printed beside the marker, said as a whole number; empty on a bar without one). Returns empty string (no speech) when value IS NaN. Takes precedence over `SpeechTemplate` for Dot/Arrow/Diamond/Square/CheckBox/RefreshBox/Cross/TriangleUp/TriangleUpRing/TriangleDown/ZeroDot display types. |
 | `UsesGradientSpeech` | `bool` | When true, navigation speech produces qualitative momentum language — "strong bullish momentum", "neutral momentum", etc. — rather than a raw numeric value. Intended for `GradientDot` components whose value is more meaningful as a direction + intensity description. Default: `false`. |
 
 ---

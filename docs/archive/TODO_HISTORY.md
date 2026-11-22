@@ -25169,3 +25169,35 @@ Seen in the second shoot (c51a402f, after the deploy, 2026-11-21):
   each release, or the hosted terminal needs a FRED key of its own.
 - [ ] **Custom scripts do not compile on the VPS**: "bwrap binary was not found" (the sandbox is
   missing on the server). The hosted terminal's Compile button fails there.
+
+
+## Removed from TODO.md on 2026-11-21 (Cody verified the leaderboard and every item below as heard; the 9-13 built, see CHANGES Unreleased)
+
+1. **Heard by Cody.** Headlines, the morning brief and Alt+U are heard and work (Cody, 2026-11-21). The
+   rest since 2.13.1 (the chart types after the first six, scales, templates, the pulse, unusual moves,
+   the Go bar) is built and CI green but not heard. What he says comes first.
+- **Leaderboard**: on the hosted terminal's Account page, set a display name and tick the leaderboard
+  box; your copied practice account is left off until both are set. The site shows the table from three
+  entries; under that, the invitation. Not yet seen with real rows.
+## To hear (built since 2.13.1, not heard by Cody)
+Each item's caveats are in CHANGES (Unreleased) and in full in
+`archive/CHANGES_DETAIL_SINCE_2.13.1.md`. Questions to ask once heard:
+- [x] **Headlines: heard, "work"** (Cody, 2026-11-21). Still open, **Q:** is the importance table right for EDGAR filings (should a Form 4 insider
+  trade be medium for a held stock?) and for the wire (plain "declares quarterly dividend" moved from
+  medium to low; is a minute per symbol the right cap)? Too many Finnhub stories per event (twelve on one
+  AMD short-seller report on 2026-11-20)? If so, a per-symbol cap per quarter hour, or Medium and up only.
+- [ ] **Unusual moves.** **Q:** the 46-bar median and the 5x line are my choice, not tuned on data.
+- [x] **Morning brief (Ctrl+Alt+B) and Alt+U: heard, "work"** (Cody, 2026-11-21). Still my choice, not
+  his: with market events off the brief falls back to the important ones.
+- [ ] **The Dot Pad's pulse line**: no Dot Pad here; pages are cut by characters, and Grade 2 may make an
+  item longer or shorter than the 20 cells.
+- [ ] **Chart types**: is a brick's direction right in the type slot? Line break reads as "Block".
+- [ ] **Slash for the Go bar** is unverified on a German keyboard (Shift+7).
+- [ ] **The new keys** (`,` `.` `'`, Shift for previous, Ctrl+Alt+Shift to toggle) are browser-tested on
+  Chromium only, not with a screen reader on a real browser.
+- [ ] **Cipher A above the candle** (2026-11-17): the pad over a tall candle (0.35 of its range) may look
+  far.
+- [ ] **"9-13 sequential"** (Cody, 2026-11-18): setup 1 to 9, countdown 1 to 13, with perfection,
+  cancellation and recycle rules from the published descriptions, checked against a TradingView
+  community script; a tick per count, a distinct tone at 9 and 13. Not called "TD Sequential" (a DeMark
+  trademark).

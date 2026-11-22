@@ -311,6 +311,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, ValueDeviationProvider>();
             services.AddSingleton<IIndicatorProvider, CoinMetricsProvider>();
             services.AddSingleton<IIndicatorProvider, TopBottomDetectorProvider>();
+            services.AddSingleton<IIndicatorProvider, Sequential913Provider>();
             services.AddSingleton<IIndicatorProvider, AnchoredVwapProvider>();
             services.AddSingleton<IIndicatorProvider, HurstExponentProvider>();
             services.AddSingleton<IIndicatorProvider, PivotLevelsProvider>();

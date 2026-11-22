@@ -13,9 +13,9 @@ running the sabotage is what found real ones. Test one thing, write down what th
 
 The order:
 
-1. **Heard by Cody.** Headlines, the morning brief and Alt+U are heard and work (Cody, 2026-11-21). The
-   rest since 2.13.1 (the chart types after the first six, scales, templates, the pulse, unusual moves,
-   the Go bar) is built and CI green but not heard. What he says comes first.
+1. **Heard by Cody.** Everything built since 2.13.1 up to 2.14.1 is heard and verified (Cody,
+   2026-11-21: the leaderboard, Cipher A above the candle, "all of the built but unheard stuff"). What
+   is left to hear is the 2026-11-21 notes work under "To hear". What he says comes first.
 2. **Trading through the venues** is built but has not been tried on a demo, practice or real account.
    Treat it as unverified until an account answers.
 3. Cody's open questions (**Q**), then the open items below, then the older audit findings at the end.
@@ -46,9 +46,6 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
      sender domain is likely authenticated (the password emails arrived 11-20) but unchecked.
   6. Tell me: I run `confirm-pending`, send you a test issue, and after you have read it, the first
      real issue goes out with `send ISSUE.md --confirm` (Markdown, starting with a `Subject: ...` line).
-- **Leaderboard**: on the hosted terminal's Account page, set a display name and tick the leaderboard
-  box; your copied practice account is left off until both are set. The site shows the table from three
-  entries; under that, the invitation. Not yet seen with real rows.
 - **Alpaca's news wire (optional, off by default)**: put the PAPER Alpaca pair in the app's API Keys (the
   slot also drives Alpaca trading, so never the live pair). The paper pair in
   `patches/api keys/alpaca-api-key.txt` has no secret: regenerate it on the paper dashboard.
@@ -61,27 +58,34 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
   Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
   Cody, 11-21, "read better now".
 
-## To hear (built since 2.13.1, not heard by Cody)
+## To hear (built 2026-11-21 from Cody's notes, not heard)
 
-Each item's caveats are in CHANGES (Unreleased) and in full in
-`archive/CHANGES_DETAIL_SINCE_2.13.1.md`. Questions to ask once heard:
+Everything before this, from 2.13.1 to 2.14.1, Cody verified on 2026-11-21. Caveats for these are in
+CHANGES (Unreleased).
 
-- [x] **Headlines: heard, "work"** (Cody, 2026-11-21). Still open, **Q:** is the importance table right for EDGAR filings (should a Form 4 insider
-  trade be medium for a held stock?) and for the wire (plain "declares quarterly dividend" moved from
-  medium to low; is a minute per symbol the right cap)? Too many Finnhub stories per event (twelve on one
-  AMD short-seller report on 2026-11-20)? If so, a per-symbol cap per quarter hour, or Medium and up only.
+- [ ] **The 9-13 sequential** (Add Indicator, Reversal): the counts said and ticked, the 9 and 13
+  bells, perfection on focus. **Not checked against a TradingView script**: put both on the same
+  chart and compare where the 9s and 13s land. **Q:** the recycle is the simple one (any new setup
+  the same way restarts the countdown); the published method also compares the setups' sizes. Worth
+  it? Should narration as a bar closes say "perfected" too (needs a template word for it)?
+- [ ] **Near support and resistance on every level** (pivots, Cipher A pivots, profile levels, your
+  lines, price alerts), each named after the price.
+- [ ] **No candle pattern said unprompted on line-style charts.**
+- [ ] **The shorter settings, the Donate tab, "marker" wording, the heatmap under Add Indicator.**
+
+Open questions kept from the heard items:
+
+- **Headlines Q:** is the importance table right for EDGAR filings (should a Form 4 insider trade be
+  medium for a held stock?) and for the wire (plain "declares quarterly dividend" moved from medium to
+  low; is a minute per symbol the right cap)? Too many Finnhub stories per event (twelve on one AMD
+  short-seller report on 2026-11-20)? If so, a per-symbol cap per quarter hour, or Medium and up only.
   Should a first look at a stock also say a filing from the last 15 minutes rather than 5?
-- [ ] **Unusual moves.** **Q:** the 46-bar median and the 5x line are my choice, not tuned on data.
-- [x] **Morning brief (Ctrl+Alt+B) and Alt+U: heard, "work"** (Cody, 2026-11-21). Still my choice, not
-  his: with market events off the brief falls back to the important ones.
-- [ ] **The Dot Pad's pulse line**: no Dot Pad here; pages are cut by characters, and Grade 2 may make an
-  item longer or shorter than the 20 cells.
-- [ ] **Chart types**: is a brick's direction right in the type slot? Line break reads as "Block".
-- [ ] **Slash for the Go bar** is unverified on a German keyboard (Shift+7).
-- [ ] **The new keys** (`,` `.` `'`, Shift for previous, Ctrl+Alt+Shift to toggle) are browser-tested on
-  Chromium only, not with a screen reader on a real browser.
-- [ ] **Cipher A above the candle** (2026-11-17): the pad over a tall candle (0.35 of its range) may look
-  far.
+- **Unusual moves Q:** the 46-bar median and the 5x line are my choice, not tuned on data.
+- **Morning brief:** with market events off it falls back to the important ones (my choice).
+- **Chart types Q:** is a brick's direction right in the type slot? Line break reads as "Block".
+- **Unchecked by anyone:** the Dot Pad's pulse line (no Dot Pad here; Grade 2 may make an item longer
+  or shorter than the 20 cells); slash for the Go bar on a German keyboard (Shift+7); the new keys
+  (`,` `.` `'`) with a screen reader on a real browser other than Chromium.
 
 ## News desk: what is left
 
@@ -151,10 +155,6 @@ needed: "don't worry about the custom scripts on the hosted vps".
 - [ ] **Formula charts** (BTC/ETH, spreads, baskets): a "Formula" source with a builder and a typed form
   (`Bitstamp:"BTC/USD" / Bitstamp:"ETH/USD"`); legs matched by time, last value held when one market is
   closed; high and low approximate; no volume; never tradeable.
-- [ ] **"9-13 sequential"** (Cody, 2026-11-18): setup 1 to 9, countdown 1 to 13, with perfection,
-  cancellation and recycle rules from the published descriptions, checked against a TradingView
-  community script; a tick per count, a distinct tone at 9 and 13. Not called "TD Sequential" (a DeMark
-  trademark).
 - [ ] **Full Pine Script in the script editor** (Cody, 2026-11-19: later). Today's
   `Core/PineScript/PineTranspiler.cs` is regex rewriting and cannot follow blocks, user functions,
   types, collections, `var`/`varip` or tuples. The order: (1) a conformance bank of 30–50 open-source

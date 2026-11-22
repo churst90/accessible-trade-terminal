@@ -345,6 +345,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, ValueDeviationProvider>();
             services.AddScoped<IIndicatorProvider, CoinMetricsProvider>();
             services.AddScoped<IIndicatorProvider, TopBottomDetectorProvider>();
+            services.AddScoped<IIndicatorProvider, Sequential913Provider>();
             services.AddScoped<IIndicatorProvider, AnchoredVwapProvider>();
             services.AddScoped<IIndicatorProvider, HurstExponentProvider>();
             services.AddScoped<IIndicatorProvider, PivotLevelsProvider>();

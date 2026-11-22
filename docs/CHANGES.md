@@ -4,8 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Nothing yet. **On the VPS:** the 2.14.0 build (a6f6d4bf, deployed 2026-11-21 14:50 UTC), which is
-2.14.1's app.
+**On the VPS:** the 2.14.0 build (a6f6d4bf, deployed 2026-11-21 14:50 UTC), which is 2.14.1's app.
+Nothing below is deployed or heard yet.
+
+### 2026-11-21: Cody's notes — the 9-13 sequential; near support and resistance on every level; candle patterns follow the chart; settings say less; markers are markers; a Donate tab; the heatmap is an indicator — CI pending, not heard
+
+- **The 9-13 sequential** (Add Indicator, Reversal; `Sequential913Provider`). A buy setup counts
+  nine closes in a row each below the close four bars before, starting only after a price flip
+  (the bar before closed above its own four-bars-back close); a sell setup is the mirror. A 9 is
+  **perfected** when bar 8 or 9 reaches the lows (highs) of bars 6 and 7. The **countdown** starts
+  on the 9 and counts, not necessarily in a row, each close at or below the low two bars before
+  (sell: at or above the high); **13** also needs its low at or below countdown bar 8's close, and a
+  bar that fails only that is **deferred**. A countdown is **cancelled** by a completed setup the
+  other way or by a close beyond its own setup's extreme (drawn as the dashed **Setup Resistance**
+  and **Setup Support** lines), and a new setup the same way **recycles** it (starts again from 1).
+  Every count is a marker with its number printed beside it; arrowing says "Buy setup 7." and
+  ticks. The 9 and the 13 are components of their own (a triangle with a crystal bell, a diamond
+  with a dual-tone bell), so they sound unlike the counts and Ctrl+Left/Right jumps between them.
+  Focused on a 9 it says "Buy setup 9, perfected." (or "not perfected"); Alt+Shift+D says the
+  count, a deferral or a cancellation and why. Not called by the trademarked name.
+  **Caveats:** written from the published descriptions only; **not checked against a TradingView
+  script** (none was run side by side). The recycle is the simple one: the published method also
+  compares the two setups' sizes, and this does not. Narration as a bar closes says "Buy setup 9."
+  without "perfected" (the marker's spoken template has no word for it); focus or Alt+Shift+D says
+  it. Tests: 14 in `Sequential913Tests`, from hand-built bar sequences for each rule; removing the
+  flip, perfection, deferral, either cancellation, the recycle or the label fill each turns one red.
+- **A marker's spoken template takes `{label}`**: the number or text printed beside the marker (its
+  `_label` companion), in every route that speaks a marker (focus, other markers on the bar,
+  narration, playback). Documented in Properties and `PLUGIN_AUTHORING.md`.
+- **"Announce other markers on the bar" no longer says two full stops** ("Swing high 100.." became
+  "Swing high 100."): each template's own stop is taken off before the join adds one.
+- **Near support and resistance covers every level** (Cody chose option A). Arrowing the candles
+  said "Near resistance at X" for Cipher SR's two zone lines only. Now also pivots (PP, R1 to R3, S1
+  to S3, Camarilla), Cipher A's pivot high and low, a volume profile's point of control and value
+  area edges, your horizontal lines, and the prices that active alerts on this symbol watch
+  ("crosses" or "touches" a price). Each names itself after the price: "Near resistance at
+  95,200.00, pivot R1." Cipher SR's sentence is unchanged; the nearest level each side wins; hidden
+  or muted lines are skipped. **Caveat:** "alert lines" means fixed-price alerts; an alert on an
+  indicator's value is not a price and is not counted. 13 tests in `NearLevelTests`.
+- **Candle patterns follow what is drawn.** On a line, area, OHLC bars, baseline, high-low or HLC
+  area chart no candle is drawn, and the bar close and the forming commentary no longer name one
+  ("Close 198.50, Bullish engulfing", "Long-legged doji forming"); chart patterns are still said.
+  Brick charts (Renko and the rest) were already quiet. **Correction:** I first told Cody
+  "Narrate candle patterns as they form" had no brick check; it had one. Asking (Alt+Shift+D, the
+  Go bar) still names a candle pattern on any chart.
+- **Settings say less** (Cody's cuts on the Speech tab, then every tab: a sentence where it adds
+  context, none where the name says it). Renamed, keys kept: **Announce other markers on the bar
+  while navigating**, **Tick other markers on the bar while navigating**, **Describe how markers
+  and lines are drawn**, **Narrate chart patterns as they form**, **Draw chart patterns**. Two of
+  them are over the 42-character label guard and are allow-listed there.
+- **A Donate tab** in Settings (out of the License tab): Cash App, PayPal and the coin addresses
+  from codyhurst.com, each in a read-only field with a Copy button that says what it copied ("via
+  Tangem" dropped, as Cody asked).
+- **"Marker" for the shape, "signal" for its meaning.** The shape drawn on a bar (a dot, a
+  triangle, a diamond) is a marker everywhere it is named: the type label, "N markers in view",
+  "No more X markers in this direction", Properties, Help, the settings. "Signal" stays for what a
+  marker means (a buy signal), MACD's Signal line and narration.
+- **The heatmap is an indicator.** The toolbar's Heatmap button and Alt+H are gone; the liquidity
+  heatmap is added from Add Indicator (Order Flow) or the Go bar's `HEAT`, whose description now
+  says liquidity, not volume. Alt+H is free.
 
 ## [2.14.1] — 2026-11-21
 

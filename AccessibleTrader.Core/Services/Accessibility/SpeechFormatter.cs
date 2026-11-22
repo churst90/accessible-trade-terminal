@@ -1342,7 +1342,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // to "0" under F0. SpeechPriceFormatter carries ~3 significant digits.
             string value = double.IsNaN(ctx.Value)
                 ? "no data"
-                : ctx.Comp.SignalSpeechTemplate!
+                : SignalClauseSpeech.FillLabel(ctx.Comp.SignalSpeechTemplate!, ctx.Series, ctx.Comp, ctx.DataIndex)
                     .Replace("{price}", SpeechPriceFormatter.FormatPrice(ctx.Value))
                     .Replace("{name}", ctx.Comp.DisplayName);
 
