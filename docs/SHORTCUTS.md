@@ -4,7 +4,7 @@ All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Sho
 
 ## Host-specific note: the drawing chords are `Alt+Shift+letter` on every head
 
-Since 2026-09-05 the drawing tools and the detailed point summary are bound to `Alt+Shift+letter` in the DEFAULT profile, on the desktop apps and the browser alike. They were Ctrl+Shift+letter on the desktop before that, with the Linux WebHost rewriting them to Alt+Shift at startup because Firefox and most browsers reserve several Ctrl+Shift+letter chords at the browser-chrome level (reopen closed tab, history, private window, console) and they are NOT cancellable from page-level JavaScript even with `preventDefault`. That left the one place the keyboard differed between heads, and it was removed by moving the default rather than by explaining the difference.
+The drawing tools and the detailed point summary are on `Alt+Shift+letter`, on the desktop apps and the browser alike: browsers reserve several Ctrl+Shift+letter chords (reopen closed tab, history, private window, console) and a web page cannot take them back.
 
 | Drawing tool | Every head |
 | --- | --- |
@@ -66,7 +66,7 @@ keys read it there as "Headline: …", `Alt+Shift+D` reads every headline on the
 source, and the Go bar's `NEWS` lists every headline kept this session, said or not (Enter goes to its
 bar). Brick charts (Renko, Kagi, Point and Figure and the rest) carry none: a brick has no clock.
 
-One key family per kind of thing, the shifted key going back (Cody, 2026-11-20): **`,` formations,
+One key family per kind of thing, the shifted key going back: **`,` formations,
 `.` headlines, `'` market events.** Each kind's switch is the same key with Ctrl+Alt+Shift:
 
 | Key | Action | Speech Feedback |
@@ -115,20 +115,17 @@ see the move has no way to detect.
 | Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
 | No focus / unknown | Next trendline crossing (fallback) |
 
-When no further event exists in the scan direction, speech announces: "No more [component name] signals in this direction." (This was silent until 2026-08-03 — boundary feedback carried the message but only played an earcon.)
+When no further event exists in the scan direction, speech announces: "No more [component name] markers in this direction."
 
 **On a pane with more than one reference line, the jump uses the line the focused component
-answers to.** A component may declare which lines it subscribes to, and since 2026-09-19 the
-classifier, the threshold scan and the neutral lookup all honour that declaration and read the
-focused component's own data. Aroon is the case that proved it: Up and Down swing about a Midpoint
-at 50 while the Oscillator swings about zero, and with the Oscillator focused the key used to land
-where *AroonUp* crossed 50 and announce it as the Oscillator's Midpoint cross. A component that
+answers to.** A component may declare which lines it subscribes to, and the jump reads the focused component's
+own data against those lines. Aroon is the example: Up and Down swing about a Midpoint at 50 while
+the Oscillator swings about zero, so with the Oscillator focused the key lands on its zero cross. A component that
 declares no list — or declares an empty one, as the marker and state components do to silence the
 earcon — keeps every line, because a jump key with nothing to aim at is a worse answer than a jump
 to the pane's own line.
-Cipher B's Wave Gap and Money Flow name the zero line only (2026-10-31): until then they named none,
-were given every line, and the key on them stopped at the waves' ±53/±60 and said "overbought". Those
-lines are Market Cipher B's overbought and oversold for the two waves, where the key still uses them.
+Cipher B's Wave Gap and Money Flow answer to the zero line only; the ±53 and ±60 lines are Market
+Cipher B's overbought and oversold for the two waves, where the key uses them.
 
 ---
 
@@ -140,10 +137,8 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 
 They step through formations only. An indicator's own drawing — Cipher C's cycle arc — is not a
 stop: it belongs to its component, which names it when you land there and says what it shows
-(Cody, 2026-10-22: one owner per key family; Arrows move by bar, Ctrl+Left/Right through the
-focused component's events, comma through formations). Until 2026-11-20 the pair was `,` back and
-`.` forward; period now walks headlines, and a saved shortcut profile still on the old pair is moved
-when it loads (a pair you rebound yourself is left alone).
+(one owner per key family: Arrows move by bar, Ctrl+Left/Right through the focused component's
+events, comma through formations).
 
 | Key | Action |
 |-----|--------|
@@ -152,10 +147,6 @@ when it loads (a pair you rebound yourself is left alone).
 
 | `;` | Choose which overlapping formation at this bar leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside. The choice stays until changed (even after a restart), is what `,` `Shift+,`, Home, End, `\` and the arrows read on every bar it is on, and is drawn first labelled "chosen:"; off its bars it is never mentioned |
 | `Shift+;` | The same, backwards: the first press goes to the last. With two formations, `;` and `Shift+;` both swap them |
-
-Both keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
-documented and tested on the .NET side and **never arrived**: neither was in the browser's
-trapped-key list, and a browser reports `Shift+;` as `:`, which nothing folded back to `;`.
 
 They require formation description to be on (Settings → General → *Describe chart patterns*). With it off they
 say so rather than moving you across the chart without explaining why — the announcement that would
@@ -170,8 +161,7 @@ the chosen formation is not in play, the default order reads — still forming f
 not newest — and your choice leads again when you come back to its bars. Nothing is hidden either
 way: the others are still counted and `Alt+Shift+D` still reads them all.
 
-**`,` and `Shift+,` always walk every formation's edges**, whatever `;` chose. (Until 2026-11-13 a choice
-confined them to the chosen formation's two edges until `Shift+;` released it.)
+**`,` and `Shift+,` always walk every formation's edges**, whatever `;` chose.
 
 **Landing inside nested formations names the nesting.** When a jump — or `\` into the chart — lands
 inside formations rather than on an edge, the leading one is described and then the nesting,
@@ -185,8 +175,7 @@ the jump keys and the arrow keys always agree about what is worth saying.
 
 There is no equivalent for **candle** patterns, deliberately. Dojis, spinning tops and small-bodied
 bars occur on a large share of every chart, so "jump to the next candle pattern" would usually mean
-"move one bar right". Candle patterns are read on the bar you are standing on, and since 2026-09-04
-that includes the multi-bar ones: the arrow keys, the detail key, the bar close and the live forming
+"move one bar right". Candle patterns, the multi-bar ones included, are read on the bar you are standing on: the arrow keys, the detail key, the bar close and the live forming
 bar all run the same classifier over the same trailing window, so the four cannot name the same bar
 differently.
 
@@ -367,12 +356,11 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 
 | Key | Action |
 |-----|--------|
-| Alt+C | Focus the toolbar's **Chart type** list (Candles, Heikin Ashi, Line, Area, Renko) |
+| Alt+C | Focus the toolbar's **Chart type** list (Candles, Heikin Ashi, Line, Area, Renko and the rest) |
 | Alt+L | Focus the toolbar's **Price scale** list (Regular, Logarithmic, Percent, Indexed to 100) |
 
-Until 2026-11-19 Alt+C toggled Heikin-Ashi and Alt+L toggled log scale. Each is now one entry of a
-list, so the keys put focus on the list and the arrows reach every choice. The toggles are still in
-the Go bar: `HA` and `LOG`. Both keys work from anywhere; in focus mode (Alt+Z) they show the
+The keys put focus on the list and the arrows reach every choice. Heikin-Ashi and logarithmic also
+have Go bar toggles: `HA` and `LOG`. Both keys work from anywhere; in focus mode (Alt+Z) they show the
 toolbar first. On a tab that is not a price chart they say there is no list there.
 
 **Chart type** (Candles / Heikin Ashi / Line / Area / Renko): Alt+C, or the Go bar — `CANDLE`,
@@ -530,8 +518,7 @@ control, switch access and single-pointer use.
 Three platform notes. `Shift+Arrow` is **select by character** in every text box and in a
 screen reader's browse mode, so the terminal deliberately leaves it alone whenever the focus is
 in an `<input>`, `<textarea>` or `<select>` — the nudge fires when the chart itself has focus,
-or under the Object Tree, and says so anywhere else. (It moved here from `Alt+Shift+Arrow` on 2026-09-03: Orca claims that chord for
-table-cell navigation, so on Linux with a screen reader running it never reached the app.)
+or under the Object Tree, and says so anywhere else. (Not `Alt+Shift+Arrow`: Orca claims that chord for table-cell navigation.)
 On **macOS with VoiceOver**, the `Ctrl+Alt+Shift+letter` family is VoiceOver's own modifier
 (Control+Option) plus Shift when the modifier is set to Control+Option: set VoiceOver's
 modifier to Caps Lock, or pass a single chord through with `VO+Tab`. On the **Linux web

@@ -19,9 +19,9 @@ feature and understand what it is doing.
 - **Spoken feedback** is written in quotation marks exactly as the application says
   it, for example "Loading history…". When a value changes with your symbol or
   price, it is shown in braces, like "{Symbol} on {Provider}, {Timeframe}. Ready."
-- **Modifier note:** the drawing tools and the detailed point summary are
-  Alt+Shift+letter on every head, desktop and browser alike (since 2026-09-05; the
-  desktop apps used Ctrl+Shift before that). See the Platform Support chapter.
+- **Keys are the same everywhere:** the desktop apps and the browser use the same chords,
+  including Alt+Shift+letter for the drawing tools and the detailed point summary. The
+  Platform Support chapter lists the few a browser keeps for itself.
 
 ---
 
@@ -126,12 +126,10 @@ a deep one, each roughening in proportion to its own reach so a candle with a lo
 tail below and none above is unmistakable by ear. The volume bars sit a perfect
 fourth below the body — E4 on an up bar, E3 on a down bar, against the body's A4 and
 A3 — so the bed is audibly under the candle rather than on it, and neither lands on a
-wick. Until 2.11.0 volume played on the body's own pitch, which is why a busy bar
-could sound like one thick note instead of two. Volume takes its up or down tone from the candle
+wick. Volume takes its up or down tone from the candle
 because it is coloured by the candle; every other bar — MACD's histogram, Cipher B's Wave Gap
 and Money Flow when read as histograms, PPO, CMF, Force Index — takes it from its own value, the higher tone above zero
-and the lower below, the side it is drawn on and the sign you hear spoken. (Until October 2026
-those followed the candle too, so a negative bar under an up candle sounded positive.) And when a reading pushes into an
+and the lower below, the side it is drawn on and the sign you hear spoken. And when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
 tone so the extremity itself is audible. Inside the normal range there is no texture at all. It is a pronounced roughness, not a faint
@@ -139,8 +137,7 @@ wash, and you can set how strong it is per level with the **Zone Texture** slide
 an indicator's properties (P), under Reference Levels. You learn to hear "deep
 oversold" the way a sighted trader sees a line pinned to the bottom of its range.
 Noise always means a zone: a line with no overbought or oversold zone, such as MACD, its
-Signal line or Aroon, the price line, and the volume bars are clean on every bar. (Until
-October 2026 each of them carried a faint brown noise all the time.)
+Signal line or Aroon, the price line, and the volume bars are clean on every bar.
 
 On top of the continuous tones, discrete events ring as short bells, and each event
 type has its own bell so you can tell them apart by ear: a smooth sine bell for
@@ -201,7 +198,6 @@ what the indicator is; those live in Properties. Properties also gives every lev
 colour, a line style, a thickness, and a choice of which crossings to report: either direction, only
 rising through, or only falling through. All of it is saved with the workspace and survives a
 restart, and "Reset to defaults" restores the indicator's own levels while leaving yours alone.
-Levels placed on the price chart by earlier versions are kept, and can be removed in Properties.
 
 **Horizontal and vertical lines you draw** play the same crossing chirp. A horizontal line chirps
 when you move to a bar whose close is on the other side of it from the bar before (rising for an
@@ -279,10 +275,7 @@ Coinbase key. Both are described in the Trading chapter.
 
 Everything the profile stores — the secrets *and* the profile list itself (which
 providers you use, the nicknames, the environments) — is held in your operating
-system's encrypted credential storage, never in a plain-text file on disk. Older
-versions kept the profile list (though never the secrets) in a plain file; the first
-run of a current build migrates it into encrypted storage automatically and removes
-the old file.
+system's encrypted credential storage, never in a plain-text file on disk.
 
 Activate the **Save Profile** button and the terminal confirms with "Profile
 {name} saved". A profile must be the active one for its provider before its data
@@ -321,12 +314,14 @@ because it tells you where to look for anything.
 
 The **first row is the buttons.** Left to right it holds the object tree and the sound
 designer; then the trading dashboard, order book, strategies, **Watch lists** (and
-the screener), **Levels** (the respect report), **Trade journal** and **AI analyst**;
-then alerts and API keys; then save and load workspace; then settings and help. After
-those come the controls that change how the chart is shown — pan left and right, zoom
-in and out, and the four display toggles: heatmap, Heikin Ashi, log scale and
-**Replay**. The last four are pressed-state toggles, so your screen reader announces
-whether each is currently on. The things you put *on* a chart — **Add indicator**,
+the screener), **Levels** (the respect report), **Market events**, **Trade journal** and
+**AI analyst**; then alerts and API keys (with **Deposit** and **Withdraw** when the
+connected exchange offers them); then save and load workspace and the indicator
+templates; then settings and help. After those come the controls that change how the
+chart is shown: pan left and right, zoom in and out, the **Chart type** list (candles,
+Heikin Ashi, line, Renko and the rest), **Brick settings** on a brick chart, the **Price
+scale** list (regular, logarithmic, percent, indexed to 100), and **Replay**, a pressed-state toggle your
+screen reader announces as on or off. The things you put *on* a chart — **Add indicator**,
 **Drawing tools** and **Scripts** — sit on the bar under the chart instead. Every
 button that opens a dialog has a keyboard shortcut named in its tooltip, so the
 toolbar is how you *find* a feature and the shortcut is how you reach it once you
@@ -378,9 +373,7 @@ the first of them. Choosing a **Provider** refills the **Symbol** list and the
 available timeframes and, again, selects the first symbol for you.
 
 The Market list also holds one special entry, **Analytics**, which is where you chart
-data feeds rather than tradeable instruments. There is no longer a separate
-Trading/Analytics switch — picking **Analytics** in the Market dropdown is how you
-cross over. When you do, an extra **Analytics type** selector appears right after
+data feeds rather than tradeable instruments. When you pick it, an extra **Analytics type** selector appears right after
 Market offering Economic, OnChain, Derivatives, and Sentiment; choose one and the
 Provider and Symbol lists refill with that category's sources (FRED economic series,
 on-chain metrics, funding/open-interest, Fear & Greed, weekly CFTC fund positioning,
@@ -436,14 +429,12 @@ or one where no candle size divides it, and the terminal snaps to one it does
 offer and tells you so — "provides 1d data only; timeframe set to 1d" — instead
 of silently fetching nothing.
 
-A worked path makes the cascade concrete. Suppose you want Bitcoin against the
-dollar on Binance at the hourly. Tab to Market and select Crypto; the Provider list
-fills and lands on Binance. Tab to Provider and confirm Binance (or arrow to
-another exchange). Tab past the Type field — leaving it on Spot — to Symbol, open
-the list, type "BTC" to reach BTC/USDT, and select it. The Time field is already 1
-hr, so you are done choosing. Because the cascade pre-selected sensible firsts, a
-common shortcut is to pick only the market, glance through to confirm the provider
-and symbol it chose for you, and load that.
+**An example.** You want Bitcoin against the dollar on Coinbase, one candle per hour. Tab
+to Market and choose Crypto; the Provider list fills and selects its first exchange. Tab to
+Provider and arrow to Coinbase. Tab past Type, leaving it on Spot, to Symbol, open the
+list and type "BTC" to reach Bitcoin against the US dollar. Time is already 1 hr, so you are
+done: Tab to Load chart. If the first provider and symbol the cascade picked are the ones
+you want, you only need to choose the market.
 
 ### Loading the chart
 
@@ -605,10 +596,9 @@ and get their own pane when they are not.
 - **Volume** has its own pane, because a volume of 1.2 million is not a price.
 - **Every oscillator has its own pane.** RSI reads 0 to 100. MACD on Bitcoin swings by
   hundreds of dollars. Put them on one upright ruler and RSI's entire working range becomes a
-  sliver at the bottom of MACD's, and by ear that sliver is one flat note. Until September
-  2026 thirty indicators shared one pane and that is exactly what happened; now each gets a
-  pane of its own, and two copies of the same indicator share one because they are on the
-  same scale.
+  sliver at the bottom of MACD's, and by ear that sliver is one flat note. So each gets a
+  pane of its own; two copies of the same indicator share one, because they are on the same
+  scale.
 
 Alt+PageUp and Alt+PageDown move between panes and name the one you land on. They stop at
 the ends with the boundary tone rather than wrapping, because a silent jump from the bottom
@@ -631,16 +621,12 @@ its pitch from where the value sits on the scale as drawn, so on a log chart the
 the pane is the note halfway up the sweep. Indicator panes are never on the log scale, on screen
 or in sound.
 
-**"Halfway up the sweep" means halfway in PITCH, not halfway in hertz.** From 2.12.0 a value's
-height in its pane maps to the 200–1000 Hz band exponentially, so equal fractions of the pane are
-equal musical intervals wherever in the pane you are: a tenth of the pane is always the same step,
-about two and a third semitones, whether you are down near the low of the window or up at the
-high. It used to be a straight line in hertz, which sounds like a straight line only if you hear
-in hertz — the bottom quarter of every pane carried a whole octave and the top quarter carried a
-major third, so a price riding high in the window moved a long way on screen and barely at all in
-the ear. The floor and the ceiling of the band are unchanged, so the extremes sound exactly as
-they always did; it is the middle that has been redistributed, and the midpoint of a pane now
-sounds at 447 Hz where it used to sound at 600.
+**"Halfway up the sweep" means halfway in pitch, not halfway in hertz.** A pane's floor sounds
+at 200 Hz and its ceiling at 1,000 Hz, and the steps between are musical: equal distances up the
+pane are equal intervals, wherever you are in it. A whole pane spans about 28 semitones (a little
+over two octaves), so a tenth of the pane is always a step of about 2.8 semitones, and the middle
+of a pane sounds at about 447 Hz. A price riding high in the window moves as far by ear as one
+riding low.
 
 **What the price pane fits.** The price pane always sizes itself to hold everything drawn on
 it: the candles *and* every visible overlay. A Bollinger band or a Keltner channel that swings
@@ -739,12 +725,10 @@ hear is what a sighted partner sees.
 
 The **Chart type** select in the toolbar's display group chooses how the price pane is drawn.
 It is one choice with fifteen options, like TradingView's chart-type menu. **Alt+C** puts the focus
-on it from anywhere (until 2026-11-19 Alt+C toggled Heikin Ashi; the Go bar's `HA` still does):
+on it from anywhere; the Go bar's `HA` switches Heikin Ashi on or off directly.
 
 - **Candles** — the standard OHLC bars, the default.
-- **Heikin Ashi** — the smoothed candles described in the next section. Choosing it sets
-  Heikin Ashi on. (There is no separate Heikin Ashi button any more:
-  this list carries it.)
+- **Heikin Ashi** — the smoothed candles described in the next section.
 - **Bars** — OHLC bars: a thin stroke from the low to the high, the open ticked to the left and
   the close to the right, green or red by the bar's own direction.
 - **Hollow candles** — TradingView's: the colour is the close against the **previous** close
@@ -819,7 +803,7 @@ Renko box as it was.
 
 Line and Area draw the **raw** close, never a Heikin-Ashi close: choosing either turns
 Heikin-Ashi off, and turning Heikin-Ashi on returns the chart to candles. Renko never draws
-Heikin-Ashi bricks: choosing Heikin Ashi from Renko restores the real bars as candles plus Heikin-Ashi. The line is the new
+Heikin-Ashi bricks: choosing Heikin Ashi from Renko restores the real bars as candles plus Heikin-Ashi. The line uses the
 **Line and area close** colour in the theme (TradingView's blue by default), so the white Price
 series is not painted over it while it is set to read the close.
 
@@ -863,7 +847,7 @@ Object Tree and Properties call it *Candles*, *Heikin Ashi*, *Bars*, *Hollow can
 *Volume candles*, *Line*, *Area*, *Baseline*, *High-low*, *HLC area*, *Renko*,
 *Range bars*, *Line break*, *Kagi* or *Point and figure*,
 whichever is chosen. A name you gave the series yourself is kept. Saved workspaces store it as
-Candles, as before.
+Candles.
 
 **Bars, hollow candles, volume candles, baseline, high-low and HLC area are each heard and read
 as they are drawn.** Choosing one says what it is: *"Bar chart."*, *"Hollow candle chart. Colour
@@ -894,6 +878,14 @@ base 104.00."*; a new base says it again), *"High-low chart."*, *"HLC area chart
 The status line shows what each draws: `O H L C` on bars and hollow candles (the hollow candle's
 in its colour), `O H L C Vol` on volume candles, `C` and `Base` on baseline (the close in its
 side's colour), `H L Range` on high-low, and `H L C` on HLC area.
+
+**Candle patterns follow what is drawn.** A candle pattern (a doji, an engulfing candle) is a
+shape of candles, so it is named only where candles are drawn: candles, Heikin Ashi, hollow
+candles and volume candles. On line, area, bars, baseline, high-low and HLC area charts, and on
+the brick charts, neither a closing bar nor the forming commentary names one (range bars name one
+as you arrow, since they are drawn as candles, but a new range bar is announced without it);
+chart patterns (a double top, a triangle) are still said. Ask with Alt+Shift+D and the bar's
+candle pattern is named on any chart.
 
 **On a Renko chart the arrow keys read the brick, not a candle,** by the same template as every
 part, with the brick's direction where a line says its type: *"Brick. Up. 95,000.00 to
@@ -972,13 +964,12 @@ The same holds for range bars, line break, Kagi and point and figure.
 ### Price scales: regular, logarithmic, percent and indexed to 100
 
 The **Price scale** select sits in the toolbar's display group, after the Chart type select.
-There is no separate Log scale button any more; this list carries it. **Alt+L** puts the focus
-on it from anywhere (until 2026-11-19 Alt+L toggled log; the Go bar's `LOG` still does). It is one choice with four entries, like TradingView's price-scale menu:
+**Alt+L** puts the focus on it from anywhere, and the Go bar's `LOG` switches logarithmic on or
+off directly. It is one choice with four entries, like TradingView's price-scale menu:
 
 - **Regular** — prices on a linear axis, the default.
-- **Logarithmic** — equal vertical distance means equal percentage move. This is the same as
-  the Go bar's `LOG`; turning it on returns the select to Regular plus the
-  log flag.
+- **Logarithmic** — equal vertical distance means equal percentage move: a rise from 10 to 20
+  is as tall as one from 100 to 200.
 - **Percent** — the close of the first bar on screen is zero, and every other price reads as
   its change from that close. A close of 95,000.50 on a chart whose first visible close was
   91,200 reads *"+4.17 percent"*.
@@ -1016,11 +1007,10 @@ a positive first close; showing the regular scale."* Choosing the entry already 
 *"Already a percent scale."*, *"Already indexed to 100."*, *"Already a regular scale."* or
 *"Already a log scale."*. From the keyboard the Go bar has `REG` (*regular scale*, *linear
 scale*, *linear*), `PCT` (*percent scale*, *percentage*) and `IDX` (*indexed*, *index to 100*,
-*rebase*); no key was added.
+*rebase*).
 
-The select is gated on trading tabs exactly like the Chart type select, but the Go bar and command
-paths apply the scale on an analytics chart too. Add symbol and formula charts are not built
-yet. Cody has not heard these scales; the examples above are the shipped sentences.
+The select shows on trading tabs only, like the Chart type select, but the Go bar applies a
+scale on an analytics chart too.
 
 ### Heikin-Ashi, and what stays raw
 
@@ -1070,7 +1060,7 @@ percentages, and the candle pattern named on the bar are all the smoothed candle
 close in the new-bar announcement ("Close 102.62 on April 9 2026. New bar: Open 101.80 on April 10 2026"), on a
 background tab, in a toast and with the browser closed. A price or candle-pattern alert fires on
 the HA close, and so does a price crossing: price crossing a moving average or a drawn line in
-narration, Ctrl+Left and Ctrl+Right, and the crossing chirp. The `{price}` in a signal's
+narration, Ctrl+Left and Ctrl+Right, and the crossing chirp. The `{price}` in a marker's
 narration is the HA close too. Turn HA off (Candles on the Chart type list, Alt+C) and all of these go back to the real close.
 Two exceptions: with the close line focused, which is always drawn from the real close,
 Ctrl+Left/Right and the chirp use the real close. And on the hosted web version, alerts the
@@ -1088,7 +1078,7 @@ your watchlists, and it runs a screen — the same conditions a strategy uses fo
 entry, asked across every symbol on a list at one instant instead of across
 every bar of one symbol.
 
-Open it with **Alt+M**, or with the **Watch** button on the toolbar's first row.
+Open it with **Alt+M**, or with the **Watch lists** button on the toolbar's first row.
 The dialog has three tabs — Watchlists, Build a screen, and Run screener — and
 you move between them with Tab and Space like any other tab list.
 
@@ -1207,6 +1197,16 @@ on the price pane, the open, high, low and close of that candle; on an indicator
 component, that component's reading for the bar. At the same time the sonification
 engine plays the bar's tone, so a run of Right-arrows is also a little rising or
 falling melody of where price went.
+
+**Near a level.** A *level* is a price where the market has turned before or where you are
+waiting for something: a support line below price (where buyers stepped in) or a resistance
+line above it (where sellers did). When you arrow one bar along the candles and that bar's
+range comes within half a percent of a level, you hear it after the prices, named:
+*"Near resistance at 64,500.00, pivot R1."* or *"Near support at 61,200.00, your line."* Every
+kind of level counts: Cipher SR's zone lines, the pivot lines, Cipher A's pivot high and low, a
+volume profile's point of control and value area edges, your own horizontal lines, and the price
+an alert on this symbol is watching. Only the nearest above and the nearest below are said, and
+a level you have hidden or muted says nothing. Home, End and Backslash skip it.
 
 When you want to cover ground faster, Home jumps to the leftmost bar in view and End
 to the rightmost, while Backslash (\\) leaps all the way to the latest, live bar.
@@ -1394,7 +1394,7 @@ at a time. Finer VoiceOver control arrives with a future native iOS update.
 Touch in the **installed mobile apps** flows through the same layer and is expected to
 behave the same way, but it has not yet been verified on physical devices — until it
 is, a connected Bluetooth keyboard remains the fully-supported way to drive the mobile
-apps. Pinch-zooming the page itself is no longer blocked anywhere, so browser-level
+apps. Pinch-zooming the page itself is never blocked, so browser-level
 magnification works on the website.
 
 
@@ -1446,20 +1446,18 @@ you have focused. On a price candle they jump to the previous or next bar where 
 crosses a trendline you have drawn. On an oscillator that crosses zero, like MACD,
 they jump to the next zero-crossing; on a banded oscillator like RSI, to the next
 entry into or exit from overbought or oversold; on a moving-average overlay, to the
-next price-versus-average cross; on a sparse signal marker, to the next bar where
-that signal fires. Press repeatedly to walk through every such event in turn; when
-there are no more in that direction the terminal says "No more {component} signals in
-this direction." It turns a long history into a short list of the moments worth
+next price-versus-average cross; on a marker (a dot or arrow that appears only on some
+bars), to the next bar where it appears. Press repeatedly to walk through every such event
+in turn; when there are no more in that direction the terminal says, for example, "No more
+Buy markers in this direction." It turns a long history into a short list of the moments worth
 hearing.
 
 When a pane carries more than one reference line, the jump uses the line the focused
 component answers to, not the first line in the pane. Aroon is the case worth knowing:
 Up and Down swing about a Midpoint at 50 while the Oscillator swings about zero, so
-with the Oscillator focused the key lands on its zero cross and says so. Before 2.11.0
-it landed where AroonUp crossed 50 and announced that as the Oscillator's Midpoint
-cross — both halves of the sentence naming the wrong thing. Past a component's only
-line you now hear "No crossing in view" rather than a sibling's crossing offered as
-your own.
+with the Oscillator focused the key lands on its zero cross and says so. Past a
+component's last crossing you hear "No crossing in view" rather than another component's
+crossing offered as its own.
 
 ### Playback: listening to the market
 
@@ -1469,8 +1467,7 @@ you *hear* the shape of a stretch of market in seconds. Three keys set how much 
 hear. Space plays or stops the whole chart — every visible, unmuted series at once,
 each sounding all of its own visible, unmuted components together, so a busy chart
 really does play as a full ensemble, down to the soft cloud- and ribbon-fill washes
-(an EMA Fill between two averages, say) that used to drop out when too many voices
-were in play. Shift with Space plays just the series you have focused, all of its
+(an EMA Fill between two averages, say). Shift with Space plays just the series you have focused, all of its
 components, for studying one indicator without the rest. Ctrl+Shift+Space narrows
 further to a single component — the RSI line alone, say. Muting a series or component
 with M, or hiding it with H, drops it straight out of the mix, which is how you thin
@@ -1490,8 +1487,7 @@ narrating."* Treat all three as
 the way out whenever the chart has gone quieter than you meant it to, and
 Ctrl+Alt+Shift+Y (above) as the way to hear what is currently hidden or muted before
 you decide. Ctrl+Space pauses and resumes whatever is
-playing — and while paused it now falls properly silent instead of holding the last
-chord, though the arrow keys still audition individual bars so you can inspect the
+playing — and while paused it is silent, though the arrow keys still audition individual bars so you can inspect the
 frozen moment. Shift+Escape is the panic key that stops all playback at once, and
 Shift+= speeds playback up while Shift+- slows it down — slower to
 dwell on each bar, faster to scan a long history.
@@ -1939,7 +1935,7 @@ hour behind the event it describes. There are no coin stories on a free account 
 whole day of testing), so in practice this is for stocks; the coin matching below is there if they
 ever come.
 
-**Turning it on.** Since 2026-11-20 Alpaca is a second source, off by default: tick **Also read
+**Turning it on.** Alpaca is a second source, off by default: tick **Also read
 Alpaca's news wire** under the **Headlines level** in Settings → Narration. Finnhub (next section)
 covers the same stocks sooner and has coins, so most people need only Finnhub's free key. Alpaca
 also follows the **Headlines level** and **Include news wire stories** (ticked by default; untick it
@@ -1993,8 +1989,8 @@ the free key's limit is never reached and the Finnhub price data on the same key
 long Finnhub itself takes to list a story after it is published has not been measured yet.
 
 **Only stories that name the symbol.** Finnhub's list for a stock holds many stories that only
-mention it in passing — on 2026-11-20 more than half of Apple's were about Dell, Micron or the market
-— so a story is said only when its headline names the stock (*AAPL*, *$AAPL*) or the company
+mention it in passing — on one day in testing more than half of Apple's were about Dell, Micron or
+the market — so a story is said only when its headline names the stock (*AAPL*, *$AAPL*) or the company
 (*Apple*, *Walt Disney*, *Bank of America*; also *Google* for Alphabet, *Facebook* for Meta,
 *MicroStrategy* for Strategy, *Berkshire*). The company name comes from the SEC's list of tickers. For coins it must name the coin, as its symbol in capitals
 (*XRP*, *BTC*) or its name with its capital letter (*Bitcoin*, *Ether*, *Solana*, *Monero*); a
@@ -2018,8 +2014,7 @@ coin, the newest crypto list) together with Alpaca's, newest first, each story o
 footnote says which services answered. The source column names the publisher.
 
 **Not covered.** Finnhub's general market news is not said, only stories about your own symbols.
-A big event can bring many differently worded stories (twelve about one short-seller report on
-2026-11-20); each is said separately, at most one sentence a minute per symbol.
+A big event can bring many differently worded stories (twelve about one short-seller report, in one case); each is said separately, at most one sentence a minute per symbol.
 
 ### Headlines on the chart, and the NEWS list
 
@@ -2276,11 +2271,10 @@ and Ctrl+Alt+P afterwards reads the brief's pulse in detail. Alt+B stays the ord
 
 ### The Go bar (Alt+G)
 
-**Alt+G**, or **`/`** (slash, since 2026-11-20, anywhere you are not typing in a box), opens one
+**Alt+G**, or **`/`** (slash, anywhere you are not typing in a box), opens one
 text box that reaches every action in the terminal by typing, so you do not have to remember the key
 chord for something you use once a week. Type a name (`market pulse`), a plain alias (`calendar`) or
-a short code (`ECO`), and press Enter. (`news` used to find the calendar; it is now the headline
-list, `NEWS`.)
+a short code (`ECO`), and press Enter.
 
 **What you type finds, in this fixed order:**
 
@@ -2431,8 +2425,8 @@ from the Go bar."* — rather than pretending to run it.
 
 **What it does not do yet.** Other venues are searched only if their symbol lists are already in
 memory, which in this build they are not; a symbol not on the current venue or a watchlist says
-so. `ALERT` opens the form rather than creating the alert. The backtick is **not** a second Go
-bar opener — Alt+G is the only one, and Cody has not decided whether to add the backtick. `SET speech rate` finds nothing in this build: there is no speech-rate control to go to. The box has not been heard by Cody yet.
+so. `ALERT` opens the form rather than creating the alert. `SET speech rate` finds nothing: there
+is no speech-rate control to go to.
 
 ---
 
@@ -2441,8 +2435,7 @@ bar opener — Alt+G is the only one, and Cody has not decided whether to add th
 The chart is only the canvas. This chapter covers what you put on it to make sense of
 the market: indicators that compute and sonify their own readings, drawing tools you
 place by keyboard and then hear the cursor cross, the volume profile that maps where
-trading actually concentrated, and the heatmap that colours activity into the
-playback itself.
+trading actually concentrated, and the heatmap of orders waiting in the order book.
 
 ### An indicator primer
 
@@ -2518,9 +2511,7 @@ candles that keep rising pushes it above zero whatever the market's price or vol
 Market Cipher B's money flow to the five decimals TradingView shows, on candle and Heikin-Ashi
 charts (checked on the Dow's daily history since 1896 and Bitcoin daily and 15-minute).
 
-There is **no gold dot**. Cipher B had one until 22 October 2026, but Market Cipher B draws none —
-it came from the free VuManChu Cipher B — so it was removed. A chart saved with it opens without it,
-and a strategy or alert built on it says it was removed and points to the Buy dot.
+There is **no gold dot**: Market Cipher B draws none (it comes from the free VuManChu Cipher B).
 
 A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale. Despite
 the names they are stochastics of the close, over 40 and 81 candles, smoothed over 2, as Market
@@ -2538,15 +2529,8 @@ clean inside ±53; past ±53 a soft noise texture comes in, and past ±60 the sa
 No part of Cipher B has a texture in its normal range. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".
 
-**Nothing that Market Cipher B does not draw.** Until 31 October 2026 Cipher B also computed parts of
-its own, left out by default: a red Overbought Crossover, regular and hidden divergences with their
-slanted lines, two slower anchor waves with an Anchor Polarity and an Anchor Fill, and a WT Fill
-between the waves, with settings for older formulas ("Money Flow Formula" Legacy, "Buy Dot Rule"
-Gated, a percentile threshold mode). They are gone: Cipher B is now only what Market Cipher B shows,
-and looks exactly as it did. A chart saved with any of them opens without them; a strategy or alert
-built on one says it was removed and names the nearest part that remains (WaveTrend Cross Bear, the
-small red dot on every wave cross down, for the Overbought Crossover; Wave Trend Fast and Slow for the
-anchor waves; nothing for the divergences).
+**Nothing that Market Cipher B does not draw.** Cipher B is only what Market Cipher B shows:
+there are no divergence lines, anchor waves or extra fills.
 
 **Cipher B's settings are Market Cipher B's six**, on Properties' General tab, with its names:
 **Use Current Chart Resolution** (on) and **Different Timeframe** ("60"): turn the first off and
@@ -2557,9 +2541,7 @@ chart's own values. **Over Bought Level 1** (60), **Trigger 1** (53), **Over Sol
 and **Trigger 2** (−53) are the four lines: change one and its line moves, and type a value for a
 line on the Levels tab and its setting changes with it. Over Sold Level 1 is also the buy dot's
 threshold, Over Bought Level 1 the Sell dot's, and the money-flow bar sits 40 to 50 below Trigger 2, as in Market Cipher B. The wave
-and money-flow periods (9, 12, 3 and 60) are fixed, as Market Cipher B fixes them; Cipher B had
-settings for them until 31 October 2026, and a chart saved with one opens with Market Cipher B's
-number. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
+and money-flow periods (9, 12, 3 and 60) are fixed, as Market Cipher B fixes them. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
 Triggers are.
 
 **Market Structure** labels swing highs and lows as higher or lower than the last and
@@ -2598,12 +2580,8 @@ Low is in is read on a daily chart; on a weekly chart for its own weekly lows an
 a 4-hour crypto chart for the weekly low only (the daily and yearly readings were less reliable there,
 and other intraday charts were not tested). Off a daily chart it says the days to the confirmation
 in days and the average in time: "the 10-week average", "the 40-hour average". The tops and the
-half-cycle lows are read on a daily chart only. (Low expected, the
-chance of a new daily low in the next few days, was removed on 16 November 2026: its "likely" was
-right about half the time. An alert or strategy built on its line no longer finds it.) Neither
-indicator is an edge: both are maps of cycle timing. The two swapped names on 4 November 2026; a chart saved before
-that opens with each indicator under its new name and its settings kept, and strategies and alerts
-built on either still work.
+half-cycle lows are read on a daily chart only. Neither indicator is an edge: both are maps of
+cycle timing.
 
 Two cautions travel with every indicator. First, **warm-up**: an indicator with a
 fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
@@ -2629,41 +2607,10 @@ defaults behave as the original does.
 **Drawing tools are not in this dialog, and never should have been.** Trend lines, Fibonacci
 levels, the measure tool, the risk/reward tool and the rest are placed with **Alt+D** (Drawing
 Tools) or with their own shortcut chords, because a drawing is a thing you position on the chart
-rather than a calculation you switch on. Until September 2026 fifteen of them were also listed
-here, and adding one from this dialog produced a series with nothing in it — no points to place
-and nothing to hear. They have been removed from the list; Alt+D is the way.
+rather than a calculation you switch on.
 
-**Some indicator lines have new names, and five indicators have gone.** Until August 2026
-a number of indicators drew nothing at all: they were listed, they could be added, and
-they produced an empty line with no error — indistinguishable, by ear, from a market with
-nothing to say. Two separate causes, both now fixed and both now guarded by tests.
-
-Working again, unchanged in how you use them: **Bollinger Bands**, **Keltner Channel**,
-**Chandelier Exit**, **Ultimate Oscillator** and **Momentum**. If you added any of these
-before and assumed you had mis-set something, you had not.
-
-Renamed lines, because the old names were the reason those lines were blank. The
-indicator behaves the same; only what speech calls the component has changed:
-
-| Indicator | Was | Now |
-|---|---|---|
-| Stochastic | PercentK / PercentD | **%K** / **%D** |
-| Vortex | Vip / Vim | **VI+** / **VI−** |
-| Choppiness | ChopIndex | **Choppiness** |
-| Ulcer Index | UlcerIndex | **Ulcer Index** |
-| ADX | Adl / Adh | **Adxr** (the smoothed ADX rating) |
-| ADL | Adl3 | **ADL SMA** |
-| ROC | RocP | **ROC SMA** |
-
-**TRIX**, **ROC** and **ADL** also gained a smoothing period in their settings. Their
-signal and average lines were declared but could never be filled in, because the setting
-that controls them was not offered; the lines work now and default to sensible periods.
-
-**No longer listed: PPO, ZLEMA, TMA, Historical Volatility and Ease of Movement.** The
-maths library the terminal uses does not implement these, so they could never have drawn
-anything. They have been withdrawn rather than left in the list — an indicator you can add
-and wait for is worse than one that is honestly absent. They return if the library gains
-them.
+**TRIX**, **ROC** and **ADL** each have a smoothing period in their settings for their
+signal or average line.
 
 Once it is on the chart you reach it the same way you reach any series — Page Down from
 the price pane, or Alt+PageDown to its pane — and explore its components with Up and
@@ -2688,14 +2635,19 @@ include it again (at least one part has to stay in, and the last box will not un
 **Levels** for every reference level, its value, colour, which crossings to report, and
 a Remove button on the ones you added; **Sonification** for the sound patch each
 component plays, with a bullish/bearish or above/below-midline pair where the component
-has two sides, and the zone texture; and **Speech** for how the series reads. A "Save as
+has two sides, and the zone texture; and **Speech** for how the series reads. On the Speech
+tab each part has a sentence with words in braces that are filled in as you listen: a line's
+`{name}`, `{value}` (or `{value:price}` to read it as a price), `{trend}` and `{zone}`; a
+marker's `{name}`, `{price}` and `{label}`, the number printed beside it. The 9-13 Sequential's
+count is `Buy setup {label}.`, which says *"Buy setup 7."* Leave a marker's sentence empty and
+it makes no speech. A "Save as
 Defaults" option stores your preferences so the next indicator of that type starts
 already configured the way you like, and "Reset to Defaults" restores the indicator's
 own settings while leaving your levels alone. Tab and the arrow keys move through the dialog and
 your screen reader reads every label and value; components are named there as speech names them
 ("Buy dot", "Wave Trend Fast").
 
-**Positioning indicators — who actually holds what.** Two 1.6.0 additions read
+**Positioning indicators — who actually holds what.** Two indicators read
 official positioning data instead of price. **COT Positioning** (Positioning
 category) speaks the weekly CFTC report — hedge-fund net position as a 26-week
 z-score, with "crowded long" and "crowded short" bells at the ±1.5-sigma extremes —
@@ -2707,7 +2659,7 @@ individual stocks, load the **FINRA** analytics provider and chart
 `{TICKER}_SHORTVOL` — the share of each day's volume that was sold short, a daily
 crowding gauge for any US equity. Both sources are free and need no key.
 
-**Cipher A** (Multi-Signal, on the price chart) is Market Cipher A, rebuilt in October 2026 by
+**Cipher A** (Multi-Signal, on the price chart) is Market Cipher A, rebuilt by
 measuring real Market Cipher A charts. Its **ribbon** is eight moving averages of the close: EMA 5,
 11, 15, 18, 21, 25, 29 and 33. Each line is blue while it is above the next longer one and grey once
 it falls below; the longest, EMA 33, is blue while it is below EMA 29. A fully blue ribbon is an
@@ -2731,7 +2683,7 @@ being formed. Days are UTC dates; markets whose session crosses midnight UTC, an
 have not been checked.
 Every line and symbol can be left out the same way, and "Save as Defaults" keeps your choice for new
 charts. Its **seven symbols** come first when you move through its parts, each
-with its own sound. Each is **named for what it signals**, not its shape (since 15 November 2026; the
+with its own sound. Each is **named for what it signals**, not its shape (the
 shape is in brackets below, and it is what "describe looks" says). Landing on one says its name and
 then what is behind it — for example "Trend Turned Up. Medium-term trend crossed up, with momentum and
 the short-term trend already up." In those sentences the **short-term trend** is EMA 5 against EMA 11 (or EMA 25
@@ -2775,10 +2727,7 @@ crossed above the ribbon" when one candle jumps it. Moving about inside it says 
 the lines you can see — hide one and the band is the rest — and it speaks even though its lines are
 muted, because their mute is for sound. To hear only the ribbon, press N on one of its lines; to
 hear only a symbol, press N on that symbol. Any indicator that declares lines as a ribbon is
-announced the same way. A chart or strategy
-saved with the old Cipher A (before October 2026) still opens; its old Buy and Sell signals,
-divergences, Manipulation and Exhaustion are gone, and a strategy or alert that used one tells you
-so once, with what to use instead.
+announced the same way.
 
 **Cipher SR** (Overlays, on the price chart) is Market Cipher SR's levels, built for the hourly chart
 and below. **Purple dots** (Resistance Zone) mark a resistance level: a high that the two bars before it
@@ -2842,17 +2791,37 @@ Heikin-Ashi candles either way, once) and **Label the newest N bars** (25,
 as DBSI; 0 labels every candle). The numbers disappear when the candles are too narrow to fit them;
 zoom in to bring them back.
 
-**Spider Lines was removed** on 2026-10-17. It was eight exponential moving averages (8 to 200)
-under a misleading name, unrelated to Market Cipher's spider lines, which are diagonal support and
-resistance lines. A saved chart that had it opens without it and says so once; a strategy or alert
-that used it says once that it cannot fire. Add an EMA at each length you want instead.
-
-Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
-Heikin-Ashi candles, and Alt+L to a logarithmic price scale; the Price scale select beside them
-adds Percent and Indexed to 100. All are explained in the chart-layout chapter, including the
+Two whole-chart choices live on the toolbar beside the indicators: the **Chart type** list
+(Alt+C), which includes Heikin-Ashi, and the **Price scale** list (Alt+L), with logarithmic,
+percent and indexed to 100. Both are explained in the chart-layout chapter, including the
 one thing to hold on to about Heikin-Ashi — every indicator then reads the Heikin-Ashi candles,
 and every strategy the real ones unless you set it to read its signals on Heikin-Ashi (its
 orders are on real prices either way).
+
+**9-13 Sequential** (Reversal, on the price chart) counts a trend toward exhaustion, the point
+where a move has gone on long enough that it often pauses or turns. It counts in two stages.
+
+- **The setup counts to 9.** A *buy* setup is nine closes in a row, each lower than the close
+  four bars earlier: a steady decline. It starts only after a *price flip*, a bar that closed
+  above the close four bars before it, so a setup always begins at a change of direction. A bar
+  that breaks the run ends the count. A *sell* setup is the mirror: nine higher closes after a
+  flip down. A 9 is **perfected** when bar 8 or 9 reaches below the lows of bars 6 and 7 (above
+  their highs, for a sell), a sign the last push was a real one.
+- **The countdown counts to 13.** It starts on the setup's 9. A buy countdown counts every bar
+  that closes at or below the low two bars earlier; these bars need not be in a row. The 13 must
+  also reach the close of countdown bar 8; a bar that does not is *deferred* and the count waits.
+  A countdown is cancelled if a setup the other way completes, or if price closes above the buy
+  setup's highest high (below a sell setup's lowest low). A new setup the same way restarts it.
+
+Every count is a small numbered marker, and arrowing onto one says it: *"Buy setup 7."* The 9
+and the 13 are larger markers with a bell of their own, so they sound unlike the counts before
+them: *"Buy setup 9, perfected."*, *"Buy countdown 13."* With the 9 or the 13 focused,
+Ctrl+Left and Ctrl+Right jump from one to the next. Two dashed lines, **Setup Resistance** and
+**Setup Support**, mark the price that would cancel the countdown. Alt+Shift+D says what the
+count is waiting for, for example *"Buy countdown 13 deferred"*. Every count is known when its bar
+closes; nothing is redrawn later. This version restarts the countdown on any new setup the same
+way, without the published method's comparison of the two setups' sizes, and it has not been
+checked bar by bar against another charting program's version.
 
 ### Market structure
 
@@ -2909,9 +2878,8 @@ they mean. Turn it on in **Settings → General → Describe chart patterns**. I
 default, because it is extra narration on an action you perform constantly. The separate
 **Describe candle patterns** switch beside it covers the one-to-three-bar shapes and is
 **on** by default — it rides on announcements you already asked for rather than adding an
-occasion to speak. Since 2026-09-04 it governs the arrow keys as well: turning it off leaves
-the candle reading as "Bullish" or "Bearish" and the prices, which is what it said before
-the multi-bar patterns arrived.
+occasion to speak. It governs the arrow keys as well: turning it off leaves the candle
+reading as "Bullish" or "Bearish" and the prices.
 
 Every candle pattern is said with its lean: "Tweezer top, bearish reversal", "Hammer, bullish
 reversal", "Rising three methods, bullish continuation". A doji or a spinning top has no lean and
@@ -2983,9 +2951,7 @@ Press **`,`** to jump to the next formation edge and **`Shift+,`** to the previo
 start of each shape and the bar its story ended. The two walk you through every formation on the
 chart in the order they happened. They only work while formation description is on; with it off
 they say so rather than moving you somewhere without explaining why. **`Ctrl+Alt+Shift+,`** turns
-formation description on or off from the chart: *"Describe chart patterns on."* (Until 2026-11-20
-comma went back and period forward; period now walks headlines. A saved shortcut set still on the
-old pair is moved when it loads, unless you had rebound them yourself.)
+formation description on or off from the chart: *"Describe chart patterns on."*
 
 Press **Alt+Shift+D** on any bar for the full list, including every overlapping formation
 with its own levels. If nothing is live where you are standing, it tells you what finished
@@ -3591,8 +3557,7 @@ point once per anchor, so a trend line, channel, or any multi-anchor tool comple
 entirely by touch.
 
 > The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and
-> browser. A shortcuts profile saved before 2026-09-05 keeps the old Ctrl+Shift chords
-> on the desktop, and the F1 help always shows the bindings live on your host.
+> browser, and the F1 help always shows the bindings live on your host.
 
 The shortcuts cover Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
 Fibonacci retracement and extension (F, E), Text label (L), Rectangle (R), Measure
@@ -3767,7 +3732,7 @@ bin is as easy to hear as a fat one. The price is spoken, not played. Moving int
 value area announces "Entering Value Area", and leaving it announces "Exiting Value
 Area".
 
-**Each row now says which side bought it.** A volume-profile row is split into buying
+**Each row says which side bought it.** A volume-profile row is split into buying
 and selling, and the price line ends with the larger side: *"…, 62 percent buying."*,
 *"…, 58 percent selling."*, or *"…, even."* when the two are within half a percentage
 point. A bar's volume counts as **buying** when the bar closed above its open and
@@ -3806,11 +3771,17 @@ way to use them: one says what you are looking at, the other what you chose.
 
 ### The heatmap
 
-Alt+H toggles a volume heatmap over the price chart, shading each candle and time
-zone by how much trading happened there. Its real payoff is in sound: with the
-heatmap on, playback folds that intensity into the audio, so higher-volume bars play
-louder than quiet ones and a busy stretch of market is something you hear swell
-rather than something you have to look up. Press Alt+H again to turn it off.
+The **Liquidity Heatmap** shows where buy and sell orders are waiting in the order book (the
+exchange's list of orders not yet filled), shaded by how much is waiting at each price. A thick
+band of waiting orders often slows price down, the way a level does. It is an indicator: add it
+from **Add Indicator** under **Order Flow**, or type `HEAT` in the Go bar to switch it on or off.
+
+It fills only from live data, from the moment you add it, because exchanges do not keep a
+history of their order books. Each bar becomes a column of price cells. Arrive on it and you hear
+the column's busiest price, for example *"peak at price 64,200, 12.5 contracts."*; Up and Down
+then move between prices in the column and say each cell's range, size and share of the column.
+On a bar from before the heatmap was added, it says *"no book here"* and reads the nearest
+snapshot it has, naming that snapshot's time.
 
 The heatmap is one colour at different strengths, so a colour name would mean
 nothing. With **Describe how markers and lines are drawn** on, a cell says its strength
@@ -3990,7 +3961,7 @@ has:
 
 | What the indicator has | What you hear, and when | In playback? |
 |---|---|---|
-| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Buy dot, waves crossed up from oversold."* | **Yes** — this is the only thing playback speaks |
+| **A marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Buy dot, waves crossed up from oversold."* | **Yes** — this is the only thing playback speaks |
 | **A price-space line** — EMA, SMA, VWAP, Bollinger, Keltner, Donchian, Ichimoku's lines, pivots | *"Price crossed above EMA 9 at 64,900."* on the bar close | No |
 | **A declared level** — most oscillators: Stochastic, CCI, MFI, ADX, ROC, %R, TRIX, CMO, Chop, PPO, StochRSI | *"crossed above overbought, 80."* on the bar close | No |
 | **Its own zone wording** — RSI, MACD, Vortex, Cipher B's waves | The indicator's own phrase: *"RSI overbought."*, *"MACD bullish crossover."* | No |
@@ -4017,8 +3988,7 @@ oversold"* — nothing is put in front of it. The same rule holds during playbac
 Close 64,900."*, *"15:00. …"* — and names the day when the bars you are reading cross into a new
 one: *"September 6, 00:00. …"*. It follows the reading rather than the chart, so arrowing
 backwards across midnight names the day you have just come back into, and so does a jump that
-lands in a different one. On a daily chart or coarser the date **is** the timestamp; you no longer
-hear "00:00" after it, which was the same on every bar a daily chart has. If you would rather have
+lands in a different one. On a daily chart or coarser the date **is** the timestamp, with no "00:00" after it. If you would rather have
 the date in front of every reading, **Settings (F12) → Speech → Speak the date on every bar**
 turns it on; boundaries only is the default. The two "Speak values as" orders that name a
 timestamp explicitly — time only, date only — are unaffected: choosing one has already answered
@@ -4048,8 +4018,8 @@ sentence describing it: *"Buy. Large green dot."* It says four things:
 - **Position.** "Below the candle" or "above the candle" when it sits under or over the bar rather
   than at a value.
 
-You hear it when you arrow onto a signal, for the other signals on the bar when **Speak other
-signals while arrowing** is on, during playback, and when signals are narrated as a bar closes.
+You hear it when you arrow onto a marker, for the other markers on the bar when **Announce other
+markers on the bar while navigating** is on, during playback, and when markers are narrated as a bar closes.
 Alerts are not described.
 
 **Lines, bars and heatmap cells say their colour** too. *"Orange line."* when you move up or
@@ -4214,9 +4184,7 @@ refuse a buy you cannot afford — telling you by how much in both cases. Bracke
 one-cancels-other pairs, trailing stops and trailing take-profits are all fully
 simulated.
 
-**Short selling is available again, at 1x, with collateral.** It was withdrawn in
-2.2.0 because it was offered and did nothing; it returned in 2.3.0 modelled properly.
-Selling something you do not own means somebody lent it to you and you owe it back at
+**Short selling is available, at 1x, with collateral.** Selling something you do not own means somebody lent it to you and you owe it back at
 whatever it ends up costing, so the account locks the sale proceeds *and* an equal
 amount of margin beside them — both appear under Locked on the Balances tab, and
 neither is spendable while the short is open. You are told what the short cost to
@@ -4236,18 +4204,11 @@ free cash, so you can rehearse the difference.
 On the **hosted web terminal** (the logged-in, multi-user build) this choice is made
 for you: paper trading is **always on and cannot be switched off**, so pressing Alt+T
 always opens a paper dashboard and you can never place a real-money order from the
-browser. Real trading with your own broker keys is a desktop-app feature. (If you tried
-this on an earlier build and got "provider does not support trading," that was the bug
-this behaviour fixes — the web providers are data-only, and orders now correctly route
-to the paper simulator.)
+browser. Real trading with your own broker keys is a desktop-app feature.
 
 **Your paper account is one account, however many tabs you have open.** Open the terminal
 in three browser tabs and all three are looking at the same balance, the same positions and
-the same resting orders; a trade placed in one appears in the others. This is worth stating
-because it was not always true: until August 2026 each tab kept its own copy of the account
-and wrote the whole thing back to disk on every change, so the last tab to save silently
-erased whatever the others had done. If you ever found a position you were sure you had
-opened simply missing, that is very likely what happened, and it can no longer happen.
+the same resting orders; a trade placed in one appears in the others.
 
 Resting orders are watched from **every** chart you have open, not only the tab that placed
 them. A stop you set in one tab still fills while you are working in another. They are judged
@@ -4281,8 +4242,8 @@ not a warning:
 
 **A Paper key only means paper on a venue that has a practice environment.** Alpaca,
 Binance, Gemini, Hyperliquid, Kalshi, Oanda and Tradier do: a Paper profile there points at the
-sandbox, testnet or demo venue. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
-withdrawn on 2026-07-14), MEXC and Schwab have none, so a key marked Paper on those would
+sandbox, testnet or demo venue. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (whose demo
+Kraken withdrew), MEXC and Schwab have none, so a key marked Paper on those would
 sign against real money while everything on screen said paper. The terminal **refuses**
 such an order instead, at the one point every order passes through: "{provider} has no
 practice venue and the key '{nickname}' is marked Paper, so this order would be real.
@@ -4382,8 +4343,7 @@ terminal is honest about each:
   stop or target to an entry. An entry carrying one is refused before it is sent:
   "{venue} cannot attach a stop loss or take profit to an entry, so this order
   would open with no protection." Send the entry without them, then place a
-  separate Stop order once it fills. (Until 2026-11-14 the entry went out and the
-  stop was dropped.)
+  separate Stop order once it fills.
 - On the remaining brokers the terminal submits the entry, then the
   protection, then about two seconds later verifies the protection actually
   landed — and if it cannot find it, warns you, interrupting: "Warning: no
@@ -4457,9 +4417,7 @@ on a closing fill they add the realized result:
   paper balance: that position needs 51,970.00 USDT and the account holds 174.91.", "No
   price available for BTC/USD: open its chart, or check the venue is reachable.", "The
   position was already closed." Closing a position from the Positions tab announces the
-  same way. Before August 2026 the reason was computed and then discarded, so a refusal
-  arrived as three words with nothing to act on; the half that told you what to do was the
-  half being dropped.
+  same way.
 
 Order IDs are never spoken — they are meaningless to the ear. Every one of these
 events is also written to the Journal (Ctrl+Alt+Shift+J), so a fill that goes by
@@ -4468,7 +4426,7 @@ and loss are spoken on every paper close; on a live exchange they appear when th
 exchange reports them.)
 
 A timing note for two brokers: most brokers (and the paper simulator) push order
-events instantly, so announcements are immediate. **Tradier** now has a live
+events instantly, so announcements are immediate. **Tradier** has a live
 account-event stream too; if it can't connect, and always on **Schwab** (whose
 push channel isn't implemented yet), the terminal instead watches each order you
 place by polling the broker — so fills, stops, and cancels there still announce,
@@ -4536,7 +4494,7 @@ History, Order log, and Book — and switching to one speaks its name and count,
 
 ### Trading on Kraken: balances, order sizes and leverage
 
-What the terminal does for Kraken spot (since 2026-11-10):
+What the terminal does for Kraken spot:
 
 - **Balances use the usual names.** Kraken calls dollars `ZUSD` and bitcoin `XXBT`; the
   Balances tab says USD and BTC, and your dollars count as cash for the risk sizer.
@@ -4563,7 +4521,7 @@ What the terminal does for Kraken spot (since 2026-11-10):
 - **Reads are shared.** The dashboard refreshes every two seconds, but Kraken allows
   only about one account read every three seconds on its starting tier. Account reads
   are remembered for 15 seconds (history for 60), every order and fill clears them, and
-  orders no longer wait behind reads.
+  orders never wait behind reads.
 
 Live trading uses your own Kraken API key in the desktop app. The hosted browser
 terminal is paper only.
@@ -4581,7 +4539,7 @@ column shows a dash and the near-liquidation warning cannot sound there.
 
 ### Coinbase futures
 
-Coinbase's US futures (since 2026-11-14) use the same Coinbase API key as spot. Pick
+Coinbase's US futures use the same Coinbase API key as spot. Pick
 **Futures** in the market list on Coinbase to see the contracts. **BIP-20DEC30-CDE** is
 the BTC Perp and **ETP-20DEC30-CDE** the ETH Perp; **BIT-27NOV26-CDE** is the November BTC
 contract. Charts, the order book and orders work on them like any other market. None of
@@ -4615,7 +4573,7 @@ as long as it has View and Trade (never Transfer).
 
 ### Kalshi
 
-Kalshi (since 2026-11-14) is a US exchange regulated by the CFTC. The terminal trades its
+Kalshi is a US exchange regulated by the CFTC. The terminal trades its
 perpetual futures: crypto such as **KXBTCPERP**, US stocks, metals, oil, currencies and
 indices, all in US dollars. Its event contracts (yes/no markets) are not listed. None of
 this has yet been tried with money, on the live venue or the demo.
@@ -4665,8 +4623,7 @@ to be added.
 
 ### Order sizes and leverage on the other crypto venues
 
-Since 2026-11-10, Gemini, Binance, Coinbase, Bitstamp, MEXC and Hyperliquid work the way
-Kraken does above. None of this has yet been tried with real money on these venues.
+Gemini, Binance, Coinbase, Bitstamp, MEXC and Hyperliquid work the way Kraken does above. None of this has yet been tried with real money on these venues.
 
 - **Each market's smallest order and decimals.** The terminal reads each venue's own
   rules for the market and keeps them for six hours. An order that is too small, or worth
@@ -4688,9 +4645,9 @@ Kraken does above. None of this has yet been tried with real money on these venu
   to close it, tick Reduce-only.
 - **Reads are shared.** On Binance and Gemini, account reads are remembered for 15
   seconds (fills for 60). Every order and cancel clears them, and so does every fill
-  Binance reports or Gemini's order check notices. An order no longer waits behind the
+  Binance reports or Gemini's order check notices. An order never waits behind the
   dashboard's refreshes.
-- **Coinbase balances** now include every wallet, not just the first page of them.
+- **Coinbase balances** include every wallet, not just the first page of them.
 
 If a venue's rules cannot be read, the order goes out as before and the venue decides.
 
@@ -4896,11 +4853,7 @@ The **Journal** (Ctrl+Alt+Shift+J) records every fill, every stop, every alert a
 strategy setup with its rationale, and the **History** tab holds every fill with its price,
 profit or loss and fee. A losing streak reads differently on paper than it felt in the
 moment. The strategy library's **Evidence** column is the same habit applied to rules: a
-strategy that says Untested or Falsified is telling you what to expect. A library made before
-August 2026 was filled with thirty built-in strategies; the twenty the research has since retired
-can never fire, so on its next start the terminal moves them out of the library into
-`strategies.retired.json` in the same folder (your own strategies and the other built-ins stay).
-To bring one back, import that file.
+strategy that says Untested or Falsified is telling you what to expect.
 
 ### What the research says about edges
 
@@ -4991,17 +4944,14 @@ list**: add as many as you like — "BTC channel", "Gold channel" — each point
 Discord webhook URL, a Slack incoming webhook, or any custom HTTPS endpoint, and
 each alert chooses which one it posts to from a dropdown when you create it. That is
 how a Bitcoin alert lands in your #btc Discord channel while a gold alert lands in
-#gold. Alerts are also **scoped to a symbol** now: a new alert defaults to the chart
-it was created on and only evaluates there, so a BTC alert no longer fires against
+#gold. Alerts are also **scoped to a symbol**: a new alert defaults to the chart
+it was created on and only evaluates there, so a BTC alert does not fire against
 whatever chart happens to be on screen (choose "any symbol" if you do want that).
 
 On the **hosted terminal**, alerts run only while your browser has the terminal open.
-The server-side evaluation described here in earlier versions of this manual, and the
-**browser notifications** (Web Push) panel that went with it, are **switched off on the
-hosted site** — deliberately: it is a paper-only terminal, and an alert that arrives after
-you have closed the browser is not something you can act on there. The code for both is
-present and can be turned back on for a future hosted tier; today neither renders and
-neither runs. Email, Telegram and webhook delivery all still work, from your open browser,
+Alerts are not checked on the server and there are no browser notifications on the hosted
+site: it is a paper-only terminal, and an alert that arrives after you have closed the browser
+is not something you can act on there. Email, Telegram and webhook delivery all still work, from your open browser,
 as does everything else in the Delivery settings panel.
 
 If you want alerts that keep working with the browser closed, that is the **local web
@@ -5482,9 +5432,7 @@ the new-bar announcement, signal narration on a bar close, and narration during 
 Two settings you might expect on Speech or Narration are on **General**, under *Analysis*:
 **Describe candle patterns** and **Describe chart patterns**. Neither belongs to a single
 trigger — each changes what the arrow keys say *and* what a bar close says *and* what
-playback says — so filing either by trigger would put it on a tab whose rule it breaks.
-(That sentence was aspirational for the candle switch until 2026-09-04, when the arrow keys
-started naming candle patterns at all; it is now simply true.) They
+playback says — so filing either by trigger would put it on a tab whose rule it breaks. They
 are filed by what they are, an analysis the terminal either performs or does not, and they
 sit next to each other because that adjacency is what makes the difference between them
 legible: a **candle** pattern is one to three bars (engulfing, harami, doji, hammer), a
@@ -5505,8 +5453,7 @@ the new key or chord. Escape or Tab cancels without changing anything.
 
 **Save and Cancel.** The dialog commits when you press **Save**, and only then. **Escape,
 the Cancel button and a click outside the dialog all discard** — that is the rule everywhere
-in the terminal now, and it was not always true here: until 2.6.0 this dialog had a single
-button reading *Close*, and closing is what saved. A few controls still take effect the
+in the terminal. A few controls still take effect the
 moment you change them, and each of them says so as you do: the theme picker, text size and
 the visual accommodations (previewed, and put back on Cancel), the paper-account reset and
 the factory reset (commands, not edits), and keyboard rebinds.
@@ -5522,11 +5469,10 @@ its own checkbox under **Shift+F3**, which remains the single mute over both.
   a mode toggled with F2 or F3, an action that succeeded or is being retried, the connection
   changing state.
 
-Both start on, so an install that never opens this tab sounds exactly as it always did. They
-are worth separating because they fire at wildly different rates for wildly different reasons:
+Both start on. They are worth separating because they fire at wildly different rates for wildly different reasons:
 the boundary tone sounds on *every further arrow press* at the edge of a chart, and a setup
-bell might fire twice in a session. One switch used to govern both, so quietening the first
-meant losing the second. Every interface earcon is also **spoken**, so turning that family off
+bell might fire twice in a session, so you may well want the first quiet and the second
+kept. Every interface earcon is also **spoken**, so turning that family off
 costs you the beep and nothing else.
 
 **Neither switch reaches error tones or order outcomes** — a fill, a stop, a take-profit, and
@@ -5576,7 +5522,7 @@ nothing to say; and playback narration is on because it is what the terminal alr
 - **Narrate during playback** — the master switch for everything playback says beyond its
   own start, pause, speed and finish confirmations: the date or hour as the tones cross each
   boundary, the signals your narrated series print, and any chart formation that resolves.
-  Off leaves playback as pure tones. Nobody had that switch before 2.6.0.
+  Off leaves playback as pure tones.
 - **Speak time landmarks during playback** — the date or hour alone, on by default and
   subordinate to the switch above. It is the only thing that says where in time the tones
   are, and it is also a calendar read to you every few seconds; turning it off keeps the
@@ -5591,11 +5537,9 @@ nothing to say; and playback narration is on because it is what the terminal alr
   use the previous session's close. The list itself is the watchlist named Pulse (Alt+M); see
   *Reading the Chart → The market pulse (Alt+P)*.
 
-There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
-delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery
-settings**), next to the alerts they deliver — the webhook names you define there are the
-choices in an alert's Webhook list, and having the two a dialog apart meant closing the
-alert you were writing to go and define its destination.
+Email, Telegram and webhook delivery details are not here: they are in the alerts dialog
+itself (Alt+J, then **Delivery settings**), next to the alerts they deliver, so you can define
+a destination without leaving the alert you are writing.
 
 #### Appearance and the theme editor
 
@@ -5632,15 +5576,12 @@ other, the editor **says so inline and leaves them alone**; it never quietly cor
 choice. **Reset all** returns to the base theme, and **Save and use** keeps your version as a
 named theme of your own, which saves and loads as text you can send to someone else.
 
-Before 2.6.0 the Appearance tab also held a chart background colour, a gradient, a window
-gradient switch and a bullish/bearish colour pair that were layered over *every* theme.
-Those are gone: a colour belongs to a theme now, and anything you had set there is ignored.
-To get the same look back, Clone the theme you use and set the colours in the editor.
+Every colour belongs to a theme: to change one, Clone the theme you use and set it in the
+editor.
 
 A new chart is candles, volume and price, and nothing you did not put there. Market Structure
 (swing highs and lows) is an indicator like any other: add it from the indicator list on the
-charts where you want it. (The Settings switch that added it to every new chart was removed on
-2026-11-04.)
+charts where you want it.
 
 **Visual accessibility options.** Under the theme, the Appearance tab carries a group of
 visual accommodations. All of them are **off by default** — the terminal presents itself
@@ -5670,7 +5611,7 @@ and saves the moment you toggle it:
 
 The same group holds a **Text size** selector (85% to 175%) that scales the
 interface text throughout the terminal — browser zoom still works on top of it. And
-at the top of the whole dialog there is now a **Search settings** box: type a word
+at the top of the whole dialog there is a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
 never need to remember which of the tabs holds a setting.
@@ -5678,7 +5619,7 @@ never need to remember which of the tabs holds a setting.
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled
 automatically; and on touchscreens, buttons and tabs enlarge automatically to
-comfortable touch sizes. On high-resolution screens the chart image itself now
+comfortable touch sizes. On high-resolution screens the chart image itself
 renders at your display's native pixel density, so candles and axis text are sharp
 rather than softly upscaled. During playback, the highlighted bar on screen follows
 the audio bar for bar, so a sighted companion can watch what you are hearing.
@@ -5711,8 +5652,7 @@ On the price pane that pitch is relative to what is on screen, so it shifts when
 or zoom. Wicks keep their fixed high and low tones and do not offer the choice.
 
 The second layer is the **sound designer**, opened with Alt+W, where the patches
-themselves are built. It is now a general-purpose patch workbench rather than an
-earcon-only panel. A single patch can stack several **oscillators**, each with its
+themselves are built. It is a general-purpose patch workbench. A single patch can stack several **oscillators**, each with its
 own waveform (sine, square, sawtooth, triangle, or noise), level in the mix,
 frequency ratio (a harmonic multiple of the patch's base pitch — 2.0 is an octave
 up), and noise blend and noise colour (pink, white, or brown); the "Add Oscillator"
@@ -5722,8 +5662,7 @@ plucked Ping and its duration. The Preview button auditions the whole patch — 
 and envelope included, not just the bare waveform as before. A patch you build here
 can be assigned to event earcons in this same panel, or to indicator components
 through the properties dialog above, and the link is live: edit a patch in the sound
-designer and every component and earcon using it updates at once. Patches saved by
-older versions still load unchanged. Think of the properties dialog as choosing which
+designer and every component and earcon using it updates at once. Think of the properties dialog as choosing which
 instrument each part plays and the sound designer as building the instruments.
 
 New in this panel: **Import WAV**. A short single-cycle WAV file — the free
@@ -5736,7 +5675,7 @@ oscillator's waveform list ("Wavetable: …" and "Sample: …") and survive
 restarts. If an import ever goes missing, patches that reference it fall back
 to a plain sine — audible, never silent.
 
-The earcon list in this panel now includes the three reference-level cues — the
+The earcon list in this panel includes the three reference-level cues — the
 crossing chirps (up and down separately), the approach ping, and the
 sustained-in-zone tone — so those can be re-skinned with any patch too. And a
 factory bank of ready-made **instrument voices** ships alongside the built-in
@@ -5865,10 +5804,7 @@ and `%LOCALAPPDATA%\AccessibleTrader\` on Windows. The pieces:
 | API keys | the operating system's encrypted store | never as a file; re-enter them |
 
 The two things people actually hand each other are the first two rows: a tuned soundscape
-and a theme. Until 2026-09-13 the Appearance and Sonification tabs also carried "Export
-Visual" and "Export Audio" buttons that promised a whole tab as one file and delivered only
-the current chart's per-component overrides; they are gone, and the patch and theme routes
-above are the ones that work.
+and a theme.
 
 A factory reset (General tab) clears everything in the table except your API keys, your paper
 account and its history, and your saved workspaces, and says so before it does.
@@ -6002,16 +5938,10 @@ places, with only the plumbing underneath changing.
 
 ### The web host and the modifiers
 
-The keyboard is the same on every head. Until 2026-09-05 it was not quite: Firefox and
-most browsers reserve several Ctrl+Shift+letter chords for themselves — reopen a closed
-tab, open a private window, and so on — and a web page cannot override them, so the
-browser host used to rewrite the desktop's Ctrl+Shift drawing chords to Alt+Shift at
-startup and the help had to explain the difference. The default profile now binds all
-the drawing tools and the detailed point summary to `Alt+Shift+<letter>` everywhere,
-so the difference is gone. A shortcuts profile saved before the change still carries
-the Ctrl+Shift chords; the desktop honours it as saved, and the browser host rewrites
-those legacy chords to Alt+Shift in memory. Chords with three modifiers — the AI Analyst,
-auto-narration, the Journal, save and load workspace — were never affected. A few single-`Ctrl` chords are reserved by the browser at
+The keyboard is the same on every head. Browsers reserve several Ctrl+Shift+letter chords
+for themselves — reopen a closed tab, open a private window, and so on — and a web page
+cannot override them, so the drawing tools and the detailed point summary are on
+`Alt+Shift+<letter>` everywhere. A few single-`Ctrl` chords are reserved by the browser at
 an even deeper level — it acts on them before the page ever sees the keystroke, so they
 cannot be cancelled in-page at all. On the web host these are dropped from the bindings
 (so the Help dialog never lists a chord the browser eats) and the action moves elsewhere:
@@ -6116,11 +6046,11 @@ Brief definitions of the terms used throughout this manual, in alphabetical orde
 are deliberately short — enough to keep you moving if a word in a chapter was unfamiliar,
 not a substitute for a course in the markets themselves.
 
-**Anchored VWAP.** A VWAP (see *VWAP*) calculated forward from one bar you choose, rather
-than from the start of the session.
-
 **ADX.** Average Directional Index — trend strength without direction, 0 to 100. Below 20
 no trend, above 25 a strong one, above 50 very strong; the terminal names those bands.
+
+**Anchored VWAP.** A VWAP (see *VWAP*) calculated forward from one bar you choose, rather
+than from the start of the session.
 
 **Ask.** The lowest price a seller is currently willing to accept. The counterpart to the
 *bid*; the gap between them is the *spread*.
@@ -6138,19 +6068,30 @@ bar.
 **Bollinger Bands.** A moving average with a band two standard deviations above and below it;
 the bands pinch when the market is quiet and widen when it is not.
 
-**Component.** One line or marker a series draws, with a value on every bar (an EMA) or on the
-bars it fired (a buy dot). Up and Down move between the components of a series.
-
 **Bracket / OCO.** A pair of protective orders attached to a position — a *stop-loss* and
 a *take-profit* — where filling one cancels the other ("one cancels the other").
 
-**Crossover.** The moment one line passes through another — for example a fast moving
-average crossing a slow one, or an oscillator crossing its zero or signal line. Often
-read as a momentum signal.
+**Brick (Renko, range bar, Kagi, point and figure).** A unit of a chart drawn by price
+movement instead of time: a new brick appears only when price has moved a set amount, however
+long that takes, so quiet stretches shrink and busy ones stretch out.
+
+**Candle pattern.** A shape of one to three candles with a name, such as a *doji* (open and
+close almost equal: indecision) or an *engulfing* candle (one body swallowing the one before
+it). Compare *Chart pattern*.
+
+**Chart pattern (formation).** A shape made by tens of bars, such as a double top, a head and
+shoulders or a triangle, that traders read as a pause or a turn. Compare *Candle pattern*.
+
+**Component.** One line or marker a series draws, with a value on every bar (an EMA) or on the
+bars it fired (a buy dot). Up and Down move between the components of a series.
 
 **Cross / Isolated margin.** Two ways an exchange backs a leveraged position. Cross
 margin shares your whole balance as collateral across positions; isolated margin ring-
 fences a set amount to one position, capping what a single trade can lose.
+
+**Crossover.** The moment one line passes through another — for example a fast moving
+average crossing a slow one, or an oscillator crossing its zero or signal line. Often
+read as a momentum signal.
 
 **Divergence.** When price and an indicator disagree — price making a higher high while
 the indicator makes a lower high, or vice versa — often read as weakening momentum.
@@ -6165,19 +6106,22 @@ might pause (retracement) or where a continuation might reach (extension).
 **Fill.** An execution of an order, in whole or in part. A "partial fill" completes only
 some of the requested quantity.
 
-**Heatmap.** An overlay that shades each bar by relative volume so you can see — and, in
-playback, hear — where trading was most active.
+**Heatmap.** Here, the Liquidity Heatmap: an indicator that shades each bar's prices by how many
+orders were waiting in the order book there.
 
 **Heikin-Ashi.** A smoothed candlestick formula that averages price to reduce noise and
 make trends easier to follow.
+
+**Hybrid Voice.** This terminal's core model: your screen reader speaks exact values
+while the built-in engine sonifies the shape of the market, the two heard together.
+
+**Indexed to 100.** The same base as a percent scale, written as 100 instead of zero, so a
+price 4.2 percent above the first visible close reads 104.2.
 
 **Level (reference level).** A constant drawn across a pane — RSI's 70, MACD's zero, ADX's
 25 — with a value, a meaning (overbought, oversold, neutral, or a named band) and an owner (the
 indicator's, or yours from the 0 key). Heard as a ping, a chirp and a low tone as a value
 approaches, crosses and stays beyond it.
-
-**Hybrid Voice.** This terminal's core model: your screen reader speaks exact values
-while the built-in engine sonifies the shape of the market, the two heard together.
 
 **Leverage.** Trading a position larger than your cash by borrowing from the exchange,
 expressed as a multiple (e.g. 10×). It magnifies both gains and losses and introduces a
@@ -6192,18 +6136,14 @@ threaten the borrowed funds — the price at which this happens is the liquidati
 **Log scale.** A price axis where equal vertical distance means equal *percentage* move,
 useful over long histories where price has changed by large multiples.
 
-**Percent scale.** A price axis that reads every price as its change from the close of the
-first bar on screen, which is zero. Useful for comparing moves without the price's magnitude
-getting in the way; the zero moves as you pan.
-
-**Indexed to 100.** The same base as a percent scale, written as 100 instead of zero, so a
-price 4.2 percent above the first visible close reads 104.2.
-
 **Long / Short.** A long position profits when price rises; a short position profits when
 price falls. In hedge mode an account can hold both sides at once — the *position side*.
 
 **MACD.** Moving Average Convergence Divergence — the gap between a fast and a slow EMA, drawn
 as a line about zero, a smoothed signal line, and a histogram of the difference.
+
+**Marker.** A dot, arrow, triangle or other shape an indicator draws on only some bars, where
+something happened: a buy dot, a swing high, a 9-13 count. Arrowing onto one says it.
 
 **Market order.** An order to buy or sell immediately at the best available price
 (compare *limit order*).
@@ -6213,6 +6153,9 @@ smoothed line used to read trend direction and as a dynamic support/resistance l
 
 **OHLC.** The four prices that define a bar: Open (first trade), High, Low, and Close
 (last trade) of the period.
+
+**Order book.** The exchange's list of orders waiting to be filled: bids (buyers) below the
+price and asks (sellers) above it, with how much is waiting at each price.
 
 **Oscillator.** An indicator that moves around a centre line (such as RSI or MACD),
 measuring momentum or the speed of price change rather than price itself.
@@ -6226,6 +6169,10 @@ a stack of them sharing one time axis. Price, volume, and each oscillator get th
 
 **Paper trading.** A simulated mode that fills orders against the live price with
 imaginary money, so you can rehearse the whole workflow without risk.
+
+**Percent scale.** A price axis that reads every price as its change from the close of the
+first bar on screen, which is zero. Useful for comparing moves without the price's magnitude
+getting in the way; the zero moves as you pan.
 
 **Point of Control (POC).** In a volume profile, the price level that saw the most
 trading volume.
@@ -6265,18 +6212,22 @@ earcon or to an indicator component. Editing a patch updates everything using it
 **Stochastic.** Where the close sits inside the recent range, 0 to 100, with 80 and 20 as its
 lines; a momentum oscillator like RSI.
 
-**Strip.** A band inside a pane with its own axis — Cipher B's money-flow histogram — walked
-with Ctrl+Up and Ctrl+Down across every series drawn in it.
-
-**Stop-loss.** A protective order that closes a position once price reaches a level
-working against you, capping the loss.
-
 **Stop / Stop-limit order.** An order that activates only once price reaches a *trigger
 price* — then submitting as a market order (stop) or a limit order at a set price
 (stop-limit).
 
+**Stop-loss.** A protective order that closes a position once price reaches a level
+working against you, capping the loss.
+
+**Strip.** A band inside a pane with its own axis — Cipher B's money-flow histogram — walked
+with Ctrl+Up and Ctrl+Down across every series drawn in it.
+
 **Support / Resistance.** Price levels where falling tends to stall (support) or rising
 tends to stall (resistance), often where prior turning points or heavy volume sit.
+
+**Swing high / Swing low.** A bar whose high is above the bars on either side of it (a peak),
+or whose low is below them (a trough). Trends are read from them: higher highs and higher
+lows is an uptrend.
 
 **Take-profit.** An order that closes a position once price reaches a favourable target,
 locking in the gain. A "ladder" splits this across several targets.
@@ -6297,14 +6248,19 @@ active.
 **Value Area.** In a volume profile, the band of price levels that together account for
 roughly 70% of traded volume.
 
+**Volume.** How much was traded during a bar, in the instrument's own units (shares, coins,
+contracts).
+
+**Volume profile.** A view of how much volume traded at each price level (rather than over
+time), highlighting the *Point of Control* and *Value Area*.
+
 **VWAP.** Volume-Weighted Average Price — the average price over a span weighted by volume
 at each level, used as a fair-value reference (see also *Anchored VWAP*).
 
 **Warm-up.** The leading bars on which an indicator has no value yet, because its period has
 not filled — fourteen bars for a fourteen-period RSI. They are silent, not zero.
 
-**Volume profile.** A view of how much volume traded at each price level (rather than over
-time), highlighting the *Point of Control* and *Value Area*.
+**Watchlist.** A named list of symbols you keep an eye on (Alt+M).
 
 **Zone.** A region rather than a line: the shaded overbought band behind an oscillator
 (visual only), a support or resistance zone line carried forward from a turning point
