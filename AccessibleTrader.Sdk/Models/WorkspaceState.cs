@@ -435,13 +435,10 @@ namespace AccessibleTrader.Sdk.Models
         // "Headlines": off (default), importantOnly, importantAndMedium or all. A host narration
         // preference, read by the headline notices; never carried into the script sandbox.
         string HeadlinesLevel = "off",
-        // "Headlines": also say news stories, not only filings (default on; nothing happens
-        // without a Finnhub or Alpaca key and a level). Host narration preference, never in the
+        // "Headlines": also say Finnhub's news stories, not only filings (default on; nothing
+        // happens without a Finnhub key and a level). Host narration preference, never in the
         // script sandbox.
         bool HeadlinesNewsWire = true,
-        // "Headlines": read Alpaca's wire as well as Finnhub's (default off since 2026-11-20 —
-        // half-hourly batches, stocks only). Host narration preference, never in the sandbox.
-        bool HeadlinesAlpaca = false,
         // "Market events": companies' earnings on their own charts (stage 4b; needs a Finnhub
         // key). Host narration preference, never in the script sandbox.
         bool MarketEventsEarnings = true,

@@ -28,7 +28,7 @@ It is free, donation-supported, and developed in the open by a blind trader who 
   with small sizes, before trusting it with money.
 - **A news desk, because you cannot trade without all the information.** Market events (CPI,
   jobs, the Fed, earnings) on the bars they happened on, with the expected figure and a spoken
-  read-out at release; headlines from SEC filings (EDGAR), Finnhub and Alpaca's Benzinga wire on
+  read-out at release; headlines from SEC filings (EDGAR) and Finnhub's news on
   the bars and in a list; a one-sentence market pulse (Alt+P); what changed while you were away
   (Alt+U); a morning brief of all three (Ctrl+Alt+B); and a Go bar (Alt+G or `/`) that reaches
   every command by typing a short code, as on a Bloomberg Terminal.

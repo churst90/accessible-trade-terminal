@@ -182,9 +182,8 @@ public static class WorkspaceProjection
         // must not change because the user turned on SEC filing headlines.
         nameof(WorkspaceState.HeadlinesLevel),
         nameof(WorkspaceState.HeadlinesNewsWire),
-        nameof(WorkspaceState.HeadlinesAlpaca),
         // Whether companies' earnings are market events. A host narration preference, like the
-        // other kind boxes' newer sibling HeadlinesAlpaca: a strategy never sees it.
+        // headline switches above: a strategy never sees it.
         nameof(WorkspaceState.MarketEventsEarnings),
         // A brick chart's real bars and the spans that built its bricks. The projection sends
         // MarketBars as Data (scripts trade, so they must never see a brick's box edge as the

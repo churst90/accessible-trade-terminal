@@ -128,25 +128,15 @@ public class FinnhubNewsTests
     private static readonly string[] OnlyAapl = { "AAPL" };
 
     [Fact]
-    public void TheSameStoryFromTheOtherWireIsNotSaidAgain()
+    public void TheSameStoryFromAnotherPublisherIsNotSaidAgain()
     {
         var gate = new NewsHeadlineGate();
         Assert.True(gate.Offer(Story(5, "NYC lawmakers weigh compromise on Apple delivery worker bill, Bloomberg reports", Now,
-            NewsStory.AlpacaWire, "AAPL"), new[] { Aapl }, MarketEventImportance.Medium, Now));
+            NewsStory.FinnhubWire, "AAPL"), new[] { Aapl }, MarketEventImportance.Medium, Now));
         Assert.False(gate.Offer(Story(9, "NYC Lawmakers Weigh Overhaul of Apple Delivery Worker Bill", Now,
             NewsStory.FinnhubWire, "AAPL"), new[] { Aapl }, MarketEventImportance.Medium, Now.AddSeconds(1)));
         Assert.Equal("AAPL: NYC lawmakers weigh compromise on Apple delivery worker bill, Bloomberg reports.",
             Assert.Single(gate.Due(Now.AddSeconds(5), OnlyAapl)).Text);
-    }
-
-    [Fact]
-    public void TheSameIdOnTheTwoWiresIsTwoStories()
-    {
-        var gate = new NewsHeadlineGate();
-        Assert.True(gate.Offer(Story(7, "Apple Halted", Now, NewsStory.AlpacaWire, "AAPL"), new[] { Aapl },
-            MarketEventImportance.High, Now));
-        Assert.True(gate.Offer(Story(7, "Microsoft Opens A Store In Lagos", Now, NewsStory.FinnhubWire, "AAPL"), new[] { Aapl },
-            MarketEventImportance.High, Now));
     }
 
     [Fact]
@@ -297,34 +287,31 @@ public class FinnhubNewsTests
     }
 
     [Fact]
-    public async Task BothWiresAreListedTogetherNewestFirstWithTheSameStoryOnce()
+    public async Task TheListIsNewestFirstWithTheSameStoryFromTwoPublishersOnce()
     {
-        var alpaca = new FakeNews(new NewsReadResult(NewsReadStatus.Ok, new[]
-        {
-            Story(1, "NYC lawmakers weigh compromise on Apple delivery worker bill, Bloomberg reports", Now.AddMinutes(-5), NewsStory.AlpacaWire, "AAPL"),
-            Story(2, "Apple Reports Q4 Results", Now.AddHours(-3), NewsStory.AlpacaWire, "AAPL"),
-        }, "Alpaca"));
         var finnhub = new FakeNews(new NewsReadResult(NewsReadStatus.Ok, new[]
         {
             Story(9, "NYC Lawmakers Weigh Overhaul of Apple Delivery Worker Bill", Now.AddMinutes(-20), NewsStory.FinnhubWire, "AAPL"),
+            Story(2, "Apple Reports Q4 Results", Now.AddHours(-3), NewsStory.FinnhubWire, "AAPL"),
             Story(8, "Apple Plans an AI Agent", Now.AddHours(-1), NewsStory.FinnhubWire, "AAPL"),
+            Story(1, "NYC lawmakers weigh compromise on Apple delivery worker bill, Bloomberg reports", Now.AddMinutes(-5), NewsStory.FinnhubWire, "AAPL"),
         }, "Finnhub"));
 
-        var read = await new CombinedNewsSource(alpaca, finnhub).RecentAsync(Aapl, 10);
+        var read = await new CombinedNewsSource(finnhub).RecentAsync(Aapl, 10);
 
         Assert.Equal(NewsReadStatus.Ok, read.Status);
-        Assert.Equal(new[] { "alpaca|1", "finnhub|8", "alpaca|2" }, read.Stories.Select(s => s.Key));
-        Assert.Equal("Alpaca and Finnhub", read.Who);
+        Assert.Equal(new[] { "finnhub|1", "finnhub|8", "finnhub|2" }, read.Stories.Select(s => s.Key));
+        Assert.Equal("Finnhub", read.Who);
 
         var section = AssetDossierService.RecentNewsSection(read, Now);
-        Assert.Contains("through Alpaca and Finnhub", section.StatusNote);
+        Assert.Contains("through Finnhub", section.StatusNote);
     }
 
     [Fact]
     public async Task OneWireAnsweringIsEnough()
     {
         var read = await new CombinedNewsSource(
-            new FakeNews(NewsReadResult.Of(NewsReadStatus.NoKey, "Alpaca")),
+            new FakeNews(NewsReadResult.Of(NewsReadStatus.NoKey, "Another service")),
             new FakeNews(new NewsReadResult(NewsReadStatus.Ok, new[] { Story(8, "Apple Plans an AI Agent", Now, NewsStory.FinnhubWire, "AAPL") }, "Finnhub")))
             .RecentAsync(Aapl, 10);
         Assert.Equal(NewsReadStatus.Ok, read.Status);
@@ -339,7 +326,7 @@ public class FinnhubNewsTests
     public async Task WithNoWireAnsweringTheWorstNewsIsSaid(NewsReadStatus a, NewsReadStatus b, NewsReadStatus expected)
     {
         var read = await new CombinedNewsSource(
-            new FakeNews(NewsReadResult.Of(a, "Alpaca")), new FakeNews(NewsReadResult.Of(b, "Finnhub"))).RecentAsync(Aapl, 10);
+            new FakeNews(NewsReadResult.Of(a, "Another service")), new FakeNews(NewsReadResult.Of(b, "Finnhub"))).RecentAsync(Aapl, 10);
         Assert.Equal(expected, read.Status);
     }
 
@@ -551,7 +538,7 @@ public class FinnhubNewsTests
     }
 
     [Fact]
-    public async Task AStoryAlreadyHeardFromAlpacaIsNotSaidAgain()
+    public async Task AStoryAlreadyHeardInOtherWordsIsNotSaidAgain()
     {
         using var rig = new Rig();
         await rig.Run(Now, Now.AddSeconds(5));                                     // baseline
@@ -561,7 +548,7 @@ public class FinnhubNewsTests
         rig.Add("AAPL", 9, "NYC Lawmakers Weigh Overhaul of Apple Delivery Worker Bill", Now.AddSeconds(20));
         await rig.Run(Now.AddSeconds(6), Now.AddSeconds(130));
 
-        Assert.Equal("alpaca|77", Assert.Single(rig.Said).Id);
+        Assert.Equal("finnhub|77", Assert.Single(rig.Said).Id);
     }
 
     [Fact]
@@ -594,7 +581,7 @@ public class FinnhubNewsTests
     // ── The hosts ────────────────────────────────────────────────────────────
 
     [Fact]
-    public void TheHostedContainerGivesBothWiresOneGateAndListsBoth()
+    public void TheHostedContainerGivesFinnhubTheGateAndTheDossierList()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -604,9 +591,11 @@ public class FinnhubNewsTests
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         using var scope = provider.CreateScope();
 
-        using var alpaca = scope.ServiceProvider.GetRequiredService<AlpacaNewsLiveNotices>();
         using var finnhub = scope.ServiceProvider.GetRequiredService<FinnhubNewsLiveNotices>();
-        Assert.Same(alpaca.Gate, finnhub.Gate);
+        Assert.Same(scope.ServiceProvider.GetRequiredService<NewsHeadlineGate>(), finnhub.Gate);
+        // Alpaca's news wire was taken out (Cody, 2026-11-22): nothing is registered for it.
+        Assert.DoesNotContain(services, d => d.ServiceType.FullName!.Contains("AlpacaNews")
+            || (d.ImplementationType?.FullName ?? "").Contains("AlpacaNews"));
         Assert.IsType<CombinedNewsSource>(scope.ServiceProvider.GetRequiredService<INewsSource>());
     }
 
@@ -617,6 +606,7 @@ public class FinnhubNewsTests
         Assert.Contains("services.AddSingleton<AccessibleTrader.Core.Services.Headlines.NewsHeadlineGate>();", text);
         Assert.Contains("services.AddSingleton<AccessibleTrader.Core.Services.Headlines.FinnhubNewsLiveNotices>();", text);
         Assert.Contains("new AccessibleTrader.Core.Services.Headlines.CombinedNewsSource(", text);
+        Assert.DoesNotContain("AlpacaNews", text);
     }
 
     private static string RepoRoot()

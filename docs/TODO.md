@@ -47,9 +47,6 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
      sender domain is likely authenticated (the password emails arrived 11-20) but unchecked.
   6. Tell me: I run `confirm-pending`, send you a test issue, and after you have read it, the first
      real issue goes out with `send ISSUE.md --confirm` (Markdown, starting with a `Subject: ...` line).
-- **Alpaca's news wire (optional, off by default)**: put the PAPER Alpaca pair in the app's API Keys (the
-  slot also drives Alpaca trading, so never the live pair). The paper pair in
-  `patches/api keys/alpaca-api-key.txt` has no secret: regenerate it on the paper dashboard.
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
@@ -81,6 +78,21 @@ CHANGES (Unreleased).
   to go (1 to 9 past the last tab, Delete on the only tab, Home on the first) in the tab bar, whose
   key handling has no test; Pulse's Alt+Shift+D on its first bars; a quick trade on a euro pair.
 - [ ] **The manual:** read a chapter or two as a newcomer would; say what still assumes too much.
+- [ ] **Headlines from Finnhub only** (2026-11-22, not deployed yet): with the Finnhub key, stock and
+  coin stories still said; the Alpaca checkbox gone from Settings → Narration; the dossier's Recent
+  news footnote names Finnhub alone.
+
+Open questions from Cody's seven notes (2026-11-22):
+
+- **Cipher B's count:** PageDown says seven components (the ones that speak); Up and Down stop on
+  nine (RSI and Stochastic are there, muted). Should the count say nine?
+- **Arrowing after Home or End:** Left and Right then read one component, not the whole bar. Keep
+  that, or have Home and End keep whole-series reading when you came from PageUp or PageDown?
+- **The Strategy Lab:** offer its exported strategy list (a JSON) as a download, or leave it in the
+  repository only?
+- **Phones:** to try Android, a CI job building an APK (not built yet); for iOS, a Mac with Xcode and
+  an Apple ID (a free one installs for 7 days; TestFlight needs the paid developer program). Until
+  then, phones use the web version.
 
 Open questions kept from the heard items:
 

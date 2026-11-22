@@ -3,20 +3,17 @@ using System.Net;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Trading;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services.Headlines
 {
     /// <summary>
-    /// One news-wire story as Alpaca's news API sends it. <see cref="Source"/> names whose story it
-    /// is: on Cody's free account (2026-11-20) every story was "fiscal.ai", though Alpaca's
-    /// documentation still says Benzinga. <see cref="Id"/> is
-    /// Alpaca's id and is what "already said" is keyed on: an edited story is sent again with the
-    /// same id and a newer <see cref="UpdatedUtc"/>, and is not said twice.
-    /// <see cref="CreatedUtc"/> is when it was published. <see cref="Wire"/> is the service it
-    /// came through, <c>"alpaca"</c> or <c>"finnhub"</c> (stage 3): ids are only unique within
-    /// one, so "already said" is keyed on both.
+    /// One news story as Finnhub sends it. <see cref="Source"/> names whose story it is (Yahoo,
+    /// Benzinga, CNBC...). <see cref="Id"/> is Finnhub's id and is what "already said" is keyed
+    /// on: an edited story is sent again with the same id and a newer <see cref="UpdatedUtc"/>,
+    /// and is not said twice. <see cref="CreatedUtc"/> is when it was published.
+    /// <see cref="Wire"/> is the service it came through: only <c>"finnhub"</c> since Alpaca's
+    /// news wire was taken out (2026-11-22); ids are only unique within one service, so "already
+    /// said" is keyed on both.
     /// </summary>
     public sealed record NewsStory(
         long Id,
@@ -27,127 +24,34 @@ namespace AccessibleTrader.Core.Services.Headlines
         DateTime UpdatedUtc,
         IReadOnlyList<string> Symbols,
         string Url,
-        string Wire = NewsStory.AlpacaWire)
+        string Wire = NewsStory.FinnhubWire)
     {
-        public const string AlpacaWire = "alpaca";
         public const string FinnhubWire = "finnhub";
 
-        /// <summary>"alpaca|127778840": what "already said" and the headline id are keyed on.</summary>
+        /// <summary>"finnhub|8785494": what "already said" and the headline id are keyed on.</summary>
         public string Key => Wire + "|" + Id.ToString(CultureInfo.InvariantCulture);
     }
 
-    /// <summary>A control message on the news stream: <c>success</c>, <c>subscription</c> or
-    /// <c>error</c>, with Alpaca's message and (for an error) its code.</summary>
-    public sealed record AlpacaStreamControl(string Type, string Message, int Code);
-
-    /// <summary>
-    /// Alpaca's two news shapes. The stream sends a JSON array of messages, each with a
-    /// <c>"T"</c>: <c>"n"</c> for a story, <c>"success"</c>, <c>"subscription"</c> or
-    /// <c>"error"</c>. The REST endpoint (<c>/v1beta1/news</c>) sends
-    /// <c>{"news":[...],"next_page_token":...}</c> with the same story fields and no <c>"T"</c>.
-    ///
-    /// <para>
-    /// Checked against Alpaca itself on 2026-11-20 with Cody's key: the handshake, a stream story
-    /// frame and the REST list are as above, and the test fixtures are those captures. A stream
-    /// story has no <c>images</c> field; the REST one has.
-    /// </para>
-    /// </summary>
-    public static class AlpacaNewsParser
+    /// <summary>Headline text as a screen reader should get it.</summary>
+    public static class NewsText
     {
-        /// <summary>The stories and control messages in one stream frame. A frame that is not
-        /// JSON yields nothing rather than throwing.</summary>
-        public static (IReadOnlyList<NewsStory> Stories, IReadOnlyList<AlpacaStreamControl> Controls)
-            ParseFrame(string json)
-        {
-            var stories = new List<NewsStory>();
-            var controls = new List<AlpacaStreamControl>();
-            JToken? root = Load(json);
-            IEnumerable<JToken> messages = root switch
-            {
-                JArray a => a,
-                JObject o => new[] { o },
-                _ => Array.Empty<JToken>(),
-            };
-            foreach (var m in messages.OfType<JObject>())
-            {
-                string type = (string?)m["T"] ?? "";
-                if (type == "n")
-                {
-                    if (Story(m) is { } s) stories.Add(s);
-                }
-                else if (type is "success" or "subscription" or "error")
-                {
-                    int code = m["code"]?.Type == JTokenType.Integer ? (int)m["code"]! : 0;
-                    controls.Add(new AlpacaStreamControl(type, (string?)m["msg"] ?? "", code));
-                }
-            }
-            return (stories, controls);
-        }
-
-        /// <summary>The stories in a REST response, as sent (Alpaca sends newest first).</summary>
-        public static IReadOnlyList<NewsStory> ParseRest(string json)
-        {
-            var list = new List<NewsStory>();
-            if (Load(json) is JObject o && o["news"] is JArray news)
-                foreach (var m in news.OfType<JObject>())
-                    if (Story(m) is { } s) list.Add(s);
-            return list;
-        }
-
-        private static JToken? Load(string json)
-        {
-            try
-            {
-                // Dates are read as text and parsed below: Newtonsoft's own date handling turns
-                // "...Z" into local time on some paths.
-                using var reader = new JsonTextReader(new StringReader(json)) { DateParseHandling = DateParseHandling.None };
-                return JToken.ReadFrom(reader);
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
-        }
-
-        private static NewsStory? Story(JObject m)
-        {
-            if (m["id"]?.Type != JTokenType.Integer) return null;
-            string headline = Clean((string?)m["headline"]);
-            if (headline.Length == 0) return null;
-            if (!TryUtc((string?)m["created_at"], out var created)) return null;
-            if (!TryUtc((string?)m["updated_at"], out var updated)) updated = created;
-            var symbols = (m["symbols"] as JArray)?.Select(t => ((string?)t ?? "").Trim().ToUpperInvariant())
-                .Where(t => t.Length > 0).Distinct().ToList() ?? new List<string>();
-            return new NewsStory((long)m["id"]!, headline, Clean((string?)m["author"]),
-                Clean((string?)m["source"]), created, updated, symbols, (string?)m["url"] ?? "");
-        }
-
         /// <summary>A headline may carry HTML entities ("&amp;amp;", "&amp;#39;") and the odd
         /// run of spaces; a screen reader would say them.</summary>
         internal static string Clean(string? text)
             => Regex.Replace(WebUtility.HtmlDecode(text ?? ""), @"\s+", " ").Trim();
-
-        private static bool TryUtc(string? text, out DateTime utc)
-            => DateTime.TryParse(text, CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out utc);
     }
 
     /// <summary>
-    /// What a symbol on a chart or in a position is called in Alpaca's news: a stock by its
-    /// ticker, a coin by its base asset (Alpaca tags crypto stories "BTCUSD").
-    /// <see cref="Label"/> is what is said: "AAPL", "BTC".
+    /// What a symbol on a chart or in a position is called in the news: a stock by its ticker,
+    /// a coin by its base asset. <see cref="Label"/> is what is said: "AAPL", "BTC".
     /// </summary>
-    public sealed record NewsTarget(string Label, bool Coin)
-    {
-        /// <summary>The symbol the REST endpoint is asked about: "AAPL", "BTCUSD".</summary>
-        public string RestSymbol => Coin ? Label + "USD" : Label;
-    }
+    public sealed record NewsTarget(string Label, bool Coin);
 
     /// <summary>
-    /// How much a wire story matters. Alpaca sends no importance, so this is a rule on the
+    /// How much a news story matters. The news services send no importance, so this is a rule on the
     /// headline's words — <b>Claude's judgement for Cody to correct</b>, first written
     /// 2026-11-20 from Benzinga's documented style, then retuned the same day on 688 real stories
-    /// from Cody's account, every one of them from <c>fiscal.ai</c> (one company per story,
+    /// from Cody's Alpaca account (Alpaca's news wire, taken out 2026-11-22), every one of them from <c>fiscal.ai</c> (one company per story,
     /// "Morgan Stanley Adjusts Price Target on X to $92 From $85" style), and again for stage 3 on
     /// 685 real Finnhub stories (Yahoo, Benzinga, CNBC, Seeking Alpha) that name their stock:
     /// questions, explainers, earnings-call transcripts, market wraps, industry "market reports",
@@ -415,7 +319,7 @@ namespace AccessibleTrader.Core.Services.Headlines
 
         /// <summary>
         /// The coin a news symbol names ("BTCUSD" is BTC), or "" when it is not a coin pair.
-        /// Alpaca tags crypto stories with a USD, USDT or USDC pair, so only those are cut off —
+        /// Coins are tagged with a USD, USDT or USDC pair, so only those are cut off —
         /// not <see cref="SymbolAssets.Split"/>, which tries the longest quote first and reads
         /// "XBTUSD" as XB priced in TUSD. Kraken's XBT is BTC.
         /// </summary>
@@ -598,8 +502,7 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// newer time) is not said again. Ids are kept per wire (<see cref="NewsStory.Key"/>).</item>
     /// <item><b>Not twice in other words.</b> A story whose headline is
     /// <see cref="NewsStoryWords.SameStory"/> as one offered for the same symbol within
-    /// <see cref="LateReach"/> is dropped: the same news through both wires, or from two
-    /// publishers.</item>
+    /// <see cref="LateReach"/> is dropped: the same news from two publishers.</item>
     /// <item><b>Gathered.</b> A symbol's first new story waits <see cref="Gather"/> for the others
     /// that wire desks send in a burst ("Q4 EPS beats", "Q4 sales beat", "sees Q1"), so they are
     /// one sentence.</item>
@@ -610,9 +513,9 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// </list>
     ///
     /// <para>
-    /// One gate is shared by both wires (Alpaca's stream and Finnhub's polling, stage 3), so the
-    /// gather, the cap and the duplicate check cover them together. It is thread-safe: the
-    /// stream offers from its receive loop and each service's clock asks what is due.
+    /// One gate per app (per browser window on the web version), fed by Finnhub's polling, so
+    /// the gather, the cap and the duplicate check cover every story. It is thread-safe: the
+    /// poller offers and the clock asks what is due.
     /// </para>
     /// </summary>
     public sealed class NewsHeadlineGate

@@ -94,7 +94,6 @@ namespace AccessibleTrader.Core.Services.Settings
             new("Countdowns before events", "Narration", "s-market-events-countdowns", "market events countdown warning minutes before cpi jobs fed decision 15 5 1 30 off"),
             new("Headlines level", "Narration", "s-headlines-level", "headlines news sec edgar filings 8-k earnings results insider form 4 10-q 10-k company off important medium all"),
             new("Include news wire stories", "Narration", "s-headlines-news-wire", "headlines news wire benzinga fiscal.ai alpaca finnhub yahoo cnbc cointelegraph coindesk stories press release analyst upgrade downgrade crypto coin"),
-            new("Also read Alpaca's news wire", "Narration", "s-headlines-alpaca", "headlines alpaca fiscal.ai news wire second source half hour batches"),
             new("Pulse: crypto change measured from", "Narration", "s-market-pulse-crypto-start", "market pulse alt+p crypto bitcoin ethereum midnight utc last 24 hours rolling day change"),
             new("Offer a catch-up when I come back", "Narration", "s-change-log-offer", "what changed alt+u catch up away return prompt change log money alerts events connection"),
             new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),

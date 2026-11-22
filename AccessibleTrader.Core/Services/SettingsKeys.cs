@@ -201,11 +201,11 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string HeadlinesLevel = "narration.headlinesLevel";
 
-        /// <summary>"Headlines": include news stories from Finnhub and Alpaca (default on; needs either key).</summary>
+        /// <summary>"Headlines": include Finnhub's news stories (default on; needs a Finnhub key).
+        /// "narration.headlinesAlpaca", Alpaca's news wire, was taken out 2026-11-22; a saved
+        /// value is left in settings.json and never read.</summary>
         public const string HeadlinesNewsWire = "narration.headlinesNewsWire";
 
-        /// <summary>"Headlines": read Alpaca's news wire as well (default off since 2026-11-20).</summary>
-        public const string HeadlinesAlpaca = "narration.headlinesAlpaca";
         public const string MarketEventsEarnings = "narration.marketEvents.earnings";
 
         /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>

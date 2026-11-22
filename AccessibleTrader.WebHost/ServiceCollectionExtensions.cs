@@ -545,8 +545,9 @@ namespace AccessibleTrader.WebHost
                     "AssetDossier.Company",
                     new[] { "data.sec.gov", "www.sec.gov" },
                     userAgent: "AccessibleTrader/2.2 (codythurst@gmail.com)")));
-            // Headlines, stages 2 and 3: the dossier's "Recent news" reads Alpaca and Finnhub with
-            // the keys from API Keys, together. No key, no requests: the section says how to add one.
+            // Headlines, stage 3: the dossier's "Recent news" reads Finnhub with the key from API
+            // Keys (Alpaca's news was taken out 2026-11-22). No key, no requests: the section says
+            // how to add one.
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.IFinnhubNewsClient>(sp =>
                 new AccessibleTrader.Core.Services.Headlines.FinnhubNewsHttpClient(
                     AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
@@ -574,12 +575,6 @@ namespace AccessibleTrader.WebHost
                 sp.GetRequiredService<AccessibleTrader.Core.Services.MarketEvents.MarketEventEarningsFeed>());
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.INewsSource>(sp =>
                 new AccessibleTrader.Core.Services.Headlines.CombinedNewsSource(
-                    new AccessibleTrader.Core.Services.Headlines.AlpacaNewsRestSource(
-                        AccessibleTrader.Sdk.Services.PluginHostServices.CreateHttpClient(
-                            "Headlines.AlpacaNews",
-                            new[] { "data.alpaca.markets" },
-                            userAgent: "AccessibleTrader/2.2 (accessible-trade-terminal)"),
-                        sp.GetRequiredService<AccessibleTrader.Sdk.Services.IApiKeyCheckout>()),
                     new AccessibleTrader.Core.Services.Headlines.FinnhubNewsRestSource(
                         sp.GetRequiredService<AccessibleTrader.Core.Services.Headlines.IFinnhubNewsClient>(),
                         sp.GetRequiredService<ICompanyNameSource>())));
@@ -755,12 +750,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ICompanyFilingSource>(sp =>
                 (ICompanyFilingSource)sp.GetRequiredService<ICompanyProfileSource>());
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.EdgarHeadlineLiveNotices>();
-            // Headlines, stage 2: the Alpaca news wire. One socket per circuit (a second browser window can hit Alpaca's connection limit, 406, and waits).
-            services.AddScoped<AccessibleTrader.Core.Services.Headlines.INewsSocketFactory,
-                AccessibleTrader.Core.Services.Headlines.AlpacaNewsSocketFactory>();
-            // One gate for both wires, so a story heard from one is not said again from the other.
+            // One gate for the news, so the same story from two publishers is said once.
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.NewsHeadlineGate>();
-            services.AddScoped<AccessibleTrader.Core.Services.Headlines.AlpacaNewsLiveNotices>();
             // Headlines, stage 3: Finnhub's news, polled (its news socket is paid-only).
             services.AddScoped<AccessibleTrader.Core.Services.Headlines.FinnhubNewsLiveNotices>();
             // Headlines on the bars they arrived in (period jumps, the arrow clause, Alt+Shift+D) and

@@ -125,9 +125,8 @@ namespace AccessibleTrader.Core.Services
         /// <summary>"Headlines": off, important only, important and medium, or all.</summary>
         string HeadlinesLevel { get; set; }
 
-        /// <summary>"Headlines": include news stories (Finnhub's and Alpaca's) as well as filings.</summary>
+        /// <summary>"Headlines": include Finnhub's news stories as well as filings.</summary>
         bool HeadlinesNewsWire { get; set; }
-        bool HeadlinesAlpaca { get; set; }
         bool MarketEventsEarnings { get; set; }
 
         /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
@@ -545,25 +544,14 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// "Headlines": also say news stories (Finnhub's and Alpaca's), not only SEC filings.
-        /// Default ON: it does nothing until a headlines level is picked AND a Finnhub or Alpaca key is in
+        /// "Headlines": also say Finnhub's news stories, not only SEC filings.
+        /// Default ON: it does nothing until a headlines level is picked AND a Finnhub key is in
         /// API Keys, so the default costs nothing for anyone without one.
         /// </summary>
         public bool HeadlinesNewsWire
         {
             get => GetBool(SettingsKeys.HeadlinesNewsWire, true);
             set => Set(SettingsKeys.HeadlinesNewsWire, value);
-        }
-
-        /// <summary>
-        /// "Headlines": also read Alpaca's news wire. Default OFF since 2026-11-20: on a free
-        /// Alpaca account it is fiscal.ai's stories in half-hourly batches, stocks only, which
-        /// Finnhub (about a minute, stocks and coins) already covers. Needs the news wire switch too.
-        /// </summary>
-        public bool HeadlinesAlpaca
-        {
-            get => GetBool(SettingsKeys.HeadlinesAlpaca, false);
-            set => Set(SettingsKeys.HeadlinesAlpaca, value);
         }
 
         /// <summary>Market events: companies' earnings on their own charts (stage 4b). On by

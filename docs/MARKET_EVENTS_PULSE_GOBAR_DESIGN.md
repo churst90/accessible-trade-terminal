@@ -328,7 +328,7 @@ read-out, and nothing said more than two hours late. Wire sources will add a ded
 
 1. **SEC EDGAR — BUILT 2026-11-20, not yet heard by Cody.** No key, no account; the filing itself is
    the primary source, minutes before a wire rewrites it. See stage 7 below.
-2. **Alpaca news — BUILT 2026-11-20, checked live the same evening.** A websocket of headlines
+2. **Alpaca news — BUILT 2026-11-20, checked live the same evening; TAKEN OUT 2026-11-22 (Finnhub only).** A websocket of headlines
    with tickers attached. On Cody's free account they are fiscal.ai's (not Benzinga's as Alpaca's
    documentation says), in half-hourly batches, stocks only — so it is a slow second source, not a
    real-time wire. See stage 8 below. Since 2026-11-20 off by default behind its own switch
@@ -592,7 +592,7 @@ sabotages, merges locally, and pushes once at the end of a batch (the push is th
    the other narration preferences. **Not tried against live EDGAR end to end** (the parsers were
    checked against live responses captured the same day, the poller only against a fake source);
    not heard by Cody; not on the VPS.
-8. **Headlines, stage 2: the Alpaca news wire — BUILT 2026-11-20 by Claude, checked live that evening.** One
+8. **Headlines, stage 2: the Alpaca news wire — BUILT 2026-11-20 by Claude, checked live that evening; TAKEN OUT 2026-11-22 (Cody: Finnhub only — sooner, and has coins). The shared parts (importance words, gate, wording, touched targets) live on in `NewsStories.cs` and `FinnhubNewsLiveNotices`; what follows is the record.** One
    socket to `wss://stream.data.alpaca.markets/v1beta1/news`: on Alpaca's "connected" the key is
    checked out from API Keys and sent as `auth` (then dropped, never kept or logged); on
    "authenticated" it subscribes to `news: ["*"]` and matches every story itself, because touched

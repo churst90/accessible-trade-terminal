@@ -31,7 +31,7 @@ feature and understand what it is doing.
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, chart types, Heikin-Ashi
 4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, headlines (SEC filings, Finnhub, Alpaca), the Alt+P market pulse, the Alt+U catch-up, the Ctrl+Alt+B morning brief, the Alt+G Go bar, playback, bar replay, point analysis
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, market events on the chart, headlines (SEC filings, Finnhub), the Alt+P market pulse, the Alt+U catch-up, the Ctrl+Alt+B morning brief, the Alt+G Go bar, playback, bar replay, point analysis
 6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
 8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -1890,7 +1890,7 @@ countdowns are Fed decisions**, which the shipped seed carries into 2027.
 
 A US company's filings with the SEC are said the minute EDGAR makes them public, for the stocks you
 are looking at or holding: *"AAPL filed an 8-K: earnings results."* This is the first kind of
-headline; news stories from Alpaca and Finnhub are the others (next sections). It needs no key and no account.
+headline; news stories from Finnhub are the other (next section). It needs no key and no account.
 
 **Turning it on.** Settings, Narration, **Headlines**, **Headlines level**: **Off** (the default),
 **Important only**, **Important and medium**, or **All**. Off means nothing is fetched at all.
@@ -1933,66 +1933,20 @@ under **Headlines**. As with market events, nothing arrives while the browser it
 twenty newest filings, newest first, each with the time EDGAR accepted it in New York time, its
 words, and whether headlines would announce it.
 
-### Headlines: the news wire (Alpaca)
-
-With an Alpaca key, news stories about your stocks are said the moment Alpaca publishes them:
-*"AAPL: Apple Reports Q4 Results, Beats Estimates."* A free Alpaca account is enough (sign up on
-Alpaca's site, make a **paper** API key, and add it in **API Keys** under Alpaca — the same slot is
-used by the Alpaca trading venue, so a paper key keeps that on paper). Without a key nothing is
-fetched and nothing is said.
-
-**How fresh.** On a free account the stories are written by fiscal.ai and Alpaca publishes them in
-batches, at about one to five minutes past the hour and half past, so a story can be up to half an
-hour behind the event it describes. There are no coin stories on a free account (none came in a
-whole day of testing), so in practice this is for stocks; the coin matching below is there if they
-ever come.
-
-**Turning it on.** Alpaca is a second source, off by default: tick **Also read
-Alpaca's news wire** under the **Headlines level** in Settings → Narration. Finnhub (next section)
-covers the same stocks sooner and has coins, so most people need only Finnhub's free key. Alpaca
-also follows the **Headlines level** and **Include news wire stories** (ticked by default; untick it
-to keep the filings and drop every wire).
-
-**Which symbols.** The stocks the filings use (open stock charts and held stocks), plus every coin
-on an open crypto chart and every coin you hold, by the coin itself: a chart of BTC/USDT, XBT/USD or
-BTC-USD all hear Bitcoin stories.
-
-**What is important.** Wire stories come with no importance, so the terminal judges by the
-headline's words:
-
-| Important | Medium | Low (said only at **All**) |
-| --- | --- | --- |
-| Results and earnings per share, beats and misses, trading updates, guidance given, raised, cut or withdrawn, takeovers and mergers (agreed, or with no talk of terms), going private, bankruptcy, delisting, exchange listing and non-compliance notices, FDA approvals and rejections, ETF approvals and rejections, trading halts and resumptions, restatements, share offerings, SEC, Justice Department or FTC charges and subpoenas, a chief executive leaving, recalls, a cut or skipped dividend, a stock split, a hack, data breach or stolen funds | Analyst upgrades, downgrades and new coverage, takeover talk (in talks, proposed, opposed, a percentage stake), a dividend rise, a new buyback, contracts and orders won, strategic partnerships, joint ventures, supply and licence deals, lawsuits, settlements and investigations, job cuts and closures, short sellers, a new or departing finance chief, operating chief, president or chair, FDA dates and trial data | Everything else. Always low, whatever the words: results dates and conference-call notices, conference appearances, law-firm investigation notices, share-holding and director-dealing notices, advisers to a deal, routine buyback reports, meetings and proxies, bonds, notes and loans, price targets and ratings notes, a plain dividend declaration, options-activity and "whale" notes, "why the shares are moving" notes, movers lists, earnings previews, and any story about more than four symbols |
-
-**What is said.** A symbol's first story waits three seconds for the others wire desks send in a
-burst, then one sentence is said: the most important story in full and the rest counted, *"AAPL:
-Apple Reports Q4 Results, Beats Estimates. 2 more headlines."* After that, nothing more is said for
-that symbol for a minute; stories in that minute are gathered into the next sentence. A story
-edited after it was said is not said again. A story found more than ten minutes after it was
-published ends with its age, *"Published 25 minutes ago."*, and one more than two hours old is not
-said. A story about two of your symbols names both, *"AAPL, BTC: ..."*.
-
-**How it sounds.** Exactly as the filings: the alerts tier (Shift+F2 mutes it), the Headline sound,
-a desktop notification when the window is hidden, and **What changed (Alt+U)** under Headlines.
-
-**If the connection drops** the terminal reconnects on its own, waiting a minute and then longer, up
-to a quarter of an hour. If Alpaca refuses the key it tries again after half an hour; if it says
-the account already has a news connection open (a second browser window of the web version, for
-example) it waits five minutes. The asset dossier's Recent news tab says when the key is refused.
-
-**Where to read more.** The asset dossier (Alt+I) has a **Recent news** tab for stocks and coins:
-the twenty newest stories, newest first, each with its New York publication time, the headline, and
-the importance the live headlines give it. With a Finnhub key as well, the tab lists both together
-(next section).
-
 ### Headlines: news from Finnhub
 
 With a Finnhub key, Finnhub's news is said too: stories from Yahoo Finance, CNBC, Benzinga and
 Seeking Alpha for your stocks, and from Cointelegraph and CoinDesk for your coins. A free Finnhub
 account is enough; it is the same key as the Finnhub price data and the earnings dates, in **API
-Keys** under Finnhub. It uses the same **Headlines level** and the same **Include news wire stories**
-switch as Alpaca (no switch of its own: the key is the switch), and sounds exactly the same. With both keys you hear both, and a story told by both
-(or by two publishers in nearly the same words) is said once.
+Keys** under Finnhub. Without a key nothing is fetched and nothing is said.
+
+**Turning it on.** It follows the **Headlines level** (Settings → Narration) and **Include news wire
+stories** (ticked by default; untick it to keep the filings and drop the news). There is no switch of
+its own: the key is the switch. Finnhub is the terminal's only news source.
+
+**Which symbols.** The stocks the filings use (open stock charts and held stocks), plus every coin
+on an open crypto chart and every coin you hold, by the coin itself: a chart of BTC/USDT, XBT/USD or
+BTC-USD all hear Bitcoin stories.
 
 **How fresh.** Finnhub's free key has no live news feed, so the terminal asks: each of your stocks
 about once a minute, and one list for all your coins about once a minute. With more than fifteen
@@ -2008,11 +1962,30 @@ the market — so a story is said only when its headline names the stock (*AAPL*
 (*XRP*, *BTC*) or its name with its capital letter (*Bitcoin*, *Ether*, *Solana*, *Monero*); a
 coin outside the terminal's list of 25 names is matched by its symbol only.
 
-**What is important.** The same table as Alpaca's above, with Finnhub's own filler kept low:
-questions in the headline, "how to" and "what to know" explainers, "Here's why" pieces, earnings-call
-transcripts and key-metrics notes, "Stock Market Today" wraps, industry market reports, short-interest
-and "fully priced" notes, and **every Seeking Alpha piece** (they are signed opinion). Subpoenas are
-important; investigations, outages and signed deals are medium.
+**What is important.** Stories come with no importance, so the terminal judges by the headline's
+words:
+
+| Important | Medium | Low (said only at **All**) |
+| --- | --- | --- |
+| Results and earnings per share, beats and misses, trading updates, guidance given, raised, cut or withdrawn, takeovers and mergers (agreed, or with no talk of terms), going private, bankruptcy, delisting, exchange listing and non-compliance notices, FDA approvals and rejections, ETF approvals and rejections, trading halts and resumptions, restatements, share offerings, SEC, Justice Department or FTC charges and subpoenas, a chief executive leaving, recalls, a cut or skipped dividend, a stock split, a hack, data breach or stolen funds | Analyst upgrades, downgrades and new coverage, takeover talk (in talks, proposed, opposed, a percentage stake), a dividend rise, a new buyback, contracts and orders won, strategic partnerships, joint ventures, supply and licence deals, lawsuits, settlements and investigations, job cuts and closures, short sellers, a new or departing finance chief, operating chief, president or chair, FDA dates and trial data | Everything else. Always low, whatever the words: results dates and conference-call notices, conference appearances, law-firm investigation notices, share-holding and director-dealing notices, advisers to a deal, routine buyback reports, meetings and proxies, bonds, notes and loans, price targets and ratings notes, a plain dividend declaration, options-activity and "whale" notes, "why the shares are moving" notes, movers lists, earnings previews, and any story about more than four symbols |
+
+Finnhub's own filler is kept low too: questions in the headline, "how to" and "what to know"
+explainers, "Here's why" pieces, earnings-call transcripts and key-metrics notes, "Stock Market
+Today" wraps, industry market reports, short-interest and "fully priced" notes, and **every Seeking
+Alpha piece** (they are signed opinion). Subpoenas are important; investigations, outages and signed
+deals are medium.
+
+**What is said.** A symbol's first story waits three seconds for the others news desks send in a
+burst, then one sentence is said: the most important story in full and the rest counted, *"AAPL:
+Apple Reports Q4 Results, Beats Estimates. 2 more headlines."* After that, nothing more is said for
+that symbol for a minute; stories in that minute are gathered into the next sentence. A story
+edited after it was said is not said again. A story found more than ten minutes after it was
+published ends with its age, *"Published 25 minutes ago."*, and one more than two hours old is not
+said. A story about two of your symbols names both, *"AAPL, BTC: ..."*. The same story told by two publishers in nearly the same words is
+said once.
+
+**How it sounds.** Exactly as the filings: the alerts tier (Shift+F2 mutes it), the Headline sound,
+a desktop notification when the window is hidden, and **What changed (Alt+U)** under Headlines.
 
 **When it starts.** As with the filings, the first look at a stock (or at the coin list) only takes
 note of what is there, except a story from the last five minutes. Closing a stock's last chart
@@ -2022,8 +1995,9 @@ forgets it.
 there have been too many requests it waits a minute. Without a key nothing is sent.
 
 **In the dossier.** The **Recent news** tab lists Finnhub's stories for the last seven days (for a
-coin, the newest crypto list) together with Alpaca's, newest first, each story once, and its
-footnote says which services answered. The source column names the publisher.
+coin, the newest crypto list), the twenty newest first, each story once, with its New York
+publication time, the headline and the importance the live headlines give it. Its footnote says
+which service answered, and says so when the key is refused. The source column names the publisher.
 
 **Not covered.** Finnhub's general market news is not said, only stories about your own symbols.
 A big event can bring many differently worded stories (twelve about one short-seller report, in one case); each is said separately, at most one sentence a minute per symbol.

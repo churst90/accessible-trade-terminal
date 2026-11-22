@@ -29,7 +29,7 @@ namespace AccessibleTrader.Core.Services.Headlines
             {
                 if (m["id"]?.Type != JTokenType.Integer) continue;
                 if (m["datetime"]?.Type != JTokenType.Integer) continue;
-                string headline = AlpacaNewsParser.Clean((string?)m["headline"]);
+                string headline = NewsText.Clean((string?)m["headline"]);
                 if (headline.Length == 0) continue;
                 long seconds = (long)m["datetime"]!;
                 if (seconds <= 0) continue;
@@ -37,7 +37,7 @@ namespace AccessibleTrader.Core.Services.Headlines
                 var symbols = ((string?)m["related"] ?? "")
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(s => s.ToUpperInvariant()).Distinct().ToList();
-                list.Add(new NewsStory((long)m["id"]!, headline, "", AlpacaNewsParser.Clean((string?)m["source"]),
+                list.Add(new NewsStory((long)m["id"]!, headline, "", NewsText.Clean((string?)m["source"]),
                     created, created, symbols, (string?)m["url"] ?? "", NewsStory.FinnhubWire));
             }
             return list;
@@ -164,10 +164,11 @@ namespace AccessibleTrader.Core.Services.Headlines
     }
 
     /// <summary>
-    /// The dossier's "Recent news" from both wires: read together, newest first, a story told
-    /// by both (<see cref="NewsStoryWords.SameStory"/>) listed once, at most
-    /// <c>limit</c>. One wire answering is enough: the list says what it has, and a key missing
-    /// from the other is not an error. With none answering, a refused key is said before a
+    /// The dossier's "Recent news": its sources read together (only Finnhub since Alpaca's wire
+    /// was taken out, 2026-11-22), newest first, a story told twice — by two publishers, or by
+    /// two sources — (<see cref="NewsStoryWords.SameStory"/>) listed once, at most
+    /// <c>limit</c>. One source answering is enough: the list says what it has, and a key missing
+    /// from another is not an error. With none answering, a refused key is said before a
     /// failed read, and a failed read before no key.
     /// </summary>
     public sealed class CombinedNewsSource : INewsSource

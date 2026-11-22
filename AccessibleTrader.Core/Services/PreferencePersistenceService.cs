@@ -87,7 +87,6 @@ namespace AccessibleTrader.Core.Services
             bool ChangeLogOfferOnReturn = true,
             string HeadlinesLevel = "off",
             bool HeadlinesNewsWire = true,
-            bool HeadlinesAlpaca = false,
             bool MarketEventsEarnings = true);
 
         private static Prefs FromState(WorkspaceState s) => new(
@@ -101,7 +100,7 @@ namespace AccessibleTrader.Core.Services
             s.MarketEventsExpiries, s.MarketEventsHolidays, s.MarketEventsHalvings,
             s.MarketEventsSoundOnEventBars, s.MarketEventsCountdowns, s.MarketEventsWatched,
             s.MarketPulseCryptoStart, s.ChangeLogOfferOnReturn, s.HeadlinesLevel,
-            s.HeadlinesNewsWire, s.HeadlinesAlpaca, s.MarketEventsEarnings);
+            s.HeadlinesNewsWire, s.MarketEventsEarnings);
 
         public void Initialize()
         {
@@ -153,7 +152,6 @@ namespace AccessibleTrader.Core.Services
                     ChangeLogOfferOnReturn = _settings.ChangeLogOfferOnReturn,
                     HeadlinesLevel = _settings.HeadlinesLevel,
                     HeadlinesNewsWire = _settings.HeadlinesNewsWire,
-                    HeadlinesAlpaca = _settings.HeadlinesAlpaca,
                     MarketEventsEarnings = _settings.MarketEventsEarnings,
                     // The speed a person can follow is a fact about the person, so it survives a
                     // restart like every other preference here. It did not: it lived only on
@@ -205,7 +203,6 @@ namespace AccessibleTrader.Core.Services
                         _settings.ChangeLogOfferOnReturn = p.ChangeLogOfferOnReturn;
                         _settings.HeadlinesLevel = p.HeadlinesLevel;
                         _settings.HeadlinesNewsWire = p.HeadlinesNewsWire;
-                        _settings.HeadlinesAlpaca = p.HeadlinesAlpaca;
                         _settings.MarketEventsEarnings = p.MarketEventsEarnings;
                         _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();

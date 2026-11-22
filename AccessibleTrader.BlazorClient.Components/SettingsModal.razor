@@ -857,18 +857,6 @@
                             Stories whose headline names one of your stocks or coins, at the same level;
                             needs a free Finnhub key in API Keys.
                         </p>
-
-                        <div class="modal-row">
-                            <label for="s-headlines-alpaca">Also read Alpaca's news wire</label>
-                            <input id="s-headlines-alpaca" type="checkbox"
-                                   aria-describedby="s-headlines-alpaca-hint"
-                                   checked="@_headlinesAlpaca"
-                                   @onchange="e => _headlinesAlpaca = e.Value is true" />
-                        </div>
-                        <p id="s-headlines-alpaca-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Needs an Alpaca key; a free account sends stories up to 30 minutes late,
-                            with nothing for coins.
-                        </p>
                     </fieldset>
 
                     @* Alt+P's one sentence. The Pulse list is a watchlist (Alt+M); this only
@@ -1599,7 +1587,6 @@
     private bool _changeLogOfferOnReturn = true;
     private string _headlinesLevel = "off";
     private bool _headlinesNewsWire = true;
-    private bool _headlinesAlpaca;
     private string _marketEventStatus = "";
     private string _marketEventKalshiStatus = "";
 
@@ -2253,7 +2240,6 @@
         _changeLogOfferOnReturn = Store.State.ChangeLogOfferOnReturn;
         _headlinesLevel = Store.State.HeadlinesLevel;
         _headlinesNewsWire = Store.State.HeadlinesNewsWire;
-        _headlinesAlpaca = Store.State.HeadlinesAlpaca;
         _marketEventStatus = NoKeyMarketEventStatus();
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
@@ -2622,7 +2608,6 @@
             ChangeLogOfferOnReturn = _changeLogOfferOnReturn,
             HeadlinesLevel = _headlinesLevel,
             HeadlinesNewsWire = _headlinesNewsWire,
-            HeadlinesAlpaca = _headlinesAlpaca,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

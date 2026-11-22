@@ -462,7 +462,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 case Headlines.NewsReadStatus.NoKey:
                     return new DossierSection(title, DossierStatus.NoData, Array.Empty<DossierField>(), now,
-                        "Add a Finnhub or Alpaca key in API Keys to list news stories here. A free account with either works.");
+                        "Add a Finnhub key in API Keys to list news stories here. A free account works.");
                 case Headlines.NewsReadStatus.Refused:
                     string who = read.Who.Length == 0 ? "The news service" : read.Who;
                     return new DossierSection(title, DossierStatus.Unavailable, Array.Empty<DossierField>(), now,
@@ -492,7 +492,7 @@ namespace AccessibleTrader.Core.Services.Analysis
         }
 
         private static string WireName(string wire)
-            => wire == Headlines.NewsStory.FinnhubWire ? "Finnhub" : "Alpaca";
+            => wire == Headlines.NewsStory.FinnhubWire ? "Finnhub" : wire;
 
         private static void AddSeries(List<DossierField> into, string label,
                                       IReadOnlyList<(DateTime Filed, double Value)> series)

@@ -7,7 +7,42 @@ All notable changes to this project will be documented in this file.
 **On the VPS:** everything below (45fc1a23, deployed 2026-11-22 11:20 UTC; e0791c7f after it is
 the manual only). **The website's** Manual, Quick Start, Shortcuts and What's New pages carry these
 docs too, ahead of the 2.14.1 download, with a notice on each saying so (remove it at the next
-release). Nothing below is heard yet.
+release). Nothing below is heard yet. **The 2026-11-22 seven-notes section is not on the VPS or the
+website yet.**
+
+### 2026-11-22: Cody's seven notes on the manual — headlines from Finnhub only; the manual corrected on Cipher B, arrowing, platforms and the Strategy Lab — not deployed, not heard
+
+- **Headlines come from Finnhub only.** Alpaca's news wire (an optional second source, off by
+  default) is taken out of the code, the settings and the manual. Cody: "news headlines should only
+  come from finhub as it is the better source". On a free account Alpaca's stories were fiscal.ai's,
+  in batches up to half an hour late, and carried no coins; Finnhub's free key covers the same
+  stocks plus coins. The parts both used stay: the importance words, the once-a-minute gate, the
+  wording, which charts and holdings count (now `FinnhubNewsLiveNotices.TouchedTargets`), and the
+  dossier's dedupe of the same story from two publishers. Files renamed: `AlpacaNews.cs` →
+  `NewsStories.cs`, `AlpacaNewsSource.cs` → `NewsSource.cs`, `AlpacaNewsTests.cs` →
+  `NewsStoryTests.cs`; `AlpacaNewsLiveNotices` and the Alpaca socket, parser and REST source are
+  deleted. **Caveats:** Finnhub is asked about once a minute, not pushed, and how long Finnhub takes
+  to list a story after it is published is still unmeasured, so a story can now arrive later than
+  Alpaca's socket would have pushed it on a paid Alpaca plan. A saved
+  `narration.headlinesAlpaca` stays in settings.json and is never read. The Alpaca trading venue and
+  its price data are untouched (same API Keys slot). The manual's Alpaca table and rules moved into
+  the Finnhub section. Tests: 26 fewer (the parser, socket and REST tests went with their code).
+  Guards proven red: the dossier's two-publisher dedupe, the touched-target order, the HTML-entity
+  clean-up, the hosted container's single gate, and the desktop container text.
+- **The manual** (011af0e7): Cipher B speaks **seven** components, not eighteen (PageDown says
+  seven; Up and Down also stop on the muted RSI and Stochastic; the Sell dot starts left out). Left
+  and Right read the whole series after PageUp or PageDown and only one component after Up, Down,
+  Home, End, Backslash or a jump, which the "Moving through time" section now says. The indicator
+  primer describes Cipher B without Market Cipher. There is **no Android or iOS app** (never built,
+  known defects in the Android keyboard bridge and audio loop); the Mac app is unsigned and has never
+  been run on a real Mac; phones use the web version (PLATFORMS.md and QUICKSTART say so). The
+  Strategy Lab is in the repository only, not in any download, and the terminal does not need it.
+  **Caveats:** the "seven" counts what speaks; if the count should include the two muted lines it is
+  nine (open question in TODO). No code changed for the arrowing: Home, End and Backslash still
+  switch to one-component reading.
+- **Settings' key table said Ctrl+Shift+D** for the detailed point summary; it is Alt+Shift+D on
+  every head, Windows included. The Ctrl+Shift-to-Alt+Shift remap in the web host does not depend on
+  the operating system; only Ctrl+Shift+Space (and Ctrl+Shift+Tab on the desktop) stay Ctrl+Shift.
 
 ### 2026-11-22: Cody's three questions — a switch for near-level speech; the 9-13's published recycle; the last three workspace audit items — CI green, on the VPS, not heard
 

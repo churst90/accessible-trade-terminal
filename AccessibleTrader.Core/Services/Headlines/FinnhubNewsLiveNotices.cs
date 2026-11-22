@@ -1,7 +1,10 @@
+using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.MarketEvents;
 using AccessibleTrader.Core.Services.Notifications;
+using AccessibleTrader.Core.Services.Trading;
+using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Services;
 using Microsoft.Extensions.Logging;
@@ -9,8 +12,9 @@ using Microsoft.Extensions.Logging;
 namespace AccessibleTrader.Core.Services.Headlines
 {
     /// <summary>
-    /// Headlines, stage 3: Finnhub's news, for the stocks and coins the trader touches (the same
-    /// set as the Alpaca wire, <see cref="AlpacaNewsLiveNotices.TouchedTargets"/>). Finnhub's
+    /// Headlines, stage 3: Finnhub's news, for the stocks and coins the trader touches
+    /// (<see cref="TouchedTargets"/>), the only news source since Alpaca's wire was taken out
+    /// (2026-11-22). Finnhub's
     /// news socket is for paid keys only (checked 2026-11-20: "You don't have access to this
     /// resource"), so this polls: each touched stock's company news in turn, and the crypto list
     /// for every coin at once.
@@ -28,9 +32,9 @@ namespace AccessibleTrader.Core.Services.Headlines
     /// <item><b>The first look is a baseline</b>, as with the filings: what a symbol's first read
     /// finds is marked seen, except stories published in the last
     /// <see cref="EdgarHeadlineTracker.FirstLookReach"/>.</item>
-    /// <item><b>Said through the shared gate</b> (<see cref="NewsHeadlineGate"/>), so a story
-    /// already heard from Alpaca, or from another publisher in other words, is not said again,
-    /// and a symbol's stories from both wires are gathered into one sentence.</item>
+    /// <item><b>Said through the gate</b> (<see cref="NewsHeadlineGate"/>), so a story already
+    /// heard from another publisher in other words is not said again, and a symbol's stories are
+    /// gathered into one sentence.</item>
     /// <item><b>Off means no requests</b>: the level Off, the news switch off, no Finnhub key, or
     /// nothing touched. A refused key waits <see cref="RefusedKeyWait"/>; "too many requests"
     /// (429) waits <see cref="RateLimitWait"/>.</item>
@@ -128,7 +132,7 @@ namespace AccessibleTrader.Core.Services.Headlines
                     }
                 }
 
-                var targets = AlpacaNewsLiveNotices.TouchedTargets(state, _heldPositions);
+                var targets = TouchedTargets(state, _heldPositions);
                 var jobs = Jobs(targets);
                 // A symbol dropped and touched again starts with a fresh baseline.
                 foreach (var gone in _nextReadUtc.Keys.Where(k => !jobs.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList())
@@ -252,6 +256,42 @@ namespace AccessibleTrader.Core.Services.Headlines
         /// <summary>Today's date in New York, the day Finnhub's company-news dates mean.</summary>
         internal static DateOnly NewYorkDate(DateTime utc)
             => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), ExchangeTime.UsEastern));
+
+        /// <summary>
+        /// The stocks (<see cref="EdgarHeadlineLiveNotices.TouchedStocks"/>) and the coins the
+        /// trader touches: every open chart in a Crypto market (the focused chart with no category
+        /// counts when the selected market is Crypto) and every held Crypto position, by base asset
+        /// ("BTC" for BTC/USDT, XBTUSD and BTC-USD alike). Focused chart first, without repeats.
+        /// </summary>
+        public static IReadOnlyList<NewsTarget> TouchedTargets(
+            WorkspaceState state, IReadOnlyList<MarketEventHeldPosition> held)
+        {
+            var targets = new List<NewsTarget>();
+            void AddCoin(string? symbol)
+            {
+                string coin = NewsStoryWords.CoinLabel(SymbolAssets.BaseOf(symbol));
+                if (coin.Length > 0 && !targets.Any(t => t.Coin && t.Label == coin))
+                    targets.Add(new NewsTarget(coin, true));
+            }
+
+            var focusedMarket = EdgarHeadlineLiveNotices.MarketOf(state.Identity);
+            bool focusedCoin = focusedMarket == MarketType.Crypto
+                || (focusedMarket == null && state.Data.Count > 0 && state.SelectedMarketType == MarketType.Crypto);
+            var stocks = EdgarHeadlineLiveNotices.TouchedStocks(state, held);
+
+            // The focused chart leads whichever kind it is.
+            if (focusedCoin) AddCoin(state.Identity.Symbol);
+            foreach (var s in stocks)
+                if (!targets.Any(t => !t.Coin && t.Label == s))
+                    targets.Add(new NewsTarget(s, false));
+            foreach (var tab in state.TabSnapshots ?? ImmutableList<TabSnapshot>.Empty)
+                if (EdgarHeadlineLiveNotices.MarketOf(tab.Identity) == MarketType.Crypto)
+                    AddCoin(tab.Identity.Symbol);
+            foreach (var p in held)
+                if (p.Market == MarketType.Crypto)
+                    AddCoin(p.Symbol);
+            return targets;
+        }
 
         public void Dispose()
         {

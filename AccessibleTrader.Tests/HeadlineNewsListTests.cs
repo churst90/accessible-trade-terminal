@@ -53,7 +53,7 @@ public class HeadlineNewsListTests
         var h = new HeadlineHistory();
         h.Add(Rec("finnhub|1", Start, "Apple Reports Q4 Results, Beats Estimates."));
         h.Add(Rec("finnhub|1", Start, "Apple Reports Q4 Results, Beats Estimates."));       // same key
-        h.Add(Rec("alpaca|9", Start.AddMinutes(20), "Apple Reports Q4 Results; Beats Estimates."));
+        h.Add(Rec("finnhub|9", Start.AddMinutes(20), "Apple Reports Q4 Results; Beats Estimates."));
         h.Add(Rec("finnhub|1", Start, "Apple Reports Q4 Results, Beats Estimates.", symbol: "MSFT"));
 
         Assert.Single(h.For("AAPL"));

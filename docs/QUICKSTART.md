@@ -448,8 +448,8 @@ terminal gathers it for you, by keyboard and ear.
   them at the bar you are on. Before a release you hear a countdown, and at release the figure
   and the surprise. Company earnings sit on their own charts; a Fed decision says the rate.
 - **Headlines.** `.` and Shift+`.` walk the headlines on the bar you are on: SEC filings from
-  EDGAR (free, for everyone), and news from Finnhub (your own free key in API Keys, Alt+K) and
-  Alpaca's Benzinga wire (optional). `NEWS AAPL` in the Go bar lists them.
+  EDGAR (free, for everyone), and news from Finnhub (your own free key in API Keys, Alt+K).
+  `NEWS AAPL` in the Go bar lists them.
 - **Market pulse (Alt+P).** The S&P, Nasdaq, Bitcoin, Ethereum, the ten-year yield, the dollar,
   gold, oil and the VIX in one sentence. Ctrl+Alt+P reads it in detail.
 - **What changed (Alt+U).** Fills, stops, alerts, released events, unusual moves, signals on your
