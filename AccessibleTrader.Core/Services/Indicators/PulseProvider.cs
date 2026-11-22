@@ -984,7 +984,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 _       => "strong uptrend",
             };
             string sharpeText = double.IsNaN(sh) ? "" : $", Sharpe {sh:+0.00;-0.00;0.00}";
-            return $"Pulse: Fast {w:F1}, Anchor {a:F1}, MFI {m:F1}, ADX {x:F1}. Cycle {stageText}. {trendText}{sharpeText}.";
+            // A reading still warming up is left out rather than said as "NaN"; with none ready the
+            // whole clause is "warming up".
+            var readings = new[] { ("Fast", w), ("Anchor", a), ("MFI", m), ("ADX", x) }
+                .Where(r => !double.IsNaN(r.Item2))
+                .Select(r => $"{r.Item1} {r.Item2.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}")
+                .ToList();
+            string readingText = readings.Count == 0 ? "warming up" : string.Join(", ", readings);
+            return $"Pulse: {readingText}. Cycle {stageText}. {trendText}{sharpeText}.";
         }
 
         // ── Math ─────────────────────────────────────────────────────────────

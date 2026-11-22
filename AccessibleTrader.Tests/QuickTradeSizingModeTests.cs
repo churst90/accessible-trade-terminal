@@ -172,7 +172,7 @@ public class QuickTradeSizingModeTests
 
     // ── What is spoken ───────────────────────────────────────────────────────
 
-    private static (QuickTradeService Svc, SpyEventBus Bus) Build(QuickTradeSizingMode mode)
+    private static (QuickTradeService Svc, SpyEventBus Bus) Build(QuickTradeSizingMode mode, string symbol = "BTCUSDT")
     {
         var bars = Enumerable.Range(0, 50).Select(i => new Ohlcv
         {
@@ -186,7 +186,7 @@ public class QuickTradeSizingModeTests
         {
             Data = new TimeSeriesBuffer<Ohlcv>(bars),
             CurrentDataIndex = 25,
-            Identity = new ChartIdentity("Crypto", "MEXC", "BTCUSDT", "4h"),
+            Identity = new ChartIdentity("Crypto", "MEXC", symbol, "4h"),
         });
 
         var bus = new SpyEventBus();
@@ -224,5 +224,23 @@ public class QuickTradeSizingModeTests
         string spoken = Spoken(bus);
         Assert.Contains("Position value", spoken, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("lose", spoken, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// On a euro pair the amounts are euros: "Position value 45,700.00 EUR", not "$45,700.00 EUR",
+    /// which said dollars and euros in one breath.
+    /// </summary>
+    [Theory]
+    [InlineData(QuickTradeSizingMode.PositionValue)]
+    [InlineData(QuickTradeSizingMode.RiskAtStop)]
+    public void An_amount_in_a_known_quote_has_no_dollar_sign(QuickTradeSizingMode mode)
+    {
+        var (svc, bus) = Build(mode, "BTCEUR");
+        svc.Arm(0.5);
+        svc.SetStopAtCursor();
+
+        string summary = string.Join(" ", bus.Log.OfType<FeedbackRequestEvent>().Skip(1).Select(e => e.Message));
+        Assert.Contains("EUR", summary);
+        Assert.DoesNotContain("$", summary);
     }
 }

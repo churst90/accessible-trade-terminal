@@ -484,7 +484,20 @@ namespace AccessibleTrader.Core.Services.Input
                     return;
                 }
                 case SystemCommand.LoadChart: _eventBus.Publish(new LoadChartRequestedEvent()); return;
-                case SystemCommand.OpenProperties: _eventBus.Publish(new OpenPropertiesEvent()); return;
+                case SystemCommand.OpenProperties:
+                {
+                    // With nothing focused the dialog has nothing to show and used to return
+                    // without a word, which sounds the same as a key that is not bound.
+                    var focusedId = _store.State.FocusedSeriesId ?? string.Empty;
+                    if (!_store.State.ActiveSeries.Any(s => s.Id == focusedId))
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary,
+                            "No series focused. Properties open for the focused series.", true, Channel: SpeechChannel.Interface));
+                        return;
+                    }
+                    _eventBus.Publish(new OpenPropertiesEvent());
+                    return;
+                }
                 case SystemCommand.AddReferenceLevel:
                 {
                     // Add a reference level to the focused indicator series (not a freehand drawing).

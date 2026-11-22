@@ -153,15 +153,15 @@
             return;
         }
 
-        // The remaining keys only make sense with more than one tab.
-        if (count <= 1) return;
+        if (count < 1) return;
+
+        // The keys below go to the store even when they can do nothing (one tab, already
+        // there, no such tab): the store says why, where returning here said nothing.
 
         // Number row: 1-9 jump straight to that tab.
         if (e.Key.Length == 1 && e.Key[0] >= '1' && e.Key[0] <= '9')
         {
-            int idx = e.Key[0] - '1';
-            if (idx < count && idx != active)
-                Store.Dispatch(new SwitchTabAction(idx));
+            Store.Dispatch(new SwitchTabAction(e.Key[0] - '1'));
             return;
         }
 
@@ -176,10 +176,10 @@
                 Store.Dispatch(new SwitchTabAction((active - 1 + count) % count));
                 break;
             case "Home":
-                if (active != 0) Store.Dispatch(new SwitchTabAction(0));
+                Store.Dispatch(new SwitchTabAction(0));
                 break;
             case "End":
-                if (active != count - 1) Store.Dispatch(new SwitchTabAction(count - 1));
+                Store.Dispatch(new SwitchTabAction(count - 1));
                 break;
             case "Delete":
                 Store.Dispatch(new CloseTabAction(active));

@@ -288,6 +288,15 @@ namespace AccessibleTrader.Core.Services
                     // the one sentence that stops a no-op key from being a dead key. See the
                     // note above on the discard this replaced.
                     _deferredBus.Drain();
+
+                    // A tab switch or close that changed nothing says why: already there, no
+                    // such tab, or the last tab.
+                    if (action is SwitchTabAction or CloseTabAction
+                        && TabReducer.Refusal(_currentState, action) is string refusal)
+                    {
+                        _eventBus.Publish(new AnnouncementEvent(refusal, true,
+                            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+                    }
                 }
             }
         }

@@ -182,8 +182,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                                         : below && !above ? -1.0
                                         :                    0.0;
                         }
-                        // Soft bias: +1 if close above EITHER anchor, -1 if below
-                        // BOTH, 0 only when between them. Lets the gate fire more
+                        // Soft bias: +1 if close above EITHER anchor (so between them
+                        // is +1), -1 if below BOTH, 0 only when the close sits exactly on
+                        // one anchor and not above the other. Lets the gate fire more
                         // often — caller can use Bias for strict, BiasSoft for permissive.
                         if (i < biasSoftSpan.Length)
                         {

@@ -314,9 +314,13 @@ namespace AccessibleTrader.Core.Services.Rendering
                     DashStyle.DashDot => SKPathEffect.CreateDash(new[] { 8f, 4f, 2f, 4f }, 0),
                     _                 => null
                 };
+                // A colour that does not parse (a hand-edited workspace) draws in the axis ink
+                // rather than throwing and losing the whole frame.
+                if (!SKColor.TryParse(ThemeAdaptedColours.Level(lvl.ColorHex ?? "", ctx.Theme), out var lvlColour))
+                    lvlColour = ctx.Theme.AxisText;
                 using var lvlPaint = new SKPaint
                 {
-                    Color      = SKColor.Parse(ThemeAdaptedColours.Level(lvl.ColorHex, ctx.Theme)),
+                    Color      = lvlColour,
                     StrokeWidth = lvl.Thickness,
                     Style      = SKPaintStyle.Stroke,
                     PathEffect = pathEffect

@@ -254,7 +254,11 @@
             var snapshots = Store.State.TabSnapshots;
             if (snapshots != null && snapshots.Count > 0)
             {
+                // A close the reducer refuses leaves the count where it was; without this the
+                // loop would never end and the window would hang.
+                int before = Store.State.TabCount;
                 Store.Dispatch(new CloseTabAction(snapshots[0].TabIndex));
+                if (Store.State.TabCount >= before) break;
             }
             else
             {

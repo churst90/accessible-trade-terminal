@@ -33,6 +33,25 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         /// Public label formatter — used by WorkspaceStore.Dispatch to build the
         /// announcement for SwitchTab/CloseTab actions after the reducer returns.
         /// </summary>
+        /// <summary>
+        /// What to say when a switch or close changed nothing, or null when it did change
+        /// something. A refusal that says nothing sounds the same as a key that is not bound.
+        /// </summary>
+        public static string? Refusal(WorkspaceState state, WorkspaceAction action) => action switch
+        {
+            SwitchTabAction s when s.TargetIndex == state.ActiveTabIndex => state.TabCount <= 1
+                ? "Only one tab open."
+                : $"Already on tab {s.TargetIndex + 1}: {GetTabLabel(state.Identity)}.",
+            SwitchTabAction s when s.TargetIndex < 0 || s.TargetIndex >= state.TabCount
+                => $"No tab {s.TargetIndex + 1}. {TabsOpen(state.TabCount)}.",
+            SwitchTabAction s => $"Tab {s.TargetIndex + 1} could not be opened.",
+            CloseTabAction when state.TabCount <= 1 => "The last tab stays open.",
+            CloseTabAction c => $"Tab {c.TabIndex + 1} could not be closed.",
+            _ => null,
+        };
+
+        private static string TabsOpen(int count) => count == 1 ? "1 tab open" : $"{count} tabs open";
+
         public static string GetTabLabel(ChartIdentity identity) =>
             string.IsNullOrEmpty(identity.Symbol)   ? "New Tab" :
             string.IsNullOrEmpty(identity.Provider) ? $"{identity.Symbol} {identity.Timeframe}" :

@@ -251,6 +251,26 @@ public sealed class ChartTypeRenderTests
         Assert.True(HasWhite(bmp), "the analytics chart's only line vanished");
     }
 
+    [Fact]
+    public void A_level_colour_that_does_not_parse_draws_in_the_axis_ink_and_the_frame_survives()
+    {
+        // A hand-edited workspace with "not-a-colour" on a level threw from SKColor.Parse and
+        // took every series on the frame with it.
+        var theme = Theme();
+        var bars = Bars(12, _ => (90, 115));
+        var candles = CandleSeries();
+        Fill(candles, bars);
+        candles.Levels.Add(new LevelConfig { Value = 120, ColorHex = "not-a-colour", DashStyle = DashStyle.Solid, Thickness = 2 });
+
+        using var bmp = Render(c => new DataLayer(Styling()).Render(
+            Ctx(c, bars, theme, PriceChartStyle.Line, min: 80, max: 125), new[] { candles }));
+
+        int yLevel = (int)ChartMath.MapY(120, 0, H, 80, 125, false);
+        Assert.True(HasColourNear(bmp, 3, yLevel, theme.AxisText), "the level was not drawn in the axis ink");
+        int yClose = (int)ChartMath.MapY(115, 0, H, 80, 125, false);
+        Assert.True(HasColourNear(bmp, XOf(5, bars.Count), yClose, theme.PriceChartLine), "the price line was lost");
+    }
+
     private static bool HasWhite(SKBitmap bmp)
     {
         for (int y = 0; y < H; y++)

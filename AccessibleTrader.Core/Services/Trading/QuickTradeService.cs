@@ -362,6 +362,11 @@ namespace AccessibleTrader.Core.Services.Trading
             var s = State;
             string quote = SymbolAssets.QuoteOf(_store.State.Identity.Symbol);
             string inQuote = quote.Length > 0 ? " " + quote : "";
+            // With the quote known, the amount is said in it ("1,000.00 EUR"); a "$" in front
+            // said dollars on a euro or yen pair.
+            string InQuote(double v) => quote.Length > 0
+                ? v.ToString("N2", CultureInfo.InvariantCulture) + inQuote
+                : Money(v);
 
             if (s.Stage == QuickTradeStage.AwaitingStop)
             {
@@ -370,17 +375,17 @@ namespace AccessibleTrader.Core.Services.Trading
                     string qty = s.PositionSize is double q0
                         ? $" — about {Units(q0)} at {Price(s.EntryPrice ?? 0)}"
                         : "";
-                    return $"Armed to buy {Money(s.RiskCash)}{inQuote} worth, "
+                    return $"Armed to buy {InQuote(s.RiskCash)} worth, "
                          + $"{Trim(s.RiskPercent)} percent of the account{qty}. No stop yet.";
                 }
 
-                return $"Armed to risk {Money(s.RiskCash)}{inQuote}, {Trim(s.RiskPercent)} percent of "
+                return $"Armed to risk {InQuote(s.RiskCash)}, {Trim(s.RiskPercent)} percent of "
                      + "the account, if the stop is hit. No stop yet — the size depends on it.";
             }
 
             string size = s.PositionSize is double q ? Units(q) : "unknown size";
-            string value = s.Notional is double n ? Money(n) + inQuote : "unknown";
-            string loss = s.RiskAtStop is double r ? Money(r) + inQuote : "unknown";
+            string value = s.Notional is double n ? InQuote(n) : "unknown";
+            string loss = s.RiskAtStop is double r ? InQuote(r) : "unknown";
 
             return $"{(s.IsLong ? "Long" : "Short")} {size}, entry {Price(s.EntryPrice ?? 0)}, "
                  + $"stop {Price(s.StopPrice ?? 0)}. "

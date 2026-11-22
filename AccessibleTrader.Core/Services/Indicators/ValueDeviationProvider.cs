@@ -375,7 +375,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 && (b[i].High - b[i].Close) / range > 0.5;
         }
 
-        /// <summary>WaveTrend turning with the mark — Cipher B's oscillator math, embedded.</summary>
+        /// <summary>WaveTrend turning with the mark (a WaveTrend of its own; see <see cref="WaveTrend"/>).</summary>
         private static bool MomentumTurned(double[] wt, int i, bool buySide)
         {
             if (i < 2 || double.IsNaN(wt[i]) || double.IsNaN(wt[i - 1])) return false;
@@ -383,8 +383,9 @@ namespace AccessibleTrader.Core.Services.Indicators
         }
 
         /// <summary>
-        /// Standard WaveTrend on HLC3 (channel 10, average 21) — the same construction Cipher B
-        /// uses. Reimplemented here so this indicator has no dependency on Cipher B being present.
+        /// Standard WaveTrend on HLC3 (channel 10, average 21). NOT Cipher B's: Cipher B uses 9 / 12,
+        /// seeds its averages differently, and makes a flat bar NaN where this makes it 0. Kept
+        /// separate so this indicator has no dependency on Cipher B being present.
         /// </summary>
         private static double[] WaveTrend(IReadOnlyList<Ohlcv> bars, int channel = 10, int average = 21)
         {

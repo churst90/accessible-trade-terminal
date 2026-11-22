@@ -98,12 +98,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (i >= Period) sum -= (double)data[i - Period].Close;
                 double deviation = i < Period - 1 ? double.NaN : (double)data[i].Close - sum / Period;
                 sma[i] = deviation;
-                // Ternary state derived from the SMA deviation — +1 bull, -1 bear, 0 warmup/flat.
-                state[i] = double.IsNaN(deviation) ? 0.0 : (deviation > 0 ? 1.0 : (deviation < 0 ? -1.0 : 0.0));
+                // Ternary state derived from the SMA deviation — +1 bull, -1 bear, 0 flat; NaN while
+                // warming up, so the first 199 bars are not read as a flat market.
+                state[i] = double.IsNaN(deviation) ? double.NaN : (deviation > 0 ? 1.0 : (deviation < 0 ? -1.0 : 0.0));
             }
 
-            // EMA — recursive, seeded with the SMA at index Period-1. Same convention as
-            // every other EMA in the codebase to keep cross-indicator math consistent.
+            // EMA — recursive, seeded with the SMA at index Period-1. Not every EMA in the
+            // codebase seeds this way: IndicatorMath.Ema starts from the first value, and
+            // Skender's has its own.
             double k = 2.0 / (Period + 1);
             double emaVal = 0;
             for (int i = 0; i < n; i++)

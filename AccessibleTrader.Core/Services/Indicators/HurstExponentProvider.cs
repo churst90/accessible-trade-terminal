@@ -177,7 +177,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             // Build a small geometric series of sub-period sizes. Each scale must
             // divide the window cleanly enough that we get ≥2 sub-periods at it.
-            // For window=100: use {10, 20, 25, 50}. For 50: {10, 25}.
+            // Sizes from 10 growing by 1.6 up to half the window: {10, 16, 26, 42} for 100,
+            // {10, 16} for 50.
             var list = new List<int>();
             for (int s = 10; s <= window / 2; s = (int)Math.Round(s * 1.6))
                 if (window / s >= 2) list.Add(s);

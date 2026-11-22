@@ -85,7 +85,7 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
     public string GetPane(string indicatorCode)
     {
         string cat  = GetCategory(indicatorCode);
-        string code = indicatorCode.ToUpper();
+        string code = indicatorCode.ToUpperInvariant();
 
         // Profile indicators overlay the price pane — rendered on the right edge via ProfileRenderLayer.
         if (ProfileAnchoring.IsProfileCode(code)) return "Main";
@@ -126,7 +126,7 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
     /// </summary>
     public string GetCategory(string indicatorCode)
     {
-        string c = indicatorCode.ToLower();
+        string c = indicatorCode.ToLowerInvariant();
         
         // Profiles
         if (c == "vpvr" || c == "vpfr" || c == "tpo")

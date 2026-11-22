@@ -235,7 +235,10 @@ namespace AccessibleTrader.WebHost.Services
 
                 foreach (var f in fired)
                 {
-                    _logger.LogInformation("Hosted alert fired for {User}: {Text}", userKey, f.SpeechText);
+                    // The text names the user's symbol, level and direction: their trading intent,
+                    // which does not belong in the shared server log. The id is enough to trace it.
+                    _logger.LogInformation("Hosted alert {AlertId} fired for {User}.", f.Definition.Id, userKey);
+                    _logger.LogDebug("Hosted alert {AlertId} text: {Text}", f.Definition.Id, f.SpeechText);
 
                     // No headless bus exists on this head, so this is where a server-side fire
                     // reaches the change log. The in-circuit recorder owns anything on screen.

@@ -522,4 +522,20 @@ public sealed class PulseSignalRulesTests
         Assert.True(populated > anchor.Length / 2,
             $"the MTF anchor was populated on only {populated} of {anchor.Length} bars of series {flavour}.");
     }
+
+    [Fact]
+    public void The_detail_never_says_NaN_while_warming_up()
+    {
+        // Alt+Shift+D on the first bars said "Pulse: Fast NaN, Anchor NaN, MFI NaN, ADX NaN."
+        var bars = CausalityProbeSeries.Bars(0, Bars);
+        var r = Run(0);
+        var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars);
+        string first = Provider.GetDetailFact(PulseProvider.Code, span, r, 0, Params());
+        Assert.DoesNotContain("NaN", first);
+        Assert.StartsWith("Pulse: warming up.", first);
+        // Every bar, not only the first: a reading that is ready is said, one that is not is left out.
+        for (int i = 0; i < Bars; i += 7)
+            Assert.DoesNotContain("NaN", Provider.GetDetailFact(PulseProvider.Code, span, r, i, Params()));
+        Assert.Contains("Fast ", Provider.GetDetailFact(PulseProvider.Code, span, r, Bars - 1, Params()));
+    }
 }

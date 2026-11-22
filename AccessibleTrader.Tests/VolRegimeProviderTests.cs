@@ -123,5 +123,21 @@ namespace AccessibleTrader.Tests
             Assert.Equal(101, p.GetStabilityWindow(VolRegimeProvider.Code,
                 new Dictionary<string, object> { ["LongWindow"] = 100 }));
         }
-    }
+    
+        [Fact]
+        public void The_detail_uses_the_users_thresholds_as_the_state_does()
+        {
+            // A calm stretch then a spike: the last ratio clears 1.25. Raise the expansion
+            // threshold above it and the state says neutral; Alt+Shift+D must say so too, not
+            // "expansion" from a fixed 1.25.
+            var data = AlternatingWalk((250, 0.01), (30, 0.05));
+            double q = Run(data)[VolRegimeProvider.CompVolRatio][^1];
+            var p = new Dictionary<string, object>(SmallWindows) { ["ExpandThreshold"] = q + 1.0 };
+            var results = Run(data, p);
+            Assert.Equal(0.0, results[VolRegimeProvider.CompVolState][^1]);
+            string fact = new VolRegimeProvider().GetDetailFact(VolRegimeProvider.Code, data.ToArray(),
+                results, data.Count - 1, p);
+            Assert.StartsWith("Vol regime: neutral", fact);
+        }
+}
 }

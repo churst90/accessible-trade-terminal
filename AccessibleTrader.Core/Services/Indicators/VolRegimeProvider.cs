@@ -211,7 +211,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             if (!calculatedResults.TryGetValue(CompVolRatio, out var arr) || index >= arr.Length) return string.Empty;
             double q = arr[index];
             if (double.IsNaN(q)) return "Vol regime: warming up.";
-            string label = q >= 1.25 ? "expansion" : (q <= 0.75 ? "compression" : "neutral");
+            // The user's thresholds, as VolState uses them: a fixed 1.25 / 0.75 here said
+            // "neutral" on a bar the chart's own state called expansion.
+            double expandTh   = GetDbl(parameters, "ExpandThreshold", 1.25);
+            double compressTh = GetDbl(parameters, "CompressThreshold", 0.75);
+            string label = q >= expandTh ? "expansion" : (q <= compressTh ? "compression" : "neutral");
             return $"Vol regime: {label} (fast/slow ratio {q:F2}).";
         }
 
