@@ -7,8 +7,8 @@ The Accessible Trading Terminal separates business logic from platform-specific 
 > release job starts it and runs its installer on a Windows runner, but no one has used it with a
 > screen reader on a real machine on record), the Mac app (a Mac Catalyst `.app`, built on a macOS
 > runner and **never started anywhere**; unsigned) and the Windows and macOS web host zips (the
-> Windows zip is started on its runner; the macOS ones are not). **Android and iOS have never been
-> built:** no workflow builds them, this machine has no MAUI workloads, and nothing is offered for
+> Windows zip is started on its runner; the macOS ones are not). **The Android and iOS apps are not ready
+> yet; they have never been built:** no workflow builds them, this machine has no MAUI workloads, and nothing is offered for
 > download. Their columns below describe the code, not a tested app. Known defects in that code:
 > the Android and iOS keyboard handlers call `ProcessKey` directly and then pass the key on to the
 > page, skipping `GlobalInputService`'s dedupe (one press can count twice); the Android audio loop

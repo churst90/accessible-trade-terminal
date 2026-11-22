@@ -7,8 +7,8 @@ All notable changes to this project will be documented in this file.
 **On the VPS:** everything below (45fc1a23, deployed 2026-11-22 11:20 UTC; e0791c7f after it is
 the manual only). **The website's** Manual, Quick Start, Shortcuts and What's New pages carry these
 docs too, ahead of the 2.14.1 download, with a notice on each saying so (remove it at the next
-release). Nothing below is heard yet. **The 2026-11-22 seven-notes section is not on the VPS or the
-website yet.**
+release). Nothing below is heard yet. **The 2026-11-22 seven-notes section is not on the VPS's
+terminal yet; its docs are on the website.**
 
 ### 2026-11-22: Cody's seven notes on the manual — headlines from Finnhub only; the manual corrected on Cipher B, arrowing, platforms and the Strategy Lab — not deployed, not heard
 
@@ -40,7 +40,12 @@ website yet.**
   "make it clear in the manual and the site"). The docs README's platform table showed Android and
   iOS with green ticks for chart, audio, speech and trading; it now says never built, no download,
   and marks the Mac app unsigned and never run. "Desktop & mobile" headings and "the Mac and mobile
-  apps" lines no longer imply a mobile app exists.
+  apps" lines no longer imply a mobile app exists. **On the website (2026-11-22 12:42 UTC):** the
+  download page ("will use this app too, once mobile builds ship"), the features page ("VoiceOver on
+  Mac and iOS, TalkBack on Android"), the donate page ("on the way") and llms.txt now say the apps
+  are not ready yet; the Manual, Quick Start, Shortcuts, What's New and Platforms pages carry these
+  docs; llms-full.txt was regenerated from them (it still says 2.14.1, as the pages do, ahead of the
+  download). Backup ~/backups/trade-site-20261122-1242 on the VPS.
 - **The manual** (011af0e7): Cipher B speaks **seven** components, not eighteen (PageDown says
   seven; Up and Down also stop on the muted RSI and Stochastic; the Sell dot starts left out). Left
   and Right read the whole series after PageUp or PageDown and only one component after Up, Down,
