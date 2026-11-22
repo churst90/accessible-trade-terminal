@@ -4,10 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-**On the VPS:** the 2.14.0 build (a6f6d4bf, deployed 2026-11-21 14:50 UTC), which is 2.14.1's app.
-Nothing below is deployed or heard yet.
+**On the VPS:** everything below (45fc1a23, deployed 2026-11-22 11:20 UTC; e0791c7f after it is
+the manual only). **The website's** Manual, Quick Start, Shortcuts and What's New pages carry these
+docs too, ahead of the 2.14.1 download, with a notice on each saying so (remove it at the next
+release). Nothing below is heard yet.
 
-### 2026-11-22: Cody's three questions — a switch for near-level speech; the 9-13's published recycle; the last three workspace audit items — CI pending, not heard
+### 2026-11-22: Cody's three questions — a switch for near-level speech; the 9-13's published recycle; the last three workspace audit items — CI green, on the VPS, not heard
 
 - **Announce nearby levels while navigating** (Settings, Speech tab; on by default). Off, arrowing
   the price says no "Near resistance at …" for any level: pivots, Cipher SR's zones, a profile's
@@ -53,7 +55,7 @@ Nothing below is deployed or heard yet.
   failed on the stop's query, the level source can be blamed. Tests: `LevelFailureSpokenTests` (5),
   each red with its part removed.
 
-### 2026-11-21: Cody's notes — the 9-13 sequential; near support and resistance on every level; candle patterns follow the chart; settings say less; markers are markers; a Donate tab; the heatmap is an indicator — CI pending, not heard
+### 2026-11-21: Cody's notes — the 9-13 sequential; near support and resistance on every level; candle patterns follow the chart; settings say less; markers are markers; a Donate tab; the heatmap is an indicator — CI green, on the VPS, not heard
 
 - **The 9-13 sequential** (Add Indicator, Reversal; `Sequential913Provider`). A buy setup counts
   nine closes in a row each below the close four bars before, starting only after a price flip
@@ -120,7 +122,7 @@ Nothing below is deployed or heard yet.
   Automation, Monitoring) were cleaned of history but not tightened line by line. No appendix: the
   glossary is the appendix, the Settings chapter the settings reference.
 
-### 2026-11-21: the audit tail — nine defects fixed, each with a test that fails on the old code — CI pending, not heard
+### 2026-11-21: the audit tail — nine defects fixed, each with a test that fails on the old code — CI green, on the VPS, not heard
 
 Checked against the code from `TODO.md`'s audit sections (indicators, accessibility, workspace);
 each fix sabotage-proven (the old code put back turns its test red).

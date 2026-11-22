@@ -59,7 +59,7 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
   Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
   Cody, 11-21, "read better now".
 
-## To hear (built 2026-11-21 from Cody's notes, not heard)
+## To hear (built 2026-11-21 and 11-22 from Cody's notes; on the VPS since 2026-11-22 11:20 UTC, not heard)
 
 Everything before this, from 2.13.1 to 2.14.1, Cody verified on 2026-11-21. Caveats for these are in
 CHANGES (Unreleased).
