@@ -439,7 +439,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //    now, which is more immediate than an indicator's commentary on it. Zone lines are
             //    excluded from the cluster audio ticks precisely so that speech can carry them;
             //    this is that speech.
-            if (!isJump && isXMove && focusedOnCandleSeries)
+            //
+            //    Settings → Speech, "Announce nearby levels while navigating", turns it off for the
+            //    whole pane; null settings (the tests' construction) read as on, its default.
+            if (!isJump && isXMove && focusedOnCandleSeries && (_settings?.AnnounceNearbyLevels ?? true))
                 utterance.AddRange(DescribeZoneProximity(state, state.CurrentDataIndex, _alerts?.GetAlerts()));
 
             // 2b. Text labels pinned to this bar.

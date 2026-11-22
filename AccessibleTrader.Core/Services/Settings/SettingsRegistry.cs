@@ -70,6 +70,7 @@ namespace AccessibleTrader.Core.Services.Settings
             new("Times of day are read in", "Speech", "s-time-zone", "time zone utc local gmt clock candle timestamp daylight saving"),
             new("12-hour clock with AM and PM", "Speech", "s-twelve-hour", "12 hour 24 hour am pm clock time format"),
             new("Announce other markers on the bar while navigating", "Speech", "s-speak-other-signals", "other markers signals speak arrowing same bar indicators focused component only cross series"),
+            new("Announce nearby levels while navigating", "Speech", "s-nearby-levels", "near support resistance level zone pivot line alert price close arrowing"),
             new("Describe how markers and lines are drawn", "Speech", "s-describe-signal-looks", "describe colour color shape size position dot triangle marker signal line look appearance sighted"),
             new("Speak values as", "Speech", "s-speech-order", "name value order header"),
             new("Read column headers", "Speech", "s-read-headers", "table grid"),

@@ -29,6 +29,11 @@ namespace AccessibleTrader.Core.Services
         // default (Cody, 2026-10-23: on Cipher A's Green Dot he heard the Yellow Diamond and the
         // rest, which "breaks the rule of hearing just what component I'm on").
         public const string SpeakOtherSignalsWhileArrowing = "speech.speakOtherSignalsWhileArrowing";
+        // While arrowing the candles, "Near resistance at 12.00, pivot R1." when the bar comes
+        // within half a percent of a level. Default ON, as it shipped; the switch is so it can be
+        // turned off for the whole price pane at once rather than by muting each level (Cody,
+        // 2026-11-22: "It is nice but want the option to enable or disable that functionality").
+        public const string AnnounceNearbyLevels = "speech.announceNearbyLevels";
 
         // The chart formation semicolon put in front, per chart: { "<chart key>": { kind, start,
         // end } }, the dates as UTC ticks. Kept until semicolon picks another (Cody, 2026-11-13:

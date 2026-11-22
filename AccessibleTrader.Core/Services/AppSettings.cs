@@ -32,6 +32,9 @@ namespace AccessibleTrader.Core.Services
         /// <summary>While arrowing, speak the other signals on the bar after the focused reading.
         /// Default false: only the focused component is heard.</summary>
         bool SpeakOtherSignalsWhileArrowing { get; set; }
+        /// <summary>While arrowing the candles, say a level the bar is near ("Near resistance at
+        /// 12.00, pivot R1."). Default true.</summary>
+        bool AnnounceNearbyLevels { get; set; }
         bool VisualEarcons { get; set; }
 
         /// <summary>
@@ -209,6 +212,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.SpeakOtherSignalsWhileArrowing);
             set => Set(SettingsKeys.SpeakOtherSignalsWhileArrowing, value);
+        }
+        public bool AnnounceNearbyLevels
+        {
+            get => GetBool(SettingsKeys.AnnounceNearbyLevels, def: true);
+            set => Set(SettingsKeys.AnnounceNearbyLevels, value);
         }
         public bool VisualEarcons
         {

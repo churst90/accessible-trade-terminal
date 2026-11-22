@@ -22,5 +22,8 @@ namespace AccessibleTrader.Tests
         /// <summary>Settings with "Speak other signals while arrowing" set as given.</summary>
         public static IAppSettings SpeakingOtherSignals(bool on = true)
             => new AppSettings(new MemorySettings()) { SpeakOtherSignalsWhileArrowing = on };
+
+        /// <summary>Real settings at their defaults, nothing stored.</summary>
+        public static AppSettings Defaults() => new(new MemorySettings());
     }
 }

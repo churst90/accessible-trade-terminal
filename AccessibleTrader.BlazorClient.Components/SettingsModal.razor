@@ -540,6 +540,18 @@
                     </p>
 
                     <div class="modal-row">
+                        <label for="s-nearby-levels">Announce nearby levels while navigating</label>
+                        <input id="s-nearby-levels" type="checkbox"
+                               aria-describedby="s-nearby-levels-hint"
+                               checked="@_announceNearbyLevels"
+                               @onchange="e => _announceNearbyLevels = e.Value is bool b && b" />
+                    </div>
+                    <p id="s-nearby-levels-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        On the price, "Near resistance at 64,500.00, pivot R1." when a bar comes close
+                        to a level: pivots, Cipher SR zones, a profile's levels, your lines, alert prices.
+                    </p>
+
+                    <div class="modal-row">
                         <label for="s-describe-signal-looks">Describe how markers and lines are drawn</label>
                         <input id="s-describe-signal-looks" type="checkbox"
                                aria-describedby="s-describe-signal-looks-hint"
@@ -1926,6 +1938,7 @@
     private bool _hoverSonification;
     private bool _tickOtherSignals;
     private bool _speakOtherSignals;
+    private bool _announceNearbyLevels = true;
     private bool _magnetSnap;
     private bool _swingSnap = true;
     private bool _timesInUtc;
@@ -2278,6 +2291,7 @@
         _hoverSonification = App.HoverSonification;
         _tickOtherSignals = App.TickOtherSignalsWhileArrowing;
         _speakOtherSignals = App.SpeakOtherSignalsWhileArrowing;
+        _announceNearbyLevels = App.AnnounceNearbyLevels;
         _magnetSnap = App.MagnetSnap;
         _swingSnap = App.SwingSnap;
         _timesInUtc = App.TimesInUtc;
@@ -2642,6 +2656,7 @@
         App.HoverSonification       = _hoverSonification;
         App.TickOtherSignalsWhileArrowing = _tickOtherSignals;
         App.SpeakOtherSignalsWhileArrowing = _speakOtherSignals;
+        App.AnnounceNearbyLevels = _announceNearbyLevels;
         App.MagnetSnap              = _magnetSnap;
         App.SwingSnap               = _swingSnap;
         App.TimesInUtc              = _timesInUtc;

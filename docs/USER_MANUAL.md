@@ -1201,12 +1201,14 @@ falling melody of where price went.
 **Near a level.** A *level* is a price where the market has turned before or where you are
 waiting for something: a support line below price (where buyers stepped in) or a resistance
 line above it (where sellers did). When you arrow one bar along the candles and that bar's
-range comes within half a percent of a level, you hear it after the prices, named:
+range comes within half a percent of a level, you hear it first, before the prices, named:
 *"Near resistance at 64,500.00, pivot R1."* or *"Near support at 61,200.00, your line."* Every
 kind of level counts: Cipher SR's zone lines, the pivot lines, Cipher A's pivot high and low, a
 volume profile's point of control and value area edges, your own horizontal lines, and the price
 an alert on this symbol is watching. Only the nearest above and the nearest below are said, and
-a level you have hidden or muted says nothing. Home, End and Backslash skip it.
+a level you have hidden or muted says nothing. Home, End and Backslash skip it. To stop it for
+every level at once, turn off **Announce nearby levels while navigating** on the Speech tab of
+Settings (F12).
 
 When you want to cover ground faster, Home jumps to the leftmost bar in view and End
 to the rightmost, while Backslash (\\) leaps all the way to the latest, live bar.

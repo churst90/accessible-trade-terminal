@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Alerts;
@@ -64,6 +65,9 @@ public sealed class NearLevelTests
 
     /// <summary>Everything said on arriving at the middle bar from the left.</summary>
     private static string Arrive(IEnumerable<ChartSeries> others, params AlertDefinition[] alerts)
+        => Arrive(null, others, alerts);
+
+    private static string Arrive(IAppSettings? settings, IEnumerable<ChartSeries> others, params AlertDefinition[] alerts)
     {
         var candles = Candles();
         var bars = new TimeSeriesBuffer<Ohlcv>(
@@ -84,7 +88,7 @@ public sealed class NearLevelTests
         var orchestrator = Substitute.For<IAlertOrchestrator>();
         orchestrator.GetAlerts().Returns(alerts);
         var spy = new SpySpeechRouter();
-        new NavigationFeedbackManager(spy, new SpeechFormatter(), alerts: orchestrator) { IsSpeechEnabled = true }
+        new NavigationFeedbackManager(spy, new SpeechFormatter(), settings, orchestrator) { IsSpeechEnabled = true }
             .HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
         return string.Join(" | ", spy.SpokenTexts.Where(t => t != null));
     }
@@ -177,5 +181,33 @@ public sealed class NearLevelTests
         string said = Arrive(Indicator(PivotLevelsProvider.Code, PivotLevelsProvider.CompR1, 12), HorizontalLine(11.5));
         Assert.Contains("Near resistance at 11.50, your line.", said);
         Assert.DoesNotContain("pivot R1", said);
+    }
+
+    [Fact]
+    public void Levels_are_said_by_default()
+    {
+        // Through the real settings at their defaults, not the null the other tests pass.
+        var settings = TestAppSettings.Defaults();
+        Assert.True(settings.AnnounceNearbyLevels);
+        Assert.Contains("Near resistance at 12.00, pivot R1.",
+            Arrive(settings, new[] { Indicator(PivotLevelsProvider.Code, PivotLevelsProvider.CompR1, 12) }));
+    }
+
+    [Fact]
+    public void The_setting_off_silences_every_kind_of_level()
+    {
+        // Cody, 2026-11-22: "want the option to enable or disable that functionality".
+        var settings = TestAppSettings.Defaults();
+        settings.AnnounceNearbyLevels = false;
+        string said = Arrive(settings,
+            new[]
+            {
+                Indicator("CIPHER_SR", "Resistance", 12, zoneLine: true),
+                Indicator(PivotLevelsProvider.Code, PivotLevelsProvider.CompPP, 10),
+                HorizontalLine(11.9),
+            },
+            PriceAlert(10.05, symbol: "BTC/USD"));
+        Assert.DoesNotContain("Near", said);
+        Assert.False(string.IsNullOrWhiteSpace(said)); // the bar itself is still read
     }
 }
