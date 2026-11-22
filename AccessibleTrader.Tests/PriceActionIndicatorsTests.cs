@@ -288,6 +288,23 @@ public class PriceActionIndicatorsTests
         Assert.Equal("ZigZag high 110.00, from 99.50, up 10.6%.", p.GetComponentSpeech(ZigZagProvider.CompTurnHigh, 110, bar, r, 2));
     }
 
+    /// <summary>
+    /// The detail is what was known at that bar: at bar 7 the high 110 is confirmed and the low 99
+    /// at bar 6 is not (bar 8 confirms it), so it is still "falling since the high".
+    /// </summary>
+    [Fact]
+    public void ZigZag_detail_says_only_the_turns_confirmed_by_that_bar()
+    {
+        var bars = ZigZagBars();
+        var p = new ZigZagProvider();
+        var r = Run(p, ZigZagProvider.Code, bars);
+        Assert.Equal("ZigZag: falling since the confirmed high 110.00, down 8.2% to the close. The low before it, 99.50.",
+            p.GetDetailFact(ZigZagProvider.Code, bars.ToArray(), r, 7, new()));
+        Assert.Equal("ZigZag: rising since the confirmed low 99.00, up 3.5% to the close. The high before it, 110.00.",
+            p.GetDetailFact(ZigZagProvider.Code, bars.ToArray(), r, 8, new()));
+        Assert.Equal("ZigZag: no turn confirmed yet.", p.GetDetailFact(ZigZagProvider.Code, bars.ToArray(), r, 1, new()));
+    }
+
     // ── Wiring ───────────────────────────────────────────────────────────────
 
     /// <summary>

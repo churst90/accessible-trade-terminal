@@ -186,9 +186,41 @@ namespace AccessibleTrader.Core.Services.Indicators
             IReadOnlyDictionary<string, double[]> calculatedResults, int index, Dictionary<string, object> parameters)
         {
             if (index < 0 || index >= data.Length) return "";
-            string? leg = Leg(calculatedResults, index);
-            return leg == null ? "ZigZag: no turn yet." : "ZigZag: " + leg;
+            return Known(calculatedResults, index, data[index].Close);
         }
+
+        /// <summary>
+        /// What was known at the close of <paramref name="index"/>, from the causal last-turn levels
+        /// only: the turn confirmed most recently (so which way the swing is going), how far the
+        /// close is from it, and the other one. The leg's end is hindsight and is not said here;
+        /// arrowing along the line says it.
+        /// </summary>
+        internal static string Known(IReadOnlyDictionary<string, double[]> r, int index, double close)
+        {
+            double hi = PivotMath.At(r, CompLastHigh, index), lo = PivotMath.At(r, CompLastLow, index);
+            if (double.IsNaN(hi) && double.IsNaN(lo)) return "ZigZag: no turn confirmed yet.";
+            // The level that changed most recently is the newer turn.
+            bool highNewer = false;
+            for (int i = index; i >= 0; i--)
+            {
+                double h = PivotMath.At(r, CompLastHigh, i), l = PivotMath.At(r, CompLastLow, i);
+                bool hChanged = i == 0 ? !double.IsNaN(h) : !Same(h, PivotMath.At(r, CompLastHigh, i - 1));
+                bool lChanged = i == 0 ? !double.IsNaN(l) : !Same(l, PivotMath.At(r, CompLastLow, i - 1));
+                if (hChanged != lChanged) { highNewer = hChanged; break; }
+                if (hChanged) break;
+            }
+            if (double.IsNaN(lo)) highNewer = true;
+            if (double.IsNaN(hi)) highNewer = false;
+            double turn = highNewer ? hi : lo, other = highNewer ? lo : hi;
+            string text = highNewer
+                ? $"ZigZag: falling since the confirmed high {PivotMath.Price(turn)}{Pct(turn, close)} to the close."
+                : $"ZigZag: rising since the confirmed low {PivotMath.Price(turn)}{Pct(turn, close)} to the close.";
+            if (!double.IsNaN(other))
+                text += highNewer ? $" The low before it, {PivotMath.Price(other)}." : $" The high before it, {PivotMath.Price(other)}.";
+            return text;
+        }
+
+        private static bool Same(double a, double b) => a == b || (double.IsNaN(a) && double.IsNaN(b));
 
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)

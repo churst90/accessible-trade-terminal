@@ -2910,7 +2910,9 @@ price: *"Pivot high 97400.00."*
 *Reversal Percent* (5% by default). A high becomes a turn when price then falls 5% from it, and
 a low when price then rises 5% from it. Arrowing along the line says the leg you are on:
 *"ZigZag falling leg, 110.00 to 99.00, down 10.0%."* The last leg says *"still moving, not confirmed"*,
-because it keeps stretching until a 5% reversal ends it.
+because it keeps stretching until a 5% reversal ends it. Asking about a bar (the detail) says
+only what was known there: *"ZigZag: falling since the confirmed high 110.00, down 8.2% to the
+close."*
 
 Dots, diamonds and triangles are shared with other indicators (Value Deviation, Cipher, Pulse);
 these four tell themselves apart by colour, by what they say and by their tone.

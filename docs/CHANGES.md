@@ -35,18 +35,24 @@ provider that never existed). The manual's new section says how each differs.
   provider missing from either app (the lab leaves three data-feed providers out on purpose and is
   not checked).
 
-**Tests.** `PriceActionIndicatorsTests`, 18 tests (the suite grows by 38: the provider-wide theories add a case per new indicator); the provider-wide contracts (causality on a
+**Tests.** `PriceActionIndicatorsTests`, 19 tests (the suite grows by 39: the provider-wide theories add a case per new indicator); the provider-wide contracts (causality on a
 prefix and with bars prepended, metadata, hidden parts, render-nothing, buffer keys, marker
-legibility, pane) pick the four up through the fixture and pass. **28 sabotages, all red**
+legibility, pane, narration causality) pick the four up and pass. **30 sabotages, all red**
 (each ratchet, the flip rule, the first direction, Wilder smoothing, each gap term of the true range,
 the turn mark, the flat-top and higher-high fractal rules, strictness, the confirm delay, swapped
 pivot windows, every default, ZigZag's confirm bar, threshold, extreme-following, interpolation and
-last leg, the "not confirmed" words, and each app's registration). Four first came back wrong and
+last leg, the "not confirmed" words, each app's registration, and both halves of the ZigZag detail below). Four first came back wrong and
 were fixed before this: the gap term of the true range passed with its line broken (the probe
 series hardly gap; a gap-up and gap-down fixture now sets the ATR entirely by the gap), as did the
 fractal span default (the fixture gave the same answer at 1 and 2); the ZigZag extreme sabotage did
 not build; and a ZigZag helper choosing the first leg's extreme was dead code (the confirming bar
 is always that extreme) and was removed.
+
+**CI caught one I had not run locally.** The first push (2879cb4e) failed
+`NarrationCausalityTests` for ZigZag: its detail named the leg's end ("falling leg, 120.87 to
+89.56"), which is decided by later bars. The detail now says only what the causal last-turn levels
+knew at that bar: "ZigZag: falling since the confirmed high 110.00, down 8.2% to the close. The low
+before it, 99.50." Arrowing along the line, which is declared hindsight, still names the leg.
 
 **Caveats.** Not heard. Not in the demo allow-list, so the demo does not offer them. The marks use
 dots, diamonds and triangles, which other indicators also use; they differ by colour, words and tone.
