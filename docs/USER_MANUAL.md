@@ -2876,6 +2876,53 @@ entry trigger.
 
 The indicator is descriptive by design and it says so in its own description.
 
+### Supertrend, ZigZag, Williams Fractals and Pivot Points High/Low
+
+Four standard price-action overlays, each under Overlays in Alt+A. They are not Market
+Structure under other names, and the difference is worth knowing:
+
+- **Market Structure** keeps only the swings that matter: a swing has to be an ATR away from
+  the last one, and highs and lows alternate.
+- **Williams Fractals** and **Pivot Points High/Low** mark *every* bar that stands above (or
+  below) its neighbours, small or large, two highs in a row if the bars say so.
+- **ZigZag** keeps only the moves bigger than a percentage.
+- **Pivot Levels** (floor-trader pivots from the previous session) is a different thing again.
+
+**Supertrend** (10-bar ATR, multiplier 3, as on TradingView) is one line that sits under price
+in an uptrend (green, support) and over it in a downtrend (red, resistance). In an uptrend it
+only rises, so it works as a trailing stop. A close through it flips it: a **green up-triangle**
+under the bar where it turned up, a **red down-triangle** over the bar where it turned down,
+each with its own tone. Arrowing over the line says *"Supertrend up, support 94210.00."*; the detail
+adds how many bars it has held and how far the line is from the close. Supertrend is causal:
+everything it shows was known at the close of that bar, so the strategy builder can use it.
+
+**Williams Fractals** marks a high above the two highs on each side of it (an **orange dot** over
+the bar) and a low below the two lows on each side (a **blue dot** under it). An earlier bar
+with exactly the same high is looked past, Bill Williams' rule for flat tops. Change *Bars Each
+Side* to widen it.
+
+**Pivot Points High/Low** does the same with separate windows, 10 bars before and 10 after by
+default, and is strict both ways: two equal highs side by side make neither a pivot. It draws
+an **orange diamond** over a pivot high and a **blue diamond** under a pivot low, and says the
+price: *"Pivot high 97400.00."*
+
+**ZigZag** draws straight yellow lines from turn to turn, ignoring any move smaller than the
+*Reversal Percent* (5% by default). A high becomes a turn when price then falls 5% from it, and
+a low when price then rises 5% from it. Arrowing along the line says the leg you are on:
+*"ZigZag falling leg, 110.00 to 99.00, down 10.0%."* The last leg says *"still moving, not confirmed"*,
+because it keeps stretching until a 5% reversal ends it.
+
+Dots, diamonds and triangles are shared with other indicators (Value Deviation, Cipher, Pulse);
+these four tell themselves apart by colour, by what they say and by their tone.
+
+**The same caution as Market Structure applies to the marks of the last three.** A fractal is
+drawn on its own bar but is only known two bars later, a pivot ten bars later, and a ZigZag
+turn only once price has moved the percentage away from it. The marks and the ZigZag line are
+hindsight, so they are on the chart but not offered in the strategy builder. Each of the three
+also has a *Last high* and *Last low* level, left out by default (include them under Properties,
+Appearance, Parts). Those take the price only from the bar that confirmed it, so they are safe
+to trade against: a close above the last fractal high is Williams' own breakout signal.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

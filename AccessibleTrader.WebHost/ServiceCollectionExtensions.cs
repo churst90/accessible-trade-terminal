@@ -350,6 +350,10 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, HurstExponentProvider>();
             services.AddScoped<IIndicatorProvider, PivotLevelsProvider>();
             services.AddScoped<IIndicatorProvider, DssBressertProvider>();
+            services.AddScoped<IIndicatorProvider, SupertrendProvider>();
+            services.AddScoped<IIndicatorProvider, ZigZagProvider>();
+            services.AddScoped<IIndicatorProvider, WilliamsFractalsProvider>();
+            services.AddScoped<IIndicatorProvider, PivotPointsHighLowProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 

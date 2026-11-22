@@ -76,6 +76,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   "Price pane upright". Ctrl+Alt+Shift+Y (the chart layout) names it; switch tabs and back, it stays per tab; save and reopen
   the workspace, it comes back. A line or alert placed with the mouse on the inverted pane should
   land on the price you clicked.
+- [ ] **Supertrend, ZigZag, Williams Fractals, Pivot Points High/Low** (2026-11-22, not in 2.15.0):
+  add each from Alt+A, Overlays, on your BTC 4h chart and arrow along it. Supertrend should say
+  "Supertrend up, support ..." and ping at each flip; ZigZag should say the leg ("falling leg, ...
+  down 6.2%") and "still moving, not confirmed" on the last one; the fractal and pivot marks should
+  say their price. Do the tones sit apart from Market Structure's on the same chart?
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -202,10 +207,12 @@ needed: "don't worry about the custom scripts on the hosted vps".
   layout); the status line does not name it (it does not name log scale either). **Q for Cody:**
   should the braille chart turn over too?
 - [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
-  and make it super robust"). We have about 50 classic studies (Skender) and 30 of our own. The gaps
+  and make it super robust"; then "work through these, adding all of the ones you listed to the
+  inventory that are missing", and for SMC "test and report on the value provided"). Each group is
+  checked against the suite first so nothing is added twice. We have about 50 classic studies (Skender) and 30 of our own. The gaps
   against TradingView's built-ins, in the order proposed (most useful read aloud first):
-  1. **Supertrend** (named in our pane rules but never built), **ZigZag**, **Williams Fractals**,
-     **Pivot Points High/Low**: simple, popular, and each is an event a screen reader can say.
+  1. ~~**Supertrend**, **ZigZag**, **Williams Fractals**, **Pivot Points High/Low**~~: **built
+     2026-11-22** (see CHANGES); not heard, not in the demo allow-list yet.
   2. **Smart money concepts, the parts we lack**: order blocks, fair value gaps (imbalances), equal
      highs/lows as liquidity, liquidity sweeps, premium/discount zones. Market Structure already has
      Break of Structure and Change of Character. Value: an objective, spoken list of zones; not an

@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-22: Supertrend, ZigZag, Williams Fractals and Pivot Points High/Low
+
+Cody, 2026-11-22, on the indicator library: "work through these, adding all of the ones you listed
+to the inventory that are missing", and "make sure anything you add isn't already in the terminal
+indicator suite already". Group 1 of the six in TODO.
+
+**Not duplicates, checked first.** Market Structure (`SWING_STRUCTURE`) filters swings by an ATR
+multiple and makes highs and lows alternate; `PIVOTS` is floor-trader levels; Cipher A's pivots are
+support/resistance zones; nothing computed Supertrend (the pane rules named `SUPERTREND` for a
+provider that never existed). The manual's new section says how each differs.
+
+- **Supertrend** (`SupertrendProvider`, `SUPERTREND`): TradingView's `ta.supertrend` (Wilder ATR
+  seeded with the mean of the first `period` true ranges, bands around the bar midpoint ratcheted
+  against the previous close, first direction down). Up line green, down line red, a triangle and a
+  tone at each flip, a hidden Direction step. Causal. Checked against Skender's independent
+  `GetSuperTrend` on three 1,200-bar probe series: line and side agree on every bar from 300 on,
+  across at least four flips each (they seed differently before that).
+- **Williams Fractals** (`WILLIAMS_FRACTALS`) and **Pivot Points High/Low** (`PIVOTS_HL`), sharing
+  `PivotMath`: a fractal looks past an earlier equal high (Williams' flat-top rule) and is cancelled
+  by an earlier higher one; a pivot is strict on both sides with separate left/right windows (10/10).
+  Marks on the pivot bar are declared **Lookahead** (known `span`/`right` bars later); the hidden
+  Last High/Low levels take the price only from the confirming bar and are **Causal**.
+- **ZigZag** (`ZIGZAG`): percent reversal on highs and lows (5%). The line is interpolated between
+  turns (the Line renderer breaks at NaN) and runs on to the newest extreme; it and the turn marks
+  are Lookahead; the last-turn levels are Causal from the confirming bar. Speech names the leg
+  ("ZigZag falling leg, 110.00 to 99.00, down 10.0%.") and the last one "still moving, not confirmed".
+- Registered in the desktop, the web app and the lab. A new guard,
+  `Every_core_indicator_is_registered_in_the_desktop_and_the_web_app`, fails for any public Core
+  provider missing from either app (the lab leaves three data-feed providers out on purpose and is
+  not checked).
+
+**Tests.** `PriceActionIndicatorsTests`, 18 tests (the suite grows by 38: the provider-wide theories add a case per new indicator); the provider-wide contracts (causality on a
+prefix and with bars prepended, metadata, hidden parts, render-nothing, buffer keys, marker
+legibility, pane) pick the four up through the fixture and pass. **28 sabotages, all red**
+(each ratchet, the flip rule, the first direction, Wilder smoothing, each gap term of the true range,
+the turn mark, the flat-top and higher-high fractal rules, strictness, the confirm delay, swapped
+pivot windows, every default, ZigZag's confirm bar, threshold, extreme-following, interpolation and
+last leg, the "not confirmed" words, and each app's registration). Four first came back wrong and
+were fixed before this: the gap term of the true range passed with its line broken (the probe
+series hardly gap; a gap-up and gap-down fixture now sets the ATR entirely by the gap), as did the
+fractal span default (the fixture gave the same answer at 1 and 2); the ZigZag extreme sabotage did
+not build; and a ZigZag helper choosing the first leg's extreme was dead code (the confirming bar
+is always that extreme) and was removed.
+
+**Caveats.** Not heard. Not in the demo allow-list, so the demo does not offer them. The marks use
+dots, diamonds and triangles, which other indicators also use; they differ by colour, words and tone.
+A ZigZag "outside" bar (a new high and a reversal-sized low in one bar) is taken as a new high,
+not a turn (not checked against TradingView). Not on the VPS (release, VPS and website go together).
+
 ### 2026-11-22: invert the price pane with I, pitch and all
 
 Cody, 2026-11-22: "New feature: invert chart, 'i'. if invert chart applies to only the main pane,

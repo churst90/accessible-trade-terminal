@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Four new overlays: Supertrend, ZigZag, Williams Fractals and Pivot Points High/Low** (Alt+A,
+  Overlays). Supertrend is a trailing line under or over price that marks and sounds each flip, and
+  says "support" or "resistance". ZigZag joins the turns bigger than 5% and says the leg you are on.
+  Fractals and Pivot Points High/Low mark every local high and low with its price. The manual says
+  how each differs from Market Structure, and which marks are only known some bars later.
 - **Turn the price pane upside down with I** (or `INVERT` in the Go bar), to check a bias. The pitch
   turns over with the picture, so a rising market falls in pitch while it is inverted; the words,
   prices and colours stay the market's, and indicator panes stay upright. Each tab keeps its own
