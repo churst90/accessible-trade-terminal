@@ -2813,17 +2813,24 @@ where a move has gone on long enough that it often pauses or turns. It counts in
   that closes at or below the low two bars earlier; these bars need not be in a row. The 13 must
   also reach the close of countdown bar 8; a bar that does not is *deferred* and the count waits.
   A countdown is cancelled if a setup the other way completes, or if price closes above the buy
-  setup's highest high (below a sell setup's lowest low). A new setup the same way restarts it.
+  setup's highest high (below a sell setup's lowest low).
+- **A new setup the same way is compared by size.** A setup's size is the distance from its
+  highest high to its lowest low, counting a gap from the close before (the *true* high and low),
+  and the bars a run goes on past 9 count toward it. If the new setup is at least as large as the
+  one the countdown counts from, but less than 1.618 times as large, the countdown starts again
+  from the new 9. If it is smaller, or 1.618 times as large or more, the countdown carries on.
 
 Every count is a small numbered marker, and arrowing onto one says it: *"Buy setup 7."* The 9
 and the 13 are larger markers with a bell of their own, so they sound unlike the counts before
 them: *"Buy setup 9, perfected."*, *"Buy countdown 13."* With the 9 or the 13 focused,
 Ctrl+Left and Ctrl+Right jump from one to the next. Two dashed lines, **Setup Resistance** and
 **Setup Support**, mark the price that would cancel the countdown. Alt+Shift+D says what the
-count is waiting for, for example *"Buy countdown 13 deferred"*. Every count is known when its bar
-closes; nothing is redrawn later. This version restarts the countdown on any new setup the same
-way, without the published method's comparison of the two setups' sizes, and it has not been
-checked bar by bar against another charting program's version.
+count is waiting for, for example *"Buy countdown 13 deferred"*; on a new 9 it says whether the
+countdown started again or carried on, and how the two setups compare: *"Buy countdown kept, this
+setup is smaller than the one it counts from."* Every count is known when its bar closes; nothing
+is redrawn later. Charting programs differ on the size rule (some allow up to twice the size, some
+cancel a setup that runs to 18 or 22 bars), so a 13 can land on a different bar from another
+program's; this version has not been checked bar by bar against one.
 
 ### Market structure
 
