@@ -11,10 +11,16 @@
 - **The 9-13 sequential** (Add Indicator, Reversal): a setup counts 1 to 9, then a countdown 1 to
   13, each count a numbered marker you hear as you arrow ("Buy setup 7."). The 9 and the 13 ring
   their own bells; focused on a 9 you hear whether it is perfected. Not yet checked against
-  TradingView's version.
+  TradingView's version. A new setup restarts the countdown only when it is about as large as the
+  one the countdown counts from (at least as large, under 1.618 times), as in the published method.
 - **"Near resistance" covers every level on the chart**: pivots, Cipher A's pivots, a volume
   profile's levels, your own horizontal lines and your price alerts, each named after the price
-  ("Near resistance at 95,200.00, pivot R1.").
+  ("Near resistance at 95,200.00, pivot R1."). Turn it off with **Announce nearby levels while
+  navigating** on the Speech tab of Settings.
+- **The portfolio values stocks and currencies** on a broker, not only coins.
+- **The heatmap keeps its history on every timeframe**, not only one-minute charts.
+- **A strategy says when a level source fails** and costs it a setup, instead of quietly never
+  trading.
 - **Line-style charts no longer name candle patterns** as bars close or form, since no candle is
   drawn; ask with Alt+Shift+D and it still tells you.
 - **Settings say less**, with clearer names: "Announce other markers on the bar while navigating"

@@ -7,6 +7,52 @@ All notable changes to this project will be documented in this file.
 **On the VPS:** the 2.14.0 build (a6f6d4bf, deployed 2026-11-21 14:50 UTC), which is 2.14.1's app.
 Nothing below is deployed or heard yet.
 
+### 2026-11-22: Cody's three questions — a switch for near-level speech; the 9-13's published recycle; the last three workspace audit items — CI pending, not heard
+
+- **Announce nearby levels while navigating** (Settings, Speech tab; on by default). Off, arrowing
+  the price says no "Near resistance at …" for any level: pivots, Cipher SR's zones, a profile's
+  levels, your lines and your alert prices together. Cody: "want the option to enable or disable
+  that functionality". The manual's line saying the level comes "after the prices" was wrong (it
+  comes first) and is corrected. **Caveats:** there is no per-kind switch; muting one indicator
+  still silences only its own levels. Tests: `NearLevelTests` (default on through the real settings;
+  off silences four kinds at once while the bar is still read), red with the gate removed or the
+  default flipped. The checkbox's load and save are not tested.
+- **The 9-13 recycles by the published rule.** A new setup the same way as a running countdown is
+  compared with the setup that countdown counts from, each measured highest true high to lowest true
+  low (the running one with the bars its run went on past 9). It restarts the countdown only when at
+  least as large and under 1.618 times as large; smaller, or 1.618 times or more, and the old
+  countdown carries on. Alt+Shift+D on the new 9 says which, and the ratio ("Buy countdown kept,
+  this setup is smaller than the one it counts from."). **Caveats:** the rule as Perl's *DeMark
+  Indicators* gives it, read through Oxford Strategies' write-up; Symbolik's help (unread, 403) is
+  reported to use 100 to 200%, and some platforms add an 18- or 22-bar cancel and a
+  setup-within-a-setup rule, which are not here. What happens at 1.618 or more is not stated in that
+  source; carrying on is our reading. **Still not compared against TradingView**: no TradingView here,
+  and the open-source scripts found did not load. Tests: five new in `Sequential913Tests` (in band,
+  smaller, 1.618 or more, the run past 9, true highs and lows), red under the simple recycle, either
+  bound removed, never restarting, no extension, plain highs or plain lows.
+- **Portfolio values stocks and currencies** (audit, archive 12311). The price lookup asked the
+  Crypto market for every holding, so a share or currency balance read "no AAPL/USD market". It now
+  asks the venue which markets it trades and tries crypto first (as before; the stock "BTC" is a
+  fund, not bitcoin), then a stock by its ticker when the quote is dollars, then a currency pair
+  (EUR/USD, EURUSD, EUR_USD). A venue whose markets are unknown is asked crypto only, as before.
+  **Caveats:** not tried against a real broker account; a stock quoted in anything but dollars is
+  still unpriced. Tests: four in `PortfolioValuationTests`, red with the market hardcoded again, the
+  stock step removed or the unknown-venue fallback removed.
+- **Heatmap history on every timeframe** (audit, archive 13159). Each bar now takes the last
+  order-book snapshot inside its own time (up to the next bar's start), so an hour or a day chart
+  shows its history; before, only a one-minute chart did. A bar with no snapshot of its own stays
+  empty rather than borrowing an older one. **Caveats:** history is only what the app recorded while
+  running, so the heatmap on a day chart shows the days it was open. Tests:
+  `OrderBookHistoryTimeframeTests` (hour, day, a gap, one minute), red with the one-minute bucket put
+  back or with borrowing allowed.
+- **A level source that throws is said, not swallowed** (audit, archive 12682). `LevelService` used
+  to skip a failing level provider silently, so a strategy whose stop or target came from it just
+  never traded. The failure is now logged once (source, error) and, when it cost a setup, the
+  strategy says so once: *"Strategy 'X': setup skipped, no stop: the Cipher SR levels (…) failed."*
+  **Caveats:** the log line is not tested; if a target fails for another reason after a level source
+  failed on the stop's query, the level source can be blamed. Tests: `LevelFailureSpokenTests` (5),
+  each red with its part removed.
+
 ### 2026-11-21: Cody's notes — the 9-13 sequential; near support and resistance on every level; candle patterns follow the chart; settings say less; markers are markers; a Donate tab; the heatmap is an indicator — CI pending, not heard
 
 - **The 9-13 sequential** (Add Indicator, Reversal; `Sequential913Provider`). A buy setup counts
@@ -25,7 +71,8 @@ Nothing below is deployed or heard yet.
   count, a deferral or a cancellation and why. Not called by the trademarked name.
   **Caveats:** written from the published descriptions only; **not checked against a TradingView
   script** (none was run side by side). The recycle is the simple one: the published method also
-  compares the two setups' sizes, and this does not. Narration as a bar closes says "Buy setup 9."
+  compares the two setups' sizes, and this does not (superseded 2026-11-22: the size comparison,
+  above). Narration as a bar closes says "Buy setup 9."
   without "perfected" (the marker's spoken template has no word for it); focus or Alt+Shift+D says
   it. Tests: 14 in `Sequential913Tests`, from hand-built bar sequences for each rule; removing the
   flip, perfection, deferral, either cancellation, the recycle or the label fill each turns one red.

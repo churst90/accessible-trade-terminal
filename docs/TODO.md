@@ -65,10 +65,14 @@ Everything before this, from 2.13.1 to 2.14.1, Cody verified on 2026-11-21. Cave
 CHANGES (Unreleased).
 
 - [ ] **The 9-13 sequential** (Add Indicator, Reversal): the counts said and ticked, the 9 and 13
-  bells, perfection on focus. **Not checked against a TradingView script**: put both on the same
-  chart and compare where the 9s and 13s land. **Q:** the recycle is the simple one (any new setup
-  the same way restarts the countdown); the published method also compares the setups' sizes. Worth
-  it? Should narration as a bar closes say "perfected" too (needs a template word for it)?
+  bells, perfection on focus, and the published recycle (2026-11-22: a new setup restarts the
+  countdown only at 1 to 1.618 times the size; Alt+Shift+D on the new 9 says which). **Not checked
+  against a TradingView script**: put a community "Sequential" script on the same chart and compare
+  where the 9s and 13s land; the 9s should match any of them, the 13s only one using the same
+  recycle. **Q:** should narration as a bar closes say "perfected" too (needs a template word)?
+- [ ] **Announce nearby levels while navigating** (Settings, Speech): off, no "Near resistance".
+- [ ] **The three workspace audit fixes** (2026-11-22): a stock or currency balance priced on a
+  broker; the heatmap's history on an hour or day chart; a strategy saying a level source failed.
 - [ ] **Near support and resistance on every level** (pivots, Cipher A pivots, profile levels, your
   lines, price alerts), each named after the price.
 - [ ] **No candle pattern said unprompted on line-style charts.**
@@ -405,12 +409,10 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] API-key secrets are stored under the nickname alone, so one nickname across two providers (archive 12279)
 - [ ] A failed secure-storage read makes every credential silently absent (archive 12286)
 - [ ] Follow-up from the money-path batch: the quick-trade sizing seam cannot see the instrument. (archive 12299)
-- [ ] Portfolio pricing is hardcoded to the Crypto market (`MarketDataPriceSource.cs:106`). (archive 12311) Checked 2026-11-21: still present (`MarketDataPriceSource.cs:101`).
 
 ### Health audit — strategy engine and backtest↔live parity (grade D+) (status unclear, check)
 - [ ] Two deliberate live-vs-replay divergences left open by the 2026-08-25 parity work, both in (archive 12470)
 - [ ] An account selector for Schwab. Carved out of the multi-account finding closed (archive 12591)
-- [ ] `LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no (archive 12682) Checked 2026-11-21: still present.
 - [ ] `StrategyEngine.AddStrategy:255`, `PauseStrategy:280-282` and `SetExecutionMode:287-289` (archive 12690)
 - [ ] `StrategyEngine._pendingSignals` is written and never read — Suggestion mode has no confirmation (archive 12697)
 - [ ] The announced entry price and R:R are never the ones the backtest fills at. (archive 12704)
@@ -425,7 +427,6 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 
 ### Health audit — market-data flow (grade C+) (status unclear, check)
 - [ ] Opt the providers into the cancellable fetch, one at a time. Carved out of the (archive 13152)
-- [ ] `OrderBookHistoryService` hardcodes a 1-minute bar, so heatmap history is empty on every other (archive 13159) Checked 2026-11-21: still present (`OrderBookHistoryService.cs:54`).
 - [ ] `DataOrchestrationService` issues a live order-book network request on every single data update, (archive 13168)
 - [ ] The provider-timeframe verification only catches data that is too FINE, never too COARSE (archive 13178)
 - [ ] The tab-switch handler assigns the composite market string to the SUB-TYPE field (archive 13188)
