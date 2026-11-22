@@ -1,5 +1,6 @@
 using System.Globalization;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Audio;
@@ -29,6 +30,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Read for one opt-in only: whether the other signals on a bar are spoken while arrowing
         // (SpeakOtherSignalsWhileArrowing). Null (the tests' construction) reads as off.
         private readonly IAppSettings? _settings;
+        /// <summary>The price alerts, whose levels count as support and resistance; null in tests that need none.</summary>
+        private readonly IAlertOrchestrator? _alerts;
 
         // Proximity tolerance: zone is "active" if the bar's H/L range comes within 0.5% of the zone value.
         private const double ZoneProximityPct = 0.005;
@@ -41,11 +44,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public NavigationFeedbackManager(
             ISpeechFeedbackRouter speechRouter,
             ISpeechFormatter formatter,
-            IAppSettings? settings = null)
+            IAppSettings? settings = null,
+            IAlertOrchestrator? alerts = null)
         {
             _speechRouter = speechRouter;
             _formatter = formatter;
             _settings = settings;
+            _alerts = alerts;
         }
 
         /// <summary>
@@ -435,7 +440,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //    excluded from the cluster audio ticks precisely so that speech can carry them;
             //    this is that speech.
             if (!isJump && isXMove && focusedOnCandleSeries)
-                utterance.AddRange(DescribeZoneProximity(state, state.CurrentDataIndex));
+                utterance.AddRange(DescribeZoneProximity(state, state.CurrentDataIndex, _alerts?.GetAlerts()));
 
             // 2b. Text labels pinned to this bar.
             //
@@ -636,20 +641,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Checks all active series for zone lines (<c>IsZoneLine == true</c>) and SPEAKS when the
-        /// current bar's price range overlaps a zone value — nearest support below, nearest
-        /// resistance above, at most one of each per navigation step.
-        ///
-        /// <para>
-        /// It plays no tone. This block used to describe "a quiet proximity tone on audio slot 2"
-        /// with frequencies for the ceiling and floor cues, which the body has explicitly
-        /// disclaimed ever since ("Zone proximity is communicated via speech only") — and the
-        /// method is still called <c>CheckAndPlayZoneProximity</c>, which is the same leftover.
-        /// Prices go through <c>SpeechPriceFormatter</c>, never a fixed precision: these two lines
-        /// once used <c>:F0</c> and read every sub-dollar asset's level as "0".
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// The wording of every visible text label pinned to <paramref name="dataIndex"/>,
         /// excluding <paramref name="excludeSeriesId"/> (the focused series reads its own label
         /// through <c>TextLabelStrategy</c>, and saying it twice in one utterance is worse than
@@ -682,71 +673,65 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>
         /// The zone clauses for this bar, in the order they should be heard — nearest ceiling
-        /// first, then nearest floor. Returns them rather than speaking them: everything true
-        /// about a bar goes into one utterance, and this used to be the exception that quietly
-        /// overwrote the rest of it.
+        /// first, then nearest floor, at most one of each. Returns them rather than speaking them:
+        /// everything true about a bar goes into one utterance, and this used to be the exception
+        /// that quietly overwrote the rest of it. Speech only; there is no tone.
+        ///
+        /// <para>
+        /// ── WHICH LINES ARE LEVELS (Cody, 2026-11-21) ─────────────────────────────
+        /// Until now only components flagged <c>IsZoneLine</c> counted, and only Cipher SR's two
+        /// lines carry that flag, so arrowing onto a pivot, a profile's point of control, your
+        /// own horizontal line or the price an alert watches said nothing. Cody chose to have all
+        /// of them count. Every source but the zone lines names itself after the price ("Near
+        /// resistance at 95,200.00, pivot R1."): with six kinds of level, the price alone no
+        /// longer says which line it is. Cipher SR's sentence is unchanged; it is the
+        /// support/resistance indicator, and its lines need no name.
+        /// </para>
         /// </summary>
-        private static List<string> DescribeZoneProximity(WorkspaceState state, int dataIndex)
+        private static List<string> DescribeZoneProximity(WorkspaceState state, int dataIndex,
+            IEnumerable<AccessibleTrader.Sdk.Alerts.AlertDefinition>? alerts = null)
         {
             var clauses = new List<string>(2);
             if (dataIndex < 0 || dataIndex >= state.Data.Count) return clauses;
             var bar = state.Data[dataIndex];
 
             // Distance from price to the nearest level on each side. Nearest wins, because
-            // the nearest level is the one price is about to interact with.
+            // the nearest level is the one price is about to interact with; on a tie the first
+            // source listed in LevelsAt wins, which puts the zone lines first.
             double resistanceDist = double.PositiveInfinity;
             double supportDist = double.PositiveInfinity;
-            double resistanceVal = double.NaN;
-            double supportVal = double.NaN;
+            (double Price, string? Name) resistance = (double.NaN, null);
+            (double Price, string? Name) support = (double.NaN, null);
 
-            foreach (var series in state.ActiveSeries)
+            foreach (var (zoneVal, name) in LevelsAt(state, dataIndex, alerts))
             {
-                if (!series.IsVisible || series.IsMuted) continue;
+                if (double.IsNaN(zoneVal) || zoneVal <= 0) continue;
 
-                foreach (var comp in series.Components)
+                // Tolerance: zone is "near" if within ZoneProximityPct of the bar's price range.
+                double tolerance = Math.Abs(zoneVal) * ZoneProximityPct;
+                bool inRange = bar.High + tolerance >= zoneVal && bar.Low - tolerance <= zoneVal;
+                if (!inRange) continue;
+
+                // Classify by WHERE THE LEVEL IS, not by how it sounds.
+                //
+                // This used to be `if ((float)comp.BaseFrequency >= 500f)` → resistance,
+                // else support. BaseFrequency is a SONIFICATION setting: a zone line whose
+                // tone was chosen for audibility rather than semantics was announced as
+                // the OPPOSITE STRUCTURAL LEVEL. "Near resistance at X" versus "near
+                // support at X" is a directional claim a trader acts on, and the magic 500
+                // was undocumented.
+                //
+                // The rule now lives in ONE place — LevelPolarity — because the same
+                // invariant was also got wrong by spelling over in AutoNarrationService,
+                // and each site was fixed alone. Frequency stays purely for the tone.
+                double distance = Math.Abs(zoneVal - bar.Close);
+                if (LevelPolarity.IsResistance(zoneVal, bar.Close))
                 {
-                    if (!comp.IsZoneLine || !comp.IsVisible || comp.IsMuted) continue;
-
-                    var compData = series.GetComponentData(comp.Name);
-                    if (compData == null || dataIndex >= compData.Length) continue;
-
-                    double zoneVal = compData[dataIndex];
-                    if (double.IsNaN(zoneVal) || zoneVal <= 0) continue;
-
-                    // Tolerance: zone is "near" if within ZoneProximityPct of the bar's price range.
-                    double tolerance = Math.Abs(zoneVal) * ZoneProximityPct;
-                    bool inRange = bar.High + tolerance >= zoneVal && bar.Low - tolerance <= zoneVal;
-                    if (!inRange) continue;
-
-                    // Classify by WHERE THE LEVEL IS, not by how it sounds.
-                    //
-                    // This used to be `if ((float)comp.BaseFrequency >= 500f)` → resistance,
-                    // else support. BaseFrequency is a SONIFICATION setting: a zone line whose
-                    // tone was chosen for audibility rather than semantics was announced as
-                    // the OPPOSITE STRUCTURAL LEVEL. "Near resistance at X" versus "near
-                    // support at X" is a directional claim a trader acts on, and the magic 500
-                    // was undocumented.
-                    //
-                    // The rule now lives in ONE place — LevelPolarity — because the same
-                    // invariant was also got wrong by spelling over in AutoNarrationService,
-                    // and each site was fixed alone. Frequency stays purely for the tone.
-                    double distance = Math.Abs(zoneVal - bar.Close);
-                    if (LevelPolarity.IsResistance(zoneVal, bar.Close))
-                    {
-                        if (distance < resistanceDist)
-                        {
-                            resistanceDist = distance;
-                            resistanceVal = zoneVal;
-                        }
-                    }
-                    else
-                    {
-                        if (distance < supportDist)
-                        {
-                            supportDist = distance;
-                            supportVal = zoneVal;
-                        }
-                    }
+                    if (distance < resistanceDist) { resistanceDist = distance; resistance = (zoneVal, name); }
+                }
+                else
+                {
+                    if (distance < supportDist) { supportDist = distance; support = (zoneVal, name); }
                 }
             }
 
@@ -756,12 +741,93 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // read every sub-dollar asset's level as "0" — Kaspa near $0.083 announced "Near support
             // at 0", which is not a wrong price so much as no price at all. Any spoken price goes
             // through the formatter; it is the only thing that knows an instrument's magnitude.
-            if (!double.IsNaN(resistanceVal))
-                clauses.Add($"Near resistance at {SpeechPriceFormatter.FormatPrice(resistanceVal)}.");
-            if (!double.IsNaN(supportVal))
-                clauses.Add($"Near support at {SpeechPriceFormatter.FormatPrice(supportVal)}.");
+            if (!double.IsNaN(resistance.Price))
+                clauses.Add(ZoneClause("resistance", resistance.Price, resistance.Name));
+            if (!double.IsNaN(support.Price))
+                clauses.Add(ZoneClause("support", support.Price, support.Name));
 
             return clauses;
+        }
+
+        /// <summary>"Near resistance at 95,200.00." or, naming the line, "Near support at 94,100.00, point of control."</summary>
+        private static string ZoneClause(string role, double price, string? name) =>
+            $"Near {role} at {SpeechPriceFormatter.FormatPrice(price)}{(name == null ? "" : ", " + name)}.";
+
+        /// <summary>
+        /// Every level on the chart at <paramref name="dataIndex"/>, with the name it is spoken
+        /// by (null for the zone lines). Hidden or muted series and parts are skipped, as in every
+        /// other cross-series clause: muting is how a user silences a line.
+        /// </summary>
+        private static IEnumerable<(double Price, string? Name)> LevelsAt(WorkspaceState state, int dataIndex,
+            IEnumerable<AccessibleTrader.Sdk.Alerts.AlertDefinition>? alerts)
+        {
+            foreach (var series in state.ActiveSeries)
+            {
+                if (!series.IsVisible || series.IsMuted) continue;
+
+                // Your own horizontal line: one price, the whole width of the chart.
+                if (series.Drawing is { Type: DrawingType.HorizontalLine } line)
+                {
+                    if (line.AnchorPrice1 is double price) yield return (price, "your line");
+                    continue;
+                }
+
+                // A volume or market profile: its point of control and value area edges.
+                if (series.ProfileBins is { Count: > 0 } bins)
+                {
+                    var p = ProfileLevels.Of(bins);
+                    if (p.Poc is double poc) yield return (poc, "point of control");
+                    if (p.ValueAreaHigh is double vah) yield return (vah, "value area high");
+                    if (p.ValueAreaLow is double val) yield return (val, "value area low");
+                }
+
+                foreach (var comp in series.Components)
+                {
+                    if (!comp.IsVisible || comp.IsMuted) continue;
+                    string? name = comp.IsZoneLine ? null : LevelName(series.IndicatorCode, comp.Name);
+                    if (!comp.IsZoneLine && name == null) continue;
+
+                    var compData = series.GetComponentData(comp.Name);
+                    if (compData == null || dataIndex >= compData.Length) continue;
+                    yield return (compData[dataIndex], name);
+                }
+            }
+
+            // The price an alert watches, on this chart's symbol: "crosses above 95,000",
+            // "touches 94,000". Alerts against another line, a zone or a condition tree have no
+            // fixed price, and an alert switched off is not a level anyone is waiting on.
+            if (alerts == null) yield break;
+            foreach (var a in alerts)
+            {
+                if (!a.IsActive || a.Threshold is not double level) continue;
+                if (a.Target is not (AccessibleTrader.Sdk.Alerts.AlertTarget.Price or AccessibleTrader.Sdk.Alerts.AlertTarget.Candle)) continue;
+                if (a.Condition is not (AccessibleTrader.Sdk.Alerts.AlertCondition.CrossesAbove
+                    or AccessibleTrader.Sdk.Alerts.AlertCondition.CrossesBelow
+                    or AccessibleTrader.Sdk.Alerts.AlertCondition.Touches)) continue;
+                if (a.ComparesToLine() || a.ConditionTree != null) continue;
+                if (a.Symbol != null && !string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase)) continue;
+                yield return (level, "alert");
+            }
+        }
+
+        /// <summary>
+        /// The spoken name of an indicator part that is a price level, or null for a part that is
+        /// not one: the pivot lines ("pivot R1", "pivot point", "Camarilla H3") and Cipher A's
+        /// pivot high and low.
+        /// </summary>
+        internal static string? LevelName(string? indicatorCode, string componentName)
+        {
+            if (string.Equals(indicatorCode, Indicators.PivotLevelsProvider.Code, StringComparison.OrdinalIgnoreCase))
+            {
+                if (componentName == Indicators.PivotLevelsProvider.CompZone) return null;
+                if (componentName == Indicators.PivotLevelsProvider.CompPP) return "pivot point";
+                if (componentName.StartsWith("Cam ", StringComparison.Ordinal)) return "Camarilla " + componentName[4..];
+                return "pivot " + componentName;
+            }
+            if (string.Equals(indicatorCode, "CIPHER_A", StringComparison.OrdinalIgnoreCase)
+                && componentName is Indicators.CipherAProvider.CompPivotHigh or Indicators.CipherAProvider.CompPivotLow)
+                return "Cipher A " + componentName.ToLowerInvariant();
+            return null;
         }
 
         /// <summary>

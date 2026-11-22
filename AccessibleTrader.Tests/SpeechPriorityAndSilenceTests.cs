@@ -206,7 +206,7 @@ namespace AccessibleTrader.Tests
             var m = typeof(NavigationFeedbackManager).GetMethod(
                 "DescribeZoneProximity",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-            return (List<string>)m.Invoke(null, new object[] { state, 0 })!;
+            return (List<string>)m.Invoke(null, new object?[] { state, 0, null })!;
         }
 
         [Fact]
