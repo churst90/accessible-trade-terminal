@@ -109,7 +109,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (ChartMath.PlotAreaPx(paneName, height, dividers, axisHeightFraction,
                             statusBands) is not { } area) continue;
                     var (min, max, isLog) = ChartMath.RangeFor(state, paneName);
-                    float compY = ChartMath.MapY(value, (float)area.Top, (float)area.Bottom, min, max, isLog);
+                    float compY = ChartMath.MapY(value, (float)area.Top, (float)area.Bottom, min, max, isLog,
+                        ChartMath.IsInvertedFor(state, paneName));
                     double dist = Math.Abs(compY - y);
                     if (dist <= tolerancePx && (best == null || dist < best.DistancePx))
                     {

@@ -70,6 +70,12 @@ settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain r
 Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
 components". Caveats for these are in CHANGES (2.15.0).
 
+- [ ] **Invert the price pane, `I`** (2026-11-22, not in 2.15.0): press `I` on a chart. It should
+  say "Price pane inverted..." and arrowing should sound a rising market FALLING in pitch, while the
+  words still say the real prices and "up". An RSI pane below should sound as before. `I` again says
+  "Price pane upright". Ctrl+Alt+Shift+Y (the chart layout) names it; switch tabs and back, it stays per tab; save and reopen
+  the workspace, it comes back. A line or alert placed with the mouse on the inverted pane should
+  land on the price you clicked.
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -190,17 +196,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
   in the app from a pasted link with no account. **Cody accepted all of these on 2026-11-22** ("I
   like your additions"); the design file says so. Stage 0 (chart notes, an Account tab in Settings
   that explains itself) is useful on its own. Not started.
-- [ ] **Invert chart on `I`** (Cody, 2026-11-22: "invert chart, 'i'. if invert chart applies to only
-  the main pane, scope it to just that"). Bare `I` is free (Alt+I is the asset dossier, Ctrl+Alt+Shift+I
-  My Data). Design, to build: a per-tab toggle that flips the PRICE PANE only, as TradingView's
-  "Invert scale" does (theirs is per scale, so a price-pane toggle is the same thing); indicator panes
-  keep their own scales. It must be heard, not only drawn: (1) `I` says "Price pane inverted" /
-  "Price pane upright"; (2) navigation pitch follows the drawing, so a higher price sounds LOWER while
-  inverted (the sound is where the eye goes); (3) the words do not flip: prices, "up"/"down", candle
-  colours and patterns stay the market's, since inverting is a way to look for bias, not a new
-  market; (4) the axis readout and Alt+Shift+D say "inverted" once, the status line shows it; (5)
-  saved with the tab and in templates. Open: whether drawings and price alerts placed by mouse on an
-  inverted pane need anything (they store prices, so should not). Not started.
+- [x] **Invert chart on `I`**: built 2026-11-22, see CHANGES and "To hear". Left out on purpose:
+  the braille/tactile chart and the picture the AI analyst is sent stay upright (both are read as
+  the market, not as the screen); templates do not carry it (it is a way of looking at one tab, not a
+  layout); the status line does not name it (it does not name log scale either). **Q for Cody:**
+  should the braille chart turn over too?
 - [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
   and make it super robust"). We have about 50 classic studies (Skender) and 30 of our own. The gaps
   against TradingView's built-ins, in the order proposed (most useful read aloud first):

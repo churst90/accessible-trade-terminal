@@ -72,7 +72,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                 foreach (var (reading, price) in ChartMath.ScaleTicks(scaleMode, ctx.Min, ctx.Max, scaleBase, niceStep))
                 {
-                    float y = ChartMath.MapY(price, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ChartMath.MapY(price, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     ctx.Canvas.DrawLine(ctx.PaneRect.Left, y, ctx.PaneRect.Right, y,
                         ChartMath.IsOnLabel(reading, labelStep) ? gridMajor : gridMinor);
                 }
@@ -80,7 +80,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             else
             {
                 // Fallback: single midline when the range is degenerate.
-                float yMid = ChartMath.MapY(ctx.Min + (ctx.Max - ctx.Min) / 2, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yMid = ChartMath.MapY(ctx.Min + (ctx.Max - ctx.Min) / 2, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 ctx.Canvas.DrawLine(ctx.PaneRect.Left, yMid, ctx.PaneRect.Right, yMid, gridMinor);
             }
 

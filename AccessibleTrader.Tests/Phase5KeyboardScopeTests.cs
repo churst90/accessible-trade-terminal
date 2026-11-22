@@ -92,6 +92,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.ShowPercentScale)]
         [InlineData(SystemCommand.ShowIndexedScale)]
         [InlineData(SystemCommand.ToggleLogScale)]
+        [InlineData(SystemCommand.TogglePriceInvert)]
         [InlineData(SystemCommand.ToggleHeatmap)]
         [InlineData(SystemCommand.ToggleIndicatorVisibility)]
         [InlineData(SystemCommand.ToggleIndicatorAudio)]
@@ -270,7 +271,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ShowHighLowChart, SystemCommand.ShowHlcAreaChart, SystemCommand.ShowVolumeCandleChart,
                 SystemCommand.ShowRegularScale, SystemCommand.ShowPercentScale,
                 SystemCommand.ShowIndexedScale,
-                SystemCommand.ToggleLogScale,
+                SystemCommand.ToggleLogScale, SystemCommand.TogglePriceInvert,
                 SystemCommand.ToggleHeatmap, SystemCommand.ToggleIndicatorVisibility,
                 SystemCommand.ToggleIndicatorAudio, SystemCommand.ToggleNarration,
                 SystemCommand.AddReferenceLevel, SystemCommand.OpenProperties,

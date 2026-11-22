@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-22: invert the price pane with I, pitch and all
+
+Cody, 2026-11-22: "New feature: invert chart, 'i'. if invert chart applies to only the main pane,
+scope it to just that." Then, asked: "pitch flip too: yes" and "Drawing and alerts set to real
+prices: yes".
+
+**What it does.** Bare `I` (and the Go bar's `INVERT`, *invert chart*, *upside down*, *flip
+chart*) turns the price pane upside down, per tab, and back. Indicator panes stay upright, as
+TradingView's *Invert scale* is per price scale. It says *"Price pane inverted. Higher prices are
+drawn lower and sound lower; prices and directions are read as they are."* or *"Price pane
+upright."*, and the chart layout (Ctrl+Alt+Shift+Y) adds *"Inverted: <top price> at the bottom,
+<bottom price> at the top; the pitch is turned over with it."*
+
+**One switch, every mapping.** `ChartMath`'s price-to-height mappings (`MapY`, `MapYToPrice`,
+`PriceToScreenY`, `MapYToPriceInPane`, `PriceToCanvasY`) and `NormalizedPosition` (what the pitch
+reads) take `inverted`; `ChartMath.IsInvertedFor(state, pane)` answers it, true only for the price
+pane. The renderer passes it to every renderer through `RenderContext.IsInverted` (49 `MapY`
+calls), the axis, its labels and the crosshair badge; the hover readout, the hit tester, "context
+here" and the drawing tools read the pointer through it; `NavigationSonifier` (arrowing and the
+heatmap) and `AudioSequencer` (playback) pitch through it. Upside down a candle's upper wick takes
+the lower wick's tone (880 and 220 Hz trade places). The body's up and down tones do not change:
+they follow the candle's colour, and the colour is the market's.
+
+**What does not turn over.** Words, prices, "up"/"down", candle colours and patterns. A mark
+"above the bar" still sits above the candle on screen (`RenderContext.HeadPrice`/`FootPrice` give
+the bar's screen-top and screen-bottom price). Drawings and alerts store real prices, so a line
+placed by mouse on the inverted pane holds the price clicked. Saved with each tab
+(`TabConfiguration.IsPriceInverted`, restored by `WorkspaceInitializer`); a file without it loads
+upright.
+
+**Left out, on purpose.** Chart templates do not carry it (a way of looking at one tab, not a
+layout). The braille/tactile chart and the picture sent to the AI analyst stay upright: both are
+read as the market. The status line does not name it (it does not name log scale either).
+
+**Tests.** `InvertedPriceChartTests` (34): the key and Alt+I left alone, the Go bar words, the
+sentence both ways, the reducer, per-tab switching, the workspace file (the active tab and a
+background tab, each inverted while the other is not, since they are saved by different lines), restore, the mirror and its
+four inverse mappings, the price-pane-only scope, the pitch and the wick swap in the strategy,
+arrowing and playback (price pane inverted, an indicator pane not), the hit tester finding a line
+where it is drawn, the axis labels and badge, a mark above an inverted candle, and the layout
+sentence, and a line placed by mouse near the top of the inverted pane storing the low price drawn
+there. Each was made to fail by breaking the line it guards: 24 sabotages, all red. Two first
+passed with their line broken (the Go bar test matched on the words alone, and the save test
+inverted only the active tab); both were rewritten until they failed. F1 Help has an `I` row, and
+`Phase5KeyboardScopeTests` counts it as a chart command.
+
+**Not heard yet.** Cody has not tried it; it is in TODO "To hear". It ships with the next release,
+with the VPS and the website.
+
 ### 2026-11-22: indicators update live on a busy market; volume bars say the direction they are drawn
 
 Cody, 2026-11-22: "when indicators like cipher b are on the chart, do these indicators update in

@@ -203,7 +203,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             SKColor color = ctx.Theme.PriceChartLine;
 
             float X(int i) => i * barWidth + halfBar;
-            float Y(double close) => ChartMath.MapY(close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double close) => ChartMath.MapY(close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
             using var linePath = new SKPath();
             bool first = true;
@@ -275,7 +275,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar = barWidth / 2f;
             float X(int i) => i * barWidth + halfBar;
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
             var part = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Brick);
             SKColor thickColor = ctx.Theme.CandleBullishBody;
@@ -348,7 +348,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfMark = Math.Max(0.5f, barWidth * 0.4f);
             float X(int i) => i * barWidth + barWidth / 2f;
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
             var part = series.Components.FirstOrDefault(c => c.DisplayType == ComponentDisplayType.Brick);
             SKColor upColor = ctx.Theme.CandleBullishBody;
@@ -446,7 +446,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
             float barWidth = ctx.Width / ctx.ViewportLength;
             float tick = Math.Max(1f, (float)Math.Floor(barWidth * 0.35f));
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.BarPart));
             using var up = new SKPaint { Color = upColor, StrokeWidth = Math.Max(1f, 1.5f * ctx.Density), Style = SKPaintStyle.Stroke, IsAntialias = false };
             using var down = new SKPaint { Color = downColor, StrokeWidth = Math.Max(1f, 1.5f * ctx.Density), Style = SKPaintStyle.Stroke, IsAntialias = false };
@@ -474,7 +474,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
             float barWidth = ctx.Width / ctx.ViewportLength;
             float half = Math.Max(0.5f, (float)Math.Floor(barWidth * 0.3f));
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             var (color, _) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.HighLowPart));
             using var fill = new SKPaint { Color = color, Style = SKPaintStyle.Fill, IsAntialias = false };
 
@@ -504,7 +504,7 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             float barWidth = ctx.Width / ctx.ViewportLength;
             float X(int i) => i * barWidth + barWidth / 2f;
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             float baseY = Y(basePrice);
             var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.BaselinePart));
 
@@ -575,7 +575,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             if (data == null || data.Count == 0 || ctx.ViewportLength <= 0) return;
             float barWidth = ctx.Width / ctx.ViewportLength;
             float X(int i) => i * barWidth + barWidth / 2f;
-            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float Y(double price) => ChartMath.MapY(price, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             bool Shown(string name) => series.Components.Any(c => c.Name == name && c.IsVisible && c.IsDrawn);
             bool showHigh = Shown(Charts.PriceSeriesShape.HlcHighPart), showLow = Shown(Charts.PriceSeriesShape.HlcLowPart);
             var (upColor, downColor) = PriceColours(ctx, series.Components.FirstOrDefault(c => c.Name == Charts.PriceSeriesShape.HlcClosePart));
@@ -703,10 +703,10 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float xRaw = (i * barWidth) + halfBar;
                 float x = (float)Math.Floor(xRaw) + 0.5f;
 
-                float yOpen = ChartMath.MapY((double)bar.Open, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float yHigh = ChartMath.MapY((double)bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float yLow = ChartMath.MapY((double)bar.Low, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float yClose = ChartMath.MapY((double)bar.Close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yOpen = ChartMath.MapY((double)bar.Open, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                float yHigh = ChartMath.MapY((double)bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                float yLow = ChartMath.MapY((double)bar.Low, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                float yClose = ChartMath.MapY((double)bar.Close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                 // Determine body color — phase override suppresses default bullish/bearish coloring.
                 SKColor bodyColor;
@@ -953,7 +953,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double val = data[dataIdx];
                 if (double.IsNaN(val)) { first = true; continue; }
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 if (first) { path.MoveTo(x, y); first = false; }
                 else path.LineTo(x, y);
             }
@@ -1054,7 +1054,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // warm-up was bridged by a slanted edge too, and a NaN hole was bridged across. The
                 // runs before the last were left unclosed, which Skia fills along the line's own
                 // chord: nothing at all where the line is flat. AreaFillEdgeTests.
-                float yBase = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yBase = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 yBase = Math.Clamp(yBase, ctx.Top, ctx.Bottom);
                 using var fillPath = new SKPath();
                 float? runStartX = null, runLastX = null;
@@ -1175,7 +1175,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             double baseline = comp.ColorBaseline;
             bool isArea = IsFilled(comp);
 
-            float yBase = ChartMath.MapY(baseline, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float yBase = ChartMath.MapY(baseline, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             yBase = Math.Clamp(yBase, ctx.Top, ctx.Bottom);
 
             float? prevX = null, prevY = null;
@@ -1327,11 +1327,11 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(val)) continue;
 
                 float x      = i * barWidth;
-                float yVal   = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yVal   = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 // Use ReferenceLevel as bar baseline so offset components (e.g. Cipher B MF Wave
                 // anchored at −80) draw compact bars relative to their reference, not the WT zero line.
                 double barBase = comp.ReferenceLevel ?? 0.0;
-                float yZero  = ChartMath.MapY(barBase, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yZero  = ChartMath.MapY(barBase, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                 // ctx.Data is the viewport slice (length = ViewportLength), so index with i, not dataIdx.
                 barPaint.Color = BarColorAt(comp, barData, dataIdx,
@@ -1384,7 +1384,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         {
             float barWidth = ctx.Width / ctx.ViewportLength, halfBar = barWidth / 2f;
             double baseValue = comp.ReferenceLevel ?? 0.0, split = comp.ColorBaseline;
-            float yBase = Math.Clamp(ChartMath.MapY(baseValue, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale), ctx.Top, ctx.Bottom);
+            float yBase = Math.Clamp(ChartMath.MapY(baseValue, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted), ctx.Top, ctx.Bottom);
             using var upPaint = new SKPaint { Color = up, Style = SKPaintStyle.Fill, IsAntialias = true };
             using var downPaint = new SKPaint { Color = down, Style = SKPaintStyle.Fill, IsAntialias = true };
             float edgeWidth = Math.Max(1f, comp.Thickness) * ctx.Density;
@@ -1415,14 +1415,14 @@ namespace AccessibleTrader.Core.Services.Rendering
                 double v = data[dataIdx];
                 if (double.IsNaN(v)) { if (px.HasValue) Close(px.Value); px = null; pv = double.NaN; continue; }
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(v, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(v, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 bool isUp = v >= split;
                 if (!px.HasValue) Open(x, y, isUp);
                 else if (isUp != runUp && pv != v)
                 {
                     double t = (split - pv) / (v - pv);
                     float xc = px.Value + (float)((x - px.Value) * t);
-                    float yc = ChartMath.MapY(split, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float yc = ChartMath.MapY(split, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     To(xc, yc); Close(xc);
                     Open(xc, yc, isUp); To(x, y);
                 }
@@ -1449,7 +1449,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             // Use ReferenceLevel as the fill baseline (default 0). Cipher B MF Wave sets -80
             // so the fill anchors to the bottom of the WT pane rather than the WT zero line.
             double refLevel = comp.ReferenceLevel ?? 0.0;
-            float yZero     = ChartMath.MapY(refLevel, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float yZero     = ChartMath.MapY(refLevel, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             yZero = Math.Clamp(yZero, ctx.Top, ctx.Bottom);
 
             SKColor.TryParse(comp.ColorHex,          out var posColor);
@@ -1476,7 +1476,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     int di = ctx.ViewportStart + i;
                     if (di >= data.Length) break;
                     float x = (i * barWidth) + halfBar;
-                    float y = ChartMath.MapY(data[di], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ChartMath.MapY(data[di], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     if (first) { path.MoveTo(x, yZero); path.LineTo(x, y); first = false; }
                     else path.LineTo(x, y);
                 }
@@ -1542,7 +1542,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar  = barWidth / 2.0f;
             float radius   = ClampMarkerHalfExtent(Math.Max(comp.Thickness, 2f) * ctx.Density, ctx);
-            float yZero    = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float yZero    = ChartMath.MapY(0, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             yZero = Math.Clamp(yZero, ctx.Top, ctx.Bottom);
 
             using var posPaint = new SKPaint { Color = ZeroDotUp,   Style = SKPaintStyle.Fill, IsAntialias = true };
@@ -1789,14 +1789,15 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val, float reach = 0f)
         {
             if (comp.MarkerAnchor == MarkerAnchor.Value || i < 0 || i >= ctx.Data.Count)
-                return ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                return ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
             var bar = ctx.Data[i];
             bool below = comp.MarkerAnchor == MarkerAnchor.BelowBar;
             if (comp.MarkerTouchesBar)
             {
                 // A label pointing at the price: the bar's low or high, a fixed couple of pixels clear.
-                float edge = ChartMath.MapY(below ? bar.Low : bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                // Screen edges, not prices: upside down the candle's foot is its high.
+                float edge = ChartMath.MapY(below ? ctx.FootPrice(bar) : ctx.HeadPrice(bar), ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 float gap = 2f * ctx.Density + reach;
                 return below ? edge + gap : edge - gap;
             }
@@ -1806,8 +1807,10 @@ namespace AccessibleTrader.Core.Services.Rendering
             // a floor for doji bars whose range is ~0.
             double pad = range > 0 ? range * 0.35 : Math.Abs(bar.Close) * 0.002;
 
-            double anchor = below ? bar.Low - pad : bar.High + pad;
-            return ChartMath.MapY(anchor, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            // The pad goes away from the candle on screen, which upside down is the other way in price.
+            if (ctx.IsInverted) pad = -pad;
+            double anchor = below ? ctx.FootPrice(bar) - pad : ctx.HeadPrice(bar) + pad;
+            return ChartMath.MapY(anchor, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
         }
 
         /// <summary>
@@ -2409,7 +2412,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             double t = CloudCrossoverT(u1, l1, u2, l2);
             double val = u1 + t * (u2 - u1); // == l at the crossover
             float x = ((iLeft + (float)t) * barWidth) + halfBar;
-            float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float y = ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             return new SKPoint(x, y);
         }
 
@@ -2426,7 +2429,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 int dataIdx = ctx.ViewportStart + i;
                 if (dataIdx >= upperData.Length) break;
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(upperData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(upperData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 if (!started) { path.MoveTo(x, y); started = true; } else path.LineTo(x, y);
             }
             if (endCross is { } ec) path.LineTo(ec.X, ec.Y);
@@ -2441,7 +2444,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 // area for the overrun in Cody's 2026-10-17 screenshot; AreaFillEdgeTests.
                 if (dataIdx >= lowerData.Length) continue;
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(lowerData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(lowerData[dataIdx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 path.LineTo(x, y);
             }
             path.Close();
@@ -2494,8 +2497,8 @@ namespace AccessibleTrader.Core.Services.Rendering
 
             if (band.IsFixedMode)
             {
-                float yTop    = ChartMath.MapY(band.FixedTop,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float yBottom = ChartMath.MapY(band.FixedBottom, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float yTop    = ChartMath.MapY(band.FixedTop,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                float yBottom = ChartMath.MapY(band.FixedBottom, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 if (yTop > yBottom) (yTop, yBottom) = (yBottom, yTop);
                 if (!string.IsNullOrEmpty(band.SignComponentName))
                 {
@@ -2584,7 +2587,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                 if (double.IsNaN(yVal)) continue;
 
                 float x = (i * barWidth) + halfBar;
-                float y = ChartMath.MapY(yVal, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(yVal, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                 // Determine dot color from the oscillator value (clamped to ±100).
                 SKColor dotColor;
@@ -2617,8 +2620,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             double topPrice    = level * (1.0 + halfWidthRatio);
             double bottomPrice = level * (1.0 - halfWidthRatio);
 
-            float yTop    = ChartMath.MapY(topPrice,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-            float yBottom = ChartMath.MapY(bottomPrice, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            float yTop    = ChartMath.MapY(topPrice,    ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+            float yBottom = ChartMath.MapY(bottomPrice, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
             float xLeft   = from * barWidth;
             float xRight  = (to + 1) * barWidth;
 

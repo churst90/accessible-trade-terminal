@@ -89,6 +89,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 };
                 parts.Add($"Y axis, price: {Money(min)} to {Money(max)}, " +
                           $"{stepClause}, {scale} scale.");
+                // Upside down is the one thing about this axis the eye gets wrong first.
+                if (state.IsPriceInverted)
+                    parts.Add($"Inverted: {Money(max)} at the bottom, {Money(min)} at the top; the pitch is turned over with it.");
             }
 
             // The base moves as the user pans, and panning must not talk on every arrow — so

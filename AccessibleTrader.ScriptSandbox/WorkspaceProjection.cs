@@ -138,6 +138,9 @@ public static class WorkspaceProjection
         // relabel, not an input: a strategy reads the same closes and the same indicators
         // whichever ruler the user has chosen.
         nameof(WorkspaceState.ScaleMode),
+        // Which way up the price pane is drawn. Presentation, like the two above: the closes a
+        // strategy reads are the same upside down.
+        nameof(WorkspaceState.IsPriceInverted),
         // How far back a restored tab loads its history, consumed by the next load and cleared.
         // A loading instruction for the host's data manager; a strategy sees the bars it loaded.
         nameof(WorkspaceState.RestoredLoad),

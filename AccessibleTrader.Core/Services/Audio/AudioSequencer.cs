@@ -278,7 +278,8 @@ namespace AccessibleTrader.Core.Services.Audio
             var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, state.ViewportRange);
 
             bool isLogScale = ViewportRangeCalculator.IsLogScaleFor(state.IsLogScale, series.Pane);
-            var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume, isLogScale);
+            var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume, isLogScale,
+                ChartMath.IsInvertedFor(state, series.Pane));
 
             // A bar the component has no value for: SILENCE, not a skip.
             //

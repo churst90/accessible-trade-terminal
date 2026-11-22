@@ -715,16 +715,24 @@ namespace AccessibleTrader.Core.Services
         public static double IndexToX(double index, double width, int startIndex, int length)
             => length <= 0 ? 0 : (index - startIndex + 0.5) * width / length;
 
+        // ── Upside down (Cody, 2026-11-22: "invert chart, 'i'") ──────────────
+        //
+        // Every price-to-height mapping below takes `inverted`: the price pane turned over, the
+        // highest price at the bottom. It is a mirror of the upright mapping inside the same
+        // span, so the four directions agree by construction (MapY and MapYToPrice, PriceToScreenY
+        // and NormalizedPosition, which the pitch reads). Only the price pane is ever inverted.
+
         /// <summary>
         /// Maps a cursor Y pixel position to a price within the viewport range.
         /// Inverse of <see cref="MapY"/> for the pane spanning [0, height]. Supports
         /// linear and log scales, with the same degenerate-range guards the forward
         /// mapping uses (min forced positive on log scale; max forced above min).
         /// </summary>
-        public static double MapYToPrice(double y, double height, double min, double max, bool isLog)
+        public static double MapYToPrice(double y, double height, double min, double max, bool isLog, bool inverted = false)
         {
             if (height <= 0) return min;
             double percent = 1.0 - (y / height);
+            if (inverted) percent = 1.0 - percent;
             if (isLog)
             {
                 if (min <= 0) min = 0.01;
@@ -739,18 +747,18 @@ namespace AccessibleTrader.Core.Services
         /// the forward companion of <see cref="MapYToPrice"/>, used by anchor-handle
         /// hit-testing and the hover crosshair.
         /// </summary>
-        public static double PriceToScreenY(double price, double height, double min, double max, bool isLog)
+        public static double PriceToScreenY(double price, double height, double min, double max, bool isLog, bool inverted = false)
         {
             if (isLog)
             {
                 if (min <= 0) min = 0.01;
                 if (max <= min) max = min + 1.0;
                 double pct = (Math.Log(price) - Math.Log(min)) / (Math.Log(max) - Math.Log(min));
-                return (1.0 - pct) * height;
+                return (inverted ? pct : 1.0 - pct) * height;
             }
             if (max <= min) return 0;
             double linearPct = (price - min) / (max - min);
-            return (1.0 - linearPct) * height;
+            return (inverted ? linearPct : 1.0 - linearPct) * height;
         }
 
         /// <summary>
@@ -761,7 +769,10 @@ namespace AccessibleTrader.Core.Services
         /// the eye and the ear disagreed: a price drawn at the vertical middle of a 10k–100k
         /// pane sounded a quarter of the way up. Clamped, because audio has no off-canvas.
         /// </summary>
-        public static double NormalizedPosition(double value, double min, double max, bool isLogScale)
+        public static double NormalizedPosition(double value, double min, double max, bool isLogScale, bool inverted = false)
+            => inverted ? 1.0 - UprightPosition(value, min, max, isLogScale) : UprightPosition(value, min, max, isLogScale);
+
+        private static double UprightPosition(double value, double min, double max, bool isLogScale)
         {
             if (isLogScale)
             {
@@ -780,6 +791,10 @@ namespace AccessibleTrader.Core.Services
         /// Maps a numeric data value to a physical Y-coordinate within a bounded area.
         /// Supports both Linear and Logarithmic scaling.
         /// </summary>
+        public static float MapY(double value, float top, float bottom, double min, double max, bool isLogScale, bool inverted)
+            => inverted ? top + bottom - MapY(value, top, bottom, min, max, isLogScale)
+                        : MapY(value, top, bottom, min, max, isLogScale);
+
         public static float MapY(double value, float top, float bottom, double min, double max, bool isLogScale)
         {
             float height = bottom - top;
@@ -964,10 +979,10 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
             double min, double max, bool isLog,
-            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null, bool inverted = false)
         {
             if (PaneAtPx(y, canvasHeight, dividers, axisHeightFraction, statusBands) is not { } p) return double.NaN;
-            return MapYToPrice(y - p.PlotTop, p.Bottom - p.PlotTop, min, max, isLog);
+            return MapYToPrice(y - p.PlotTop, p.Bottom - p.PlotTop, min, max, isLog, inverted);
         }
 
         /// <summary>
@@ -1022,6 +1037,11 @@ namespace AccessibleTrader.Core.Services
         /// chart is), or an indicator pane's PaneRanges entry (0–100 when it has none), log only in the price pane.
         /// The same defaults <c>ChartRenderer</c> draws with.
         /// </summary>
+        /// <summary>Whether <paramref name="pane"/> is drawn upside down: only the price pane
+        /// ever is (the I key), the way only the price pane is ever logarithmic.</summary>
+        public static bool IsInvertedFor(WorkspaceState state, string? pane)
+            => state.IsPriceInverted && ViewportRangeCalculator.IsLogScaleFor(true, pane);
+
         public static (double Min, double Max, bool IsLog) RangeFor(WorkspaceState state, string pane)
         {
             bool isMain = pane == "Main";
@@ -1041,7 +1061,7 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
             float axisHeightFraction,
             double min, double max, bool isLog,
-            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null)
+            IReadOnlyDictionary<string, Rendering.PaneStatusBand>? statusBands = null, bool inverted = false)
         {
             // The main pane runs from the top of the plot to the first divider.
             double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
@@ -1054,7 +1074,7 @@ namespace AccessibleTrader.Core.Services
             // Its plot starts below its status band, where MapYToPriceInPane starts it too.
             double top = PlotTopPx("Main", 0.0, bottom, canvasHeight, statusBands);
 
-            double y = top + PriceToScreenY(price, bottom - top, min, max, isLog);
+            double y = top + PriceToScreenY(price, bottom - top, min, max, isLog, inverted);
 
             // The divider pixel belongs to the pane BELOW — PaneBandPx (and ChartHitTester,
             // which has always worked this way) resolve it with `yFrac >= frac`. So a price

@@ -477,7 +477,9 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 var b = data[i];
                 float cx = ctx.PaneRect.Left + i * w + w / 2f;
-                float yHigh = YFor(ctx, (double)b.High), yLow = YFor(ctx, (double)b.Low);
+                // The wick's screen ends, whichever way up the pane is.
+                float yHigh = Math.Min(YFor(ctx, (double)b.High), YFor(ctx, (double)b.Low));
+                float yLow = Math.Max(YFor(ctx, (double)b.High), YFor(ctx, (double)b.Low));
                 float yOpen = YFor(ctx, (double)b.Open), yClose = YFor(ctx, (double)b.Close);
                 float top = Math.Min(yOpen, yClose), bottom = Math.Max(Math.Max(yOpen, yClose), top + 1f);
 
@@ -629,6 +631,12 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// lands somewhere that is not the price it claims to be.
         /// </summary>
         private static float YFor(RenderContext ctx, double price)
+        {
+            float y = UprightYFor(ctx, price);
+            return ctx.IsInverted ? ctx.PaneRect.Top + ctx.PaneRect.Bottom - y : y;
+        }
+
+        private static float UprightYFor(RenderContext ctx, double price)
         {
             double min = ctx.Min, max = ctx.Max;
             if (ctx.IsLogScale && price > 0 && min > 0 && max > 0)

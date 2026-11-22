@@ -358,6 +358,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|
 | Alt+C | Focus the toolbar's **Chart type** list (Candles, Heikin Ashi, Line, Area, Renko and the rest) |
 | Alt+L | Focus the toolbar's **Price scale** list (Regular, Logarithmic, Percent, Indexed to 100) |
+| I | Invert the price pane (upside down), or turn it back; indicator panes stay upright |
 
 The keys put focus on the list and the arrows reach every choice. Heikin-Ashi and logarithmic also
 have Go bar toggles: `HA` and `LOG`. Both keys work from anywhere; in focus mode (Alt+Z) they show the
@@ -381,6 +382,11 @@ the two brick edges and the real window that formed it.
 (`indexed`, `index to 100`, `rebase`) and `LOG` (the logarithmic toggle, which returns the list to
 Regular when it turns log on). Percent puts zero on the first visible close; Indexed puts 100
 there. The zero moves as you pan.
+
+**Invert** (I, or the Go bar `INVERT`, *upside down*, *flip chart*): turns the price pane over,
+pitch included, so a rising market falls in pitch while it is inverted. Words, prices, colours and
+"up"/"down" stay the market's; drawings and alerts keep real prices. Per tab, saved with the
+workspace.
 
 **What the price pane fits.** The price pane always holds everything drawn on it: the candles
 *and* every visible overlay. A Bollinger band or a Keltner channel that swings wider than the bars

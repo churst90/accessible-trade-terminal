@@ -9,15 +9,20 @@ namespace AccessibleTrader.Core.Services.Audio
         /// True when this component's pane is drawn on the logarithmic scale, so a level-pitched
         /// component's pitch follows the picture. See <see cref="ChartMath.NormalizedPosition"/>.
         /// </param>
-        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1);
-        AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false);
+        /// <param name="isInverted">
+        /// True when this component's pane is drawn upside down (the I key, price pane only), so
+        /// a level-pitched component sounds LOWER as its price rises, as it is drawn, and the
+        /// two wick tones trade places with the wicks.
+        /// </param>
+        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1, bool isInverted = false);
+        AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false, bool isInverted = false);
         /// <summary>
         /// Maps a specific component at dataIndex to an AudioPoint.
         /// Unlike MapToAudio (which always picks the first visible component), this maps
         /// the component at <paramref name="componentIndex"/> so every component —
         /// including wicks — is sonified independently during playback.
         /// </summary>
-        AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false);
+        AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false, bool isInverted = false);
 
         /// <summary>
         /// How many playback voice slots a component needs: the layer count of the largest multi-oscillator
@@ -130,7 +135,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// itself, which is the value the user is listening to.</summary>
         internal const float DrawingNoiseAmount = 0.22f;
 
-        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
+        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1, bool isInverted = false)
         {
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
 
@@ -142,7 +147,9 @@ namespace AccessibleTrader.Core.Services.Audio
             // 2. RANGE NORMALIZATION — on the scale the pane is DRAWN on. Until 2026-09-18 this
             // was linear whatever Alt+L said, so on a log-scaled chart the ear and the eye
             // disagreed about where a price sat in the pane.
-            double normalizedValue = ChartMath.NormalizedPosition(val, viewportRange.Min, viewportRange.Max, isLogScale);
+            // Upside down (Cody, 2026-11-22: "pitch flip too: yes") the height on screen is
+            // turned over, and so is the pitch read from it.
+            double normalizedValue = ChartMath.NormalizedPosition(val, viewportRange.Min, viewportRange.Max, isLogScale, isInverted);
             
             // 3. PITCH MAPPING
             double freq = comp.BaseFrequency;
@@ -150,7 +157,8 @@ namespace AccessibleTrader.Core.Services.Audio
             {
                 // Wicks use fixed tones regardless of PitchMapping so upper and lower are always
                 // distinguishable: upper wick = 880 Hz (bright), lower wick = 220 Hz (deep).
-                freq = IsUpperWick(comp) ? 880.0 : 220.0;
+                // Upside down the high's wick is drawn under the body, so it takes the low tone.
+                freq = IsUpperWick(comp) != isInverted ? 880.0 : 220.0;
                 // FreqMultiplier still applies so users can tune per-component in Properties dialog.
                 freq *= comp.FreqMultiplier;
             }
@@ -643,7 +651,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// over.</summary>
         internal static float PnfWeight(int boxes) => 0.3f * Math.Clamp((boxes - 1) / 9f, 0f, 1f);
 
-        public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
+        public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false, bool isInverted = false)
         {
             if (dataIndex < 0 || dataIndex >= data.Count) return new AudioPoint(0, 0, "sine", 0);
 
@@ -655,10 +663,10 @@ namespace AccessibleTrader.Core.Services.Audio
             double val = (dataIndex < compData.Length) ? compData[dataIndex] : point.Close;
             double? prevVal = (dataIndex > 0 && dataIndex - 1 < compData.Length) ? compData[dataIndex - 1] : null;
 
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex, isInverted);
         }
 
-        public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
+        public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false, bool isInverted = false)
         {
             if (dataIndex < 0 || dataIndex >= data.Count) return new AudioPoint(0, 0, "sine", 0);
             if (componentIndex < 0 || componentIndex >= series.Components.Count) return new AudioPoint(0, 0, "sine", 0);
@@ -701,7 +709,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
 
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex, isInverted);
         }
 
         /// <summary>

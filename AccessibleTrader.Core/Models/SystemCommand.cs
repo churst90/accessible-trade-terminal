@@ -194,6 +194,7 @@ namespace AccessibleTrader.Core.Models
         // Chart Settings
         ToggleHeikinAshi,
         ToggleLogScale,
+        TogglePriceInvert, // I: the price pane upside down (Cody, 2026-11-22)
         ToggleIndicatorVisibility, // H
         ToggleIndicatorAudio, // M
         ToggleHeatmap, // no default key since 2026-11-21 (Go bar HEAT)

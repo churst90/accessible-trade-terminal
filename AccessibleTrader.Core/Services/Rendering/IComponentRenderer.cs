@@ -78,6 +78,21 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// set them. Null on every other chart.</summary>
         public IReadOnlyList<Charts.KagiLines.Look>? KagiLooks { get; init; }
 
+        /// <summary>
+        /// The pane drawn upside down: the highest price at the bottom (Cody, 2026-11-22, the
+        /// I key). Only the Main pane ever sets it, and every price-to-pixel call passes it on.
+        /// A mark placed "above the bar" stays above the candle ON SCREEN, so it is placed from
+        /// <see cref="HeadPrice"/> (the price drawn at the candle's top) and never from the
+        /// high directly; the stacking, badge and label code then works unchanged.
+        /// </summary>
+        public bool IsInverted { get; init; }
+
+        /// <summary>The price drawn at the top of <paramref name="bar"/>: its high, or its low upside down.</summary>
+        public double HeadPrice(Ohlcv bar) => IsInverted ? bar.Low : bar.High;
+
+        /// <summary>The price drawn at the foot of <paramref name="bar"/>: its low, or its high upside down.</summary>
+        public double FootPrice(Ohlcv bar) => IsInverted ? bar.High : bar.Low;
+
         /// <summary>The mode this pane actually draws, after the base and log guards.</summary>
         public PriceScaleMode EffectiveScaleMode =>
             ChartMath.EffectiveScaleMode(ScaleMode, ScaleBase, IsLogScale);

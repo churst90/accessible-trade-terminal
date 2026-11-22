@@ -1014,6 +1014,29 @@ scale*, *linear*), `PCT` (*percent scale*, *percentage*) and `IDX` (*indexed*, *
 The select shows on trading tabs only, like the Chart type select, but the Go bar applies a
 scale on an analytics chart too.
 
+### Upside down: inverting the price pane (I)
+
+Press **I** on a chart to turn the price pane upside down, and **I** again to turn it back. The Go
+bar has it as `INVERT` (*invert chart*, *upside down*, *flip chart*). Traders use this to check a
+bias: a chart that looks like a top when inverted may be a bottom you were reluctant to see.
+
+It turns over the price pane only, as TradingView's *Invert scale* does on its price scale:
+indicator panes below it stay the right way up. What turns over is everything about where things
+are: the candles, overlays and axis, the mouse's reading of the pane, and the **pitch**. A price
+drawn high sounds high, so on an inverted pane a rising market falls in pitch as you arrow or play
+it, and an upper wick takes the lower wick's tone. What does not turn over is what things are: the
+prices, "up" and "down", candle colours and patterns are the market's, and a mark "above the bar"
+still sits above the candle on screen.
+
+Drawings and price alerts keep real prices. A line you place by mouse on the inverted pane lands
+on the price you clicked and stays there when you turn the pane back.
+
+Pressing I says *"Price pane inverted. Higher prices are drawn lower and sound lower; prices and
+directions are read as they are."* or *"Price pane upright."* The chart layout (Ctrl+Alt+Shift+Y)
+adds *"Inverted: 100,000 at the bottom, 90,000 at the top; the pitch is turned over with it."* Each
+tab keeps its own setting, and it is saved with the workspace. Chart templates do not carry it,
+and the braille chart and the picture sent to the AI analyst stay upright.
+
 ### Heikin-Ashi, and what stays raw
 
 A standard candle reports what happened in one bar: it opened here, traded up to there and

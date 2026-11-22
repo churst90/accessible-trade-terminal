@@ -422,16 +422,16 @@ public class MarketEventEarconTests
     {
         public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point,
             int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume,
-            double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
+            double? prevVal = null, bool isLogScale = false, int dataIndex = -1, bool isInverted = false)
             => new(comp.BaseFrequency, 1.0f, comp.Waveform, 0.2, "Sustain");
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex,
-            int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
+            int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false, bool isInverted = false)
             => new(440, 1, "sine", 0.2, "Sustain");
 
         public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data,
             int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume,
-            bool isLogScale = false)
+            bool isLogScale = false, bool isInverted = false)
             => new(440, 1, "sine", 0.2, "Sustain");
 
         public int ResolveComponentVoiceCount(ComponentConfig comp) => 1;

@@ -429,6 +429,10 @@ namespace AccessibleTrader.Core.Services
 
             // Visibility & State
             s.Add(new(SystemCommand.ToggleIndicatorVisibility, "H"));
+            // I turns the price pane upside down (Cody, 2026-11-22: "invert chart, 'i'"). A bare
+            // letter on the chart like H, M and N; Alt+I (asset dossier) and Ctrl+Alt+Shift+I
+            // (My Data) are chords and unaffected.
+            s.Add(new(SystemCommand.TogglePriceInvert, "I"));
             s.Add(new(SystemCommand.ToggleIndicatorAudio, "M"));
             // N joins H and M (Cody, 2026-09-04). Hide, mute and narrate are the three switches
             // on a chart object; two of them were a single letter and the third was a four-key

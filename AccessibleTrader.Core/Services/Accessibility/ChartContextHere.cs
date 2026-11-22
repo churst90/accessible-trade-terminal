@@ -51,7 +51,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string pane = a.Pane;
             var (min, max, isLog) = ChartMath.RangeFor(state, pane);
             double price = ChartMath.MapYToPriceInPane(
-                y, canvasHeight, dividers, axisHeightFraction, min, max, isLog, statusBands);
+                y, canvasHeight, dividers, axisHeightFraction, min, max, isLog, statusBands,
+                ChartMath.IsInvertedFor(state, pane));
 
             var series = ResolveSeries(state, pane, hitSeriesId);
             int component = -1;

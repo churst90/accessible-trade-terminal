@@ -681,6 +681,9 @@ namespace AccessibleTrader.Core.Services
             // reducer refuses the impossible pair (Percent plus log).
             if (tab.ScaleMode != _store.State.ScaleMode || tab.IsLogScale != _store.State.IsLogScale)
                 _store.Dispatch(new SetPriceScaleAction(tab.ScaleMode, tab.IsLogScale));
+            // Upside down or upright; a file saved before the field existed reads upright.
+            if (tab.IsPriceInverted != _store.State.IsPriceInverted)
+                _store.Dispatch(new SetPriceInvertedAction(tab.IsPriceInverted));
 
             // Restore series
             RestoreSeriesFromTab(tab, allMeta);

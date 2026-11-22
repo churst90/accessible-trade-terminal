@@ -381,7 +381,8 @@ namespace AccessibleTrader.BlazorClient.Services
             if (ChartMath.PlotAreaAtPx(y, height, dividers, axisH, _paneLayout?.StatusBands) is { } area)
             {
                 var (min, max, isLog) = ChartMath.RangeFor(state, area.Pane);
-                value = ChartMath.MapYToPrice(y - area.Top, area.Bottom - area.Top, min, max, isLog);
+                value = ChartMath.MapYToPrice(y - area.Top, area.Bottom - area.Top, min, max, isLog,
+                    ChartMath.IsInvertedFor(state, area.Pane));
             }
 
             // Snap the vertical hairline to the hovered bar's slot centre so the

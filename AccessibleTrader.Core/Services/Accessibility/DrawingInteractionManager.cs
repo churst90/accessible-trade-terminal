@@ -206,7 +206,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             // Map screen coordinates to Price/Date using actual viewport dimensions
-            double price = MapYToPrice(y, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+            double price = MapYToPrice(y, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, state.IsPriceInverted);
             int dataIndex = MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
 
             // Future-space anchor allowance. A drawing anchor may land in the 20-bar right
@@ -850,7 +850,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private double PriceToScreenY(double price, WorkspaceState state, double height)
             => ChartMath.PriceToCanvasY(price, height, Dividers, AxisHeightFraction,
-                                        state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, StatusBands);
+                                        state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale, StatusBands,
+                                        state.IsPriceInverted);
 
         /// <summary>
         /// Create a preview drawing series seeded with anchor1 on both ends so the user
@@ -992,8 +993,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// A cursor Y over the whole canvas → a price in the pane it actually falls in.
         /// Returns NaN over the x-axis strip, where there is no price to report.
         /// </summary>
-        private double MapYToPrice(double y, double height, double min, double max, bool isLog)
-            => ChartMath.MapYToPriceInPane(y, height, Dividers, AxisHeightFraction, min, max, isLog, StatusBands);
+        private double MapYToPrice(double y, double height, double min, double max, bool isLog, bool inverted)
+            => ChartMath.MapYToPriceInPane(y, height, Dividers, AxisHeightFraction, min, max, isLog, StatusBands, inverted);
 
         /// <summary>A cursor X over the whole canvas → a bar index, excluding the y-axis column.</summary>
         private int MapXToIndex(double x, double width, int startIndex, int length)

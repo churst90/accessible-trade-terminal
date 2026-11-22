@@ -24,8 +24,8 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                 foreach (var bin in barBins)
                 {
-                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                     // Ensure at least 1 pixel height for depth levels
                     if (Math.Abs(yBottom - yTop) < 1) yBottom = yTop + 1;

@@ -97,6 +97,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             ChartStyle = s.ChartStyle,
             ScaleMode = s.ScaleMode,
+            IsPriceInverted = s.IsPriceInverted,
             Renko = s.Renko,
             BrickBoxSize = s.BrickBoxSize,
             TimeBarsViewportLength = s.TimeBarsViewportLength,
@@ -142,7 +143,8 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             SymbolDisplayName = snap.SymbolDisplayName,
             RestoredLoad = snap.RestoredLoad,
             ChartStyle = snap.ChartStyle,
-            ScaleMode = snap.ScaleMode
+            ScaleMode = snap.ScaleMode,
+            IsPriceInverted = snap.IsPriceInverted
             };
 
             if (!snap.ChartStyle.IsBrickStyle())

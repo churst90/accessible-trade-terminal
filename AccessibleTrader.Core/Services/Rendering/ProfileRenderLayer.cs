@@ -51,8 +51,8 @@ namespace AccessibleTrader.Core.Services.Rendering
 
                 foreach (var bin in bins)
                 {
-                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     float binWidth = (float)(bin.TotalVolume / maxVolume) * profileWidth;
                     float left = ctx.Width - binWidth;
                     float top = Math.Min(yTop, yBottom);
@@ -114,8 +114,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 foreach (var bin in bins)
                 {
                     if (!bin.IsPOC) continue;
-                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float yTop = ChartMath.MapY(bin.PriceHigh, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                    float yBottom = ChartMath.MapY(bin.PriceLow, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     float yPOC = (yTop + yBottom) / 2.0f;
                     ctx.Canvas.DrawLine(ctx.Width - profileWidth, yPOC, ctx.Width, yPOC, pocPaint);
                 }

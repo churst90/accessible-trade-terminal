@@ -20,7 +20,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             if (ctx.PaneName == "Main" && ctx.LocalCursorIndex >= 0 && ctx.LocalCursorIndex < ctx.Data.Count)
             {
                 float x = (ctx.LocalCursorIndex * ctx.ItemWidth) + (ctx.ItemWidth / 2);
-                float y = ChartMath.MapY(ctx.Data[ctx.LocalCursorIndex].Close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(ctx.Data[ctx.LocalCursorIndex].Close, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                 using var paint = new SKPaint
                 {
@@ -152,7 +152,7 @@ namespace AccessibleTrader.Core.Services.Rendering
                     if (double.IsNaN(data[idx])) continue;
 
                     float x = pane.Left + (i * ctx.ItemWidth) + (ctx.ItemWidth / 2f);
-                    float y = ChartMath.MapY(data[idx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ChartMath.MapY(data[idx], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
 
                     string shown = Fit(text, font, pane.Width - pad * 2);
                     float w = MeasureRuns(shown, font) + pad * 2;

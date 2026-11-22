@@ -362,6 +362,7 @@ namespace AccessibleTrader.Core.Services
                 or ToggleEventSpeechAction or ToggleEarconsAction
                 or ToggleHeikinAshiAction or SetChartStyleAction or SetRenkoSettingsAction
                 or ToggleLogScaleAction or SetPriceScaleAction
+                or TogglePriceInvertAction or SetPriceInvertedAction
                 => PlaybackReducer.Reduce(state, action),
 
             // ── Tabs + pane layout ───────────────────────────────────────────

@@ -46,8 +46,8 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float x1 = (float)((left - first) * barWidth + halfBar);
                 float x2 = (float)((right - first) * barWidth + halfBar);
                 double hi = At(top, k, double.NaN), lo = At(bottom, k, double.NaN);
-                float y1 = double.IsNaN(hi) ? ctx.Top : ChartMath.MapY(hi, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                float y2 = double.IsNaN(lo) ? ctx.Bottom : ChartMath.MapY(lo, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y1 = double.IsNaN(hi) ? ctx.Top : ChartMath.MapY(hi, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
+                float y2 = double.IsNaN(lo) ? ctx.Bottom : ChartMath.MapY(lo, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 var rect = new SKRect(Math.Max(x1, 0), Math.Max(Math.Min(y1, y2), ctx.Top), Math.Min(x2, ctx.Width), Math.Min(Math.Max(y1, y2), ctx.Bottom));
                 if (rect.Width <= 0 || rect.Height <= 0) continue;
                 ctx.Canvas.DrawRect(rect, p);

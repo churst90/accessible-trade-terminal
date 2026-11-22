@@ -970,6 +970,7 @@ namespace AccessibleTrader.Core.Services.Input
                     ShowPriceScale(PriceScaleMode.IndexedTo100, log: false);
                     break;
                 case SystemCommand.ToggleLogScale: _store.Dispatch(new ToggleLogScaleAction()); break;
+                case SystemCommand.TogglePriceInvert: TogglePriceInvert(); break;
                 case SystemCommand.ToggleHeatmap:
                     _eventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
                     break;
@@ -1257,6 +1258,26 @@ namespace AccessibleTrader.Core.Services.Input
         /// series the way TradingView's does.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// I: the price pane upside down, or back. Spoken here, at the key, and not from the
+        /// state change: a restored tab and a tab switch set the same flag, and neither is the
+        /// user turning the chart over. The sentence says what changes for the ear, because the
+        /// pitch turns over with the picture and that is the part nobody can see.
+        /// </summary>
+        private void TogglePriceInvert()
+        {
+            bool inverted = !_store.State.IsPriceInverted;
+            _store.Dispatch(new TogglePriceInvertAction());
+            _eventBus.Publish(new FeedbackRequestEvent(
+                FeedbackType.Info,
+                inverted ? InvertedSentence : UprightSentence,
+                true, Channel: SpeechChannel.Interface));
+        }
+
+        internal const string InvertedSentence =
+            "Price pane inverted. Higher prices are drawn lower and sound lower; prices and directions are read as they are.";
+        internal const string UprightSentence = "Price pane upright.";
+
         private void ShowPriceScale(PriceScaleMode mode, bool log)
         {
             var state = _store.State;
@@ -1388,6 +1409,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ShowPercentScale:
                 case SystemCommand.ShowIndexedScale:
                 case SystemCommand.ToggleLogScale:
+                case SystemCommand.TogglePriceInvert:
                 case SystemCommand.ToggleHeatmap:
                 case SystemCommand.ToggleIndicatorVisibility:
                 case SystemCommand.ToggleIndicatorAudio:

@@ -24,6 +24,9 @@ namespace AccessibleTrader.Core.Models
         /// <see cref="IsLogScale"/>.</summary>
         public PriceScaleMode ScaleMode { get; set; } = PriceScaleMode.Regular;
         public bool IsLogScale { get; set; }
+        /// <summary>The price pane drawn upside down (the <c>I</c> key). False, upright, for
+        /// every file saved before this field existed.</summary>
+        public bool IsPriceInverted { get; set; }
         /// <summary>The tab's Renko box settings. Defaults (ATR 14) for every file saved before
         /// this field existed.</summary>
         public RenkoSettings Renko { get; set; } = new();

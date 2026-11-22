@@ -306,7 +306,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 if (!lvl.IsVisible || !lvl.IsDrawn) continue;   // an undrawn level is heard, not painted
 
-                float y = ChartMath.MapY(lvl.Value, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                float y = ChartMath.MapY(lvl.Value, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                 var pathEffect = lvl.DashStyle switch
                 {
                     DashStyle.Dash    => SKPathEffect.CreateDash(new[] { 8f, 4f }, 0),

@@ -243,7 +243,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
         /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
         /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode priceScaleMode = PriceScaleMode.Regular)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode priceScaleMode = PriceScaleMode.Regular, bool isPriceInverted = false)
         {
             try
             {
@@ -390,7 +390,7 @@ namespace AccessibleTrader.Core.Services
                 // below it, so it is published as part of the band for the pointer's mapping; the
                 // clip stays at the band, so the marks draw in it.
                 float markHeadroom = MarkHeadroom(canvas, PlotRect(mainPaneRect, mainBand), visibleData, mainSeries,
-                    viewportStart, viewportLength, mainMin, mainMax, isLogScale, density);
+                    viewportStart, viewportLength, mainMin, mainMax, isLogScale, density, isPriceInverted);
                 statusBands["Main"] = new PaneStatusBand(mainStatus.Lines.Count, (mainBand + markHeadroom) / height);
                 var mainPlotRect = PlotRect(mainPaneRect, mainBand + markHeadroom);
                 var mainArea = mainPlotRect;
@@ -411,7 +411,7 @@ namespace AccessibleTrader.Core.Services
                     var bar = visibleData[crossIndex];
                     var (bull, bear) = StandardRenderers.ApplyColorVision(
                         _theme.Current, _theme.Current.CandleBullishBody, _theme.Current.CandleBearishBody);
-                    float closeY = ChartMath.MapY(bar.Close, mainArea.Top, mainArea.Bottom, mainMin, mainMax, isLogScale);
+                    float closeY = ChartMath.MapY(bar.Close, mainArea.Top, mainArea.Bottom, mainMin, mainMax, isLogScale, isPriceInverted);
                     // The badge's Value stays the raw close (so it still matches a value label at
                     // the same price); only its text is relabelled.
                     string? badgeText = mainScaleMode == PriceScaleMode.Regular
@@ -422,7 +422,7 @@ namespace AccessibleTrader.Core.Services
                         BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)), badgeText);
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, markHeadroom: markHeadroom, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase, kagiLooks: kagiLooks);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, markHeadroom: markHeadroom, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase, kagiLooks: kagiLooks, inverted: isPriceInverted);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
@@ -438,10 +438,10 @@ namespace AccessibleTrader.Core.Services
                                 ScaleBaseForLabel(l.Series, mainOverlaySeries, mainScaleBase, viewportStart, viewportLength)))
                     }).ToList();
                 var mainScale = PlaceScaleLabels(mainLabels,
-                    mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null);
+                    mainAxisPlotRect, mainMin, mainMax, isLogScale, density, mainBadge, preferred: null, inverted: isPriceInverted);
                 LastMainScale = (mainAxisPlotRect, mainMin, mainMax, isLogScale, mainScale);
                 LastMainBadge = mainBadge;
-                LastMainAxisLabels = RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density), mainScaleMode, mainScaleBase);
+                LastMainAxisLabels = RenderYAxis(canvas, mainAxisPlotRect, mainMin, mainMax, isLogScale, density, AvoidRows(mainBadge, mainScale, density), mainScaleMode, mainScaleBase, isPriceInverted);
                 RenderScaleLabels(canvas, mainAxisPlotRect, mainScale, mainMax - mainMin, density);
                 if (PaintsStatusLines && crossIndex >= 0 && mainStatus.Lines.Count > 0)
                     PaintStatusBlock(canvas, mainPaneRect, mainStatus, density, textScale, statusFont);
@@ -541,7 +541,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="markHeadroom">Room kept between the band and the values for the marks
         /// stacked above the candles (<see cref="MarkHeadroom"/>): values are mapped below it,
         /// and drawing is clipped at the band, so the marks may use it.</param>
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, float markHeadroom = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, IReadOnlyList<Charts.KagiLines.Look>? kagiLooks = null)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, float markHeadroom = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, IReadOnlyList<Charts.KagiLines.Look>? kagiLooks = null, bool inverted = false)
         {
             if (viewportLength <= 0) return;
             var paneRect = rect;
@@ -563,7 +563,7 @@ namespace AccessibleTrader.Core.Services
             var frameRect        = new SKRect(rect.Left, paneRect.Top, rect.Right, mainRect.Bottom);
             var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid,
                 FrameRect: statusBand > 0 ? frameRect : null)
-            { ChartStyle = chartStyle, ScaleMode = scaleMode, ScaleBase = scaleBase, KagiLooks = kagiLooks };
+            { ChartStyle = chartStyle, ScaleMode = scaleMode, ScaleBase = scaleBase, KagiLooks = kagiLooks, IsInverted = inverted };
 
             canvas.Save(); canvas.ClipRect(frameRect);
             for (int li = 0; li < _layers.Count; li++)
@@ -606,7 +606,7 @@ namespace AccessibleTrader.Core.Services
         /// each plot's value label. Each is painted over whatever gridline label sits nearest — so
         /// the axis leaves that label out rather than have two numbers share the same rows.
         /// </param>
-        private IReadOnlyList<AxisLabelTick> RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, IReadOnlyList<float>? avoidTextYs = null, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN)
+        private IReadOnlyList<AxisLabelTick> RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, IReadOnlyList<float>? avoidTextYs = null, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, bool inverted = false)
         {
             var drawn = new List<AxisLabelTick>();
             // Round-number anchors. The old algorithm labelled at fixed fractions (0, 0.25, 0.5,
@@ -644,7 +644,7 @@ namespace AccessibleTrader.Core.Services
 
             foreach (var (reading, price) in ChartMath.ScaleTicks(scaleMode, min, max, scaleBase, niceStep))
             {
-                float y = ChartMath.MapY(price, rect.Top, rect.Bottom, min, max, isLogScale);
+                float y = ChartMath.MapY(price, rect.Top, rect.Bottom, min, max, isLogScale, inverted);
                 // The spacing test is on the BASELINE THE TEXT IS DRAWN AT, after the clamp that
                 // keeps a label inside its strip — not on the raw gridline position. The clamp
                 // can move a top label down by most of a line height, and it used to do so after
@@ -777,9 +777,9 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         private List<ScaleLabel> PlaceScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog,
-            float density, CrosshairBadge? badge, (string Series, string Component)? preferred)
+            float density, CrosshairBadge? badge, (string Series, string Component)? preferred, bool inverted = false)
             => StackScaleLabels(labels, axisRect, min, max, isLog, ScaleLabelHeight(density),
-                badge?.Centre, badge?.Value, preferred);
+                badge?.Centre, badge?.Value, preferred, inverted);
 
         private float ScaleLabelHeight(float density) => _textFont.Size + (4 * density);
 
@@ -787,7 +787,8 @@ namespace AccessibleTrader.Core.Services
         /// <param name="reservedValue">The badge's value: a label with the same value at the badge's place repeats it and is dropped.</param>
         /// <param name="preferred">The plot whose label is kept first: the one navigation is on, or the pane's primary line.</param>
         internal static List<ScaleLabel> StackScaleLabels(List<ScaleLabel> labels, SKRect axisRect, double min, double max, bool isLog,
-            float labelH, float? reservedY = null, double? reservedValue = null, (string Series, string Component)? preferred = null)
+            float labelH, float? reservedY = null, double? reservedValue = null, (string Series, string Component)? preferred = null,
+            bool inverted = false)
         {
             const float Eps = 0.01f;
             float lo = axisRect.Top + labelH / 2f, hi = axisRect.Bottom - labelH / 2f;
@@ -797,7 +798,7 @@ namespace AccessibleTrader.Core.Services
             for (int i = 0; i < labels.Count; i++)
             {
                 var l = labels[i];
-                float y = ChartMath.MapY(l.Value, axisRect.Top, axisRect.Bottom, min, max, isLog);
+                float y = ChartMath.MapY(l.Value, axisRect.Top, axisRect.Bottom, min, max, isLog, inverted);
                 if (float.IsNaN(y) || y < axisRect.Top || y > axisRect.Bottom) continue;
                 if (reservedY is { } r && reservedValue is { } rv
                     && Math.Abs(l.Value - rv) <= 1e-9 * Math.Max(1.0, Math.Abs(rv)) && Math.Abs(y - r) < labelH / 2f)
@@ -824,10 +825,11 @@ namespace AccessibleTrader.Core.Services
                 placed.Add(l with { Y = spot });
             }
 
-            // Back into value order on the spots taken: highest value on the highest spot.
+            // Back into value order on the spots taken: highest value on the highest spot (the
+            // lowest, upside down).
             var spots = placed.Select(p => p.Y).OrderBy(y => y).ToList();
             var byValue = placed.OrderByDescending(p => isLog && p.Value > 0 ? Math.Log(p.Value) : p.Value).ToList();
-            if (max < min) byValue.Reverse();
+            if ((max < min) != inverted) byValue.Reverse();
             return byValue.Select((p, i) => p with { Y = spots[i] }).ToList();
         }
 
@@ -1309,11 +1311,11 @@ namespace AccessibleTrader.Core.Services
         /// the highest candle gets room for three.
         /// </summary>
         private float MarkHeadroom(SKCanvas canvas, SKRect plot, List<Ohlcv> visibleData, List<ChartSeries> mainSeries,
-            int viewportStart, int viewportLength, double min, double max, bool isLogScale, float density)
+            int viewportStart, int viewportLength, double min, double max, bool isLogScale, float density, bool inverted = false)
         {
             if (viewportLength <= 0 || plot.Height <= 0 || visibleData.Count == 0) return 0f;
             var probe = new RenderContext(canvas, plot, visibleData, viewportStart, viewportLength, min, max, isLogScale,
-                plot.Width / viewportLength, density, "Main", -1, _theme.Current);
+                plot.Width / viewportLength, density, "Main", -1, _theme.Current) { IsInverted = inverted };
             float overhang = StandardRenderers.AboveBarOverhang(probe, mainSeries);
             return overhang <= 0 ? 0f : Math.Min(overhang + (2 * density), plot.Height * 0.25f);
         }

@@ -203,7 +203,8 @@ namespace AccessibleTrader.Core.Services.Audio
 
             if (isHeatmap)
             {
-                SonifyHeatmap(series, idx, state.FocusedBinIndex, state.ChartVolume);
+                SonifyHeatmap(series, idx, state.FocusedBinIndex, state.ChartVolume,
+                    ChartMath.IsInvertedFor(state, series.Pane));
                 return;
             }
             if (isProfile)
@@ -276,7 +277,9 @@ namespace AccessibleTrader.Core.Services.Audio
 
             // The log toggle reaches the ear for exactly the panes it reaches the eye: Main only.
             bool isLogScale = ViewportRangeCalculator.IsLogScaleFor(state.IsLogScale, series.Pane);
-            var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume, isLogScale: isLogScale);
+            // ...and so does turning the price pane over (the I key): the pitch follows the picture.
+            var audioPt = AudioPointFor(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume,
+                overrideValue: null, isLogScale, ChartMath.IsInvertedFor(state, series.Pane));
 
             // ── NaN guard for marker components ─────────────────────────────────
             // When a Ping-envelope (marker) component has no signal on this bar (value is NaN),
@@ -751,6 +754,9 @@ namespace AccessibleTrader.Core.Services.Audio
         }
 
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null, bool isLogScale = false)
+            => AudioPointFor(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, overrideValue, isLogScale, isInverted: false);
+
+        private AudioPoint AudioPointFor(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume, double? overrideValue, bool isLogScale, bool isInverted)
         {
             if (componentIndex < 0 || componentIndex >= series.Components.Count) return new AudioPoint(0, 0, "sine", 0, "Sustain");
             var comp = series.Components[componentIndex];
@@ -768,7 +774,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 prevVal = data[dataIndex - 1];
             }
             
-            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal, isLogScale, dataIndex);
+            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal, isLogScale, dataIndex, isInverted);
         }
 
         /// <summary>
@@ -926,6 +932,9 @@ namespace AccessibleTrader.Core.Services.Audio
         }
 
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
+            => SonifyHeatmap(series, dataIndex, binIndex, masterVolume, inverted: false);
+
+        private void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume, bool inverted)
         {
             if (series == null || series.Data.HeatmapData == null || dataIndex < 0 || dataIndex >= series.Data.HeatmapData.Count) return;
             if (AllComponentsSilenced(series)) { _audioDriver.StopVoice(SLOT_NAV_START); return; }
@@ -964,6 +973,8 @@ namespace AccessibleTrader.Core.Services.Audio
             double globalMax = allBins.Max(b => b.PriceHigh);
             double span      = Math.Max(1e-9, globalMax - globalMin);
             double normalizedY = (bin.PriceLow - globalMin) / span;
+            // Upside down the higher bins are drawn lower, and sound lower.
+            if (inverted) normalizedY = 1.0 - normalizedY;
 
             double yMultiplier = ProfileBinClassifier.GetYMultiplier(normalizedY);
             double freq = basePitch * yMultiplier;

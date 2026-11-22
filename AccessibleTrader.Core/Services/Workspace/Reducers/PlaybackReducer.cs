@@ -54,6 +54,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 ScaleMode = a.Mode,
                 IsLogScale = a.Mode == PriceScaleMode.Regular && a.Log,
             },
+            // Upside down is independent of the scale: TradingView keeps "Invert scale" beside
+            // the four scale entries, and an inverted log chart is still a log chart.
+            TogglePriceInvertAction     => state with { IsPriceInverted = !state.IsPriceInverted },
+            SetPriceInvertedAction a    => state with { IsPriceInverted = a.Inverted },
 
             _ => state
         };

@@ -527,6 +527,10 @@ namespace AccessibleTrader.Core.Services.GoBar
                 new[] { "LOG" },
                 new[] { "log", "logarithmic" },
                 "Logarithmic price scale on or off", GoBarKind.Normal),
+            new(SystemCommand.TogglePriceInvert, "Invert price pane",
+                new[] { "INVERT" },
+                new[] { "invert", "invert scale", "invert chart", "upside down", "flip chart" },
+                "Turn the price pane upside down, or back", GoBarKind.Normal),
             // The price-scale menu's named choices, beside the LOG toggle. `linear` belonged to
             // nothing and `regular scale` is the wording the interface now speaks.
             new(SystemCommand.ShowRegularScale, "Regular scale",

@@ -231,16 +231,16 @@ namespace AccessibleTrader.Core.Services.Rendering
                 float top;
                 if (anchor == MarkerAnchor.Value)
                 {
-                    float y = ChartMath.MapY(data[abs], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+                    float y = ChartMath.MapY(data[abs], ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted);
                     top = y - plateH / 2f;
                 }
                 else
                 {
                     var bar = ctx.Data[i];
                     if (anchor == MarkerAnchor.BelowBar)
-                        top = ChartMath.MapY(bar.Low, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale) + gap;
+                        top = ChartMath.MapY(ctx.FootPrice(bar), ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted) + gap;
                     else
-                        top = ChartMath.MapY(bar.High, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale) - gap - plateH;
+                        top = ChartMath.MapY(ctx.HeadPrice(bar), ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale, ctx.IsInverted) - gap - plateH;
                 }
                 // Inside the plot, never into the status band above it or past the pane's foot.
                 top = Math.Clamp(top, ctx.Top, Math.Max(ctx.Top, ctx.Bottom - plateH));

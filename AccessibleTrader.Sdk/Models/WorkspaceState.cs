@@ -217,6 +217,10 @@ namespace AccessibleTrader.Sdk.Models
         /// field existed and for a newly opened tab.</summary>
         public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
 
+        /// <summary>Whether the tab's price pane is drawn upside down. False for every snapshot
+        /// made before the field existed and for a newly opened tab.</summary>
+        public bool IsPriceInverted { get; init; }
+
         /// <summary>The tab's settings for Renko, range bars and line break. Defaults for every
         /// snapshot made before the field existed and for a newly opened tab.</summary>
         public RenkoSettings Renko { get; init; } = new();
@@ -551,6 +555,17 @@ namespace AccessibleTrader.Sdk.Models
         public PriceScaleMode ScaleMode { get; init; } = PriceScaleMode.Regular;
 
         /// <summary>
+        /// The price pane drawn upside down: higher prices lower on the screen, TradingView's
+        /// "Invert scale" (Cody, 2026-11-22: "invert chart, 'i'. if invert chart applies to only
+        /// the main pane, scope it to just that"). Only the price pane turns over; the panes
+        /// below keep their own way up. The PICTURE and its PITCH turn over together, because
+        /// what is seen is what is heard; the WORDS stay the market's: prices are the real ones,
+        /// "up" still means the price rose, and colours keep their meaning. Drawings and alerts
+        /// stay on real prices. Per tab, saved with <see cref="ScaleMode"/> wherever that goes.
+        /// </summary>
+        public bool IsPriceInverted { get; init; }
+
+        /// <summary>
         /// The real time bars behind the drawn bars. Null on every non-brick chart, and also
         /// while a brick chart has no data yet. On a brick chart <see cref="Data"/> holds the
         /// bricks and this holds the feed's own bars.
@@ -709,6 +724,11 @@ namespace AccessibleTrader.Sdk.Models
     /// request only applies with <see cref="PriceScaleMode.Regular"/>.
     /// </summary>
     public record SetPriceScaleAction(PriceScaleMode Mode, bool Log) : WorkspaceAction;
+
+    /// <summary>Turns the price pane upside down or back (the <c>I</c> key).</summary>
+    public record TogglePriceInvertAction : WorkspaceAction;
+    /// <summary>Sets the price pane's way up outright: a restored tab's saved choice.</summary>
+    public record SetPriceInvertedAction(bool Inverted) : WorkspaceAction;
 
     public record ToggleLogScaleAction() : WorkspaceAction;
     public record AddSeriesAction(ChartSeries Series) : WorkspaceAction;
