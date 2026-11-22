@@ -25201,3 +25201,20 @@ Each item's caveats are in CHANGES (Unreleased) and in full in
   cancellation and recycle rules from the published descriptions, checked against a TradingView
   community script; a tick per count, a distinct tone at 9 and 13. Not called "TD Sequential" (a DeMark
   trademark).
+
+## Closed 2026-11-21: audit tail (Cody: "hit that tail of audit items if you can")
+
+- [x] (F2) Give `textarea#sd-import-json` a real label. Same acceptance test. LOW. (archive 11121) — already fixed before this pass: the textarea has a `<label for>`.
+- [x] (F3) Make Shift+F12 with no focused series say so instead of returning silently. LOW. (archive 11122) — fixed dba9c00a (PropertiesWithNothingFocusedTests).
+- [x] Spoken money is always prefixed "$" regardless of quote currency (archive 12292) — fixed dba9c00a: amounts in a known quote are said in it with no "$" (QuickTradeSizingModeTests.An_amount_in_a_known_quote_has_no_dollar_sign); the account-currency amounts on the arming line keep "$", see the follow-up still in TODO.
+- [x] The hosted server logs every user's alert text at Information — `HostedAlertMonitor.cs:185`. (archive 12999) — fixed dba9c00a: id at Information, text at Debug (AlertTextNotInServerLogTests, a source scan over WebHost).
+- [x] `AnchoredVwapProvider.cs:191-198` — `AVWAP Bias Soft` can never take the value 0 its comment (archive 14385) — comment corrected dba9c00a (the code is right: between the anchors is +1).
+- [x] `CipherBProvider.cs:1038` reads a `DivergenceConfirmLag` parameter that `:385-431` never (archive 14393) — already fixed: the parameter went with the Cipher B rebuild (ba7b67f5).
+- [x] `CipherSRProvider.cs:199` — the `AutoScale` parameter description shown to the user documents the (archive 14411) — already fixed: AutoScale went with the Cipher SR rebuild (d5aa3dd3).
+- [x] `PulseProvider.cs:967-995` — `GetDetailFact` speaks the literal string "NaN" during warmup. (archive 14417) — fixed dba9c00a (PulseSignalRulesTests.The_detail_never_says_NaN_while_warming_up).
+- [x] `RegimeProvider.cs:103` emits `0.0` for `RegimeState` during the 199-bar warmup instead of NaN, (archive 14424) — fixed dba9c00a (RegimeProviderTests).
+- [x] `PaneAssignmentService.cs:15,44` use culture-sensitive `ToUpper()`/`ToLower()` on indicator (archive 14514) — fixed dba9c00a (PaneAssignmentCultureTests, run under tr-TR).
+- [x] `VolRegimeProvider.cs:215` hardcodes 1.25 / 0.75 in `GetDetailFact` while `VolState` (`:148`) (archive 14521) — fixed dba9c00a (VolRegimeProviderTests.The_detail_uses_the_users_thresholds_as_the_state_does).
+- [x] `LoadWorkspaceModal.ResetWorkspaceState` can spin forever — `LoadWorkspaceModal.razor:158-171`. (archive 15114) — guard added dba9c00a: the loop stops when a close does not lower the count. UNTESTED (no harness for the modal; unreachable since the tab reindex fix).
+- [x] A failed or refused tab switch is completely silent — `WorkspaceStore.cs:100`, `:163-170`. The (archive 15149) — fixed dba9c00a (TabRefusalSpeechTests); TabBar now sends 1-9, Home, End, the arrows and Delete to the store even when they can do nothing. The TabBar side is untested (no bUnit harness for it). Not heard.
+- [x] Malformed level colour hex kills the whole frame — `DataLayer.cs:192`. (archive 15613) — fixed dba9c00a: a colour that does not parse draws in the axis ink (ChartTypeRenderTests.A_level_colour_that_does_not_parse...).

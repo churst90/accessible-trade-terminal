@@ -19,8 +19,9 @@ The order:
 2. **Trading through the venues** is built but has not been tried on a demo, practice or real account.
    Treat it as unverified until an account answers.
 3. Cody's open questions (**Q**), then the open items below, then the older audit findings at the end.
-   None of those has been re-checked since it was filed (2026-08 and earlier); check CHANGES and the code
-   before taking one.
+   Those were filed in 2026-08 and earlier; the 2026-11-21 pass re-checked the indicator,
+   accessibility and workspace ones (see its note at the head of that tail). The rest have not been
+   re-checked: check CHANGES and the code before taking one.
 
 Standing facts: the full test suite runs on GitHub Actions at the push, not locally; build in a worktree,
 never in the main checkout under a running server; the DBSI study is closed (Cody, 2026-11-17).
@@ -72,6 +73,10 @@ CHANGES (Unreleased).
   lines, price alerts), each named after the price.
 - [ ] **No candle pattern said unprompted on line-style charts.**
 - [ ] **The shorter settings, the Donate tab, "marker" wording, the heatmap under Add Indicator.**
+- [ ] **The audit-tail fixes you can hear:** Shift+F12 with nothing focused; a tab key with nowhere
+  to go (1 to 9 past the last tab, Delete on the only tab, Home on the first) in the tab bar, whose
+  key handling has no test; Pulse's Alt+Shift+D on its first bars; a quick trade on a euro pair.
+- [ ] **The manual:** read a chapter or two as a newcomer would; say what still assumes too much.
 
 Open questions kept from the heard items:
 
@@ -258,6 +263,12 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## From the 2026-09-25 to 2026-10-01 test and mutation passes (status unclear, check)
 
+**Audit tail pass, 2026-11-21** (Cody: "hit that tail of audit items if you can"): the indicator,
+accessibility and workspace items checked against the code. Nine fixed with sabotage-proven tests,
+one guard added untested, three found already fixed and moved to the archive; three marked "still
+present". The rest of this tail (strategy engine, market data, SDK, audio, StrategyLab, the research
+questions) was not re-checked in that pass.
+
 The 81st pass (archive 2090) ended with these. Later passes (A2q merged 2026-10-01 with 44 of 44
 survivors closed) may have settled some. Decisions for Cody:
 
@@ -375,8 +386,6 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] Re-check what else parked behind `ShowModalAsync`. Until 2026-08-28 every line a concrete (archive 10537)
 
 ### The work A3 creates (status unclear, check)
-- [ ] (F2) Give `textarea#sd-import-json` a real label. Same acceptance test. LOW. (archive 11121)
-- [ ] (F3) Make Shift+F12 with no focused series say so instead of returning silently. LOW. (archive 11122)
 - [ ] (F4) Read the timeout in (archive 11123)
 - [ ] Teach the harness to seed a chart and credentials, which unlocks the seven unswept dialogs (archive 11126)
 - [ ] Sweep controls behind `<details>` expanders and populated lists, not just the initial render (archive 11129)
@@ -395,14 +404,13 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] The shared paper account still holds its creating tab's scoped `IDataService`. (archive 12273)
 - [ ] API-key secrets are stored under the nickname alone, so one nickname across two providers (archive 12279)
 - [ ] A failed secure-storage read makes every credential silently absent (archive 12286)
-- [ ] Spoken money is always prefixed "$" regardless of quote currency (archive 12292)
 - [ ] Follow-up from the money-path batch: the quick-trade sizing seam cannot see the instrument. (archive 12299)
-- [ ] Portfolio pricing is hardcoded to the Crypto market (`MarketDataPriceSource.cs:106`). (archive 12311)
+- [ ] Portfolio pricing is hardcoded to the Crypto market (`MarketDataPriceSource.cs:106`). (archive 12311) Checked 2026-11-21: still present (`MarketDataPriceSource.cs:101`).
 
 ### Health audit — strategy engine and backtest↔live parity (grade D+) (status unclear, check)
 - [ ] Two deliberate live-vs-replay divergences left open by the 2026-08-25 parity work, both in (archive 12470)
 - [ ] An account selector for Schwab. Carved out of the multi-account finding closed (archive 12591)
-- [ ] `LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no (archive 12682)
+- [ ] `LevelService.cs:30-31` swallows every level-provider exception with `catch { continue; }` — no (archive 12682) Checked 2026-11-21: still present.
 - [ ] `StrategyEngine.AddStrategy:255`, `PauseStrategy:280-282` and `SetExecutionMode:287-289` (archive 12690)
 - [ ] `StrategyEngine._pendingSignals` is written and never read — Suggestion mode has no confirmation (archive 12697)
 - [ ] The announced entry price and R:R are never the ones the backtest fills at. (archive 12704)
@@ -411,14 +419,13 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 ### Health audit — alerts and notification delivery (grade D) (status unclear, check)
 - [ ] `AlertOrchestrator` is scoped per circuit in WebHost, so two browser tabs silently delete each (archive 12978)
 - [ ] The VAPID private key is written in plaintext with default permissions and the VAPID subject is (archive 12992)
-- [ ] The hosted server logs every user's alert text at Information — `HostedAlertMonitor.cs:185`. (archive 12999)
 - [ ] Nothing checks bar freshness, so a stale feed reads as a live market — (archive 13005)
 - [ ] Two load-bearing comments describe behaviour the code does not have. (archive 13011)
 - [ ] (amends TODO:1281) That entry says "Adding or deleting an alert produces no feedback and (archive 13019)
 
 ### Health audit — market-data flow (grade C+) (status unclear, check)
 - [ ] Opt the providers into the cancellable fetch, one at a time. Carved out of the (archive 13152)
-- [ ] `OrderBookHistoryService` hardcodes a 1-minute bar, so heatmap history is empty on every other (archive 13159)
+- [ ] `OrderBookHistoryService` hardcodes a 1-minute bar, so heatmap history is empty on every other (archive 13159) Checked 2026-11-21: still present (`OrderBookHistoryService.cs:54`).
 - [ ] `DataOrchestrationService` issues a live order-book network request on every single data update, (archive 13168)
 - [ ] The provider-timeframe verification only catches data that is too FINE, never too COARSE (archive 13178)
 - [ ] The tab-switch handler assigns the composite market string to the SUB-TYPE field (archive 13188)
@@ -434,20 +441,13 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] (amends TODO:5825-5834) `ProviderFetchOhlcvTests.cs` gives the analytics plugins one (archive 14187)
 
 ### Health audit — indicators (grade C+) (status unclear, check)
-- [ ] `AnchoredVwapProvider.cs:191-198` — `AVWAP Bias Soft` can never take the value 0 its comment (archive 14385)
-- [ ] `CipherBProvider.cs:1038` reads a `DivergenceConfirmLag` parameter that `:385-431` never (archive 14393)
 - [ ] A parameter can silently flip a component from causal to look-ahead, and the declaration cannot (archive 14400)
-- [ ] `CipherSRProvider.cs:199` — the `AutoScale` parameter description shown to the user documents the (archive 14411)
-- [ ] `PulseProvider.cs:967-995` — `GetDetailFact` speaks the literal string "NaN" during warmup. (archive 14417)
-- [ ] `RegimeProvider.cs:103` emits `0.0` for `RegimeState` during the 199-bar warmup instead of NaN, (archive 14424)
 - [ ] `CipherSProvider.cs:193-213` sorts a freshly allocated copy of the whole rolling window on every (archive 14431)
 - [ ] `IndicatorService.cs:151-201` and `IndicatorEngine.cs:46-51` call `provider.GetIndicators()` on (archive 14438)
 - [ ] `AccessibleTrader.Sdk/Indicators/IndicatorMath.cs` has no unit test. It is the shared library — (archive 14469)
 - [ ] The causality guard has two remaining structural blind spots its own doc does not name: (archive 14482)
-- [ ] Comments that are actively wrong and load-bearing. `RegimeProvider.cs:106-107` — "seeded with (archive 14491)
+- [ ] Comments that are actively wrong and load-bearing. `RegimeProvider.cs:106-107` — "seeded with (archive 14491) 2026-11-21: the Regime, Value Deviation and Hurst comments corrected (dba9c00a); `IndicatorCausalityTests`' blind-spot list is still stale.
 - [ ] `IndicatorStateMapper.cs:28-30` maps provider output to components by substring in both (archive 14505)
-- [ ] `PaneAssignmentService.cs:15,44` use culture-sensitive `ToUpper()`/`ToLower()` on indicator (archive 14514)
-- [ ] `VolRegimeProvider.cs:215` hardcodes 1.25 / 0.75 in `GetDetailFact` while `VolState` (`:148`) (archive 14521)
 - [ ] (amends TODO:2084) `CipherCProvider.cs:819-831` re-implements Hull MA next to (archive 14525)
 
 ### Health audit — accessibility layer (grade B-) (status unclear, check)
@@ -460,11 +460,9 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 
 ### Health audit — workspace state, settings, persistence (grade C+) (status unclear, check)
 - [ ] `ImportVisualProfile`/`ImportAudioProfile` mutate live state objects without dispatching — (archive 15105)
-- [ ] `LoadWorkspaceModal.ResetWorkspaceState` can spin forever — `LoadWorkspaceModal.razor:158-171`. (archive 15114)
 - [ ] `SettingsManager`'s `JObject` is mutated from multiple threads with no lock — (archive 15122)
 - [ ] `WorkspaceConfiguration` has no schema version, and an indicator that no longer exists is restored (archive 15132)
 - [ ] `CaptureConfig` mutates the live series during a save — `WorkspaceLibraryService.cs:205-209`. (archive 15144)
-- [ ] A failed or refused tab switch is completely silent — `WorkspaceStore.cs:100`, `:163-170`. The (archive 15149)
 - [ ] `AtomicFile` never fsyncs the parent directory and never cleans stale temps — (archive 15170)
 - [ ] `AppDbContext` declares an index identical to its primary key, and its fallback path ignores the (archive 15178)
 - [ ] `MarketFeeds.GetBarsAsync` drops its `CancellationToken` at the fetch — (archive 15185)
@@ -493,7 +491,6 @@ above or below); and all `[x]` items, finished audit write-ups and phase plans.
 - [ ] Crosshair value labels are drawn on a hardcoded dark plate with theme-coloured ink — (archive 15588)
 - [ ] The colour-vision-safe override reaches only candles and directional bars — (archive 15598)
 - [ ] Candle bodies vanish at wide zoom — `StandardRenderers.cs:195`. (archive 15607)
-- [ ] Malformed level colour hex kills the whole frame — `DataLayer.cs:192`. (archive 15613)
 - [ ] A render failure is logged but never spoken — `ChartRenderer.cs:269-273`, (archive 15620)
 - [ ] Dash `SKPathEffect`s are disposed at two of four creation sites — `StylingService.cs:69,76` and (archive 15628)
 - [ ] Heikin-Ashi is recomputed over the entire history three times per keystroke — (archive 15636)

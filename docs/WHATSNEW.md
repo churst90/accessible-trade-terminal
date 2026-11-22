@@ -21,6 +21,14 @@
   and the rest. A **Donate** tab holds the ways to support the project.
 - **The heatmap is an indicator** (Add Indicator, Order Flow, or `HEAT` in the Go bar); the toolbar
   button and Alt+H are gone.
+- **Keys that can do nothing now say why**: Shift+F12 with no series focused ("No series
+  focused."), and a tab key with nowhere to go ("Already on tab 1", "No tab 5. 2 tabs open.", "The
+  last tab stays open.").
+- **Pulse's detail no longer says "NaN"** while it warms up, and Vol Regime's detail uses your own
+  thresholds.
+- **Quick trade on a euro pair says euros** ("45,700.00 EUR"), not "$45,700.00 EUR".
+- **The user manual** reads as a manual: no version history, the new features in, and a longer
+  glossary for anyone new to trading terms.
 
 ## 2.14.1 — the news desk, and chart types you hear as well as see
 

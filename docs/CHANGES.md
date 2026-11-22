@@ -63,6 +63,50 @@ Nothing below is deployed or heard yet.
 - **The heatmap is an indicator.** The toolbar's Heatmap button and Alt+H are gone; the liquidity
   heatmap is added from Add Indicator (Order Flow) or the Go bar's `HEAT`, whose description now
   says liquidity, not volume. Alt+H is free.
+- **The manual is a manual, not a change log** (Cody: "the manual isn't a change log"). Every
+  dated or version note ("until 2.x", "since …", "no longer", "Cody has not heard") taken out of
+  `USER_MANUAL.md` and `SHORTCUTS.md`; the liquidity heatmap, near-level speech, candle patterns
+  on drawn bricks, the 9-13 and the Speech tab's template words documented; eight glossary entries
+  added for newcomers (brick, candle pattern, chart pattern, marker, order book, swing high/low,
+  volume, watchlist) and the glossary sorted. Setting names checked against the Settings dialog.
+  **Caveat:** the sections touched were checked against the code; the middle chapters (Trading,
+  Automation, Monitoring) were cleaned of history but not tightened line by line. No appendix: the
+  glossary is the appendix, the Settings chapter the settings reference.
+
+### 2026-11-21: the audit tail — nine defects fixed, each with a test that fails on the old code — CI pending, not heard
+
+Checked against the code from `TODO.md`'s audit sections (indicators, accessibility, workspace);
+each fix sabotage-proven (the old code put back turns its test red).
+
+- **Pulse's Alt+Shift+D said "Fast NaN, Anchor NaN, MFI NaN, ADX NaN"** while warming up. Ready
+  readings are said, the others left out, "Pulse: warming up." when none is ready.
+- **Vol Regime's detail used a fixed 1.25 / 0.75** while its state uses your thresholds, so it
+  could say "neutral" on a bar the chart called expansion. It uses yours.
+- **Regime's state was 0 (flat) during its 199-bar warm-up**; it is no reading (NaN), so a
+  strategy gating on "not bearish" no longer passes through the warm-up.
+- **Shift+F12 (or P) with no series focused said nothing.** It says "No series focused."
+- **A tab switch or close that changed nothing was silent.** It says "Already on tab 1: …",
+  "No tab 5. 2 tabs open." or "The last tab stays open."; the tab bar sends 1-9, Home, End, the
+  arrows and Delete to the store even when they can do nothing. **Caveat:** the store side is
+  tested; the tab bar's key handling is not (no harness for it).
+- **Quick trade said "$45,700.00 EUR"** on a euro pair. An amount in a known quote is said in it
+  ("45,700.00 EUR"); the arming line's account amounts keep "$" (the account currency is not
+  known there; the TODO follow-up stays open).
+- **A level colour that does not parse** (a hand-edited workspace) threw while drawing and lost
+  the whole frame; it draws in the axis ink.
+- **Pane and category assignment under a Turkish culture** missed every code with an "i"
+  ("CIPHER_B" lower-cased to "cıpher_b"): invariant casing.
+- **The hosted server logged each fired alert's text at Information**, the user's symbol, level
+  and direction beside their id. It logs the alert id there and the text only at Debug; a source
+  scan fails on any WebHost log above Debug carrying the text.
+- Untested: the Load Workspace reset loop stops if a tab close is refused (it could spin forever;
+  unreachable since the tab reindex fix, no harness for the modal).
+- Comments corrected: AVWAP Bias Soft (between the anchors is +1), Regime's EMA seeding (not every
+  EMA here seeds the same way), Value Deviation's WaveTrend (not Cipher B's), Hurst's window sizes.
+- Already fixed before this pass and moved to the archive: the Sound Designer's import box label,
+  Cipher B's `DivergenceConfirmLag`, Cipher SR's AutoScale text. Still present and marked so:
+  portfolio pricing hardcoded to Crypto, `LevelService`'s silent catch, the heatmap history's
+  1-minute assumption.
 
 ## [2.14.1] — 2026-11-21
 
