@@ -283,4 +283,19 @@ public sealed class PaneModelAndTrailingSpeechTests
         Assert.DoesNotContain("2 panes", said, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("2 components", said, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// The count is how many components Up and Down stop on, muted ones included: Cipher B says
+    /// 9, its RSI and Stochastic starting muted (Cody, 2026-11-22). It said 7 before.
+    /// </summary>
+    [Fact]
+    public void The_series_switch_counts_muted_components_too()
+    {
+        var cipher = Series("cipher", "Cipher B", "Pane_CIPHER_B", "Wave", "RSI", "Stochastic");
+        cipher.Config.Components[1].IsMuted = true;
+        cipher.Config.Components[2].IsMuted = true;
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", "Close"), cipher);
+
+        Assert.Contains("3 components", SwitchOnto(cipher, all), StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -81,11 +81,11 @@ CHANGES (Unreleased).
 - [ ] **Headlines from Finnhub only** (2026-11-22, not deployed yet): with the Finnhub key, stock and
   coin stories still said; the Alpaca checkbox gone from Settings → Narration; the dossier's Recent
   news footnote names Finnhub alone.
+- [ ] **"9 components"** on PageDown onto Cipher B (2026-11-22; every indicator now counts its muted
+  components too).
 
 Open questions from Cody's seven notes (2026-11-22):
 
-- **Cipher B's count:** PageDown says seven components (the ones that speak); Up and Down stop on
-  nine (RSI and Stochastic are there, muted). Should the count say nine?
 - **Arrowing after Home or End:** Left and Right then read one component, not the whole bar. Keep
   that, or have Home and End keep whole-series reading when you came from PageUp or PageDown?
 - **The Strategy Lab:** offer its exported strategy list (a JSON) as a download, or leave it in the

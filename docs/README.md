@@ -4,7 +4,7 @@ A professional-grade trading and analytics platform specifically engineered for 
 
 The same Razor component library is hosted two ways:
 
-- **.NET 10 MAUI Blazor Hybrid** on Windows / macOS / iOS / Android. Native `SKCanvasView` chart overlay, platform-native audio (WASAPI / AudioTrack / AVAudioEngine), and platform-native screen reader integration.
+- **.NET 10 MAUI Blazor Hybrid** on Windows / macOS (iOS / Android heads exist in code but are not ready yet: never built). Native `SKCanvasView` chart overlay, platform-native audio (WASAPI / AudioTrack / AVAudioEngine), and platform-native screen reader integration.
 - **ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`)** on Linux and any browser-reachable target. Same `ChartRenderer` paints to an in-memory SKBitmap that's PNG-encoded and streamed to an `<img>` element; speech routes through Orca's D-Bus `PresentMessage` (respecting the user's voxin/SpeechDispatcher voice config), with `spd-say` and browser `SpeechSynthesis` as fallbacks. As of v1.2.0 the WebHost is **multi-user** (every browser connection is its own DI scope → isolated session), and as of v1.3.0 it can run as a logged-in, **paper-trading education terminal** (`--accounts`): self-hosted accounts persist each user's settings, sound design, workspaces, and paper record, with real-money trading reserved for the desktop client. It's also the deploy target for the public-website chart demo. See [`WEBHOST_MULTI_USER_SCOPING.md`](archive/WEBHOST_MULTI_USER_SCOPING.md), [`HOSTED_ACCOUNTS_STRATEGY.md`](archive/HOSTED_ACCOUNTS_STRATEGY.md), and [`SERVER_SETUP.md`](SERVER_SETUP.md).
 
 Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and all 35 data providers (18 trading + 17 analytics). The MAUI/desktop head is unchanged by the WebHost and stays single-user (Singleton-scoped) — the host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`, and the per-circuit scoping lives only in the WebHost's DI registration.
@@ -148,7 +148,7 @@ indicators compute on the built bars. Indicator templates save and apply a chart
 public leaderboard (opt-in) and an order log tab; the anonymous demo's bottom line asks the
 visitor to create an account for full functionality.
 
-**Status (2026-11-05, counts checked 2026-11-21).** 35 data providers: 18 in `Plugins/Providers/` (14 trading venues and 4 market-data feeds) and 17 analytics in `Plugins/Analytics/`; indicator drop-in via `Plugins/Indicators/`. The tree carries no shared exchange SDK: Binance and MEXC call the exchange REST and WebSocket APIs directly, and a CI guard (`PluginDependencyIsolationTests`) fails the build if two plugins resolve the same third-party assembly at different versions. All trading, analytics and LLM providers send their requests through `IPluginHttpClientFactory` with per-provider outbound-host allow-lists. `PluginTrustPolicy.RequireTrusted` is `true`: unverified plugin DLLs are refused unless `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1` is set for development. User-compiled Roslyn indicators and strategies run in an OS-sandboxed worker process (Windows AppContainer, macOS `sandbox-exec`, Linux `bwrap`, Android isolated service); iOS refuses them. Five GitHub Actions workflows exist: `tests.yml` (full suite), `doc-drift.yml`, `plugin-manifest.yml`, `release.yml` and `diagnostic-build.yml`; a push triggers three of them. All green (12802 tests) as of 2026-11-22. The history of how each part got here is in `CHANGES.md` and `archive/CHANGES_HISTORY.md`; the status sections this file carried from 2.3.0 to 2.11.0 are in [`archive/README_STATUS_HISTORY.md`](archive/README_STATUS_HISTORY.md).
+**Status (2026-11-05, counts checked 2026-11-21).** 35 data providers: 18 in `Plugins/Providers/` (14 trading venues and 4 market-data feeds) and 17 analytics in `Plugins/Analytics/`; indicator drop-in via `Plugins/Indicators/`. The tree carries no shared exchange SDK: Binance and MEXC call the exchange REST and WebSocket APIs directly, and a CI guard (`PluginDependencyIsolationTests`) fails the build if two plugins resolve the same third-party assembly at different versions. All trading, analytics and LLM providers send their requests through `IPluginHttpClientFactory` with per-provider outbound-host allow-lists. `PluginTrustPolicy.RequireTrusted` is `true`: unverified plugin DLLs are refused unless `ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1` is set for development. User-compiled Roslyn indicators and strategies run in an OS-sandboxed worker process (Windows AppContainer, macOS `sandbox-exec`, Linux `bwrap`, Android isolated service); iOS refuses them. Five GitHub Actions workflows exist: `tests.yml` (full suite), `doc-drift.yml`, `plugin-manifest.yml`, `release.yml` and `diagnostic-build.yml`; a push triggers three of them. All green (12803 tests) as of 2026-11-22. The history of how each part got here is in `CHANGES.md` and `archive/CHANGES_HISTORY.md`; the status sections this file carried from 2.3.0 to 2.11.0 are in [`archive/README_STATUS_HISTORY.md`](archive/README_STATUS_HISTORY.md).
 
 ### Security hardening (2026-04-16 → 2026-04-17, complete)
 
@@ -269,9 +269,9 @@ See `TODO.md` Phase 11 for the per-session breakdown and `CODEBASE_KNOWLEDGE_BAS
 | Platform | Host | Chart | Audio | Keyboard | Speech | Trading |
 |---|---|---|---|---|---|---|
 | Windows | MAUI | ✅ Native SkiaSharp | ✅ WASAPI | ✅ JS bridge | ✅ NVDA + ARIA | ✅ All providers |
-| Android | MAUI | ✅ | ✅ AudioTrack | ✅ DispatchKeyEvent | ✅ TalkBack | ✅ |
-| iOS | MAUI | ✅ | ✅ AVAudioEngine | ⚠️ On-screen only | ✅ VoiceOver | ✅ |
-| Mac Catalyst | MAUI | ✅ | ✅ AVAudioEngine | ✅ KeyboardPageHandler | ✅ VoiceOver | ✅ |
+| Android | MAUI | ❌ **not ready**: never built, no download; known keyboard-bridge and audio-loop defects | (code only: AudioTrack) | (code only: DispatchKeyEvent) | untested | untested |
+| iOS | MAUI | ❌ **not ready**: never built, no download | (code only: AVAudioEngine) | (code only) | untested | untested |
+| Mac Catalyst | MAUI | ⚠️ built and shipped unsigned, never run on a real Mac | AVAudioEngine | KeyboardPageHandler | VoiceOver (untested) | untested |
 | **Linux** | **WebHost** | **✅ Server PNG @ 10 fps** | **✅ pw-cat / pacat / aplay** | **✅ JS bridge (drawing chords Alt+Shift+letter, as on every head)** | **✅ Orca D-Bus** | **✅ same plugins** |
 
 See `TODO.md` for the full Phase 10 + Linux WebHost L5–L7 roadmap and `PLATFORMS.md` for platform-specific details including the dual-host architecture.
@@ -283,8 +283,9 @@ redundant, and both are needed.** The full rationale is in
 [`PLATFORM_STRATEGY_AND_ROADMAP.md`](archive/PLATFORM_STRATEGY_AND_ROADMAP.md); the short
 version:
 
-- **Use the MAUI app** on **Windows, macOS, iOS, and Android.** It is the *only* way
-  to run on a phone or tablet, and on the desktop it gives you the deepest native
+- **Use the MAUI app** on **Windows and macOS.** (The Android and iOS apps are **not
+  ready yet**: never built, nothing to download. On a phone or tablet, use the website's
+  terminal in the browser.) On the desktop it gives you the deepest native
   integration: lowest-latency native audio (WASAPI / AVAudioEngine / AudioTrack),
   full-frame-rate native chart rendering, and the real OS keychain for credentials.
   **It is also the only head that drives a refreshable braille / tactile display:**
@@ -300,8 +301,8 @@ custom scripts, sonification, and keyboard navigation all work on both. The
 differences are native-integration and hardware: the WebHost renders the chart as a
 server-side PNG (~10 fps) rather than a native canvas, and **tactile/braille output
 is Windows-only** (the vendor's Linux Dot Pad SDK exposes no graphic API, so the
-WebHost cannot drive a tactile display yet). Mobile (iOS/Android) requires the MAUI
-app and is gated on touch-gesture support still in development.
+WebHost cannot drive a tactile display yet). The mobile apps (iOS/Android) are not
+ready yet; until they are, a phone or tablet uses the WebHost in its browser.
 
 ## Development
 
@@ -316,7 +317,7 @@ Built with **.NET 10**. Two hosts share the same component library and core.
 - **ScriptSandbox:** `AccessibleTrader.ScriptSandbox` — shared host/worker IPC contract (frame codec + opcodes + message DTOs).
 - **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators and strategies in a separate OS process.
 - **StrategyLab:** `AccessibleTrader.StrategyLab` — headless research CLI over snapshot data. Falsifies strategy claims against recorded controls; carries the spec catalogue and each spec's provenance. See [`LAB_DESIGN.md`](LAB_DESIGN.md) and [`STRATEGY_CATALOGUE.md`](STRATEGY_CATALOGUE.md).
-- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (12802 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus eight zero-dependency JS suites (`node tools/jstests/*.mjs`, 161 tests, every one of them in CI): the gesture engine (21), the keydown trap and rebind capture (85), which assert on `preventDefault` and stopped propagation, something no C# test can observe; the ARIA tree keyboard model behind the Object Tree (25); the WebHost's circuit start and reconnection back-off (8); what is announced while the circuit is down (5); the desktop head's canvas rect (7); the browser audio sink (5); and the browser voice, push enrolment and notification tags (5). All of them run in CI.
+- **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (12803 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus eight zero-dependency JS suites (`node tools/jstests/*.mjs`, 161 tests, every one of them in CI): the gesture engine (21), the keydown trap and rebind capture (85), which assert on `preventDefault` and stopped propagation, something no C# test can observe; the ARIA tree keyboard model behind the Object Tree (25); the WebHost's circuit start and reconnection back-off (8); what is announced while the circuit is down (5); the desktop head's canvas rect (7); the browser audio sink (5); and the browser voice, push enrolment and notification tags (5). All of them run in CI.
 
 - **Diagrams:** [`Diagrams/`](../Diagrams/README.md) — fourteen Mermaid sources: four at user-manual altitude (the chart layout, where an announcement goes, the background monitor, a trade from start to finish) and ten covering architecture, hosting topology, the data / navigation / order / feedback paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging. Each has a prose summary in the index; change both together.
 

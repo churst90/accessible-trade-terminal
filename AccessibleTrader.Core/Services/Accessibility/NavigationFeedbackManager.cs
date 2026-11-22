@@ -203,9 +203,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (seriesIdChanged)
             {
-                // Count ALL components regardless of visibility — hidden data companions
-                // (like Cipher S z-score / deviation buffers) are still part of the indicator.
-                int count     = s.Components.Count(c => !c.IsMuted);
+                // Count ALL components, hidden or muted: the count says how far Up and Down go,
+                // and they stop on every one (Cody, 2026-11-22: Cipher B is 9, its muted RSI and
+                // Stochastic included). Hidden data companions (Cipher S z-score / deviation
+                // buffers) are still part of the indicator too.
+                int count     = s.Components.Count;
                 string compWord = count == 1 ? "component" : "components";
 
                 // Callers navigating to a hidden or muted series must hear that status so they

@@ -29,6 +29,18 @@ website yet.**
   the Finnhub section. Tests: 26 fewer (the parser, socket and REST tests went with their code).
   Guards proven red: the dossier's two-publisher dedupe, the touched-target order, the HTML-entity
   clean-up, the hosted container's single gate, and the desktop container text.
+- **Cipher B says "9 components"** (Cody: "cipher b count, 9"). Moving onto any series now counts
+  every component Up and Down stop on, muted ones included; before, it left the muted out, so Cipher
+  B said 7 while Up and Down stopped on 9. The code's own comment already said "count ALL". The
+  manual's three Cipher B counts say nine (two still said eighteen after 011af0e7). **Caveats:** this
+  changes the count for every indicator with a muted component, not only Cipher B; a hidden
+  component was already counted. Test: `The_series_switch_counts_muted_components_too`, red with the
+  old muted-skipping count.
+- **The mobile apps are "not ready yet"** in the manual, the Quick Start and the docs README (Cody:
+  "make it clear in the manual and the site"). The docs README's platform table showed Android and
+  iOS with green ticks for chart, audio, speech and trading; it now says never built, no download,
+  and marks the Mac app unsigned and never run. "Desktop & mobile" headings and "the Mac and mobile
+  apps" lines no longer imply a mobile app exists.
 - **The manual** (011af0e7): Cipher B speaks **seven** components, not eighteen (PageDown says
   seven; Up and Down also stop on the muted RSI and Stochastic; the Sell dot starts left out). Left
   and Right read the whole series after PageUp or PageDown and only one component after Up, Down,
@@ -37,8 +49,7 @@ website yet.**
   known defects in the Android keyboard bridge and audio loop); the Mac app is unsigned and has never
   been run on a real Mac; phones use the web version (PLATFORMS.md and QUICKSTART say so). The
   Strategy Lab is in the repository only, not in any download, and the terminal does not need it.
-  **Caveats:** the "seven" counts what speaks; if the count should include the two muted lines it is
-  nine (open question in TODO). No code changed for the arrowing: Home, End and Backslash still
+  **Caveats:** the "seven" was corrected to nine the same day (below). No code changed for the arrowing: Home, End and Backslash still
   switch to one-component reading.
 - **Settings' key table said Ctrl+Shift+D** for the detailed point summary; it is Alt+Shift+D on
   every head, Windows included. The Ctrl+Shift-to-Alt+Shift remap in the web host does not depend on

@@ -10,6 +10,10 @@
 
 - **Headlines come from Finnhub only.** The optional Alpaca news wire is gone: Finnhub's free key
   covers the same stocks sooner, and coins too. Alpaca as a trading venue is unchanged.
+- **Moving onto an indicator counts every component** you can reach with Up and Down, muted ones
+  too: Cipher B says "9 components".
+- **The Android and iOS apps are not ready yet**, and the manual says so plainly. On a phone or
+  tablet, use the website's terminal in the browser.
 - **The 9-13 sequential** (Add Indicator, Reversal): a setup counts 1 to 9, then a countdown 1 to
   13, each count a numbered marker you hear as you arrow ("Buy setup 7."). The 9 and the 13 ring
   their own bells; focused on a 9 you hear whether it is perfected. Not yet checked against

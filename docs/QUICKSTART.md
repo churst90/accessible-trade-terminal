@@ -433,7 +433,7 @@ only while their chart is open.
 **Ctrl+Alt+Shift+M** speaks the status of both halves. The **system tray icon** (local web
 host; Windows app) can restore the browser, show recent alerts, silence alerts and bar closes
 for 30 minutes (money still comes through), toggle browser-closed monitoring, and exit. On the
-Windows app the close button minimises to the tray by default. The Mac and mobile apps have no
+Windows app the close button minimises to the tray by default. The Mac app has no
 headless monitor.
 
 ---
@@ -497,8 +497,8 @@ Windows.
 
 - **Windows and macOS:** the native app. Windows drives the Dot Pad; the Mac app cannot
   compile custom scripts, is unsigned, and has not yet been tried on a real Mac.
-- **Phones and tablets:** there is no Android or iOS app. Use the website's terminal in the
-  browser.
+- **Phones and tablets:** the Android and iOS apps are **not ready yet** (never built, nothing to
+  download). Use the website's terminal in the browser.
 - **Linux:** the web host in a browser with Orca. Also the recommended build everywhere.
 - **The keyboard is the same on every head.** Drawing chords are Alt+Shift+letter everywhere.
   The only differences are the browser-reserved tab chords above, and F11 for bar replay

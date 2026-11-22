@@ -647,9 +647,9 @@ counted when the pane is sized.
 Inside a pane the structure continues. A **series** is one thing you added: the candles, an
 RSI, a trend line. A **component** is one line or marker that series draws, and it has a value
 on every bar. MACD is one series with three components: the MACD line, the signal line and the
-histogram. Cipher B is one series with seven that speak (PageDown onto it says "7 components"),
-and Up and Down also stop on two more, RSI and Stochastic, which it draws but which start muted;
-its Sell dot is left out until you include it. PageUp and PageDown walk series; Up and Down
+histogram. Cipher B is one series with nine components (PageDown onto it says "9 components"),
+and Up and Down stop on all nine; two of them, RSI and Stochastic, start muted, so seven speak
+until you unmute them. Its Sell dot is left out until you include it. PageUp and PageDown walk series; Up and Down
 walk the components of the series you are on.
 
 A few panes divide into **strips**, a band of the sheet with its own upright ruler: Cipher B
@@ -1405,8 +1405,8 @@ at a time.
 
 None of this touch support has yet been tried on a real phone or tablet with VoiceOver or
 TalkBack, so treat it as a first version; a Bluetooth keyboard works as it does on a desktop.
-There is no Android or iOS app to install: on a phone or tablet, the terminal is the web
-version in the browser. Pinch-zooming the page itself is never blocked, so browser-level
+**The Android and iOS apps are not ready yet** (never built, nothing to download), so on a phone or
+tablet the terminal is the web version in the browser. Pinch-zooming the page itself is never blocked, so browser-level
 magnification works on the website.
 
 
@@ -3540,7 +3540,7 @@ Tools, then use the touch toolbar's **Place drawing point** button in place of
 point once per anchor, so a trend line, channel, or any multi-anchor tool completes
 entirely by touch.
 
-> The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and
+> The drawing chords are `Alt+Shift+<letter>` on every head — desktop app and
 > browser, and the F1 help always shows the bindings live on your host.
 
 The shortcuts cover Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
@@ -3903,7 +3903,7 @@ needs the chart focused.)
 
 **N follows your cursor, exactly like H and M.** With the cursor on a series it switches the
 whole series; with the cursor on a *component* — Ctrl+Up and Ctrl+Down move between them — it
-picks out that one component. That matters on an indicator like Cipher B, which has eighteen
+picks out that one component. That matters on an indicator like Cipher B, which has nine
 components: switching the series on and leaving it there gives you every one that is shown, and
 pressing N on the Buy dot narrows narration to just that. Press N on it again and you are back to
 the whole series. So the rule is: **no component picked out means all of them**, and the series
@@ -3916,7 +3916,7 @@ on every series and clears every component selection, the way Ctrl+Alt+Shift+K a
 every hide and every mute.
 
 **Where these words land in the sentence.** Moving onto a series or component that is switched
-off says so **first** — *"Hidden and muted. Cipher B. 18 components…"* — and that it is
+off says so **first** — *"Hidden and muted. Cipher B. 9 components…"* — and that it is
 narrating **last**: *"…64,900. Narrating."* The two halves are not the same kind of fact.
 Hidden and muted explain a *silence*, and anything that interrupts an utterance takes its end,
 so the half you must not lose goes in front; narrating is an addition, everything else about the
@@ -5373,7 +5373,7 @@ built and tested in code but has not yet been run on a Windows machine.
 
 The native apps have **no headless monitor**: with the window open they watch the focused
 chart and, with "Keep watching other tabs" on, the other open tabs, and nothing else. An alert
-on a symbol with no tab open is watched by nobody on the Mac and mobile apps, and the Mac app
+on a symbol with no tab open is watched by nobody in the Mac app, and the Mac app
 has no tray and no minimise-to-tray. For browser-closed monitoring, run the local web host.
 
 The hosted website runs none of this: it is a paper-only terminal, its alerts evaluate only
@@ -5884,8 +5884,8 @@ and calibration — is covered in the project's platform documentation rather th
 
 Accessible Trader runs two ways: as a native desktop app on Windows and macOS, and as
 a web host that you reach in a browser such as Firefox — on your own computer (the only
-way on Linux) or on the website. There is **no Android or iOS app**: the project has code
-for them, but no one has built or run it, and nothing is offered for download. On a phone
+way on Linux) or on the website. **The Android and iOS apps are not ready yet**: the project has code
+for them, but no one has built or run it yet, and nothing is offered for download. On a phone
 or tablet, use the web version in the browser. The keyboard navigation, the
 Hybrid Voice model, and everything in the preceding chapters are the same everywhere;
 what differs is the plumbing underneath and a single block of keyboard shortcuts on
@@ -5913,7 +5913,7 @@ held in the operating system's own keychain. **On Linux, use the web host** — 
 no native Linux build, and the web host is an excellent first-class client, speaking
 through Orca and playing through PipeWire or PulseAudio; it is also what powers the
 public chart demo on the website. **On a phone or tablet**, open the website's terminal in
-the browser: there is no mobile app.
+the browser: the mobile apps are not ready yet.
 
 Two capabilities tip the balance toward the native Windows app in particular. The
 **tactile display** described in the previous chapter is Windows-only, so a Dot Pad user
@@ -5943,7 +5943,7 @@ You never have to memorise which is which —
 the Help dialog (F1) always lists the bindings actually in effect on the host you are
 using, so it self-documents per platform.
 
-| Tool / command | Desktop & mobile | Linux web host |
+| Tool / command | Desktop app | Linux web host |
 |---|---|---|
 | Trendline | Alt+Shift+T | Alt+Shift+T |
 | Horizontal line | Alt+Shift+H | Alt+Shift+H |
