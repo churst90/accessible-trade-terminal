@@ -263,7 +263,16 @@ namespace AccessibleTrader.Core.Services.Audio
             // number would put the two halves of the same readout on different values. Every
             // other series keeps the transform: they sit over the candles and are read against
             // them.
-            bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price;
+            //
+            // And only the series drawn OVER the candles. The renderer hands every pane below the
+            // price pane the REAL bars (so a volume bar is painted by the market's own candle),
+            // and the colour word is said from the real bar too. Cody, 2026-11-22, BTC 4h with
+            // Heikin-Ashi on: "2 recent bars ... sound positive but are reported as red". The
+            // Heikin-Ashi candle was up and the market's candle down, so the tone (from the
+            // Heikin-Ashi bar) said up while the paint and the words said red.
+            bool drawnOverCandles = string.IsNullOrEmpty(series.Pane)
+                || series.Pane.Equals("Main", StringComparison.OrdinalIgnoreCase);
+            bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price && drawnOverCandles;
             Ohlcv navPoint = ChartMath.BarAsDrawn(state.Data, idx, followsCandleTransform);
 
             // The log toggle reaches the ear for exactly the panes it reaches the eye: Main only.

@@ -242,10 +242,14 @@ namespace AccessibleTrader.Core.Services.Workspace
             // STRICT scoping: a monitor only evaluates alerts explicitly bound to its
             // symbol. Null-symbol ("any / current chart") alerts belong to the focused
             // pipeline — evaluating them here too would double-fire every alert.
+            //
+            // And to its chart: the timeframe and provider the alert was set on. Matching the
+            // symbol alone put Cody's 4-hour "touches 61,450" on his 1d, 1w and 1M BTCUSDT tabs,
+            // whose candles spanned it, every ten seconds (Alerts.AlertScope, 2026-11-22).
             var applicable = _alerts.GetAlerts()
                 .Where(a => a.IsActive
                          && a.Symbol != null
-                         && string.Equals(a.Symbol, _symbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                         && Alerts.AlertScope.AppliesTo(a, _symbolDisplayName, _identity))
                 .ToList();
             if (applicable.Count == 0) { _warmedUp = false; _previousValues.Clear(); return; }
 

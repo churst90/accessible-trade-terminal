@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-22: an alert fires on the chart it was set on, and nowhere else; volume bars sound the colour they are drawn
+
+Cody, 2026-11-22: he set "price touches 61,450" on his BTCUSDT chart and "it kept firing over and over
+when the price hadn't even been near that price ... they don't need to fire on all workspaces, just
+the one it was set on". And: "2 recent bars on the 4 hour btc chart sound positive but are reported as
+red".
+
+**Why the alert fired.** His saved session had six BTCUSDT tabs (1d, 4h, 1h, 15m, 1w, 1M), all
+Heikin-Ashi, with background tabs watched every ten seconds. An alert records the symbol, provider
+and timeframe of the chart it was set on, but only the symbol was ever checked (the timeframe was
+marked "informational"). So every BTCUSDT tab tested the alert against its own newest candle. The
+day, week and month candles all spanned 61,450, so they "touched". Each tab's candle has a different
+date, and the "already fired on this bar" memory is kept per alert, so each tab reset it for the next
+and the alert fired again on every poll.
+
+What changed (`AlertScope`, one rule for every place that evaluates alerts):
+
+- **An alert belongs to the chart it was set on**: same symbol, same timeframe, same provider. The
+  focused chart (`AlertOrchestrator`) and each background tab (`BackgroundWorkspaceMonitor`) only
+  evaluate the alerts that match them. A part an alert does not record still matches any chart, so
+  alerts saved before this (no timeframe) and "current chart" alerts (no symbol) behave as before.
+  Timeframes compare by length, case-sensitively: "1M" (a month) is not "1m" (a minute), and "60m"
+  is "1h".
+- **A price "touches" alert reads the market's own high and low** on a Heikin-Ashi chart. A
+  Heikin-Ashi candle's wick can reach prices the market never traded (its open lags behind), so a
+  touch was possible with the price nowhere near. "Crosses" alerts keep reading the Heikin-Ashi
+  close, as Cody asked on 2026-10-22, and Renko-style charts already read the real bars.
+- **Switching tabs is not a crossing.** The focused chart compared the last values of the chart you
+  left with the first values of the one you switched to, so an "RSI crosses above 70" alert could
+  fire just because the 1-day RSI was 50 and the 1-hour RSI was 80. The comparison now starts afresh
+  on every switch of symbol, timeframe, provider or chart type.
+- **The browser-closed watchers still cover what the open browser does not.** With the 1-day tab on
+  screen, "BTCUSDT is on screen" used to mean every BTCUSDT alert was the browser's; now that the
+  1-day tab no longer evaluates a 4-hour alert, the headless watchers (`LocalBackgroundMonitor`
+  locally, `HostedAlertMonitor` on the server) take the 4-hour one. An open browser claims each
+  chart it shows by symbol, timeframe and provider (`WebHostBrowserCircuitHandler`).
+
+**Why the volume bars disagreed.** On a Heikin-Ashi chart the arrow-key tone used the Heikin-Ashi
+candle for every series except price, but the volume pane is painted from the market's real candles,
+and the colour word ("red bar") is said from the real candle too. When the Heikin-Ashi candle was up
+and the real one down, the tone said up and the paint and words said red. The tone now uses the same
+candle the renderer paints that pane with: Heikin-Ashi only for series drawn over the candles in the
+price pane, the real candle for every pane below. Playback already used the real bars.
+
+Tests: `AlertScopeTests` (10, including Cody's case: one shared evaluator and a 1d and a 4h monitor,
+the 61,450 alert fires zero times and a 61,000 alert that the 4h candle reaches fires exactly once
+over four polls; the Heikin-Ashi touch with its precondition checked; the tab switch; the coverage
+claims) and two in `PriceLineTransformAudioTests` (a volume bar under a down candle and an up
+Heikin-Ashi candle sounds the bearish tone and is said "red bar"). Each was proven red by undoing its
+fix. The fake browser in `HeadlessSessionTests` and `HeadlessAlertTests` now claims what a real one
+does. The alert, monitor, coverage, headless, sound and navigation tests pass locally (1,060 and
+1,496).
+
+Caveats: **not heard by Cody.** An alert's **market** is not part of the match (the strings differ
+between places). Two tabs with exactly the same symbol, timeframe and provider still share one
+monitor, as before. An alert saved before 2026-11-22 without a timeframe still fires on every chart of
+its symbol; set it again on the chart you mean to scope it.
+
+### 2026-11-22: shared charts, the second round of questions (design only)
+
+`docs/SHARED_CHARTS_DESIGN.md` gains Cody's second round, answered with recommendations for him to
+confirm: a share holds one tab by default or several picked tabs, never the whole session; it is on
+or stopped with the same link, plus "New link"; **chart notes** are saved with the tab (useful before
+anything is shared, and in the app with no account) and go live with a share, spoken to viewers,
+beside the chart and on the website page; the app may sign in to a website account (optional, for
+sharing first and copying charts later, never for API keys); viewing a share needs no account; the
+app opens a share from a pasted link through a small public API and loads the prices from its own
+feeds. An **Account** tab in Settings that explains itself is suggested before any of it is built.
+
 ### 2026-11-22: a design for shared charts (nothing built)
 
 `docs/SHARED_CHARTS_DESIGN.md`, written for later from Cody's answers: shared charts are live (the

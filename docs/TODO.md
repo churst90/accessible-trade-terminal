@@ -70,6 +70,13 @@ settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain r
 Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
 components". Caveats for these are in CHANGES (2.15.0).
 
+- [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
+  background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
+  candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
+  Switch tabs back and forth with an RSI "crosses" alert set: nothing should fire. Old alerts with no
+  timeframe still fire on every tab of their symbol; set them again.
+- [ ] **Volume tones on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were
+  said red should now sound down, matching their red paint.
 - [ ] **The 9-13 against TradingView** (it reads right, Cody 2026-11-22): put a community
   "Sequential" script on the same chart and compare where the 9s and 13s land; the 9s should match
   any of them, the 13s only one using the same published recycle. **Q:** should narration as a bar
@@ -173,8 +180,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
 - [ ] **Shared charts** (Cody, 2026-11-22: "share charts only you can change", "for later"). Design in
   [SHARED_CHARTS_DESIGN.md](SHARED_CHARTS_DESIGN.md), on Cody's answers: **live** (his edits reach
   viewers in real time, the viewer's tab named "..., Cody's chart, read only"), **anyone can share**,
-  every share read-only to all but its owner, **link-only**. Four smaller questions still open at the
-  end of that file. Not started.
+  every share read-only to all but its owner, **link-only**. Second round (11-22) answered with
+  recommendations to confirm (question 5 in that file): one or several picked tabs, never the
+  session; chart notes saved with the tab; optional sign-in from the app, never for keys; shares open
+  in the app from a pasted link with no account. Stage 0 (chart notes, an Account tab in Settings
+  that explains itself) is useful on its own. Not started.
 - [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:
   1. **Close everything** on one key: cancel every working order and close every position on the
      focused venue (then optionally all venues), after one spoken confirmation that says what it will do

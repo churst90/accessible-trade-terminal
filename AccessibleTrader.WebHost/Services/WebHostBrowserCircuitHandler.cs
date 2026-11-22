@@ -59,7 +59,7 @@ namespace AccessibleTrader.WebHost.Services
         // Suppression is now per SYMBOL rather than per user: the in-session pipeline keeps
         // the alerts it can genuinely see, and the server takes the rest.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<
-            string, System.Collections.Concurrent.ConcurrentDictionary<string, string>> _symbolsByUser
+            string, System.Collections.Concurrent.ConcurrentDictionary<string, string[]>> _symbolsByUser
             = new(StringComparer.Ordinal);
 
         /// <summary>
@@ -73,6 +73,7 @@ namespace AccessibleTrader.WebHost.Services
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             return perCircuit.Values
+                .SelectMany(v => v)
                 .Where(v => !string.IsNullOrEmpty(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
@@ -92,12 +93,16 @@ namespace AccessibleTrader.WebHost.Services
             _symbolsByUser.TryRemove(userKey, out _);
         }
 
-        /// <summary>Test seam: record a symbol as on screen for a user's circuit.</summary>
-        internal static void RecordOnScreenSymbol(string userKey, string circuitId, string? symbol)
+        /// <summary>Record the chart a user's circuit has on screen: its symbol, and with its
+        /// timeframe and provider when known (AlertScope.CoverageKeys), so a 4-hour alert is
+        /// covered only by a 4-hour chart.</summary>
+        internal static void RecordOnScreenSymbol(string userKey, string circuitId, string? symbol,
+            string? timeframe = null, string? provider = null)
         {
             var perCircuit = _symbolsByUser.GetOrAdd(userKey,
-                _ => new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal));
-            perCircuit[circuitId] = symbol ?? "";
+                _ => new System.Collections.Concurrent.ConcurrentDictionary<string, string[]>(StringComparer.Ordinal));
+            perCircuit[circuitId] = AccessibleTrader.Core.Services.Alerts.AlertScope
+                .CoverageKeys(symbol, timeframe, provider).ToArray();
         }
 
         private static void ForgetCircuitSymbol(string userKey, string circuitId)
@@ -228,9 +233,11 @@ namespace AccessibleTrader.WebHost.Services
                     _circuitId = circuit.Id;
                     var key = _userKey;
                     var id = _circuitId;
-                    RecordOnScreenSymbol(key, id, store.State.SymbolDisplayName);
+                    RecordOnScreenSymbol(key, id, store.State.SymbolDisplayName,
+                        store.State.Identity.Timeframe, store.State.Identity.Provider);
                     _symbolWatch = store.StateStream.Subscribe(
-                        st => RecordOnScreenSymbol(key, id, st.SymbolDisplayName));
+                        st => RecordOnScreenSymbol(key, id, st.SymbolDisplayName,
+                            st.Identity.Timeframe, st.Identity.Provider));
                 }
             }
             catch (Exception ex)
@@ -434,15 +441,25 @@ namespace AccessibleTrader.WebHost.Services
             // monitor announced its every bar close. That is fixed at the source in
             // MarketOrchestrator.LoadRestoredActiveTabAsync; this stays belt-and-braces, because
             // the cost of being wrong here is asymmetric.
+            //
+            // Each spelling comes with its timeframe and provider too (AlertScope.CoverageKeys):
+            // alerts fire only on the chart they were set on, so the 1-day tab covers the 1-day
+            // alerts and nothing about a 4-hour one. Bar closes still go by the symbol alone.
             var state = store.State;
-            if (!string.IsNullOrWhiteSpace(state.SymbolDisplayName)) yield return state.SymbolDisplayName;
-            if (!string.IsNullOrWhiteSpace(state.Identity.Symbol)
-                && !string.Equals(state.Identity.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
-                yield return state.Identity.Symbol;
+            var id = state.Identity;
+            if (!string.IsNullOrWhiteSpace(state.SymbolDisplayName))
+                foreach (var k in AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys(state.SymbolDisplayName, id.Timeframe, id.Provider))
+                    yield return k;
+            if (!string.IsNullOrWhiteSpace(id.Symbol)
+                && !string.Equals(id.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                foreach (var k in AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys(id.Symbol, id.Timeframe, id.Provider))
+                    yield return k;
 
             if (monitoring?.IsEnabled != true) yield break;
             foreach (var m in monitoring.Monitors)
-                if (!string.IsNullOrWhiteSpace(m.SymbolDisplayName)) yield return m.SymbolDisplayName;
+                if (!string.IsNullOrWhiteSpace(m.SymbolDisplayName))
+                    foreach (var k in AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys(m.SymbolDisplayName, m.Identity.Timeframe, m.Identity.Provider))
+                        yield return k;
         }
         public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
         {

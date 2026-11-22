@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Core.Services.ChangeLog;
 using AccessibleTrader.Core.Services.Charts;
 using AccessibleTrader.Core.Services.Feeds;
@@ -221,7 +222,7 @@ namespace AccessibleTrader.WebHost.Services
             // open browser session already watches belongs to that session; everything else is
             // ours. See CircuitAlertCoverage for why this is not a pause.
             var covered = CircuitAlertCoverage.CoveredSymbols();
-            var watches = OwnedWatches(DeriveWatches(alerts, session), covered);
+            var watches = OwnedAlertWatches(DeriveWatches(alerts, session), covered);
 
             // Bar closes (Phase 3 D1). Same routing rule as alerts: a symbol an open browser
             // already covers belongs to that browser — in-session the focused chart publishes
@@ -840,6 +841,23 @@ namespace AccessibleTrader.WebHost.Services
         {
             if (covered.Count == 0) return watches;
             return watches.Where(w => !covered.Contains(w.Symbol)).ToList();
+        }
+
+        /// <summary>
+        /// The alert watches this monitor owns, each keeping only the alerts no open browser is
+        /// already evaluating. Per ALERT, not per symbol: with the 1-day BTCUSDT tab on screen and
+        /// background tabs not monitored, a 4-hour BTCUSDT alert is watched by nobody in the
+        /// browser now that alerts fire only on the chart they were set on (AlertScope), so it is
+        /// ours. An alert that records no timeframe is still covered by its symbol alone.
+        /// </summary>
+        public static IReadOnlyList<Watch> OwnedAlertWatches(
+            IReadOnlyList<Watch> watches, IReadOnlySet<string> covered)
+        {
+            if (covered.Count == 0) return watches;
+            return watches
+                .Select(w => w with { Alerts = w.Alerts.Where(a => !covered.Contains(AlertScope.CoverageKey(a, w.Symbol))).ToList() })
+                .Where(w => w.Alerts.Count > 0)
+                .ToList();
         }
 
         private sealed class StringTupleComparer

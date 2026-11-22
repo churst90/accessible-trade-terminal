@@ -217,8 +217,12 @@ public class HeadlessSessionTests : IDisposable
     }
 
     /// <summary>Pretend a browser circuit is open with these symbols on screen.</summary>
+    /// <summary>A browser showing each symbol on the 1-hour Bitstamp chart the alerts here are
+    /// set on, claiming what a real circuit claims (AlertScope.CoverageKeys): the symbol, and the
+    /// symbol with its chart, since an alert is only the browser's on the chart it was set on.</summary>
     private static IDisposable OpenCircuit(string id, params string[] symbols) =>
-        CircuitAlertCoverage.Register(id, () => symbols);
+        CircuitAlertCoverage.Register(id, () => symbols.SelectMany(s =>
+            AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys(s, "1h", "Bitstamp")).ToList());
 
     // ── The routing rule, pure ───────────────────────────────────────────────
 
@@ -275,7 +279,8 @@ public class HeadlessSessionTests : IDisposable
 
         // Failing towards "the headless side takes it" risks a duplicate; failing the other
         // way loses the alert outright. One of those two is recoverable.
-        Assert.Equal(new[] { "ETH/USD" }, CircuitAlertCoverage.CoveredSymbols().ToArray());
+        Assert.True(CircuitAlertCoverage.CoveredSymbols().SetEquals(
+            AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys("ETH/USD", "1h", "Bitstamp")));
     }
 
     // ── The scope really is long-lived ───────────────────────────────────────

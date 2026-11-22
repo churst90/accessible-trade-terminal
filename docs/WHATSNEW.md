@@ -6,6 +6,19 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## Unreleased
+
+- **An alert fires on the chart you set it on, and nowhere else.** With several tabs of the same
+  coin on different timeframes, a price alert set on the 4-hour chart was checked on every tab, and
+  a daily or monthly candle spanning the price made it fire again and again. Now it belongs to its
+  own symbol, timeframe and provider. Alerts saved before this keep firing on every chart of their
+  symbol; set them again to scope them.
+- **On a Heikin-Ashi chart, a price "touches" alert needs the market to touch it**, not only a
+  Heikin-Ashi wick.
+- **Switching tabs no longer fires an indicator "crosses" alert** by comparing two charts.
+- **Volume bars on a Heikin-Ashi chart sound the colour they are drawn and said in**: a red bar
+  under a down candle no longer plays the "up" tone.
+
 ## 2.15.0: the chart's fixes from Cody's notes, the 9-13 sequential, and nearby levels you can switch off
 
 A smaller release after 2.14's news desk. Cody has heard the shorter settings, the Donate tab, the

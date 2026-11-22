@@ -87,6 +87,8 @@ namespace AccessibleTrader.Core.Services
             IReadOnlyDictionary<string, double> previousValues)
         {
             var results = new List<AlertFired>();
+            // The market's own two bars, whatever the chart draws: what "price touches" reads.
+            var market = state.ChartStyle.IsBrickStyle() ? OnTheMarket(state, newBar, previousBar) : (newBar, previousBar);
             (newBar, previousBar) = OnTheMarket(state, newBar, previousBar);
 
             foreach (var alert in alerts)
@@ -95,7 +97,7 @@ namespace AccessibleTrader.Core.Services
 
                 try
                 {
-                    var fired = TryEvaluate(alert, state, newBar, previousBar, previousValues);
+                    var fired = TryEvaluate(alert, state, newBar, previousBar, previousValues, market);
                     if (fired != null) results.Add(fired);
                 }
                 catch (Exception ex)
@@ -197,7 +199,8 @@ namespace AccessibleTrader.Core.Services
             WorkspaceState state,
             Ohlcv newBar,
             Ohlcv previousBar,
-            IReadOnlyDictionary<string, double> previousValues)
+            IReadOnlyDictionary<string, double> previousValues,
+            (Ohlcv NewBar, Ohlcv PreviousBar) market)
         {
             // Part D: an advanced condition tree REPLACES the simple rule entirely.
             if (alert.ConditionTree != null)
@@ -217,6 +220,13 @@ namespace AccessibleTrader.Core.Services
 
             if (alert.Target == AlertTarget.Price)
             {
+                // A price TOUCH is the market trading the level, so it reads the real bar even on
+                // a Heikin-Ashi chart. The Heikin-Ashi candle's open is an average of the candles
+                // before it and its wick reaches that open, so its range can cover a level the
+                // market never traded: Cody's "touches 61,450" fired with the market near 61,000,
+                // reporting a Heikin-Ashi close of 61,712 (2026-11-22). Crossings keep reading the
+                // Heikin-Ashi close, as Cody asked on 2026-10-22.
+                if (alert.Condition == AlertCondition.Touches) (newBar, previousBar) = market;
                 currentValue = newBar.Close;
                 prevValue    = previousBar.Close;
             }

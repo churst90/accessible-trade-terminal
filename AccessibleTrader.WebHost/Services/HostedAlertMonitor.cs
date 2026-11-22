@@ -197,9 +197,14 @@ namespace AccessibleTrader.WebHost.Services
             {
                 ct.ThrowIfCancellationRequested();
 
-                // The in-session pipeline is already watching this one; evaluating it here
-                // too would double-deliver every email, Telegram message and push.
-                if (onScreenSymbols.Contains(watch.Symbol)) continue;
+                // The in-session pipeline is already watching these; evaluating them here
+                // too would double-deliver every email, Telegram message and push. Per alert:
+                // the browser evaluates an alert only on the chart it was set on (AlertScope),
+                // so a 4-hour alert is not covered by the 1-day tab of the same symbol.
+                var mine = watch.Alerts
+                    .Where(a => !onScreenSymbols.Contains(AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKey(a, watch.Symbol)))
+                    .ToList();
+                if (mine.Count == 0) continue;
 
                 // Market is part of the key: two users watching one symbol on
                 // different sub-types (Spot vs Futures) must not share a fetch.
@@ -230,7 +235,7 @@ namespace AccessibleTrader.WebHost.Services
 
                 var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
                 var fired = evaluator.EvaluateAlerts(
-                    watch.Alerts, state, bars[^1], bars[^2],
+                    mine, state, bars[^1], bars[^2],
                     new Dictionary<string, double>()).ToList();
 
                 foreach (var f in fired)

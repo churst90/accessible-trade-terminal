@@ -37,9 +37,9 @@ public sealed class PriceLineTransformAudioTests
         new(new DateTime(2026, 1, 2), 100, 110, 97.5, 108, 1),
     };
 
-    private static ChartSeries LineSeries(string id)
+    private static ChartSeries LineSeries(string id, string pane = "Main")
     {
-        var cfg = new SeriesConfig { Id = id, Name = id, IndicatorCode = id.ToUpperInvariant(), Pane = "Main" };
+        var cfg = new SeriesConfig { Id = id, Name = id, IndicatorCode = id.ToUpperInvariant(), Pane = pane };
         cfg.Components.Add(new ComponentConfig
         {
             Name = "line", DisplayName = "Price", IsVisible = true, IsMuted = false,
@@ -52,11 +52,11 @@ public sealed class PriceLineTransformAudioTests
     }
 
     /// <summary>The bar the sonifier handed the strategy for the focused series.</summary>
-    private static Ohlcv SonifiedBar(string seriesId, bool heikinAshi)
+    private static Ohlcv SonifiedBar(string seriesId, bool heikinAshi, string pane = "Main")
     {
         var recorder = new RecordingStrategy();
         var sonifier = new NavigationSonifier(new SilentDriver(), recorder, new SoundPatchRegistry());
-        var series = LineSeries(seriesId);
+        var series = LineSeries(seriesId, pane);
 
         sonifier.SyncNavigationSlots(WorkspaceState.Initial with
         {
@@ -70,7 +70,7 @@ public sealed class PriceLineTransformAudioTests
             ViewportLength = 100,
             ChartVolume = 1.0f,
             IsHeikinAshi = heikinAshi,
-            PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Main", (0, 200)),
+            PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Main", (0, 200)).Add(pane == "Main" ? "_" : pane, (0, 200)),
             ViewportRange = (0, 200),
         });
 
@@ -97,6 +97,69 @@ public sealed class PriceLineTransformAudioTests
     }
 
     /// <summary>
+    /// <b>A volume bar is heard by the candle it is painted by</b> (Cody, 2026-11-22: two volume
+    /// bars on BTC 4h "sound positive but are reported as red"). The renderer paints every pane
+    /// below the price pane from the real bars and the colour word is said from the real bar, so
+    /// the tone must take the real bar too. Here the real candle is up (100 to 108) and so is the
+    /// Heikin-Ashi one, so the CLOSE is what tells the two apart, as in the tests above.
+    /// </summary>
+    [Fact]
+    public void A_series_in_its_own_pane_is_sonified_from_the_real_bar_with_Heikin_Ashi_on()
+    {
+        Assert.Equal(RawClose, SonifiedBar(CoreSeriesIds.Volume, heikinAshi: true, pane: "Volume").Close);
+        // The control: the same series laid over the candles still follows them.
+        Assert.Equal(HaClose, SonifiedBar(CoreSeriesIds.Volume, heikinAshi: true, pane: "Main").Close);
+    }
+
+    /// <summary>Cody's bars, end to end: a down market candle under an up Heikin-Ashi candle. The
+    /// volume tone is the bearish one, the colour the renderer and the words use is the down
+    /// colour, and the precondition (the Heikin-Ashi candle IS up) is checked so this is not
+    /// vacuous.</summary>
+    [Fact]
+    public void A_volume_bar_under_a_down_candle_sounds_down_on_a_Heikin_Ashi_chart()
+    {
+        // A climb from 90 to 120 leaves the Heikin-Ashi open far below the market; the last
+        // candle opens at 120 and closes at 116, down, while its Heikin-Ashi candle is still up.
+        var t = new DateTime(2026, 11, 22);
+        var bars = new List<Ohlcv>();
+        for (int i = 0; i < 6; i++) bars.Add(new(t.AddHours(4 * i), 90 + 5 * i, 96 + 5 * i, 89 + 5 * i, 95 + 5 * i, 10));
+        bars.Add(new(t.AddHours(24), 120, 121, 115, 116, 10));
+        int last = bars.Count - 1;
+        var ha = ChartMath.BarAsDrawn(new TimeSeriesBuffer<Ohlcv>(bars), last, true);
+        Assert.True(ha.Close >= ha.Open, "precondition: the Heikin-Ashi candle is up");
+        Assert.True(bars[last].Close < bars[last].Open, "precondition: the market's candle is down");
+
+        var cfg = new SeriesConfig { Id = CoreSeriesIds.Volume, Name = "Volume", IndicatorCode = "VOLUME", Pane = "Volume" };
+        var comp = new ComponentConfig
+        {
+            Name = "Volume", DisplayName = "Volume", IsVisible = true, Role = ComponentRole.Volume,
+            DisplayType = ComponentDisplayType.Histogram, ColorSource = ColorSource.PriceAction,
+            PitchMapping = PitchMapping.PriceDirection, BullishFrequency = 880, BearishFrequency = 220,
+            BaseFrequency = 440, FreqMultiplier = 1.0, Volume = 1.0f, Waveform = "sine",
+        };
+        cfg.Components.Add(comp);
+        var buf = new SeriesDataBuffer { SeriesId = cfg.Id, FirstBarDate = bars[0].Date };
+        buf.ComponentData["Volume"] = bars.Select(b => b.Volume).ToArray();
+        var series = new ChartSeries(cfg, buf);
+
+        var heard = new HeardStrategy();
+        new NavigationSonifier(new SilentDriver(), heard, new SoundPatchRegistry()).SyncNavigationSlots(WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars),
+            ActiveSeries = ImmutableList.Create(series),
+            FocusedSeriesId = series.Id, FocusedSeriesIndex = 0, FocusedComponentIndex = 0,
+            CurrentDataIndex = last, ViewportStartIndex = 0, ViewportLength = 100, ChartVolume = 1.0f,
+            IsHeikinAshi = true,
+            PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Volume", (0, 20)),
+            ViewportRange = (80, 130),
+        });
+
+        Assert.Equal(220, heard.LastFrequency);
+        // What the words say for that bar, from the same real bar the renderer paints it by.
+        Assert.Equal("red bar", AccessibleTrader.Core.Services.Accessibility.MarkerLook.DescribeBar(null, series, comp, last, bars[last]));
+    }
+
+    /// <summary>
     /// The vacuity check: with HA off both series read the same raw bar, so the two tests above
     /// are only meaningful because the transform genuinely changes the number.
     /// </summary>
@@ -120,6 +183,31 @@ public sealed class PriceLineTransformAudioTests
         {
             LastPoint = point;
             return new AudioPoint(comp.BaseFrequency, 1.0f, comp.Waveform, 0.0, "Sustain");
+        }
+
+        public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex,
+            int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
+            => new(440, 1, "sine", 0, "Sustain");
+
+        public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data,
+            int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
+            => new(440, 1, "sine", 0, "Sustain");
+
+        public int ResolveComponentVoiceCount(ComponentConfig comp) => 1;
+    }
+
+    /// <summary>The real strategy, keeping the frequency it chose.</summary>
+    private sealed class HeardStrategy : ISonificationStrategy
+    {
+        private readonly DefaultSonificationStrategy _real = new(new SoundPatchRegistry());
+        public double LastFrequency { get; private set; }
+
+        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point,
+            int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false, int dataIndex = -1)
+        {
+            var p = _real.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale, dataIndex);
+            LastFrequency = p.Frequency;
+            return p;
         }
 
         public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex,

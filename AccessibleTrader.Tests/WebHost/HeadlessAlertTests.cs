@@ -62,8 +62,12 @@ public sealed class HeadlessAlertTests : IDisposable
         Pane = "Main", IsVisible = true,
     };
 
+    /// <summary>A browser showing each symbol on the 1-hour Bitstamp chart the alerts here are
+    /// set on, claiming what a real circuit claims (AlertScope.CoverageKeys): the symbol, and the
+    /// symbol with its chart, since an alert is only the browser's on the chart it was set on.</summary>
     private static IDisposable OpenCircuit(string id, params string[] symbols) =>
-        CircuitAlertCoverage.Register(id, () => symbols);
+        CircuitAlertCoverage.Register(id, () => symbols.SelectMany(s =>
+            AccessibleTrader.Core.Services.Alerts.AlertScope.CoverageKeys(s, "1h", "Bitstamp")).ToList());
 
     // ── Indicator alerts ─────────────────────────────────────────────────────
 

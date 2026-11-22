@@ -25,6 +25,9 @@ namespace AccessibleTrader.Core.Services
         // always an empty dict, which meant crossover alerts never fired.
         private Dictionary<string, double> _previousValues = new(StringComparer.OrdinalIgnoreCase);
         private bool _initialized = false;
+        // The chart _previousValues was taken on. See EvaluateAlerts: a snapshot from another
+        // chart is not "the tick before" on this one.
+        private string? _previousChart;
 
         public AlertOrchestrator(
             IWorkspaceStore store,
@@ -167,39 +170,34 @@ namespace AccessibleTrader.Core.Services
             // private state, which is why it was unaffected and why this is the right index.
             int idx = (state.Data?.Count ?? 0) - 1;
 
+            string chart = ChartKey(state);
             if (!_initialized)
             {
                 // First tick: populate _previousValues without firing any alerts.
                 // This prevents false-positive crossover alerts on cold start where
                 // the previous snapshot dict is empty (missing keys default to 0.0).
                 _initialized = true;
-                var seed = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-                foreach (var series in state.ActiveSeries)
-                {
-                    // Left-out parts too: an alert may watch one (ComponentInclusion.Computed).
-                    foreach (var comp in ComponentInclusion.Computed(series.Config))
-                    {
-                        var data = series.GetComponentData(comp.Name);
-                        if (data == null || idx < 0 || idx >= data.Length) continue;
-                        double val = data[idx];
-                        if (!double.IsNaN(val))
-                        {
-                            seed[$"{series.IndicatorCode}.{comp.Name}"] = val;
-                            seed[AlertEvaluator.InstanceKey(series, comp.Name)] = val;
-                        }
-                    }
-                }
-                _previousValues = seed;
+                _previousValues = Snapshot(state, idx);
+                _previousChart = chart;
                 return; // skip alert evaluation on warm-up tick
             }
 
-            // Part A — symbol gating. Until multi-workspace lands, alerts still only
-            // fire for the on-screen symbol, but an alert scoped to a specific Symbol is
-            // skipped entirely when the current chart's SymbolDisplayName doesn't match
-            // (case-insensitive). A null Symbol means "any / current chart" (back-compat).
+            // The snapshot belongs to the chart it was taken on. Switching from the 1-day tab to
+            // the 4-hour one (or turning Heikin-Ashi on) used to compare the 1-day RSI with the
+            // 4-hour RSI as if they were two ticks of one line, so "RSI crosses above 70" could
+            // fire on a tab switch with no move in the market. A new chart starts its memory
+            // from where it is; price alerts still read this tick, from the chart's own bars.
+            if (!string.Equals(chart, _previousChart, StringComparison.Ordinal))
+            {
+                _previousValues = Snapshot(state, idx);
+                _previousChart = chart;
+            }
+
+            // Only the alerts set on THIS chart: its symbol, and its timeframe and provider when
+            // the alert records them (Alerts.AlertScope has the account of Cody's 61,450 alert
+            // that fired on every BTCUSDT tab). A null Symbol means "any / current chart".
             var applicable = _alerts
-                .Where(a => a.Symbol == null
-                         || string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                .Where(a => Alerts.AlertScope.AppliesTo(a, state.SymbolDisplayName, state.Identity))
                 .ToList();
 
             applicable = Strategies.TreeAlertTimeframes.ReadyToEvaluate(applicable, _conditionEvaluator, state);
@@ -217,6 +215,14 @@ namespace AccessibleTrader.Core.Services
             }
 
             // Snapshot current indicator component values for next tick's crossover comparison.
+            _previousValues = Snapshot(state, idx);
+        }
+
+        /// <summary>Every computed component's value on the live bar, by code and by instance
+        /// (an SMA 20 and an SMA 50 share the code key). Left-out parts too: an alert may watch one
+        /// (ComponentInclusion.Computed).</summary>
+        private static Dictionary<string, double> Snapshot(WorkspaceState state, int idx)
+        {
             var next = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             foreach (var series in state.ActiveSeries)
             {
@@ -228,13 +234,16 @@ namespace AccessibleTrader.Core.Services
                     if (!double.IsNaN(val))
                     {
                         next[$"{series.IndicatorCode}.{comp.Name}"] = val;
-                        // Per instance too: an SMA 20 and an SMA 50 share the code key.
                         next[AlertEvaluator.InstanceKey(series, comp.Name)] = val;
                     }
                 }
             }
-            _previousValues = next;
+            return next;
         }
+
+        /// <summary>What makes two ticks the same line: the chart, and how its bars are built.</summary>
+        private static string ChartKey(WorkspaceState state) =>
+            $"{state.Identity.Market}|{state.Identity.Provider}|{state.Identity.Symbol}|{state.Identity.Timeframe}|{state.ChartStyle}|{state.IsHeikinAshi}";
 
         public void Dispose() => Stop();
     }
