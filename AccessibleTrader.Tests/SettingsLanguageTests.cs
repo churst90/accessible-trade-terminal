@@ -47,6 +47,10 @@ namespace AccessibleTrader.Tests
         {
             ["Blend the toolbars, chart and footer into one gradient"] =
                 "naming all three regions is the setting; any shorter and it is unclear what gets blended",
+            ["Announce other markers on the bar while navigating"] =
+                "Cody chose it (2026-11-21): \"on the bar\" and \"while navigating\" say which markers and when",
+            ["Tick other markers on the bar while navigating"] =
+                "the sound twin of the setting above, worded the same so the two are found together",
         };
 
         [Fact]

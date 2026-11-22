@@ -281,7 +281,7 @@ namespace AccessibleTrader.Core.Services.Input
         // ── Per-type jump handlers ─────────────────────────────────────────────
 
         private void DoSparseSignalJump(ChartSeries focusedSeries, ComponentConfig focusedComp, int current, bool jumpRight,
-            double[]? stops = null, string noun = "signals")
+            double[]? stops = null, string noun = "markers")
         {
             var compData = stops ?? focusedSeries.GetComponentData(focusedComp.Name);
             // A marker's bars with only a mark on them (ComponentCompanions.Mark: Cipher C's held
@@ -775,7 +775,7 @@ namespace AccessibleTrader.Core.Services.Input
         /// What Ctrl+Left/Right says on a candle or price series when there is no trend line to
         /// cross. It used to say "No trendlines found", which names a thing the user may never
         /// have heard of and does not say what the key does here. Cody, 2026-09-05: every other
-        /// series answers with something about ITSELF ("No more Buy signals in this direction"),
+        /// series answers with something about ITSELF ("No more Buy markers in this direction"),
         /// so this one should too — the series has no crossings, and here is how to give it some.
         /// </summary>
         internal static string NoTrendlinesMessage(ChartSeries? focusedSeries)

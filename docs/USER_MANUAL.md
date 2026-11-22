@@ -168,14 +168,14 @@ in another pane nearing 70. Move to that line and you hear its cues. A line you 
 is the exception: its crossing chirp sounds whatever has focus, because price crosses it.
 
 By default you hear only the focused component. To also hear a quiet tick for each of the indicator's
-other signals on the bar (its other dots, crosses and arrows), turn on **Tick other signals while
-arrowing** on the Sonification tab of Settings. The ticks then follow the focused component's own tone,
-so a bar carrying three signals sounds different from a bar carrying one.
+other markers on the bar (its other dots, crosses and arrows), turn on **Tick other markers on the bar while
+navigating** on the Sonification tab of Settings. The ticks then follow the focused component's own tone,
+so a bar carrying three markers sounds different from a bar carrying one.
 
 Speech follows the same rule. Arrowing Cipher A's Trend Turned Up (the green dot) names it, not the
-Bullish Conditions diamond on the same candle, and arrowing Cipher B does not name Cipher A's signals. To hear the
-other signals on the bar named after your reading (the same indicator's other markers and those of
-other indicators on the price pane), turn on **Speak other signals while arrowing** on the Speech
+Bullish Conditions diamond on the same candle, and arrowing Cipher B does not name Cipher A's markers. To hear the
+other markers on the bar named after your reading (the same indicator's other markers and those of
+other indicators on the price pane), turn on **Announce other markers on the bar while navigating** on the Speech
 tab. Chart patterns, cycle marks, your own text labels and nearby support and resistance are about
 the whole chart and are spoken either way, and narration as bars close keeps its own rules.
 
@@ -3126,7 +3126,7 @@ understand where you are, and get your edge somewhere you have tested.
 
 #### Seeing them, if that helps
 
-**Settings → Appearance → Draw chart formations.** Off by default. It shades each formation's span,
+**Settings → Appearance → Draw chart patterns.** Off by default. It shades each formation's span,
 draws the trigger level solid, and draws the conventional measured target lighter and dashed. A
 triangle or wedge is also drawn as its two sloping edges across the formation. Each line is labelled
 with what it is — "rising wedge trigger 74,912.00, downward breakout" (while it is still forming,
@@ -3813,7 +3813,7 @@ louder than quiet ones and a busy stretch of market is something you hear swell
 rather than something you have to look up. Press Alt+H again to turn it off.
 
 The heatmap is one colour at different strengths, so a colour name would mean
-nothing. With **Say what lines and signals look like** on, a cell says its strength
+nothing. With **Describe how markers and lines are drawn** on, a cell says its strength
 instead — **"Dark cell."**, **"Medium cell."** or **"Light cell."** from the top,
 middle or bottom third of the opacity the renderer draws it with. You hear it when
 you arrive on the heatmap, then only when the word changes, whether you are moving
@@ -3866,7 +3866,7 @@ chart in front of you.
 | Occasion | What is said | Switch |
 |---|---|---|
 | A bar closes on the focused chart | "Close … at …, {pattern}." then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last — and last of all "New bar: Open … at …" | Narration → Announce new bars; Narrate signals on bar close; N on each series |
-| The forming bar changes shape | "hammer forming", "bullish engulfing forming"; a formation building, with its confirming level | Narrate candle patterns as they form (on); Narrate chart formations as they form (off); both need N on the candles |
+| The forming bar changes shape | "hammer forming", "bullish engulfing forming"; a formation building, with its confirming level | Narrate candle patterns as they form (on); Narrate chart patterns as they form (off); both need N on the candles |
 | Playback steps onto a bar | The date or hour as it changes; discrete signals on the series you played (two at most, rarest first); a line crossing one of its own levels; a formation resolving | Narrate during playback; Speak time landmarks during playback |
 | An alert fires | "{name}: crossed above {level}. Current value {value}." | The alert's own Delivery setting; ignores every narration switch |
 | Money moves | "Order filled…", "Stop loss hit…", "Order rejected for … {reason}" | None: through every mute, every snooze, every playback |
@@ -4036,7 +4036,7 @@ so choose UTC if that is not yours.
 
 **What lines and signals look like.** Sighted traders talk about signals by their look: "the big
 green dot", "the red triangle above the candle", "the orange line". Turn on **Settings (F12) →
-Speech → Say what lines and signals look like** and every signal marker you hear is followed by one
+Speech → Describe how markers and lines are drawn** and every signal marker you hear is followed by one
 sentence describing it: *"Buy. Large green dot."* It says four things:
 
 - **Shape.** Dot, up or down arrow, up or down triangle, up triangle with a ring (and the letter in
@@ -5567,7 +5567,7 @@ nothing to say; and playback narration is on because it is what the terminal alr
 - **Narrate candle patterns as they form** (on) — "hammer forming", spoken as the live bar
   changes shape, debounced to one announcement per change. Needs "Describe candle patterns"
   on General, and N on the candles.
-- **Narrate chart formations as they form** (off) — a double top or triangle while it is
+- **Narrate chart patterns as they form** (off) — a double top or triangle while it is
   still building, with the level that would confirm it, once per formation. Off because it
   is a new occasion to speak.
 - **Narrate signals on bar close** — the master switch over auto-narration. N chooses *which*

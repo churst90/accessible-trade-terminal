@@ -229,10 +229,9 @@
         @if (IsTradingTab)
         {
             <div class="toolbar-group">
-                <ToolbarIconButton Icon="heatmap" Label="Heatmap" Variant="data"
-                                  IsToggleOn="@(IsHeatmapVisible == "true")"
-                                  Tooltip="Toggle liquidity heatmap, Alt plus H"
-                                  OnClick="AddHeatmap" />
+                @* The Heatmap button and its Alt+H went on 2026-11-21 (Cody): the liquidity heatmap
+                   is an indicator like the rest, added from Add Indicator (Order Flow) or the Go
+                   bar's HEAT, and Alt+H is free for something else. *@
                 @* Chart type: Candles, Heikin Ashi, Bars, Hollow candles, Volume candles, Line, Area, Baseline,
                    High-low, HLC area, then the charts built off the clock — one choice, like
                    TradingView. Alt+C puts focus here (until 2026-11-19 it toggled Heikin Ashi);
@@ -611,8 +610,6 @@
         MarketOrchestrator.SelectedSymbol
             == AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
 
-    private string IsHeatmapVisible => Store.State.ActiveSeries.Any(s => s.IndicatorCode == "HEATMAP" && s.IsVisible) ? "true" : "false";
-
     // True when the "Analytics" umbrella is the selected market, so the Analytics-type
     // dropdown (Economic/OnChain/…) is surfaced between Market and Provider.
     private bool IsAnalyticsMarketSelected =>
@@ -891,11 +888,6 @@
         _loadError = null;
         ParseTimeframe(tf);
         MarketOrchestrator.SelectedTimeframe = tf;
-    }
-
-    private void AddHeatmap()
-    {
-        EventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
     }
 
     /// <summary>The select's current option: the pair of style + Heikin-Ashi as one value.</summary>

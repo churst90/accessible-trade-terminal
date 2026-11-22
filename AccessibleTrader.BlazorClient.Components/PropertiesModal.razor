@@ -99,15 +99,12 @@
                                         <label>
                                             <input type="checkbox" checked="@_series.AnnounceAcrossSeries"
                                                    @onchange="e => _series.AnnounceAcrossSeries = (bool)(e.Value ?? true)" />
-                                            Announce this indicator's signals while another series has focus
+                                            Announce this indicator's markers while another series has focus
                                         </label>
                                     </div>
                                     <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">
-                                        On by default. Leave it on for signals worth hearing anywhere on the chart —
-                                        support zones, structure breaks, divergences. Turn it off for an indicator
-                                        whose output only means something while you are reading that indicator, so it
-                                        does not talk over you elsewhere. This series always speaks its own signals
-                                        when it is the one you are navigating.
+                                        Turn it off for an indicator whose markers only mean something while you are
+                                        reading it; on the series itself they are always spoken.
                                     </p>
                                 </fieldset>
                             }
@@ -697,7 +694,7 @@
                                     <code>{trend}</code>, <code>{zone}</code>
                                 </p>
                                 <p style="font-size:0.78rem; color:var(--text-muted); margin:0;">
-                                    Signal (marker) templates:
+                                    Marker templates:
                                     <code>{name}</code>, <code>{price}</code>. Empty template on a marker = silent.
                                 </p>
                             </fieldset>
@@ -764,12 +761,12 @@
                                     {
                                         <div class="modal-row" style="flex-direction:column; align-items:stretch; margin-top:8px;">
                                             <label for="signal-tmpl-@comp.Name" style="flex:none; margin-bottom:3px;">
-                                                Signal template (fires on marker)
+                                                Marker template
                                             </label>
                                             <textarea id="signal-tmpl-@comp.Name"
                                                       rows="2"
                                                       style="width:100%; background:#222; border:1px solid var(--border-color); color:#fff; padding:4px; border-radius:2px; font-family:monospace;"
-                                                      aria-label="Signal speech template for @CompLabel(comp)"
+                                                      aria-label="Marker speech template for @CompLabel(comp)"
                                                       placeholder="@(defaults.Signal ?? "(silent)")"
                                                       @onchange='e => comp.SignalSpeechTemplate = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value?.ToString()'>@comp.SignalSpeechTemplate</textarea>
                                             @if (!string.IsNullOrEmpty(defaults.Signal))
@@ -780,7 +777,7 @@
                                             }
                                             <button style="font-size:0.75rem; padding:2px 8px; align-self:flex-end;"
                                                     @onclick="() => ResetSpeechTemplate(comp, signal: true)"
-                                                    aria-label="Reset signal template for @CompLabel(comp) to default">
+                                                    aria-label="Reset marker template for @CompLabel(comp) to default">
                                                 Reset to default
                                             </button>
                                         </div>

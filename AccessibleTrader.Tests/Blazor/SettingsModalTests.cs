@@ -56,7 +56,8 @@ public class SettingsModalTests
     // promises the browser that arrows move within the group. Without a handler, five
     // of the then six tabs were mouse-only — including the whole keyboard-rebinding UI
     // and the paper-account reset button. EIGHT tabs as of 2026-09-04: General, Speech,
-    // Narration, Sonification, Appearance, Keyboard, License, About. It was seven for part
+    // Narration, Sonification, Appearance, Keyboard, License, About (and Donate after License
+    // since 2026-11-21, with Braille on the desktop head: ten). It was seven for part
     // of that day — the Alerts tab's delivery channels moved into the Alt+J dialog next to
     // the alerts they deliver, and Narration arrived in the same release to hold what the
     // terminal says when the user pressed nothing.
@@ -104,7 +105,7 @@ public class SettingsModalTests
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        foreach (var id in new[] { "tab-speech", "tab-narration", "tab-sonification", "tab-braille", "tab-appearance", "tab-keyboard", "tab-license", "tab-about" })
+        foreach (var id in new[] { "tab-speech", "tab-narration", "tab-sonification", "tab-braille", "tab-appearance", "tab-keyboard", "tab-license", "tab-donate", "tab-about" })
         {
             ArrowOnTabList(cut, "ArrowRight");
             AssertSelected(cut, id);
@@ -258,6 +259,50 @@ public class SettingsModalTests
         // preference is the shape that produced the alerts-tab duplicate in the twelfth pass.
         Assert.Empty(cut.FindAll("#tabpanel-speech #s-chart-patterns"));
         Assert.Empty(cut.FindAll("#tabpanel-narration #s-candle-patterns"));
+    }
+
+    [Fact]
+    public void SettingsModal_DonateTab_HasEveryAddress_AndCopyPutsThatOneOnTheClipboard()
+    {
+        // Cody, 2026-11-21: the donation lines moved out of License into a Donate tab, with the
+        // crypto addresses codyhurst.com lists. A wrong character in an address loses the money,
+        // so the test holds the addresses as the site gives them, and the Copy button must hand
+        // the clipboard THAT row's address and say which one it copied.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        ArrowOnTabList(cut, "End");          // About is last; Donate sits just before it
+        ArrowOnTabList(cut, "ArrowLeft");
+        AssertSelected(cut, "tab-donate");
+        var panel = cut.Find("#tabpanel-donate");
+        Assert.Null(panel.GetAttribute("hidden"));
+        Assert.Empty(cut.FindAll("#tabpanel-license input"));   // License keeps only the licence
+
+        var expected = new Dictionary<string, string>
+        {
+            ["Cash App"] = "$churst90",
+            ["PayPal"] = "cody@x64mail.com",
+            ["Bitcoin"] = "bc1qp20rjw6vlddmt808v0h8gdrdcmx8n83pmzlaww",
+            ["Ethereum, Arbitrum or Base"] = "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47",
+            ["BNB Smart Chain"] = "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47",
+            ["Solana"] = "HG5BvLsfAgyHGxJe8cfKBzf4qArAmb7LEc5TDe45zwEe",
+            ["XRP"] = "rLAaVmjsofxnFJ6o6ZYF3hn6FddKtJnu8q",
+            ["Kaspa"] = "kaspa:qypxfclrz0eyw4rn736mwr3ndyfk6c474py9l9mf6n9x9qhpchy6w3cr340mgzy",
+            ["Bittensor"] = "5GhBmEmMzD92j1rAPMjLbdTmCHQPBZNvyVS2q4RLraEk14jt",
+        };
+        var rows = panel.QuerySelectorAll("label")
+            .ToDictionary(l => l.TextContent.Trim(),
+                          l => panel.QuerySelector("#" + l.GetAttribute("for"))!.GetAttribute("value") ?? "");
+        Assert.Equal(expected.OrderBy(kv => kv.Key), rows.OrderBy(kv => kv.Key));
+        Assert.DoesNotContain("Tangem", panel.TextContent);   // Cody: they don't need to know
+
+        h.Ctx.JSInterop.SetupVoid("navigator.clipboard.writeText", _ => true).SetVoidResult();
+        cut.Find("button[aria-label='Copy the Solana address']").Click();
+
+        var copied = Assert.Single(h.Ctx.JSInterop.Invocations["navigator.clipboard.writeText"]);
+        Assert.Equal("HG5BvLsfAgyHGxJe8cfKBzf4qArAmb7LEc5TDe45zwEe", copied.Arguments[0]);
+        cut.WaitForAssertion(() =>
+            Assert.Equal("Solana address copied.", cut.Find("#s-donate-status").TextContent.Trim()));
     }
 
     [Fact]

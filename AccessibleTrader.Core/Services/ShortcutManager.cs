@@ -472,7 +472,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenObjectTree,       "O", Alt: true)); // Alt+O
             s.Add(new(SystemCommand.OpenTradingDashboard, "T", Alt: true)); // Alt+T
             s.Add(new(SystemCommand.OpenOrderBook,        "B", Alt: true)); // Alt+B
-            s.Add(new(SystemCommand.ToggleHeatmap,        "H", Alt: true)); // Alt+H
+            // Alt+H is deliberately UNBOUND since 2026-11-21 (Cody: "free up alt h"). It toggled
+            // the liquidity heatmap, which is now added like any indicator; ToggleHeatmap stays
+            // a command for the Go bar's HEAT and for anyone who binds a key to it.
             s.Add(new(SystemCommand.OpenApiKeys,          "K", Alt: true)); // Alt+K
             s.Add(new(SystemCommand.OpenDrawingTools,     "D", Alt: true)); // Alt+D
 

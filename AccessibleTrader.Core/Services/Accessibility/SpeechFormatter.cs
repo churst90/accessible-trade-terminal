@@ -980,7 +980,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         bool IsYMove = false,
         double? LiveClose = null,
         AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? Provider = null,
-        // Visible window, so sparse marker components can report "N signals in view"
+        // Visible window, so sparse marker components can report "N markers in view"
         // instead of "no data" at a bar with no marker. -1 = unknown (whole-array fallback).
         int ViewportStart = -1,
         int ViewportLength = -1,
@@ -1154,8 +1154,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                        ComponentDisplayType.TriangleUp or ComponentDisplayType.TriangleDown or
                        ComponentDisplayType.Square or ComponentDisplayType.CheckBox or
                        ComponentDisplayType.RefreshBox or ComponentDisplayType.TriangleUpRing)
-                return (comp.DisplayName ?? comp.Name).Contains("Signal", StringComparison.OrdinalIgnoreCase)
-                    ? "" : "Signal";
+                // "Marker", not "Signal" (Cody, 2026-11-21): the shape drawn on a bar is a
+                // marker; a signal is what it means. A part already named "... Signal" or
+                // "... Marker" says nothing more.
+                return (comp.DisplayName ?? comp.Name) is var label
+                       && (label.Contains("Signal", StringComparison.OrdinalIgnoreCase)
+                           || label.Contains("Marker", StringComparison.OrdinalIgnoreCase))
+                    ? "" : "Marker";
             return "";
         }
     }
@@ -1343,7 +1348,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     .Replace("{name}", ctx.Comp.DisplayName);
 
             // LEFT/RIGHT scan: just the value at this bar. UP/DOWN landing: lead with the
-            // name + "N signals in view" so the user knows there ARE signals to jump to
+            // name + "N markers in view" so the user knows there ARE markers to jump to
             // with Ctrl+Left/Right, then the value at the bar they actually landed on.
             if (!ctx.IsYMove)
                 return $"{ctx.Comp.DisplayName}: {value}";
@@ -1369,15 +1374,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return count;
         }
 
-        /// <summary>"N signals in view" / "no signals in view" for the landing
+        /// <summary>"N markers in view" / "no markers in view" for the landing
         /// announcement, or "" when the component has no data at all (so the caller
         /// just speaks the value). Viewport unknown → counts the whole array.</summary>
         internal static string SignalsInViewPhrase(double[]? data, int viewportStart, int viewportLength)
         {
             int n = CountMarkersInView(data, viewportStart, viewportLength);
             if (n < 0)  return "";
-            if (n == 0) return "no signals in view";
-            return $"{n} signal{(n == 1 ? "" : "s")} in view";
+            if (n == 0) return "no markers in view";
+            return $"{n} marker{(n == 1 ? "" : "s")} in view";
         }
     }
 

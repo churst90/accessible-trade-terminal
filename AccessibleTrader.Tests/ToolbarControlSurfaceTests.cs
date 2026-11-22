@@ -614,7 +614,7 @@ namespace AccessibleTrader.Tests
             // refresh path in mind rather than discovered in a screenshot.
             string toolbar = Toolbar();
 
-            foreach (var flag in new[] { "HasChartData", "IsHeatmapVisible",
+            foreach (var flag in new[] { "HasChartData",
                                          "Store.State.IsHeikinAshi", "Store.State.IsLogScale" })
                 Assert.True(toolbar.Contains(flag), $"{flag} is no longer present — update this test with what replaced it.");
 

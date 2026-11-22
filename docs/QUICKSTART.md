@@ -228,7 +228,7 @@ crossed up from oversold. RSI 14: RSI overbought. New bar: Open 64,910 at 14:33.
 **N chooses what may speak.** Press **N** on a series (or on one component to narrow it) and its
 signals, level crossings, moving-average crosses and cloud entries are spoken at each bar
 close. **Ctrl+Alt+Shift+O** switches narration off everywhere. Settings → Narration holds the
-switches: Announce new bars, Narrate candle patterns as they form, Narrate chart formations as
+switches: Announce new bars, Narrate candle patterns as they form, Narrate chart patterns as
 they form (off by default), Narrate signals on bar close, Narrate during playback, Speak time
 landmarks during playback.
 
@@ -570,7 +570,7 @@ Windows.
 | 0 | Toggle the pane's neutral level, or mark the price under the cursor |
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
-| Alt+C / Alt+L / Alt+H | Chart type list / Price scale list / volume heatmap |
+| Alt+C / Alt+L | Chart type list / Price scale list |
 | , / . / ' (Shift for previous) | Next chart formation / headline / market event at the bar |
 | Ctrl+Alt+Shift+, / . / ' | Formations / headlines / market events on or off |
 | Alt+Z | Focus mode: hide the toolbar, tabs and indicator bar, or show them again |

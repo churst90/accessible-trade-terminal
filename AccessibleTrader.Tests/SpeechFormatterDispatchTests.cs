@@ -206,10 +206,10 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Dispatch_MarkerWithSignalTemplate_Landing_LeadsWithSignalsInView_ThenLandedValue()
         {
-            // UP/DOWN landing on the component: name + "N signals in view" (so the user
+            // UP/DOWN landing on the component: name + "N markers in view" (so the user
             // knows there ARE dots to jump to with Ctrl+←/→), then the value at the bar
             // actually landed on. Here five bars hold two lit signals and the cursor is on
-            // a NaN (empty) bar → "Buy Signal. 2 signals in view. no data."
+            // a NaN (empty) bar → "Buy Signal. 2 markers in view. no data."
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "buy";
@@ -220,7 +220,7 @@ namespace AccessibleTrader.Tests
             }, values: new[] { double.NaN, 100.0, double.NaN, double.NaN, 200.0 });
 
             var msg = Format(series, focusedCompIndex: 0, isYMove: true, viewportStart: 0, viewportLength: 5);
-            Assert.Equal("Buy Signal. 2 signals in view. no data", msg);
+            Assert.Equal("Buy Signal. 2 markers in view. no data", msg);
         }
 
         [Fact]
@@ -238,7 +238,7 @@ namespace AccessibleTrader.Tests
             }, values: new[] { 100.0, double.NaN, 200.0 });
 
             var msg = Format(series, focusedCompIndex: 0, isYMove: true, viewportStart: 0, viewportLength: 3);
-            Assert.Equal("Buy Signal. 2 signals in view. cross up at 100.00", msg);
+            Assert.Equal("Buy Signal. 2 markers in view. cross up at 100.00", msg);
         }
 
         [Fact]
@@ -331,7 +331,7 @@ namespace AccessibleTrader.Tests
         // GetComponentSpeech that returns "no data" on a NaN bar. That runs as
         // ProviderSpeechStrategy (#1), ahead of MarkerSignalStrategy (#5), so the
         // count was never spoken for an actual indicator. The desired behaviour:
-        // UP/DOWN landing → "Name. N signals in view. <value at the landed bar>";
+        // UP/DOWN landing → "Name. N markers in view. <value at the landed bar>";
         // LEFT/RIGHT scan → just the value at that bar (no count).
 
         [Fact]
@@ -351,7 +351,7 @@ namespace AccessibleTrader.Tests
             var msg = FormatWithEngine(series, engine, currentIndex: 0, viewportStart: 0, viewportLength: 5, barCount: 5, isYMove: true);
 
             // Count of what's in view, then the value at the (empty) landed bar.
-            Assert.Equal("Oversold Crossover. 2 signals in view. no data", msg);
+            Assert.Equal("Oversold Crossover. 2 markers in view. no data", msg);
         }
 
         [Fact]
@@ -369,7 +369,7 @@ namespace AccessibleTrader.Tests
 
             var msg = FormatWithEngine(series, engine, currentIndex: 0, viewportStart: 0, viewportLength: 2, barCount: 2, isYMove: true);
 
-            Assert.Equal("Oversold Crossover. 1 signal in view. Oversold crossover at -62.3, price 84,500", msg);
+            Assert.Equal("Oversold Crossover. 1 marker in view. Oversold crossover at -62.3, price 84,500", msg);
         }
 
         [Fact]

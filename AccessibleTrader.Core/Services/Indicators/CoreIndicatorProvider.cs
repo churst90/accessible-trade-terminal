@@ -87,6 +87,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 new IndicatorMetadata { 
                     Code = "HEATMAP", Name = "Liquidity Heatmap", Category = "Order Flow",
+                    Description = "Where buy and sell orders are waiting in the order book, shaded by size at each price. "
+                                + "It fills only from live data, from the moment it is added.",
                     Causality = ComponentCausality.Causal,
                     Components = new List<IndicatorComponentMetadata> {
                         new IndicatorComponentMetadata { Name = "Liquidity", Role = ComponentRole.Level, DisplayType = ComponentDisplayType.Heatmap }

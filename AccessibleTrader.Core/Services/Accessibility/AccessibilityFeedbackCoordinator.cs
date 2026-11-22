@@ -1304,7 +1304,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     //
                     // But a boundary carrying a MESSAGE is a different thing, and its message used
                     // to be discarded here. Ten call sites passed one and none of them was ever
-                    // heard: "No more [component] signals in this direction", "Focused trendline has
+                    // heard: "No more [component] markers in this direction", "Focused trendline has
                     // no anchors", "Focused trendline anchors are off-chart", "No chart formations
                     // on this chart". SHORTCUTS.md documents the first of those as spoken, and it
                     // has never spoken. Each of them explains why a key the user just pressed did

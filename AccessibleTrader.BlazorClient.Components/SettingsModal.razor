@@ -150,7 +150,7 @@
                                    checked="@_paperTradingMode"
                                    @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
                         </div>
-                        <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. No money moves.</p>
+                        <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are filled against live prices; no money moves.</p>
 
                     }
                     @* Two established, genuinely different ways to size a trade. The terminal
@@ -215,8 +215,8 @@
                         }
                     </div>
                     <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                        Erases the balance, positions, orders and trade history, returning the
-                        account to @Paper.StartingBalance.ToString("N0"). No undo; you are asked to confirm first.
+                        Returns the account to @Paper.StartingBalance.ToString("N0") and erases its positions, orders and
+                        trade history, after you confirm.
                     </p>
                 </fieldset>
 
@@ -229,7 +229,7 @@
                                checked="@_resumeSession"
                                @onchange="OnResumeSessionChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Autosaves every 30 seconds and when you close the app, then reopens the same charts, tabs and indicators.</p>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Reopens the same charts, tabs and indicators; saved every 30 seconds and on close.</p>
 
                 </fieldset>
 
@@ -288,7 +288,7 @@
                                    checked="@_bgMonitoring"
                                    @onchange="OnBgMonitoringChanged" />
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts and strategies keep evaluating on tabs you are not looking at.</p>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts and strategies keep running on tabs you are not looking at.</p>
 
                         <div class="modal-row">
                             <label for="s-bg-poll">Check every</label>
@@ -297,7 +297,7 @@
                                    @onchange="OnBgPollChanged" />
                             <span style="color:var(--text-muted);">seconds</span>
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">How often other tabs are re-checked. Minimum 10 seconds.</p>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Minimum 10 seconds.</p>
 
                         <div class="modal-row">
                             <label for="s-bg-live-tabs">Live-stream other tabs</label>
@@ -306,9 +306,8 @@
                                    @onchange="OnLiveBgTabsChanged" />
                         </div>
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Other tabs stay tick-fresh and announce their bar closes. Exchanges that
-                            support it, first
-                            @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs only.
+                            Other tabs stay up to the second and announce their bar closes (the first
+                            @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs, on exchanges that support it).
                         </p>
                         <div class="modal-row">
                             <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
@@ -329,30 +328,7 @@
                                        checked="@_bgLocalMonitor"
                                        @onchange="e => _bgLocalMonitor = e.Value is bool b && b" />
                             </div>
-                            @* The dependency is said here because this is where a user looks when
-                               "the browser is closed and I hear nothing". The three per-category
-                               switches that used to gate this (and defaulted OFF — Cody, 2026-09-11:
-                               three tabs, a 1-minute chart, browser closed, silence) are gone; one
-                               "Send me a notification" switch under "Events you cannot see" in the
-                               Alerts dialog governs every notification and defaults ON. The
-                               timeframe floor beside it is the remaining reason a bar close can be
-                               quiet, so it is the one named here. *@
-                            <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                                Alerts, order fills and bar closes keep being announced on this
-                                machine with no browser open: as a desktop notification your
-                                screen reader reads, with a sound. Every notification is governed
-                                by "Send me a notification" under Alerts (Alt+J), Delivery
-                                settings, which is on by default; the "Shortest timeframe to
-                                announce" floor beside it can quieten fast charts. Indicators you
-                                flagged with N keep narrating at each bar close too, under the
-                                Narration tab's master switch. Nothing is ever placed or cancelled
-                                for you.
-                            </p>
                         }
-                        <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                            Background tabs announce their alerts and strategies by name, with earcons
-                            and speech only. Every check stays inside each provider's rate limit.
-                        </p>
                     </fieldset>
                 }
 
@@ -372,11 +348,8 @@
                                    @onchange="OnMinimizeToTrayChanged" />
                         </div>
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            On by default. Closing the window — or pressing Alt+F4 — hides the
-                            terminal to the tray instead of quitting, so alerts, order fills and
-                            bar closes keep arriving as system notifications. The tray icon's
-                            menu (Shift+F10) offers Restore and Quit. Turn this off and closing
-                            the window really quits, and nothing is watched after that.
+                            Closing the window hides the terminal in the tray, where alerts and fills
+                            keep arriving; the tray menu (Shift+F10) has Restore and Quit.
                         </p>
                     </fieldset>
                 }
@@ -394,7 +367,7 @@
                             <option value="show">Always show</option>
                             <option value="hide">Never show</option>
                         </select>
-                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for touch. If it appears on a desktop where it should not, choose Never.</p>
+                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for touch.</p>
                     </div>
                 </fieldset>
 
@@ -419,28 +392,16 @@
                     <div class="modal-row">
                         <label for="s-candle-patterns">Describe candle patterns</label>
                         <input id="s-candle-patterns" type="checkbox"
-                               aria-describedby="s-candle-patterns-hint"
                                checked="@Store.State.DescribeCandlePatterns"
                                @onchange="e => _describeCandlePatterns = e.Value is bool b ? b : Store.State.DescribeCandlePatterns" />
                     </div>
-                    <p id="s-candle-patterns-hint" style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        On by default. Engulfing, harami, doji, hammer and the rest, named on the
-                        closing bar, the forming bar and every bar you arrow onto. Alt+Shift+D
-                        always names the pattern.
-                    </p>
 
                     <div class="modal-row">
                         <label for="s-chart-patterns">Describe chart patterns</label>
                         <input id="s-chart-patterns" type="checkbox"
-                               aria-describedby="s-chart-patterns-hint"
                                checked="@Store.State.DescribeChartPatterns"
                                @onchange="e => _describeChartPatterns = e.Value is bool b ? b : Store.State.DescribeChartPatterns" />
                     </div>
-                    <p id="s-chart-patterns-hint" style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        Off by default. Double top, head and shoulders, triangle, flag. Forming ones
-                        are read with the level that would confirm them. Never called bullish or
-                        bearish.
-                    </p>
                 </fieldset>
 
                 @* ── Drawing ─────────────────────────────────────────────────── *@
@@ -452,14 +413,14 @@
                                checked="@_magnetSnap"
                                @onchange="OnMagnetSnapChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing anchors snap to the nearest open, high, low or close instead of landing anywhere.</p>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing points snap to the nearest open, high, low or close.</p>
                     <div class="modal-row">
                         <label for="s-swing-snap">Snap swing points to the wick</label>
                         <input id="s-swing-snap" type="checkbox"
                                checked="@_swingSnap"
                                @onchange="OnSwingSnapChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A fib, pitchfork or pattern point placed on a bar goes on that bar's low or high, whichever the swing needs: the first two points decide which is the low, then they alternate. Says "moved to" when a point moves.</p>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A fib, pitchfork or pattern point lands on the bar's high or low, whichever the swing needs.</p>
 
                 </fieldset>
 
@@ -529,8 +490,7 @@
                         </select>
                     </div>
                     <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        The timestamp is the longest part of a spoken bar. Limiting it to sideways
-                        movement keeps left/right scanning quick without losing the date.
+                        The time is the longest part of a reading; leaving it out makes scanning quicker.
                     </p>
 
                     <div class="modal-row">
@@ -541,8 +501,7 @@
                     </div>
                     <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         Off, an intraday bar reads its time alone and the date is spoken only when
-                        you cross into a new day &mdash; "14:00", "15:00", then "September 6,
-                        00:00". On a daily chart or coarser the date is the timestamp either way.
+                        you cross into a new day.
                     </p>
 
                     <div class="modal-row">
@@ -555,10 +514,7 @@
                         </select>
                     </div>
                     <p id="s-time-zone-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        This computer is on @LocalZoneName. Most crypto venues and TradingView's
-                        default for crypto use UTC. A daily or weekly bar is named by its own date
-                        either way; this changes the clock time of intraday bars, on the axis too.
-                        Times are bar opens, as TradingView labels them.
+                        This computer is on @LocalZoneName.
                     </p>
 
                     <div class="modal-row">
@@ -572,33 +528,26 @@
                     </p>
 
                     <div class="modal-row">
-                        <label for="s-speak-other-signals">Speak other signals while arrowing</label>
+                        <label for="s-speak-other-signals">Announce other markers on the bar while navigating</label>
                         <input id="s-speak-other-signals" type="checkbox"
                                aria-describedby="s-speak-other-signals-hint"
                                checked="@_speakOtherSignals"
                                @onchange="e => _speakOtherSignals = e.Value is bool b && b" />
                     </div>
                     <p id="s-speak-other-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        After the component you are on, also name the other signals on that bar: the
-                        same indicator's other markers and those of other indicators on the price
-                        pane. Off: you hear only the component you are on. Chart patterns, cycle
-                        marks, your own labels and zones are spoken either way.
+                        After the one you are on, names the bar's other markers: the same indicator's
+                        and those of the other indicators on the price pane.
                     </p>
 
                     <div class="modal-row">
-                        <label for="s-describe-signal-looks">Say what lines and signals look like</label>
+                        <label for="s-describe-signal-looks">Describe how markers and lines are drawn</label>
                         <input id="s-describe-signal-looks" type="checkbox"
                                aria-describedby="s-describe-signal-looks-hint"
                                checked="@Store.State.DescribeSignalLooks"
                                @onchange="e => _describeLooks = e.Value is bool b ? b : Store.State.DescribeSignalLooks" />
                     </div>
                     <p id="s-describe-signal-looks-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        Follows each spoken signal with how it is drawn: its colour, shape and size,
-                        and whether it sits above or below the candle &mdash; "Large green dot." A
-                        line says its colour when you move onto it and when the colour changes
-                        &mdash; "Orange line." The colour is the one on the chart, so a colour you
-                        changed is the one you hear. For talking about a chart with someone who
-                        reads it by eye.
+                        Colour, shape, size and position.
                     </p>
 
                     <div class="modal-row">
@@ -631,8 +580,8 @@
                             </select>
                         </div>
                         <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                            Remembered per browser, not per account — a screen reader can't be
-                            detected, so tell the terminal which voice should talk here.
+                            Remembered per browser: a screen reader can't be detected, so say which
+                            voice talks here.
                         </p>
                     }
 
@@ -644,8 +593,7 @@
                                @onchange="e => _muteIncludesOrderEvents = e.Value is bool b ? b : _muteIncludesOrderEvents" />
                     </div>
                     <p id="s-mute-orders-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        When Shift+F2 or Shift+F3 has events muted, fills, stop hits and
-                        take-profits are silenced as well. Off by default so your stops still speak.
+                        Shift+F2 and Shift+F3 also silence fills, stop hits and take-profits.
                     </p>
                 </fieldset>
 
@@ -689,10 +637,8 @@
                                @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
                     </div>
                     <p id="s-announce-bars-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        The closing price of each bar as it finishes. Its candle pattern comes
-                        with it while "Describe candle patterns" is on, and any chart formation
-                        that resolves on that bar while "Describe chart patterns" is on — both on
-                        the General tab.
+                        The closing price of each bar as it finishes, with its pattern while
+                        "Describe candle patterns" or "Describe chart patterns" is on.
                     </p>
 
                     @* ── ABILITY vs OCCASION (Cody, 2026-09-11) ────────────────────────────
@@ -711,15 +657,12 @@
                                @onchange="e => _narrateFormingCandles = e.Value is bool b ? b : _narrateFormingCandles" />
                     </div>
                     <p id="s-narrate-forming-candles-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        Speaks the shape of the bar currently forming as it changes — "hammer
-                        forming", "bullish engulfing forming". On by default. Needs "Describe
-                        candle patterns" on the General tab, and narration on for the candle
-                        series. Turn this off to keep pattern names on the arrow keys without the
-                        live commentary.
+                        "Hammer forming" and the like, on charts that draw candles. Needs
+                        "Describe candle patterns" on the General tab.
                     </p>
 
                     <div class="modal-row">
-                        <label for="s-narrate-forming-charts">Narrate chart formations as they form</label>
+                        <label for="s-narrate-forming-charts">Narrate chart patterns as they form</label>
                         <input id="s-narrate-forming-charts" type="checkbox"
                                aria-describedby="s-narrate-forming-charts-hint"
                                checked="@_narrateFormingCharts"
@@ -727,9 +670,7 @@
                     </div>
                     <p id="s-narrate-forming-charts-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         Speaks a double top, head and shoulders, triangle or flag while it is still
-                        building, with the level that would confirm it. Off by default, because it
-                        is a new occasion for the terminal to speak. Each formation is announced
-                        once, not once a bar. Needs "Describe chart patterns" on the General tab.
+                        building, and the level that would confirm it.
                     </p>
 
                     <div class="modal-row">
@@ -740,9 +681,7 @@
                                @onchange="e => _narrateSignals = e.Value is bool b ? b : Store.State.NarrateSignalsOnBarClose" />
                     </div>
                     <p id="s-narrate-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        N on a series chooses which speak, and N on a component narrows it to the
-                        components you picked; this switch is the master for all of them. Off
-                        means no indicator narrates on a bar close, whatever is flagged.
+                        The master switch for every series and component you flagged with N.
                     </p>
 
                     <div class="modal-row">
@@ -753,8 +692,7 @@
                                @onchange="e => _narratePlayback = e.Value is bool b ? b : Store.State.NarrateDuringPlayback" />
                     </div>
                     <p id="s-narrate-playback-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        The master switch for everything playback says beyond its own start,
-                        pause, speed and finish confirmations. Off leaves playback as tones.
+                        Off leaves playback as tones, apart from start, pause, speed and finish.
                     </p>
 
                     @* Split out of the switch above on Cody's ask (2026-09-04). The landmark and
@@ -770,10 +708,7 @@
                                @onchange="e => _playbackLandmarks = e.Value is bool b ? b : Store.State.SpeakPlaybackLandmarks" />
                     </div>
                     <p id="s-playback-landmarks-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        On by default. The date or hour spoken as playback crosses a boundary —
-                        "June 3", "14:00" — which is the only thing that says where in time the
-                        tones are. Off keeps the signals and the chart-formation outcomes and
-                        stops the calendar. Needs "Narrate during playback" on.
+                        The date or hour as playback crosses one, such as "June 3" or "14:00".
                     </p>
 
                     @* Off by default (Cody, 2026-11-18: "don't want to overwhelm new users").
@@ -796,10 +731,9 @@
                             </select>
                         </div>
                         <p id="s-market-events-level-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            Off by default. CPI, the jobs report, Fed decisions, options expiries,
-                            US market holidays and Bitcoin halvings are said on the bars they
-                            happened on, and apostrophe jumps between them. Alt+Shift+D reads this
-                            bar's events whatever this is set to.
+                            Inflation (CPI) and jobs reports, Fed decisions, options expiries, US market
+                            holidays and Bitcoin halvings, said on the bars they happened on; the
+                            apostrophe key jumps between them.
                         </p>
 
                         <div class="modal-row">
@@ -840,7 +774,7 @@
                                    @onchange="e => _marketEventsEarnings = e.Value is bool b ? b : _marketEventsEarnings" />
                         </div>
                         <p id="s-market-events-earnings-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            Report days, before the open or after the close, with EPS and revenue against the analysts' estimates, from Finnhub: needs your Finnhub key in API Keys. SEC EDGAR gives the exact minute when it has the filing.
+                            Report days, with earnings and revenue against analysts' estimates; needs a Finnhub key in API Keys.
                         </p>
                         <div class="modal-row">
                             <label for="s-market-events-countdowns">Countdowns before events</label>
@@ -856,10 +790,8 @@
                             </select>
                         </div>
                         <p id="s-market-events-countdowns-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            "15 and 1 minutes" by default. Speaks before an event that touches an
-                            open chart or a held position, says the release's price reaction one
-                            minute after it, then the figure when FRED has it. Muted by Shift+F2,
-                            not F2. Off leaves the bar clauses and the landing bell alone.
+                            Before an event that touches an open chart or a position, then the price
+                            reaction a minute after it; Shift+F2 mutes them.
                         </p>
 
                         <div class="modal-row">
@@ -897,12 +829,9 @@
                             </select>
                         </div>
                         <p id="s-headlines-level-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            Off by default. Says a US company's SEC filings the minute they are
-                            public, for the stocks on your open charts and in your positions:
-                            "AAPL filed an 8-K: earnings results." Important is results, bankruptcy,
-                            a change of auditor or control, and the like; medium adds quarterly and
-                            annual reports and other 8-Ks; all adds insider trades. Muted by
-                            Shift+F2, not F2. Alt+I lists each company's recent filings.
+                            A US company's official filings the minute they are public, for the stocks
+                            on your charts and in your positions, such as "AAPL filed an 8-K: earnings
+                            results"; Alt+I lists them.
                         </p>
 
                         <div class="modal-row">
@@ -913,14 +842,8 @@
                                    @onchange="e => _headlinesNewsWire = e.Value is true" />
                         </div>
                         <p id="s-headlines-news-wire-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Needs a free Finnhub key in API Keys. News stories for your stocks
-                            and coins, at the same level as the filings: "AAPL: Apple Reports Q4
-                            Results, Beats Estimates." Only a story whose headline names the
-                            company or coin is said. Finnhub is checked about once a minute for
-                            each stock and for coins. Important is results, guidance, takeovers,
-                            listing notices, FDA decisions, share offerings and a CEO leaving;
-                            medium adds analyst upgrades and downgrades, dividend rises, contracts,
-                            lawsuits and other officers leaving; all adds the rest.
+                            Stories whose headline names one of your stocks or coins, at the same level;
+                            needs a free Finnhub key in API Keys.
                         </p>
 
                         <div class="modal-row">
@@ -931,10 +854,8 @@
                                    @onchange="e => _headlinesAlpaca = e.Value is true" />
                         </div>
                         <p id="s-headlines-alpaca-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Off by default. Needs an Alpaca key in API Keys and the news wire
-                            switch above. A free Alpaca account sends stories in batches about
-                            every half hour, so up to 30 minutes late, and has nothing for coins;
-                            a story Finnhub already said is not said again.
+                            Needs an Alpaca key; a free account sends stories up to 30 minutes late,
+                            with nothing for coins.
                         </p>
                     </fieldset>
 
@@ -955,11 +876,8 @@
                             </select>
                         </div>
                         <p id="s-market-pulse-crypto-start-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            Alt+P reads the markets you put on the watchlist named Pulse, in that
-                            order. Bitcoin and Ethereum measure from midnight UTC by default, so
-                            the change is today's move; "Last 24 hours" makes it a rolling day.
-                            Stocks, indices, forex and commodities always use the previous
-                            session's close.
+                            For Alt+P's Pulse watchlist; other markets always measure from the
+                            previous session's close.
                         </p>
                     </fieldset>
 
@@ -976,10 +894,8 @@
                                    @onchange="e => _changeLogOfferOnReturn = e.Value is bool b ? b : _changeLogOfferOnReturn" />
                         </div>
                         <p id="s-change-log-offer-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                            Alt+U reads what changed while you were away: money first, then alerts,
-                            events released and connection problems. When this is on, coming back
-                            after five minutes or more says how many things changed; it never reads
-                            them unless you ask.
+                            Coming back after five minutes or more says how many things changed;
+                            Alt+U reads them.
                         </p>
                     </fieldset>
                 </fieldset>
@@ -1009,13 +925,13 @@
                     </div>
 
                     <div class="modal-row">
-                        <label for="s-tick-other-signals">Tick other signals while arrowing</label>
+                        <label for="s-tick-other-signals">Tick other markers on the bar while navigating</label>
                         <input id="s-tick-other-signals" type="checkbox"
                                aria-describedby="s-tick-other-signals-hint"
                                checked="@_tickOtherSignals"
                                @onchange="e => _tickOtherSignals = e.Value is bool b && b" />
                     </div>
-                    <p id="s-tick-other-signals-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">After the focused component's tone, a quiet tick for each of the indicator's other signals on that bar. Off: you hear only the component you are on.</p>
+                    <p id="s-tick-other-signals-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A quiet tick for each of the focused indicator's other markers on the bar.</p>
 
                     <div class="modal-row">
                         <label for="s-sound-theme">Sound theme</label>
@@ -1030,8 +946,7 @@
                         </select>
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        One instrument per indicator family, so the RSI, the MACD and the price
-                        line are told apart by timbre. Applies to indicators you add from now on.
+                        One instrument per indicator family, for indicators you add from now on.
                     </p>
                 </fieldset>
 
@@ -1044,9 +959,8 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Earcons</legend>
                     <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
-                        Short tones that stand in for a sentence. Shift+F3 mutes all of them at
-                        once; these two choose what that mute is switching off. Error tones and
-                        order outcomes are never silenced by either.
+                        Short tones that stand in for words. Shift+F3 mutes them all; error tones
+                        and order outcomes always play.
                     </p>
 
                     <div class="modal-row">
@@ -1057,8 +971,7 @@
                                @onchange="e => _chartEarcons = e.Value is bool b ? b : _chartEarcons" />
                     </div>
                     <p id="s-earcons-chart-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        Sounds about the market: an alert firing, a new bar opening, a strategy
-                        setup arming or reaching its entry.
+                        An alert firing, a new bar, a strategy arming or reaching its entry.
                     </p>
 
                     <div class="modal-row">
@@ -1069,10 +982,7 @@
                                @onchange="e => _interfaceEarcons = e.Value is bool b ? b : _interfaceEarcons" />
                     </div>
                     <p id="s-earcons-interface-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        Sounds about the terminal: the edge of the chart or of a series, a mode
-                        toggled with F2 or F3, an action that succeeded or is being retried, the
-                        connection changing state. Every one of these is also spoken, so turning
-                        them off loses no information.
+                        Chart edges, F2 and F3, success and retry, the connection; each is also spoken.
                     </p>
                 </fieldset>
 
@@ -1104,11 +1014,8 @@
                                @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        When on, the app looks for a supported tactile display at startup and while
-                        running, and announces it as it connects or disconnects. All Dot Pad models
-                        are supported (the Dot Pad X and the second generation). Turning it off skips
-                        device detection entirely. Tactile graphics require Windows and a connected
-                        display.
+                        Looks for a Dot Pad (any model) and says when one connects or disconnects;
+                        Windows only.
                     </p>
                 </fieldset>
 
@@ -1119,10 +1026,8 @@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Device</legend>
                     <p style="margin:0; color:var(--text-muted); font-size:0.9em;">
-                        The Dot Pad is the only supported display, and it is detected automatically
-                        while the switch above is on — F4 turns tactile output on and off from
-                        anywhere, and Shift+F4 brings you back to this tab. A device picker will
-                        appear here when there is a second device to pick.
+                        The Dot Pad is the only supported display. F4 turns tactile output on and
+                        off; Shift+F4 opens this tab.
                     </p>
                 </fieldset>
             </div>
@@ -1189,8 +1094,7 @@
                         }
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        A theme colours the whole window — toolbars, chart and dialogs — and
-                        every colour in it can be changed in the editor.
+                        Colours the whole window; every colour can be changed in the editor.
                     </p>
                 </fieldset>
 
@@ -1201,7 +1105,7 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Visual accessibility</legend>
 
                     <div class="modal-row">
-                        <label for="s-pattern-visuals">Draw chart formations</label>
+                        <label for="s-pattern-visuals">Draw chart patterns</label>
                         <input id="s-pattern-visuals" type="checkbox"
                                checked="@_showPatternVisuals"
                                @onchange="OnPatternVisualsChanged"
@@ -1209,9 +1113,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-pattern-visuals-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Shades each detected formation and draws its trigger level, for
-                            low-vision users or a sighted viewer — the spoken description already
-                            carries all of it.
+                            Shades each pattern found and draws the level that would confirm it.
                         </span>
                     </div>
 
@@ -1224,8 +1126,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-visual-earcons-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Shows an on-screen badge for each sound cue, for deaf and
-                            hard-of-hearing users.
+                            An on-screen badge for each sound cue.
                         </span>
                     </div>
 
@@ -1238,8 +1139,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-colorvision-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Blue for up and orange for down on candles and bars, for
-                            deuteranopia or protanopia.
+                            Blue for up and orange for down, for red-green colour blindness.
                         </span>
                     </div>
 
@@ -1252,8 +1152,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-hollow-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Rising candles as outlines, falling candles filled, so direction reads
-                            by shape alone.
+                            Rising candles drawn as outlines, so direction shows by shape.
                         </span>
                     </div>
 
@@ -1266,8 +1165,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-toolbar-captions-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Shows a text label under every toolbar icon. Off by default so the chart
-                            gets the height; the tooltip and the spoken name are unchanged either way.
+                            A text label under every toolbar icon.
                         </span>
                     </div>
 
@@ -1287,7 +1185,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-ui-scale-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Scales the interface text; browser zoom still works on top.
+                            Browser zoom still works on top.
                         </span>
                     </div>
 
@@ -1307,8 +1205,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-status-backing-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            The strip behind the indicator names and values at the top of each chart pane.
-                            Below 96%, lines and candles behind the text show through it.
+                            The strip behind the indicator names at the top of each pane; below 96% the chart shows through.
                         </span>
                     </div>
 
@@ -1337,9 +1234,8 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-trade-status-bar-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            A strip under the indicator bar listing each open position, green when it is up and
-                            red when it is down, such as "BTCUSDT Kraken Futures isolated 1x long, up 14.3%".
-                            The percent is of the margin put up. Nothing is shown when you have no positions.
+                            Each open position under the indicator bar, green when up and red when down,
+                            such as "BTCUSDT Kraken Futures isolated 1x long, up 14.3%"; the percent is of the margin put up.
                         </span>
                     </div>
                 </fieldset>
@@ -1355,8 +1251,7 @@
                  hidden="@(_activeTab != "Keyboard")">
 
                 <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-                    Click <strong>Rebind</strong> on any row, then press your new key combination.
-                    Escape or Tab cancels. Rebindings are saved immediately.
+                    Choose <strong>Rebind</strong> on a row, then press the new keys; Escape or Tab cancels.
                 </p>
 
                 @* The capture FIELD, not a button, takes focus while a rebind waits. With focus on a
@@ -1449,7 +1344,6 @@
                             <tr><td>F12</td><td>Settings (this dialog)</td></tr>
                             <tr><td>Shift+F12</td><td>Properties</td></tr>
                             <tr><td>H</td><td>Toggle indicator visibility</td></tr>
-                            <tr><td>Alt+H</td><td>Toggle liquidity heatmap</td></tr>
                             <tr><td>M</td><td>Toggle indicator audio</td></tr>
                             <tr><td>Ctrl+Shift+D</td><td>Deep dive detail fact</td></tr>
                         </tbody>
@@ -1472,15 +1366,39 @@
                        and share it. Derivative works must remain under the same license.</p>
                     <p>Full license text: <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank"
                            style="color:#0078d4;">https://www.gnu.org/licenses/gpl-3.0.html</a></p>
-
-                    <h3 style="margin-top:14px;">Support development</h3>
-                    <p>The terminal is donation-supported — free for everyone, kept alive by
-                       the people who use it. If it has earned a place in your trading day:</p>
-                    <ul>
-                        <li>Cash App: <strong>$churst90</strong></li>
-                        <li>PayPal: <strong>cody@x64mail.com</strong></li>
-                    </ul>
                 </div>
+            </div>
+
+            @* ── Donate tab (Cody, 2026-11-21) ─────────────────────────────────
+               Out of License, where it sat under the GPL text, into a tab of its own with the
+               addresses codyhurst.com lists. Each address is a read-only field, so a screen
+               reader's review cursor or a braille display can check it character by character,
+               with a Copy button beside it: nobody should have to type a wallet address. *@
+            <div role="tabpanel" id="tabpanel-donate"
+                 aria-labelledby="tab-donate"
+                 hidden="@(_activeTab != "Donate")">
+                <p style="margin:0 0 12px;">
+                    The terminal is free for everyone and kept going by the people who use it.
+                    If it has earned a place in your trading day, any of these reaches the developer.
+                </p>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Cash and card</legend>
+                    @foreach (var d in DonationAddresses.Where(d => !d.Crypto))
+                    {
+                        @DonationRow(d)
+                    }
+                </fieldset>
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Crypto</legend>
+                    <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        Send only the coin named on a row, on the network named there.
+                    </p>
+                    @foreach (var d in DonationAddresses.Where(d => d.Crypto))
+                    {
+                        @DonationRow(d)
+                    }
+                </fieldset>
+                <p id="s-donate-status" role="status" style="margin:0; font-size:0.9em;">@_donateStatus</p>
             </div>
 
             @* ── About tab ─────────────────────────────────────────────────── *@
@@ -1557,7 +1475,7 @@
     // handler indexes into it. Two lists would drift, and a drifted list here means an
     // arrow key that lands on a tab that is not there.
     private static readonly string[] AllSettingsTabs =
-        { "General", "Speech", "Narration", "Sonification", "Braille", "Appearance", "Keyboard", "License", "About" };
+        { "General", "Speech", "Narration", "Sonification", "Braille", "Appearance", "Keyboard", "License", "Donate", "About" };
 
     /// <summary>
     /// Braille sits with the other output channels — Speech, Narration, Sonification, Braille —
@@ -1572,6 +1490,59 @@
         : AllSettingsTabs;
 
     private static string TabElementId(string tab) => "tab-" + tab.ToLowerInvariant();
+
+    /// <summary>One way to give: what the row is called, the handle or address, and whether it
+    /// is a coin (those sit under Crypto, with the network warning).</summary>
+    internal sealed record DonationAddress(string Name, string Address, bool Crypto);
+
+    /// <summary>The ways to give, as codyhurst.com lists them (2026-11-21). One EVM address
+    /// serves Ethereum, Arbitrum, Base and BNB Smart Chain, so it is one row per network a
+    /// sender picks, not one per address.</summary>
+    internal static readonly DonationAddress[] DonationAddresses =
+    {
+        new("Cash App", "$churst90", false),
+        new("PayPal", "cody@x64mail.com", false),
+        new("Bitcoin", "bc1qp20rjw6vlddmt808v0h8gdrdcmx8n83pmzlaww", true),
+        new("Ethereum, Arbitrum or Base", "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47", true),
+        new("BNB Smart Chain", "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47", true),
+        new("Solana", "HG5BvLsfAgyHGxJe8cfKBzf4qArAmb7LEc5TDe45zwEe", true),
+        new("XRP", "rLAaVmjsofxnFJ6o6ZYF3hn6FddKtJnu8q", true),
+        new("Kaspa", "kaspa:qypxfclrz0eyw4rn736mwr3ndyfk6c474py9l9mf6n9x9qhpchy6w3cr340mgzy", true),
+        new("Bittensor", "5GhBmEmMzD92j1rAPMjLbdTmCHQPBZNvyVS2q4RLraEk14jt", true),
+    };
+
+    private string _donateStatus = "";
+
+    private RenderFragment DonationRow(DonationAddress d) => __builder =>
+    {
+        string id = "s-donate-" + new string(d.Name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
+        <div class="modal-row">
+            <label for="@id" style="min-width:12em;">@d.Name</label>
+            <input id="@id" type="text" readonly value="@d.Address"
+                   spellcheck="false" autocomplete="off"
+                   style="flex:1; min-width:0; font-family:monospace;" />
+            <button type="button" @onclick="() => CopyDonationAsync(d)"
+                    aria-label="@($"Copy the {d.Name} {(d.Crypto ? "address" : "handle")}")">Copy</button>
+        </div>
+    };
+
+    /// <summary>Copies one address and says so in the status line. A copy that failed says
+    /// that too: a silent failure would leave whatever was on the clipboard before to be pasted
+    /// into a send.</summary>
+    private async Task CopyDonationAsync(DonationAddress d)
+    {
+        string what = d.Name + (d.Crypto ? " address" : "");
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", d.Address);
+            _donateStatus = $"{what} copied.";
+        }
+        catch
+        {
+            _donateStatus = $"{what} could not be copied. Select the field and copy it.";
+        }
+        StateHasChanged();
+    }
 
     /// <summary>
     /// Arrow / Home / End across the settings tabs, completing the roving-tabindex

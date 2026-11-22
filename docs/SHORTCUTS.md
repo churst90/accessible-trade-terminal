@@ -369,7 +369,6 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|
 | Alt+C | Focus the toolbar's **Chart type** list (Candles, Heikin Ashi, Line, Area, Renko) |
 | Alt+L | Focus the toolbar's **Price scale** list (Regular, Logarithmic, Percent, Indexed to 100) |
-| Alt+H | Toggle volume heatmap overlay |
 
 Until 2026-11-19 Alt+C toggled Heikin-Ashi and Alt+L toggled log scale. Each is now one entry of a
 list, so the keys put focus on the list and the arrows reach every choice. The toggles are still in

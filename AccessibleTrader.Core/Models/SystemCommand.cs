@@ -196,7 +196,7 @@ namespace AccessibleTrader.Core.Models
         ToggleLogScale,
         ToggleIndicatorVisibility, // H
         ToggleIndicatorAudio, // M
-        ToggleHeatmap, // Alt+H
+        ToggleHeatmap, // no default key since 2026-11-21 (Go bar HEAT)
         AddReferenceLevel, // 0
         // Chart types, Go bar only (no new key: Alt+Shift+C is Draw channel). Heikin-Ashi is
         // still ToggleHeikinAshi's command; these four name the four choices outright.
