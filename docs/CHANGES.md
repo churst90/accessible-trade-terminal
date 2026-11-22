@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Nothing yet.
+### 2026-11-22: a design for shared charts (nothing built)
+
+`docs/SHARED_CHARTS_DESIGN.md`, written for later from Cody's answers: shared charts are live (the
+owner's edits reach viewers within about a second and are spoken), anyone can share, viewers can
+never change a shared chart (refused in `WorkspaceStore.Dispatch`, not only hidden), and links are the
+only way in. It records what exists to build on (tabs save drawings, `AppUser.DisplayName`, the
+anonymous `account/status` route), the open choice for signed-out viewers (the demo runs in another
+process), the Twelve Data terms check before stock charts can be shared, the abuse basics, and four
+smaller questions for Cody. Listed in TODO under "Asked for, not built yet".
 
 ## [2.15.0] — 2026-11-22
 

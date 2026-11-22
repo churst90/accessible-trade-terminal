@@ -170,6 +170,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
 
 ## Asked for, not built yet
 
+- [ ] **Shared charts** (Cody, 2026-11-22: "share charts only you can change", "for later"). Design in
+  [SHARED_CHARTS_DESIGN.md](SHARED_CHARTS_DESIGN.md), on Cody's answers: **live** (his edits reach
+  viewers in real time, the viewer's tab named "..., Cody's chart, read only"), **anyone can share**,
+  every share read-only to all but its owner, **link-only**. Four smaller questions still open at the
+  end of that file. Not started.
 - [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:
   1. **Close everything** on one key: cancel every working order and close every position on the
      focused venue (then optionally all venues), after one spoken confirmation that says what it will do
