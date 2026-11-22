@@ -270,9 +270,8 @@ namespace AccessibleTrader.Core.Services.Audio
             // Heikin-Ashi on: "2 recent bars ... sound positive but are reported as red". The
             // Heikin-Ashi candle was up and the market's candle down, so the tone (from the
             // Heikin-Ashi bar) said up while the paint and the words said red.
-            bool drawnOverCandles = string.IsNullOrEmpty(series.Pane)
-                || series.Pane.Equals("Main", StringComparison.OrdinalIgnoreCase);
-            bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price && drawnOverCandles;
+            bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price
+                && ChartMath.IsDrawnOverTheCandles(series.Pane);
             Ohlcv navPoint = ChartMath.BarAsDrawn(state.Data, idx, followsCandleTransform);
 
             // The log toggle reaches the ear for exactly the panes it reaches the eye: Main only.

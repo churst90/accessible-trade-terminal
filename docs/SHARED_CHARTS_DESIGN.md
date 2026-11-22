@@ -1,6 +1,8 @@
 # Shared charts: a design for later
 
-Written 2026-11-22 from a discussion with Cody. **Status: design only, nothing built.** Cody's
+Written 2026-11-22 from a discussion with Cody; the second round's additions (what a share holds,
+chart notes, the app and an account, the order of work) were accepted by him the same day.
+**Status: design only, nothing built.** Cody's
 answers to the three open questions are the basis of everything below:
 
 1. **Live, not frozen.** "I'll update it in realtime and want people to see so they can keep that
@@ -326,7 +328,9 @@ it. Real-time sharing is the larger part of stage 1; the rest reuses what exists
 2. Spoken updates on by default for viewers? (Assumed **yes**, short, with the setting to turn off.)
 3. The key for Share this chart, and for the update log.
 4. Should an owner be able to see who is viewing, or only how many? (Assumed **only how many**.)
-5. **The recommendations of 2026-11-22 above**, each to confirm or change: a share is one tab by
+5. ~~The recommendations of 2026-11-22 above~~ **Accepted** (Cody, 2026-11-22: "I like your
+   additions to the shared charts implementation, file that in the doc"): a share is one tab by
    default or several picked tabs, never the session; on/stopped with the same link, plus New link;
    chart notes saved with the tab and shared with it; sign-in from the app allowed but optional, for
    sharing first and copying charts later, never for keys; viewing a share needs no account anywhere.
+   They are part of the design now, not proposals.

@@ -572,6 +572,17 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// Whether a series in <paramref name="pane"/> is read and heard from the candle AS
+        /// DRAWN (Heikin-Ashi when it is on) or from the market's own candle. One answer for the
+        /// renderer, the words and the tone: the renderer hands only the price pane the
+        /// Heikin-Ashi candles and every pane below it the real ones (a volume bar is painted by
+        /// the market's candle), so those panes are said and sounded from the real candle too.
+        /// Cody, 2026-11-22: "What is seen should be what is heard". A volume bar painted red
+        /// under a Heikin-Ashi candle that was up said "up" and played the up tone.
+        /// </summary>
+        public static bool IsDrawnOverTheCandles(string? pane) =>
+            string.IsNullOrEmpty(pane) || pane.Equals("Main", StringComparison.OrdinalIgnoreCase);
+        /// <summary>
         /// The bar at <paramref name="index"/> AS DRAWN: its Heikin-Ashi equivalent when that
         /// mode is on, the raw bar otherwise.
         ///

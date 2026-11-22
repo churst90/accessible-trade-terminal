@@ -16,8 +16,14 @@
 - **On a Heikin-Ashi chart, a price "touches" alert needs the market to touch it**, not only a
   Heikin-Ashi wick.
 - **Switching tabs no longer fires an indicator "crosses" alert** by comparing two charts.
-- **Volume bars on a Heikin-Ashi chart sound the colour they are drawn and said in**: a red bar
-  under a down candle no longer plays the "up" tone.
+- **Volume bars on a Heikin-Ashi chart sound and read the colour they are drawn**: a red bar under
+  a down candle no longer plays the "up" tone or says "up". Every pane below the price pane
+  (volume, oscillators) is drawn, said and sounded from the market's own candles; the price pane
+  follows Heikin-Ashi.
+- **Indicators update live again on a busy market.** Cipher B and the rest froze between tab
+  switches whenever prices ticked faster than the order book could be fetched (about three times a
+  second): each tick cancelled the one before it. Now one update runs at a time and the next one
+  always uses the newest prices.
 
 ## 2.15.0: the chart's fixes from Cody's notes, the 9-13 sequential, and nearby levels you can switch off
 

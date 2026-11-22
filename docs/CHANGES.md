@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-22: indicators update live on a busy market; volume bars say the direction they are drawn
+
+Cody, 2026-11-22: "when indicators like cipher b are on the chart, do these indicators update in
+realtime? I don't think they do ... nothing seems to move except the timestamp ... If I switch
+workspaces then switch back I see the updated values". And: "if the volume bars switch when HA is
+on, then that is what i should hear, colors, value, direction ... What is seen should be what is
+heard".
+
+**Why the indicators froze.** `DataOrchestrationService` cancelled the recalculation in flight on
+every trigger, and each recalculation first awaits the order book, a network round trip (MEXC's
+took about 300 ms from here, timed 2026-11-22). A market ticking faster than that cancelled every
+tick before it reached the indicators; only a forced full recalculation (a tab switch) brought them
+up to date, and the candle (not computed there) kept moving. A test with a 300 ms book and a tick
+every 100 ms for two seconds counted **0** indicator updates. The engine itself was not at fault:
+one Cipher B tick through `IndicatorEngine.CalculateIncrementalAsync` moved every value.
+
+**Fixed.** One recalculation runs at a time; a trigger that arrives meanwhile asks for one more
+pass on the newest bars when it finishes (`RunUntilCurrentAsync`). Only a change that makes the
+work in flight wrong (another chart, Heikin-Ashi, an added indicator, a scrollback prepend, a new
+built-chart shape) still cancels it. The "full recalculation owed" flag became a pair of counters
+(`_fullAsked`, `_fullDone`), so a full request that lands just as a full pass finishes is not wiped
+out. Tests: `Ticks_faster_than_the_order_book_still_update_the_indicators` (red with ticks
+cancelling again, red without the extra pass), and the two cancellation tests rewritten for the
+new rule (a tick waits for a full pass and then runs; a newer change cancels it and is a full pass
+itself, red when changes stop cancelling). **Not guarded:** the cancelled-full-does-not-pay-the-debt
+check; every cancel now comes from a change that asks for a full pass itself, so removing it
+changes nothing a test can see. It stays as a backstop. The order book is still fetched on every
+pass (at most one at a time now); fetching it only when a heatmap is on is filed.
+
+**Volume direction.** 43022e3d made the volume TONE follow the market's candle in the panes below
+the price pane (they are painted from it); the spoken "up"/"down" still came from the Heikin-Ashi
+candle. `ChartMath.IsDrawnOverTheCandles(pane)` is now the one rule for the renderer's choice, the
+tone (`NavigationSonifier`) and the words (`SpeechFormatter`, both the single-component and the
+summary branch). The end-to-end test now also asserts "10, down" (red with the old rule).
+Cody asked "if the volume bars switch when HA is on": they do not, on our chart or on TradingView,
+which also colours volume by the real candle; filed as a question for him.
+
 ### 2026-11-22: an alert fires on the chart it was set on, and nowhere else; volume bars sound the colour they are drawn
 
 Cody, 2026-11-22: he set "price touches 61,450" on his BTCUSDT chart and "it kept firing over and over

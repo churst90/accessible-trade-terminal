@@ -284,11 +284,12 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public async Task A_full_recalculation_cancelled_by_a_later_tick_is_still_owed()
+        public async Task A_tick_during_a_full_recalculation_waits_for_it_and_then_runs_on_the_newest_bars()
         {
-            // Every trigger cancels the one before it. A viewport move straight after a chart type
-            // change asks only for the last bar; it cancelled the full recalculation still waiting
-            // its turn, and the buffers stayed sized for the old bars (a blank Renko volume pane).
+            // Until 2026-11-22 every trigger cancelled the one before it, so a viewport move straight
+            // after a chart type change (asking only for the last bar) cancelled the full one, and a
+            // debt flag made the tick do the full one instead (a blank Renko volume pane,
+            // 2026-11-20). A tick no longer cancels anything: the full one finishes, then the tick.
             var (svc, store, data, spy) = BuildOrchestration();
             store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
             data.RaiseDataUpdated();
@@ -301,23 +302,24 @@ namespace AccessibleTrader.Tests
             await spy.WaitForAnyCallAsync();       // the full one has started and holds the lock
 
             data.SetBars(MakeBars(21));
-            data.RaiseDataUpdated();               // a plain tick: cancels the full one's token
+            data.RaiseDataUpdated();               // a plain tick
             await Task.Delay(100);
             spy.Reset();
             hold.SetResult();
-            await spy.WaitForAnyCallAsync();       // the tick's own recalculation
+            await spy.WaitForAnyCallAsync();       // the tick's own recalculation, after the full one
 
-            Assert.True(spy.LastWasFull, "the tick after a cancelled full recalculation must do the full one");
+            Assert.Equal(0, spy.CancelledFulls);
+            Assert.Equal(1, spy.FullCalls);
+            Assert.False(spy.LastWasFull, "the full one finished, so the tick needs only the last bar");
+            Assert.Equal(21, spy.LastData!.Count);
             svc.Dispose();
         }
 
         [Fact]
-        public async Task A_cancelled_full_recalculation_does_not_mark_the_debt_paid()
+        public async Task A_full_recalculation_cancelled_by_a_newer_change_is_done_again_in_full()
         {
-            // Three triggers in a row: the full one (1) is overtaken by a tick (2) that takes the
-            // owed full recalculation but must wait for the lock; when (1) finishes, cancelled, it
-            // must not clear the debt, or a third tick (3) that overtakes (2) goes back to the
-            // last-bar update while nothing full has finished.
+            // Heikin-Ashi on (1), then off again (2) while (1) still runs: (1) now describes the
+            // wrong candles, so (2) cancels it, and (2) is a full recalculation of its own.
             var (svc, store, data, spy) = BuildOrchestration();
             store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
             data.RaiseDataUpdated();
@@ -329,23 +331,53 @@ namespace AccessibleTrader.Tests
             store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h") with { IsHeikinAshi = true });
             await spy.WaitForAnyCallAsync();       // (1) holds the lock
 
-            var hold2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            data.SetBars(MakeBars(21));
-            data.RaiseDataUpdated();               // (2): owed full, waiting for the lock
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));   // (2)
             await Task.Delay(100);
-            spy.HoldNextFull = hold2;
             spy.Reset();
             hold1.SetResult();
-            await spy.WaitForAnyCallAsync();       // (2) has the lock and holds it
-
-            data.SetBars(MakeBars(22));
-            data.RaiseDataUpdated();               // (3) cancels (2)
-            await Task.Delay(100);
-            spy.Reset();
-            hold2.SetResult();
             await spy.WaitForAnyCallAsync();
 
-            Assert.True(spy.LastWasFull, "nothing full finished uncancelled, so (3) still owes it");
+            Assert.Equal(1, spy.CancelledFulls);
+            Assert.True(spy.LastWasFull, "the change after a cancelled full recalculation must do a full one");
+            svc.Dispose();
+        }
+
+        // ── Live ticks never starve the indicators ───────────────────────────
+        //
+        // Cody, 2026-11-22: "when indicators like cipher b are on the chart, do these indicators
+        // update in realtime? ... nothing seems to move except the timestamp. If I switch
+        // workspaces then switch back I see the updated values." Every tick cancelled the one
+        // before it, and each one first waited for the order book, a network round trip (about
+        // 300 ms to MEXC). While the price ticked faster than that, every tick was cancelled
+        // before it reached the indicators, and only a forced full recalculation (a tab switch)
+        // ever brought them up to date. The candle itself is not computed here, so it kept moving.
+
+        [Fact]
+        public async Task Ticks_faster_than_the_order_book_still_update_the_indicators()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            data.BookDelay = TimeSpan.FromMilliseconds(300);
+            // Two seconds of a busy market: a tick every 100 ms, each moving the last close.
+            for (int t = 0; t < 20; t++)
+            {
+                var bars = MakeBars(20);
+                bars[^1] = bars[^1] with { Close = 100 + t * 0.5, High = 101 + t * 0.5 };
+                data.SetBars(bars);
+                data.RaiseDataUpdated();
+                await Task.Delay(100);
+            }
+            int duringTheBurst = spy.LastOnlyCalls + spy.FullCalls;
+
+            Assert.True(duringTheBurst >= 3,
+                $"a tick every 100 ms for two seconds updated the indicators {duringTheBurst} times");
+            // And the last one is computed on the newest bars once the market pauses.
+            await Task.Delay(800);
+            Assert.Equal(109.5, spy.LastData![^1].Close);
             svc.Dispose();
         }
 
@@ -417,8 +449,15 @@ namespace AccessibleTrader.Tests
             public Task PrependOlderDataAsync() => Task.CompletedTask;
             public Task StartLiveUpdates() => Task.CompletedTask;
             public Task StopLiveUpdatesAsync() => Task.CompletedTask;
-            public Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync()
-                => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
+            /// <summary>How long the order book takes to arrive: a real one is a network round trip
+            /// (MEXC's took about 300 ms from Cody's desk, 2026-11-22).</summary>
+            public TimeSpan BookDelay { get; set; }
+
+            public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync()
+            {
+                if (BookDelay > TimeSpan.Zero) await Task.Delay(BookDelay);
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
 
             public event Action? DataUpdated;
 #pragma warning disable CS0067
@@ -431,6 +470,8 @@ namespace AccessibleTrader.Tests
             private readonly SemaphoreSlim _called = new(0);
 
             public int FullCalls;
+            /// <summary>Full recalculations whose token was cancelled while they ran.</summary>
+            public int CancelledFulls;
             public int LastOnlyCalls;
             public IReadOnlyList<Ohlcv>? LastData;
             public bool LastWasFull;
@@ -450,6 +491,7 @@ namespace AccessibleTrader.Tests
                 LastData = data;
                 LastWasFull = true;
                 Interlocked.Increment(ref FullCalls);
+                if (ct.IsCancellationRequested) Interlocked.Increment(ref CancelledFulls);
                 if (hold == null) _called.Release();
             }
 
@@ -467,6 +509,7 @@ namespace AccessibleTrader.Tests
             {
                 LastData = null;
                 Interlocked.Exchange(ref FullCalls, 0);
+                Interlocked.Exchange(ref CancelledFulls, 0);
                 Interlocked.Exchange(ref LastOnlyCalls, 0);
                 while (_called.CurrentCount > 0) _called.Wait(0);
             }

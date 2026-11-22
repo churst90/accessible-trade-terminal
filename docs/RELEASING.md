@@ -86,6 +86,12 @@ git push origin v1.0.0
 The push triggers the workflow. When all jobs finish, the release appears at
 `https://github.com/churst90/accessible-trade-terminal/releases`.
 
+**The release, the hosted server and the website move together** (Cody, 2026-11-22: "from now on
+... cut the release, update the vps and website all at the same time so nothing is out of sync").
+The hosted terminal at accessibletrader.com is deployed from the tagged commit only, in the same
+sitting as the tag, and the website (download links, /status, the manual and shortcuts pages, the
+llms files) is moved to that release then too. No deploys of untagged commits between releases.
+
 ## Dry run / first-time validation
 
 The WebHost jobs are robust. The two MAUI jobs depend on the `maui` workload and

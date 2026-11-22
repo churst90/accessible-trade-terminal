@@ -75,8 +75,12 @@ components". Caveats for these are in CHANGES (2.15.0).
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
   Switch tabs back and forth with an RSI "crosses" alert set: nothing should fire. Old alerts with no
   timeframe still fire on every tab of their symbol; set them again.
-- [ ] **Volume tones on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were
-  said red should now sound down, matching their red paint.
+- [ ] **Volume on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were said red
+  should now sound down AND say "down", matching their red paint. Every pane below the price pane
+  reads the market's candle; the price pane reads Heikin-Ashi.
+- [ ] **Indicators live on a busy market** (2026-11-22): Cipher B on your 15m chart, leave it a few
+  minutes without switching tabs; the waves and money flow at the newest bar should keep changing
+  with the price. Before this, every tick was cancelled by the next one while the price moved fast.
 - [ ] **The 9-13 against TradingView** (it reads right, Cody 2026-11-22): put a community
   "Sequential" script on the same chart and compare where the 9s and 13s land; the 9s should match
   any of them, the 13s only one using the same published recycle. **Q:** should narration as a bar
@@ -183,8 +187,45 @@ needed: "don't worry about the custom scripts on the hosted vps".
   every share read-only to all but its owner, **link-only**. Second round (11-22) answered with
   recommendations to confirm (question 5 in that file): one or several picked tabs, never the
   session; chart notes saved with the tab; optional sign-in from the app, never for keys; shares open
-  in the app from a pasted link with no account. Stage 0 (chart notes, an Account tab in Settings
+  in the app from a pasted link with no account. **Cody accepted all of these on 2026-11-22** ("I
+  like your additions"); the design file says so. Stage 0 (chart notes, an Account tab in Settings
   that explains itself) is useful on its own. Not started.
+- [ ] **Invert chart on `I`** (Cody, 2026-11-22: "invert chart, 'i'. if invert chart applies to only
+  the main pane, scope it to just that"). Bare `I` is free (Alt+I is the asset dossier, Ctrl+Alt+Shift+I
+  My Data). Design, to build: a per-tab toggle that flips the PRICE PANE only, as TradingView's
+  "Invert scale" does (theirs is per scale, so a price-pane toggle is the same thing); indicator panes
+  keep their own scales. It must be heard, not only drawn: (1) `I` says "Price pane inverted" /
+  "Price pane upright"; (2) navigation pitch follows the drawing, so a higher price sounds LOWER while
+  inverted (the sound is where the eye goes); (3) the words do not flip: prices, "up"/"down", candle
+  colours and patterns stay the market's, since inverting is a way to look for bias, not a new
+  market; (4) the axis readout and Alt+Shift+D say "inverted" once, the status line shows it; (5)
+  saved with the tab and in templates. Open: whether drawings and price alerts placed by mouse on an
+  inverted pane need anything (they store prices, so should not). Not started.
+- [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
+  and make it super robust"). We have about 50 classic studies (Skender) and 30 of our own. The gaps
+  against TradingView's built-ins, in the order proposed (most useful read aloud first):
+  1. **Supertrend** (named in our pane rules but never built), **ZigZag**, **Williams Fractals**,
+     **Pivot Points High/Low**: simple, popular, and each is an event a screen reader can say.
+  2. **Smart money concepts, the parts we lack**: order blocks, fair value gaps (imbalances), equal
+     highs/lows as liquidity, liquidity sweeps, premium/discount zones. Market Structure already has
+     Break of Structure and Change of Character. Value: an objective, spoken list of zones; not an
+     edge on its own (the Cipher schools tested as "No edge" alone; SMC should be graded the same way
+     in the lab before any claim).
+  3. **Volume and order-flow**: Volume Delta / CVD (needs trade-side data, which MEXC's deals stream
+     has), Klinger, Price Volume Trend, Net Volume, Relative Volume at Time.
+  4. **Trend/oscillators**: Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Linear Regression
+     channel and slope, Relative Vigor, SMI Ergodic, Awesome/Accelerator Oscillator, Woodies CCI,
+     Bull Bear Power, Chande Kroll Stop, McGinley Dynamic, Least Squares MA,
+     Envelopes, Moving Average Ribbon.
+  5. **Session and time tools**: session high/low and opening range, previous day/week/month
+     high-low-close, day-of-week separators: each a level the "Near resistance" speech can name.
+  6. **Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines, chart
+     pattern recognition (ChartPatternDetector exists for strategies; give it a visible indicator).
+  Every one ships with a spoken form, sonification and the usual causality test (no future bars).
+  LuxAlgo is a TradingView vendor: paid toolkits (Signals & Overlays, Price Action Concepts,
+  Oscillator Matrix) and many free open-source scripts (their free "Smart Money Concepts" is one of
+  TradingView's most used). Their paid code is closed; their free scripts are CC BY-NC-SA, so we can
+  learn from them but not copy them into this repo; ours are written from the published definitions.
 - [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:
   1. **Close everything** on one key: cancel every working order and close every position on the
      focused venue (then optionally all venues), after one spoken confirmation that says what it will do
@@ -260,6 +301,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## Known limits and smaller open items
 
+- [ ] **The order book is fetched on every indicator pass** (`DataOrchestrationService`), a network
+  round trip, even with no heatmap on the chart; since 2026-11-22 at most one is in flight. Fetch it
+  only when a heatmap is on, or from a stream. **Q for Cody:** should volume bars follow Heikin-Ashi
+  colours? Today (and on TradingView) they are coloured by the market's own candle.
 - [ ] **The .NET runtime in the WebHost zips is 10.0.11**, older than the Brotli decoder fix in 10.0.14
   (GHSA-p3jp-9v83-76w9, high). No shipped code decompresses untrusted Brotli. Next release: a newer
   10.0.3xx SDK, then check the zips' System.Private.CoreLib.dll version.

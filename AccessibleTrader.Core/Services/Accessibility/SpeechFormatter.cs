@@ -167,7 +167,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             Ohlcv rawPt = (state.Data != null && state.Data.Count > 0)
                 ? state.Data[Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1)]
                 : pt;
-            bool readsRawBar = seriesId == CoreSeriesIds.Price;
+            // And every pane below the price pane, which is drawn from the real candles: a volume
+            // bar painted red (the market's candle down) said "up" from a Heikin-Ashi candle that
+            // was up (Cody, 2026-11-22). ChartMath.IsDrawnOverTheCandles is the one rule.
+            bool readsRawBar = seriesId == CoreSeriesIds.Price || !ChartMath.IsDrawnOverTheCandles(series.Pane);
 
             // Percent and Indexed relabel the candles readout: it STARTS with the scale reading
             // of the close as drawn, then says everything it said before. The base is the first
@@ -320,7 +323,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 var values = series.Components
                     .Where(c => c.IsVisible && !c.IsMuted)
-                    .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
+                    .Select(c => FormatTemplateValue(series, c, readsRawBar ? rawPt : pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                         viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data,
                         describeLook: state.DescribeSignalLooks,
                         lineFrom: LineFrom(series, c, state.CurrentDataIndex, arrived || isYMove),

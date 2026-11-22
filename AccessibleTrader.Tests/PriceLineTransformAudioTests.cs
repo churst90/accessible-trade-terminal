@@ -112,11 +112,11 @@ public sealed class PriceLineTransformAudioTests
     }
 
     /// <summary>Cody's bars, end to end: a down market candle under an up Heikin-Ashi candle. The
-    /// volume tone is the bearish one, the colour the renderer and the words use is the down
-    /// colour, and the precondition (the Heikin-Ashi candle IS up) is checked so this is not
+    /// volume tone is the bearish one, the words say "down", the colour word is "red bar" (the
+    /// colour the renderer paints it), and the precondition (the Heikin-Ashi candle IS up) is checked so this is not
     /// vacuous.</summary>
     [Fact]
-    public void A_volume_bar_under_a_down_candle_sounds_down_on_a_Heikin_Ashi_chart()
+    public void A_volume_bar_under_a_down_candle_sounds_and_reads_down_on_a_Heikin_Ashi_chart()
     {
         // A climb from 90 to 120 leaves the Heikin-Ashi open far below the market; the last
         // candle opens at 120 and closes at 116, down, while its Heikin-Ashi candle is still up.
@@ -143,7 +143,7 @@ public sealed class PriceLineTransformAudioTests
         var series = new ChartSeries(cfg, buf);
 
         var heard = new HeardStrategy();
-        new NavigationSonifier(new SilentDriver(), heard, new SoundPatchRegistry()).SyncNavigationSlots(WorkspaceState.Initial with
+        var state = WorkspaceState.Initial with
         {
             Data = new TimeSeriesBuffer<Ohlcv>(bars),
             ActiveSeries = ImmutableList.Create(series),
@@ -152,9 +152,16 @@ public sealed class PriceLineTransformAudioTests
             IsHeikinAshi = true,
             PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Volume", (0, 20)),
             ViewportRange = (80, 130),
-        });
+        };
+        new NavigationSonifier(new SilentDriver(), heard, new SoundPatchRegistry()).SyncNavigationSlots(state);
 
+        // The tone.
         Assert.Equal(220, heard.LastFrequency);
+        // The words, handed the bar AS DRAWN exactly as NavigationFeedbackManager hands it.
+        string said = new AccessibleTrader.Core.Services.Accessibility.SpeechFormatter().FormatPointFeedback(
+            state, isXMove: true, isYMove: false, series, ha, "");
+        Assert.Contains("10, down", said);
+        Assert.DoesNotContain(", up", said);
         // What the words say for that bar, from the same real bar the renderer paints it by.
         Assert.Equal("red bar", AccessibleTrader.Core.Services.Accessibility.MarkerLook.DescribeBar(null, series, comp, last, bars[last]));
     }

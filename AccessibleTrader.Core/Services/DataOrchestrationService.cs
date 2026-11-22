@@ -35,11 +35,21 @@ namespace AccessibleTrader.Core.Services
         // Set to true when a recalculation trigger is suppressed during LoadingHistorical.
         // Cleared and a single full recalc fires when DataStatus transitions to Ready.
         private volatile bool _pendingRecalcAfterLoad;
-        // A full recalculation was asked for and has not yet finished. Every trigger cancels the
-        // one before it, so without this a viewport move just after a chart type change (which
-        // asks for the cheap last-bar update) cancelled the full one still waiting for the lock,
-        // and the buffers stayed sized for the old bars: a blank volume pane on Renko, 2026-11-20.
-        private volatile bool _fullOwed;
+        // A full recalculation was asked for and has not yet finished. Until 2026-11-22 every
+        // trigger cancelled the one before it, so without this a viewport move just after a chart
+        // type change (which asks for the cheap last-bar update) cancelled the full one still
+        // waiting for the lock, and the buffers stayed sized for the old bars: a blank volume pane
+        // on Renko, 2026-11-20. A tick no longer cancels anything (see OnDataUpdated); this still
+        // covers a full one cancelled by a scrollback load or a newer change.
+        // Owed while _fullAsked (every request) is ahead of _fullDone (what the last uncancelled
+        // full pass had been asked for when it began).
+        private int _fullAsked;
+        private volatile int _fullDone;
+        // One recalculation at a time, and the newest bars next: a trigger that arrives while one
+        // runs asks for one more pass instead of cancelling it (see OnDataUpdated).
+        private readonly object _runGate = new();
+        private bool _running;
+        private bool _runAgain;
         // The built chart the indicator buffers were last computed on (see BuiltShape).
         private BuiltShape _lastBuilt;
 
@@ -175,7 +185,7 @@ namespace AccessibleTrader.Core.Services
             // Asset/timeframe switch → every indicator buffer belongs to the previous chart.
             // Nothing incremental can repair that; only a full recalculation can.
             if (ConsumeIdentityChange()) forceFull = true;
-            if (forceFull) _fullOwed = true;
+            if (forceFull) Interlocked.Increment(ref _fullAsked);
 
             // Suppress per-bar recalculations while the data pipeline is still loading or resampling.
             // This prevents dozens of racing full recalculations as bars trickle in (especially on
@@ -193,45 +203,92 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
-            _tickCts?.Cancel();
-            _tickCts = new CancellationTokenSource();
-            var token = _tickCts.Token;
+            // ── A tick never cancels the recalculation in flight ────────────────────
+            //
+            // Cody, 2026-11-22: "when indicators like cipher b are on the chart, do these
+            // indicators update in realtime? ... nothing seems to move except the timestamp. If I
+            // switch workspaces then switch back I see the updated values." They did not. Every
+            // trigger cancelled the one before it, and each first waits for the order book, a
+            // network round trip (about 300 ms to MEXC). A market that ticked faster than that
+            // cancelled every tick before it reached the indicators, so they stayed where the last
+            // full recalculation (a tab switch) left them while the candle went on moving.
+            //
+            // Now one recalculation runs at a time, and a trigger that arrives meanwhile asks for
+            // one more pass on the newest bars when it finishes, however many arrive. Only a
+            // change that makes the work in flight wrong (another chart, Heikin-Ashi, a new
+            // indicator, new bars at the left) still cancels it.
+            if (forceFull) _tickCts?.Cancel();
+            lock (_runGate)
+            {
+                if (_running) { _runAgain = true; return; }
+                _running = true;
+            }
+            SafeFireAndForget.Run(RunUntilCurrentAsync, _logger, "TickProcessing");
+        }
 
-            SafeFireAndForget.Run(async () => {
-                var data = ChartBars();
-                if (data == null || !data.Any()) return;
-
-                var activeSeries = _store.State.ActiveSeries;
-
-                // Fetch the live order book snapshot on every tick.
-                // This ensures the heatmap history service accumulates data regardless of
-                // whether the code path takes a full or incremental recalculation route.
-                var book = await _dataManager.GetOrderBookAsync().ConfigureAwait(false);
-
-                // A full recalc is needed when: forced, or any non-profile indicator series
-                // has no component data yet (newly added indicator, fresh market load).
-                // Profile/heatmap series rely on the history service and RecalculateAllAsync,
-                // so they are excluded from the "empty data" trigger below.
-                bool needsFull = _fullOwed || activeSeries.Any(s =>
-                    !string.IsNullOrEmpty(s.IndicatorCode) &&
-                    !s.IsProfile &&
-                    s.Data.ComponentData.Count == 0);
-
-                if (needsFull)
+        /// <summary>Recalculates until no trigger is waiting: each pass on the bars as they are when
+        /// it starts.</summary>
+        private async Task RunUntilCurrentAsync()
+        {
+            while (true)
+            {
+                var cts = new CancellationTokenSource();
+                _tickCts = cts;
+                try
                 {
-                    // Add snapshot to history before the full recalc so the history query
-                    // inside RecalculateAllAsync includes the current live state.
-                    if (book.Bids?.Count > 0 || book.Asks?.Count > 0)
-                        _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, book.Bids ?? new(), book.Asks ?? new());
-                    await RecalculateAllAsync(data, token).ConfigureAwait(false);
-                    if (!token.IsCancellationRequested) _fullOwed = false;
+                    await RecalculateCurrentAsync(cts.Token).ConfigureAwait(false);
                 }
-                else
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
                 {
-                    // RecalculateLastAsync handles its own AddSnapshot internally.
-                    await RecalculateLastAsync(data, token, book.Bids, book.Asks).ConfigureAwait(false);
+                    _logger.LogError(ex, "Background task '{OperationName}' failed.", "TickProcessing");
                 }
-            }, _logger, "TickProcessing");
+                lock (_runGate)
+                {
+                    if (!_runAgain) { _running = false; return; }
+                    _runAgain = false;
+                }
+            }
+        }
+
+        private async Task RecalculateCurrentAsync(CancellationToken token)
+        {
+            var data = ChartBars();
+            if (data == null || !data.Any()) return;
+
+            var activeSeries = _store.State.ActiveSeries;
+
+            // Fetch the live order book snapshot on every tick.
+            // This ensures the heatmap history service accumulates data regardless of
+            // whether the code path takes a full or incremental recalculation route.
+            var book = await _dataManager.GetOrderBookAsync().ConfigureAwait(false);
+
+            // A full recalc is needed when: forced, or any non-profile indicator series
+            // has no component data yet (newly added indicator, fresh market load).
+            // Profile/heatmap series rely on the history service and RecalculateAllAsync,
+            // so they are excluded from the "empty data" trigger below.
+            int fullAsked = Volatile.Read(ref _fullAsked);
+            bool needsFull = fullAsked != _fullDone || activeSeries.Any(s =>
+                !string.IsNullOrEmpty(s.IndicatorCode) &&
+                !s.IsProfile &&
+                s.Data.ComponentData.Count == 0);
+
+            if (needsFull)
+            {
+                // Add snapshot to history before the full recalc so the history query
+                // inside RecalculateAllAsync includes the current live state.
+                if (book.Bids?.Count > 0 || book.Asks?.Count > 0)
+                    _bookHistory.AddSnapshot(_dataManager.Identity.Symbol, book.Bids ?? new(), book.Asks ?? new());
+                await RecalculateAllAsync(data, token).ConfigureAwait(false);
+                // Paid up to what was asked when this pass began: a full one asked for while it
+                // ran is still owed (it also cancelled this pass, but not always in time).
+                if (!token.IsCancellationRequested) _fullDone = fullAsked;
+            }
+            else
+            {
+                // RecalculateLastAsync handles its own AddSnapshot internally.
+                await RecalculateLastAsync(data, token, book.Bids, book.Asks).ConfigureAwait(false);
+            }
         }
 
         /// <summary>The bars the indicators compute on: the chart's drawn bars on a built chart,
