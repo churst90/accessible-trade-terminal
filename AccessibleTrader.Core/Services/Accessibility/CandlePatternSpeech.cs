@@ -10,7 +10,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Until 2026-09-04 there were THREE classifiers with three sets of thresholds and three
     /// spellings of the same names. <see cref="SdkCandlePatternAnalyzer"/> knew all twelve
     /// patterns and both bar-close routes used it; <c>BarDetailService.ClassifyBar</c>
-    /// (Ctrl+Shift+D / Alt+Shift+D) and <c>SpeechFormatter.ClassifyCandleType</c> (the arrow-key
+    /// (Alt+Shift+D) and <c>SpeechFormatter.ClassifyCandleType</c> (the arrow-key
     /// candle summary) were single-bar-only copies with different numbers. So the two routes that
     /// read HISTORY — every bar the user was not present for — could not say "three white
     /// soldiers", "morning star" or "bullish engulfing" at all, and on the shapes they did share

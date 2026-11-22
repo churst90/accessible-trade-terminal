@@ -676,7 +676,7 @@ namespace AccessibleTrader.BlazorClient
             // registrations stay in step (HostParityTests) and a native head can use it later.
             services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.HeadlessChartFactory>();
 
-            // Bar detail (Ctrl+Shift+D) and alert system.
+            // Bar detail (Alt+Shift+D) and alert system.
             services.AddSingleton<IBarDetailService, BarDetailService>();
             services.AddSingleton<IAlertEvaluator, AlertEvaluator>();
             services.AddSingleton<IAlertOrchestrator, AlertOrchestrator>();

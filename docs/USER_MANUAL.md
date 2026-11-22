@@ -647,7 +647,9 @@ counted when the pane is sized.
 Inside a pane the structure continues. A **series** is one thing you added: the candles, an
 RSI, a trend line. A **component** is one line or marker that series draws, and it has a value
 on every bar. MACD is one series with three components: the MACD line, the signal line and the
-histogram. Cipher B is one series with eighteen. PageUp and PageDown walk series; Up and Down
+histogram. Cipher B is one series with seven that speak (PageDown onto it says "7 components"),
+and Up and Down also stop on two more, RSI and Stochastic, which it draws but which start muted;
+its Sell dot is left out until you include it. PageUp and PageDown walk series; Up and Down
 walk the components of the series you are on.
 
 A few panes divide into **strips**, a band of the sheet with its own upright ruler: Cipher B
@@ -1027,8 +1029,7 @@ Heikin-Ashi open, high, low and close; the volume is unchanged. Switching HA on 
 recomputes every indicator on the whole history. So an indicator reading on an HA chart is a
 reading of the smoothed candles, and a level it announces is a smoothed level, not a price
 anything traded at. A few indicators know what they read on an HA chart: Cipher B is handed the
-real candles and makes the Heikin-Ashi once itself, so every part of it reads them exactly as
-Market Cipher B's does on the same chart, and Cipher
+real candles and makes the Heikin-Ashi once itself, so no part of it smooths the candles twice, and Cipher
 DBSI never applies Heikin-Ashi twice, whatever its own setting says.
 
 The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
@@ -1192,10 +1193,19 @@ third, and the terminal names where you have landed each time.
 ### Moving through time
 
 Left and Right arrow move the cursor one bar at a time — Left into the past, Right
-toward the present. As you land on each bar your screen reader announces its values:
-on the price pane, the open, high, low and close of that candle; on an indicator
-component, that component's reading for the bar. At the same time the sonification
-engine plays the bar's tone, so a run of Right-arrows is also a little rising or
+toward the present. As you land on each bar your screen reader reads it, and **what it reads
+depends on how you arrived where you are standing**:
+
+- **On a whole series**, after PageUp or PageDown: everything that series says about the bar.
+  On the candles that is the open, high, low and close with the candle's shape; on an indicator,
+  each of its components that is shown and not muted, one after another.
+- **On one component**, after Up or Down (or after Home, End, Backslash, or a jump from the Go
+  bar, a headline or an event): that component's reading alone. On the candles that is just the
+  body, or just a wick; on Cipher B just the wave or dot you are on.
+
+Left and Right keep whichever you were on, so after Up or Down you hear one component until you
+press PageUp or PageDown again, which goes back to the whole series. At the same time the
+sonification engine plays the bar's tone, so a run of Right-arrows is also a little rising or
 falling melody of where price went.
 
 **Near a level.** A *level* is a price where the market has turned before or where you are
@@ -1391,12 +1401,12 @@ date, and closing price, with the full announcement and tone following from the 
 own speech. One honest caveat: **iOS VoiceOver moves web sliders in steps of about 10%
 of the chart** rather than one bar at a time — flick to get close, then use the
 toolbar's Previous/Next bar buttons for single steps. TalkBack on Android steps one bar
-at a time. Finer VoiceOver control arrives with a future native iOS update.
+at a time.
 
-Touch in the **installed mobile apps** flows through the same layer and is expected to
-behave the same way, but it has not yet been verified on physical devices — until it
-is, a connected Bluetooth keyboard remains the fully-supported way to drive the mobile
-apps. Pinch-zooming the page itself is never blocked, so browser-level
+None of this touch support has yet been tried on a real phone or tablet with VoiceOver or
+TalkBack, so treat it as a first version; a Bluetooth keyboard works as it does on a desktop.
+There is no Android or iOS app to install: on a phone or tablet, the terminal is the web
+version in the browser. Pinch-zooming the page itself is never blocked, so browser-level
 magnification works on the website.
 
 
@@ -2489,9 +2499,9 @@ hear which prices the market accepted (the point of control, where the most trad
 it passed through quickly.
 
 **Multi-signal and structure.** **Cipher B** combines a wave oscillator and money flow into one
-pane. It is drawn the way Market Cipher B draws it: the fast wave a light-blue area with the
-dark-blue slow wave in front of it, a yellow area we call the **Wave Gap** (the fast wave minus the
-slow; Market Cipher B labels it "VWAP", which it is not) over both, the money flow as a green area
+pane. The fast wave is a light-blue area with the
+dark-blue slow wave in front of it, a yellow area called the **Wave Gap** (the fast wave minus the
+slow) over both, the money flow as a green area
 above zero and red below over that, and along the bottom a money-flow bar, green while money flows
 in and dark red while it flows out; hiding Money Flow hides that bar too. The Wave Gap and Money
 Flow are read, arrowed and heard as waves, pitched by their value on the pane's scale like the
@@ -2505,24 +2515,19 @@ dots on the slow wave mark every cross. The big green **Buy dot** sits in the mo
 every upward cross of the waves with the fast wave below Over Sold Level 1 (−60 by default); narration says "Buy dot, waves
 crossed up from oversold". A big red **Sell dot** is its mirror: every downward cross with the fast wave
 above Over Bought Level 1 (60 by default), at the top of the pane; narration says "Sell dot, waves crossed
-down from overbought". Market Cipher B does not draw it, so it is **left out** until you include it
+down from overbought". It is **left out** until you include it
 (Properties → Appearance → Parts). The money flow reads no volume: for each candle it takes the typical price (high, low and close
 averaged), how far that sits from its average over the last five candles, and that distance against
 its own average size over the same five; it averages this over the last 60 candles. A run of
-candles that keep rising pushes it above zero whatever the market's price or volume. It equals
-Market Cipher B's money flow to the five decimals TradingView shows, on candle and Heikin-Ashi
-charts (checked on the Dow's daily history since 1896 and Bitcoin daily and 15-minute).
-
-There is **no gold dot**: Market Cipher B draws none (it comes from the free VuManChu Cipher B).
+candles that keep rising pushes it above zero whatever the market's price or volume.
 
 A magenta "RSI" line and a green-or-red "Stochastic" line run 0 to 100 on their own scale. Despite
-the names they are stochastics of the close, over 40 and 81 candles, smoothed over 2, as Market
-Cipher B draws them (drawn in
-the top half of the pane, as Market Cipher draws them); they are the last two stops when you arrow
+the names they are stochastics of the close, over 40 and 81 candles, smoothed over 2, drawn in
+the top half of the pane; they are the last two stops when you arrow
 through Cipher B's parts and start **muted**. Unmuted, they turn rough above 80 and below 20, click
 as they cross those, say "overbought" or "oversold" when you land on them there, and with narration
 on (N) their crossings are spoken — "Cipher B RSI: crossed above stoch overbought, 80" — their own
-extremes, heard but not drawn. The levels are Market Cipher B's white lines: solid at ±60 (thicker)
+extremes, heard but not drawn. The levels are white lines: solid at ±60 (thicker)
 and zero, dotted at ±53, and a dotted "100%" line along the top, which is silent. On a light theme
 (Paper, High Contrast Light) the white lines are drawn grey, because white is too faint there; on
 Steel Gray the waves are drawn solid rather than see-through, for the same reason. A colour you
@@ -2531,10 +2536,7 @@ clean inside ±53; past ±53 a soft noise texture comes in, and past ±60 the sa
 No part of Cipher B has a texture in its normal range. Money Flow and the Wave Gap are spoken by their
 signed number, "18.0" or "-12.4".
 
-**Nothing that Market Cipher B does not draw.** Cipher B is only what Market Cipher B shows:
-there are no divergence lines, anchor waves or extra fills.
-
-**Cipher B's settings are Market Cipher B's six**, on Properties' General tab, with its names:
+**Cipher B has six settings**, on Properties' General tab:
 **Use Current Chart Resolution** (on) and **Different Timeframe** ("60"): turn the first off and
 Cipher B is computed on the other timeframe, minutes (60, 240) or D, W, M; each value then shows on
 the chart candle that finishes its period, the candles before it show the period before, and the
@@ -2542,15 +2544,14 @@ newest candle shows the period still forming. A timeframe no longer than the cha
 chart's own values. **Over Bought Level 1** (60), **Trigger 1** (53), **Over Sold Level 1** (−60)
 and **Trigger 2** (−53) are the four lines: change one and its line moves, and type a value for a
 line on the Levels tab and its setting changes with it. Over Sold Level 1 is also the buy dot's
-threshold, Over Bought Level 1 the Sell dot's, and the money-flow bar sits 40 to 50 below Trigger 2, as in Market Cipher B. The wave
-and money-flow periods (9, 12, 3 and 60) are fixed, as Market Cipher B fixes them. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
+threshold, Over Bought Level 1 the Sell dot's, and the money-flow bar sits 40 to 50 below Trigger 2. The wave
+and money-flow periods (9, 12, 3 and 60) are fixed. The spoken "overbought" and "oversold" on the waves still mean past ±53, wherever the
 Triggers are.
 
 **Market Structure** labels swing highs and lows as higher or lower than the last and
 reports the trend state those labels imply. **Value Deviation** marks where price turned away
 from value. All three are descriptive: they tell you where you are, not what to do. Cipher A,
-Cipher SR and Cipher DBSI, our versions of Market Cipher's price-chart
-companions, are described under "Adding and tuning indicators" below.
+Cipher SR and Cipher DBSI, which work on the price chart, are described under "Adding and tuning indicators" below.
 
 **Cycle lows: Cipher C and Cycle Position.** Two indicators mark where the chart is in its daily,
 weekly and yearly cycles, with the same marks: D, W and Y under the cycle lows, a check where each
@@ -5176,10 +5177,11 @@ language, so always read the generated C# and check the warnings before relying 
 **The sandbox, and one platform limit.** Compiling and running a custom script never
 endangers the rest of the terminal: the code runs in an isolated worker process with no
 file, network, or reflection access, limited to the charting and indicator libraries,
-and on Windows, macOS, Android, and Linux that worker is additionally locked down by the
-operating system itself. The one exception is **iOS**, which provides no such sandbox, so
+and on Windows, Linux and the macOS web host that worker is additionally locked down by the
+operating system itself. The one exception is the **native Mac app**, which cannot start the worker, so
 custom-script compilation is disabled there — the editor still works as a text editor,
-it just can't run; use the Windows, macOS, or Linux build for scripting. The full design
+it just can't run; use the Windows app or a web host (the macOS web host download included)
+for scripting. The full design
 is in `docs/SANDBOX_DESIGN.md`.
 
 **The sandbox is required, not optional.** If the operating-system sandbox is missing —
@@ -5195,8 +5197,10 @@ way so the decision is never invisible.
 ### The Strategy Lab
 
 Everything above runs inside the terminal. The **Strategy Lab** is a separate,
-optional command-line research harness that ships in the same repository — the place
-where strategy ideas are tested *before* they earn a spot in the application. The
+optional command-line research harness — the place where strategy ideas are tested *before*
+they earn a spot in the application. It is **not in the downloads**: it lives only in the
+project's GitHub repository, and running it means cloning the repository and installing the
+.NET SDK. Nothing in the terminal needs it. The
 division of labor is deliberate: the lab is for research, the terminal is for
 trading. Nothing you run in the lab touches your workspaces, keys, or positions, and
 nothing in the terminal depends on the lab being present.
@@ -5904,9 +5908,11 @@ and calibration — is covered in the project's platform documentation rather th
 
 ## Platform Support
 
-Accessible Trader runs two ways: as a native desktop and mobile app on Windows,
-macOS, iOS, and Android, and as a self-hosted browser application — the Linux web
-host — that you reach in a browser such as Firefox. The keyboard navigation, the
+Accessible Trader runs two ways: as a native desktop app on Windows and macOS, and as
+a web host that you reach in a browser such as Firefox — on your own computer (the only
+way on Linux) or on the website. There is **no Android or iOS app**: the project has code
+for them, but no one has built or run it, and nothing is offered for download. On a phone
+or tablet, use the web version in the browser. The keyboard navigation, the
 Hybrid Voice model, and everything in the preceding chapters are the same everywhere;
 what differs is the plumbing underneath and a single block of keyboard shortcuts on
 the web host.
@@ -5914,13 +5920,11 @@ the web host.
 - **Windows** — works with NVDA, JAWS, and Narrator; uses the WASAPI audio engine for
   the lowest latency; needs a full hardware keyboard for the shortcuts. The Windows
   build is also the one that drives a Dot Pad tactile display when one is connected.
-- **macOS** — works with VoiceOver, uses the AVAudioEngine audio path, full keyboard
-  support.
-- **Android** — works with TalkBack and the AudioTrack engine; the keyboard shortcuts
-  are available when a physical keyboard is connected.
-- **iOS** — works with VoiceOver and AVAudioEngine; shortcuts require a connected
-  hardware keyboard, and, as the Automation chapter noted, custom-script compilation
-  is disabled because iOS provides no process sandbox.
+- **macOS** — the native Mac app (the macOS download, a universal `.app` for Apple
+  silicon and Intel Macs; it is a Mac app, not an iPhone or iPad one). It uses VoiceOver
+  and the AVAudioEngine audio path, and cannot compile custom scripts. It is **not signed**,
+  so macOS asks before opening it, and it has not yet been tried on a real Mac: if it gives
+  you trouble, the macOS web host download is the same terminal in your browser.
 - **Linux (web host, in a browser)** — works with Orca and other browser-compatible
   screen readers, with audio routed to your system through PipeWire or PulseAudio (or,
   on a remote/demo deployment, streamed to the browser).
@@ -5934,8 +5938,8 @@ lowest-latency native audio, a chart that redraws at full speed, and your creden
 held in the operating system's own keychain. **On Linux, use the web host** — there is
 no native Linux build, and the web host is an excellent first-class client, speaking
 through Orca and playing through PipeWire or PulseAudio; it is also what powers the
-public chart demo on the website. And **on a phone or tablet, the native app is the only
-option** — there is no way to put the web host in your pocket.
+public chart demo on the website. **On a phone or tablet**, open the website's terminal in
+the browser: there is no mobile app.
 
 Two capabilities tip the balance toward the native Windows app in particular. The
 **tactile display** described in the previous chapter is Windows-only, so a Dot Pad user

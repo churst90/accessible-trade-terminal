@@ -34,7 +34,7 @@ namespace AccessibleTrader.Core.Services.Indicators
     ///   Chikou is shifted backward — index i holds the close of bar i+Displacement.
     ///   The first Displacement bars remain NaN (no historical data behind them).
     ///
-    /// GetDetailFact (Ctrl+Shift+D / F4 context speech):
+    /// GetDetailFact (Alt+Shift+D / F4 context speech):
     ///   Reports TK cross status, price position vs Kijun, price position vs Kumo,
     ///   and Kumo polarity (bullish/bearish cloud).
     /// </summary>

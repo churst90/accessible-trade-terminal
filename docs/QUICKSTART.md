@@ -495,8 +495,10 @@ Windows.
 
 ## 14. Platform notes
 
-- **Windows, macOS, iOS, Android:** the native app. Windows drives the Dot Pad; iOS cannot
-  compile custom scripts.
+- **Windows and macOS:** the native app. Windows drives the Dot Pad; the Mac app cannot
+  compile custom scripts, is unsigned, and has not yet been tried on a real Mac.
+- **Phones and tablets:** there is no Android or iOS app. Use the website's terminal in the
+  browser.
 - **Linux:** the web host in a browser with Orca. Also the recommended build everywhere.
 - **The keyboard is the same on every head.** Drawing chords are Alt+Shift+letter everywhere.
   The only differences are the browser-reserved tab chords above, and F11 for bar replay

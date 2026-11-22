@@ -1031,7 +1031,7 @@ namespace AccessibleTrader.Core.Services.Input
                     _eventBus.Publish(new PlaceDrawingAnchorEvent());
                     break;
 
-                // Ctrl+Shift+D: detailed candle pattern analysis at the current cursor position.
+                // Alt+Shift+D: detailed candle pattern analysis at the current cursor position.
                 case SystemCommand.DetailedPointSummary:
                 {
                     var state = _store.State;

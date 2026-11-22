@@ -2,6 +2,21 @@
 
 The Accessible Trading Terminal separates business logic from platform-specific hardware drivers, and ships through two hosts over one component library: **.NET 10 MAUI Blazor Hybrid** on Windows, Android, macOS and iOS, and **ASP.NET Core Blazor Server** (`AccessibleTrader.WebHost`) on Linux and anything browser-reachable. The tables in section 1 describe the MAUI drivers; the WebHost's equivalents are in [§6.1](#61-the-linux-webhost-path), which is also the path the public deployment runs and the one most users install.
 
+> **What actually ships and has been run (2026-11-22).** The Linux web host is the one in daily use
+> (Orca, and the hosted terminal on the website). Each release also builds the Windows app (the
+> release job starts it and runs its installer on a Windows runner, but no one has used it with a
+> screen reader on a real machine on record), the Mac app (a Mac Catalyst `.app`, built on a macOS
+> runner and **never started anywhere**; unsigned) and the Windows and macOS web host zips (the
+> Windows zip is started on its runner; the macOS ones are not). **Android and iOS have never been
+> built:** no workflow builds them, this machine has no MAUI workloads, and nothing is offered for
+> download. Their columns below describe the code, not a tested app. Known defects in that code:
+> the Android and iOS keyboard handlers call `ProcessKey` directly and then pass the key on to the
+> page, skipping `GlobalInputService`'s dedupe (one press can count twice); the Android audio loop
+> writes non-blocking and drops what does not fit, and stops for good the first time the track is
+> not playing; the iOS render callback allocates on the audio thread; and the touch screen-reader
+> layers (`UIAccessibilityElement`, `ExploreByTouchHelper`) are not built. On a phone, the web
+> version in the browser is the route.
+
 ## 1. Architectural Layers
 
 ### Core Logic (Agnostic)
@@ -16,7 +31,7 @@ Located in `AccessibleTrader.Core`. Contains the math, technical indicators, and
 
 Located in `AccessibleTrader.BlazorClient/Services` and `AccessibleTrader.BlazorClient/Platforms/*`. These implement agnostic interfaces to bridge Core to the OS.
 
-| System | Interface | Windows | Android | macOS | iOS |
+| System | Interface | Windows | Android (never built) | macOS | iOS (never built) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Audio** | `IAudioDriver` | `BlazorAudioDriver` (WASAPI via NAudio) | `BlazorAudioDriver` (`AudioTrack` PCM-Float push loop) | `BlazorAudioDriver` (`AVAudioEngine` + `AVAudioSourceNode`) | `BlazorAudioDriver` (`AVAudioEngine` + `AVAudioSourceNode`) |
 | **Speech** | `ISpeechManager` | `BlazorSpeechManager` (ARIA live regions) | `BlazorSpeechManager` (ARIA live regions) | `BlazorSpeechManager` (ARIA live regions) | `BlazorSpeechManager` (ARIA live regions) |
@@ -67,7 +82,7 @@ User-compiled Roslyn indicators and strategies run in an **out-of-process worker
 
 ## 6. Platform Compatibility Matrix
 
-| Feature | Windows | Android | macOS | iOS | Linux (WebHost) |
+| Feature | Windows | Android (never built) | macOS | iOS (never built) | Linux (WebHost) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Host shell** | MAUI Blazor Hybrid | MAUI Blazor Hybrid | MAUI Blazor Hybrid | MAUI Blazor Hybrid | ASP.NET Core Blazor Server (browser) |
 | **Chart Rendering** | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Native `SKCanvasView` overlay | ✅ Server-side Skia → base64 PNG → `<img>` (~10 fps throttled) |
