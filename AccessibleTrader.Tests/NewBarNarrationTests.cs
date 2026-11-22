@@ -58,10 +58,11 @@ public sealed class NewBarNarrationTests
 
     private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
         bool describePatterns, bool describeCandlePatterns, params ChartPattern[] patterns) =>
-        Build(describePatterns, describeCandlePatterns, heikinAshi: false, patterns);
+        Build(describePatterns, describeCandlePatterns, heikinAshi: false, PriceChartStyle.Candles, patterns);
 
     private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
-        bool describePatterns, bool describeCandlePatterns, bool heikinAshi, params ChartPattern[] patterns)
+        bool describePatterns, bool describeCandlePatterns, bool heikinAshi, PriceChartStyle style,
+        params ChartPattern[] patterns)
     {
         var store = new MockWorkspaceStore();
         var bus = new SpyEventBus();
@@ -100,6 +101,7 @@ public sealed class NewBarNarrationTests
             DescribeChartPatterns = describePatterns,
             DescribeCandlePatterns = describeCandlePatterns,
             IsHeikinAshi = heikinAshi,
+            ChartStyle = style,
         });
         return (bus, spoken, analyzer);
     }
@@ -135,7 +137,7 @@ public sealed class NewBarNarrationTests
     [InlineData(true)]
     public void TheCloseAndOpenSpoken_AreTheCandlesTheChartDraws(bool heikinAshi)
     {
-        var (bus, spoken, _) = Build(describePatterns: false, describeCandlePatterns: false, heikinAshi);
+        var (bus, spoken, _) = Build(describePatterns: false, describeCandlePatterns: false, heikinAshi, PriceChartStyle.Candles);
         CloseBar(bus);
 
         var drawn = heikinAshi ? Core.Services.ChartMath.CalculateHeikinAshi(Bars) : Bars;
@@ -238,6 +240,42 @@ public sealed class NewBarNarrationTests
         CloseBar(bus);
 
         Assert.Equal($"Close 198.50{ClosedBarStamp}, Bullish engulfing. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
+    }
+
+    /// <summary>
+    /// A candle pattern is a shape of candles, so it is named only where candles are drawn
+    /// (Cody, 2026-11-21, asking what happens on Renko). The arrow keys already read a line,
+    /// area, baseline, high-low or HLC chart without one; the bar close named "Bullish
+    /// engulfing" over a line nobody could see engulf anything.
+    /// </summary>
+    [Theory]
+    [InlineData(PriceChartStyle.Line)]
+    [InlineData(PriceChartStyle.Area)]
+    [InlineData(PriceChartStyle.Baseline)]
+    [InlineData(PriceChartStyle.HighLow)]
+    [InlineData(PriceChartStyle.HlcArea)]
+    [InlineData(PriceChartStyle.Bars)]
+    public void OnAChartThatDrawsNoCandles_TheCloseIsSaidWithoutACandlePattern(PriceChartStyle style)
+    {
+        var (bus, spoken, analyzer) = Build(false, true, heikinAshi: false, style);
+        spoken.Clear(); // the chart type's own announcement, from the fixture's switch to it
+        analyzer.Finds = CandlePattern.BullishEngulfing;
+        CloseBar(bus);
+
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00{NewBarStamp}", Assert.Single(spoken));
+    }
+
+    [Theory]
+    [InlineData(PriceChartStyle.HollowCandles)]
+    [InlineData(PriceChartStyle.VolumeCandles)]
+    public void EveryCandleStyle_StillNamesThePattern(PriceChartStyle style)
+    {
+        var (bus, spoken, analyzer) = Build(false, true, heikinAshi: false, style);
+        spoken.Clear(); // the chart type's own announcement, from the fixture's switch to it
+        analyzer.Finds = CandlePattern.BullishEngulfing;
+        CloseBar(bus);
+
+        Assert.Contains("Bullish engulfing", Assert.Single(spoken));
     }
 
     [Fact]

@@ -39,6 +39,17 @@ namespace AccessibleTrader.Sdk.Models
                 or PriceChartStyle.Kagi or PriceChartStyle.PointAndFigure;
 
         /// <summary>
+        /// Line, area, OHLC bars, baseline, high-low and HLC area: the time charts drawn as
+        /// something other than a candle. The arrow keys read their own one-part summary, and a
+        /// candle pattern is never named on them unprompted, since nothing on screen has a body
+        /// for it to describe (Cody, 2026-11-21). Asking still works: Alt+Shift+D and the Go
+        /// bar's pattern search read the bar's open, high, low and close whatever is drawn.
+        /// </summary>
+        public static bool IsLineStyle(this PriceChartStyle style) =>
+            style is PriceChartStyle.Line or PriceChartStyle.Area or PriceChartStyle.Bars
+                or PriceChartStyle.Baseline or PriceChartStyle.HighLow or PriceChartStyle.HlcArea;
+
+        /// <summary>
         /// Renko, line break, Kagi and point and figure: each drawn bar runs between two prices (a brick, a block, a
         /// Kagi line, a column of X or O), with no wicks, and the price series has one part. Range bars are not: each
         /// is a real candle (open, high, low, close) and keeps the candle parts.

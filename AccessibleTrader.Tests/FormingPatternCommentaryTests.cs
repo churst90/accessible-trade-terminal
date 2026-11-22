@@ -60,7 +60,7 @@ public sealed class FormingPatternCommentaryTests
         public List<Ohlcv> Bars { get; } = History();
 
         public Harness(bool candlesNarrated = true, bool chartSpeech = true, bool eventSpeech = true,
-            bool formations = false)
+            bool formations = false, PriceChartStyle style = PriceChartStyle.Candles)
         {
             var cfg = new SeriesConfig
             {
@@ -77,6 +77,7 @@ public sealed class FormingPatternCommentaryTests
                 AnnounceNewBars = true,
                 DescribeCandlePatterns = true,
                 DescribeChartPatterns = formations,
+                ChartStyle = style,
                 IsSpeechEnabled = chartSpeech,
                 IsEventSpeechEnabled = eventSpeech,
             });
@@ -112,6 +113,43 @@ public sealed class FormingPatternCommentaryTests
         var h = new Harness();
         var said = h.Tick(FormingDoji(h.Bars));
         Assert.Contains(said, s => s.Contains("doji", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// "Doji forming" describes a candle, so it is said only where candles are drawn (Cody,
+    /// 2026-11-21). Brick charts were already quiet; a line, area, baseline, high-low or HLC
+    /// chart was not, and the arrow keys there never name a candle pattern.
+    /// </summary>
+    [Theory]
+    [InlineData(PriceChartStyle.Line)]
+    [InlineData(PriceChartStyle.Area)]
+    [InlineData(PriceChartStyle.Baseline)]
+    [InlineData(PriceChartStyle.HighLow)]
+    [InlineData(PriceChartStyle.HlcArea)]
+    [InlineData(PriceChartStyle.Bars)]
+    [InlineData(PriceChartStyle.Renko)]
+    public void On_a_chart_that_draws_no_candles_no_candle_pattern_is_commented_on(PriceChartStyle style)
+    {
+        var h = new Harness(style: style);
+        Assert.Empty(h.Tick(FormingDoji(h.Bars)));
+    }
+
+    [Fact]
+    public void A_line_chart_still_hears_a_chart_pattern_forming()
+    {
+        // The line draws the double top as well as candles would; only the candle half goes.
+        var h = new Harness(formations: true, style: PriceChartStyle.Line);
+        h.Patterns.Patterns = new[] { FormingDoubleTop(h.Bars) };
+        Assert.Contains(h.Tick(FormingDoji(h.Bars)), s => s.Contains("double top", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData(PriceChartStyle.HollowCandles)]
+    [InlineData(PriceChartStyle.VolumeCandles)]
+    public void Every_candle_style_still_hears_the_commentary(PriceChartStyle style)
+    {
+        var h = new Harness(style: style);
+        Assert.Contains(h.Tick(FormingDoji(h.Bars)), s => s.Contains("doji", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

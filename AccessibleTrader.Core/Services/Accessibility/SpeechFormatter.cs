@@ -200,8 +200,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // The time charts drawn as something other than a candle: the summary is the part's
             // own reading (or, on HLC area, its three lines), not the candle's.
-            bool lineChart = seriesId == CoreSeriesIds.Candles && state.ChartStyle is PriceChartStyle.Line or PriceChartStyle.Area
-                or PriceChartStyle.Bars or PriceChartStyle.Baseline or PriceChartStyle.HighLow or PriceChartStyle.HlcArea;
+            bool lineChart = seriesId == CoreSeriesIds.Candles && state.ChartStyle.IsLineStyle();
             if (brickCandle || lineChart)
             {
                 if (onePart != null)

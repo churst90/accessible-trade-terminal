@@ -787,7 +787,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // was no switch that could make the second half untrue — the clause was unconditional.
             // A promise in help text is a contract; either the text drops the clause or the clause
             // gets a switch, and Cody chose the switch.
-            string patternSuffix = state.DescribeCandlePatterns
+            // ...and only where candles are drawn: a line chart's close names no candle shape.
+            string patternSuffix = state.DescribeCandlePatterns && !state.ChartStyle.IsLineStyle()
                 ? CandlePatternSpeech.Suffix(analysis, finalized: true)
                 : "";
             // ── WHICH BAR JUST CLOSED, SAID OUT LOUD ───────────────────────────────────
@@ -949,7 +950,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //
             // Both are required. Narrating a pattern the user has told us not to name would be
             // the switch lying in the other direction.
-            bool candles = state.DescribeCandlePatterns && NarrateFormingCandles;
+            // A line chart draws no candle, so it hears no candle forming; its chart patterns
+            // (a double top drawn by the line) are still said.
+            bool candles = state.DescribeCandlePatterns && NarrateFormingCandles && !state.ChartStyle.IsLineStyle();
             bool charts  = state.DescribeChartPatterns  && NarrateFormingCharts;
             if (!candles && !charts) return;
 
