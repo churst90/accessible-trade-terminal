@@ -57,6 +57,22 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// </summary>
         IReadOnlyDictionary<string, PaneStatusBand> StatusBands { get; }
 
+        /// <summary>
+        /// The time axis's tick labels as last drawn: each one's left and right edge as a fraction
+        /// of the PLOT width (the x-axis strip, which stops at the y-axis column). Empty until a
+        /// frame has been drawn.
+        ///
+        /// <para>The mouse's date label is DOM text laid over the chart image, not part of it, so
+        /// the renderer cannot leave out the tick labels under it the way it does for the keyboard
+        /// cursor's. It covered a label's middle and left its ends showing ("Oc" beside
+        /// "Oct 6, 2026"; Cody's screenshot, 2026-11-22). ChartArea reads these and blanks out
+        /// whole every tick label the mouse's date label would cut.</para>
+        /// </summary>
+        IReadOnlyList<(float Left, float Right)> TimeAxisLabels { get; }
+
+        /// <summary>Called by ChartRenderer after it draws the time axis.</summary>
+        void UpdateTimeAxisLabels(IReadOnlyList<(float Left, float Right)> labels);
+
         /// <summary>Called by ChartRenderer after pane heights are calculated.</summary>
         void Update(
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
@@ -82,11 +98,16 @@ namespace AccessibleTrader.Core.Services.Rendering
         private float _axisHeightFraction;
         private float _axisWidthFraction;
         private IReadOnlyDictionary<string, PaneStatusBand> _statusBands = NoBands;
+        private IReadOnlyList<(float Left, float Right)> _timeAxisLabels = Array.Empty<(float, float)>();
 
         public IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers => _dividers;
         public float AxisHeightFraction => _axisHeightFraction;
         public float AxisWidthFraction => _axisWidthFraction;
         public IReadOnlyDictionary<string, PaneStatusBand> StatusBands => _statusBands;
+        public IReadOnlyList<(float Left, float Right)> TimeAxisLabels => _timeAxisLabels;
+
+        public void UpdateTimeAxisLabels(IReadOnlyList<(float Left, float Right)> labels) =>
+            _timeAxisLabels = labels ?? Array.Empty<(float, float)>();
 
         public event Action? LayoutChanged;
 

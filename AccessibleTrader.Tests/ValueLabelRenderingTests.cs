@@ -330,12 +330,16 @@ public sealed class ValueLabelRenderingTests
         var s = Fixed(bars, labelBars: 0);
         var wide = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, start: 260, length: 40);
         using (wide.Bmp) Assert.NotEmpty(InkPixels(wide.Bmp, BullInk(wide.Theme), 0, W, (int)wide.PlotTop, (int)wide.PlotBottom));
-        var narrow = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, start: 0, length: 300, dump: "narrow");
+        // Both on one range with room over the highest candle: a mark that reaches the plot's top
+        // gets room kept for it (MarkHeadroomTests, 2026-11-22), which would move the bare chart's
+        // candles against this one's.
+        var room = (bars.Min(b => b.Low) * 0.9, bars.Max(b => b.High) * 1.3);
+        var narrow = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), s }, W, H, D, start: 0, length: 300, dump: "narrow", range: room);
         // The same chart with no numbers to label: since 2026-11-20 a falling candle's wick is
         // red, and DBSI's own red shape blended over one can land within the ink tolerance, so
         // "no label" means the labels add no pixel of their colours, not "no such pixel".
         var unlabelled = Fixed(bars, double.NaN, double.NaN, labelBars: 0);
-        var bare = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), unlabelled }, W, H, D, start: 0, length: 300);
+        var bare = DbsiChartHarness.Render(bars, new[] { DbsiChartHarness.Candles(), unlabelled }, W, H, D, start: 0, length: 300, range: room);
         using (narrow.Bmp)
         using (bare.Bmp)
         {

@@ -214,6 +214,36 @@ public sealed class StatusLineInChartAreaTests
         Assert.False(string.IsNullOrEmpty(h.PriceText));
     }
 
+    /// <summary>
+    /// <b>The hover date does not sit beside half a tick label</b> (Cody's screenshot, 2026-11-22:
+    /// "Oc" showing beside "Oct 6, 2026"). The tick labels are drawn on the chart image, the hover
+    /// date over it, so it cut through the label under it. The renderer publishes where it drew
+    /// each label (<see cref="IPaneLayoutService.TimeAxisLabels"/>) and ChartArea covers, in the
+    /// axis strip's colour, each one the hover date reaches; a label well clear of it is left.
+    /// </summary>
+    [Fact]
+    public void The_hover_date_covers_the_tick_labels_it_would_cut_and_no_others()
+    {
+        using var rig = new Rig();
+        rig.Mouse(400, 200);
+        var h = rig.Tracker.Current!;
+        double at = h.BarX / h.PlotWidth, step = 30 / h.PlotWidth;
+        var cut = ((float)(at + step), (float)(at + 3 * step));          // starts 30 px right of the hairline: under the date
+        var clear = ((float)(at - 12 * step), (float)(at - 10 * step));  // 300 px left: well clear
+        rig.Harness.Ctx.Services.GetRequiredService<IPaneLayoutService>().TimeAxisLabels
+            .Returns(new List<(float Left, float Right)> { clear, cut });
+        rig.Cut.Render();
+
+        var covers = rig.Cut.FindAll(".chart-hover-axis-cover");
+        var cover = Assert.Single(covers);
+        var style = cover.GetAttribute("style")!.Replace(" ", "");
+        double left = double.Parse(System.Text.RegularExpressions.Regex.Match(style, @"left:([\d.]+)px").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        double width = double.Parse(System.Text.RegularExpressions.Regex.Match(style, @"width:([\d.]+)px").Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(left <= cut.Item1 * h.PlotWidth && left + width >= cut.Item2 * h.PlotWidth,
+            $"the cover {left}+{width} does not span the label {cut.Item1 * h.PlotWidth}-{cut.Item2 * h.PlotWidth}");
+        Assert.Contains("background:var(--chart-fade-top)", style);
+    }
+
     /// <summary>Settings → Appearance → Status line background reaches the backing's opacity.</summary>
     [Theory]
     [InlineData(null, "0.961")]

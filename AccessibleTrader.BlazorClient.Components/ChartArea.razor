@@ -197,6 +197,15 @@
                treats as perceivable, and the Skia path already draws its crosshair wider. *@
             <div class="chart-hover-hairline" style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
             <div style="position:absolute; left:0; right:0; height:2px; background:var(--crosshair-color); top:@(Px(_hover.CursorY));"></div>
+            @* The tick labels the date label would cut, blanked out whole in the chart's own
+               background (the strip is cleared to it): the keyboard cursor's label leaves them
+               out in the image, and this one is DOM text over it (Cody, 2026-11-22: "Oc" showing
+               beside "Oct 6, 2026"). *@
+            @foreach (var (left, width) in HoverDateCovers(_hover, PaneLayout.TimeAxisLabels))
+            {
+                <div class="chart-hover-axis-cover"
+                     style="position:absolute; top:@(Px(_hover.PlotBottom + 1)); bottom:0; left:@(Px(left)); width:@(Px(width)); background:var(--chart-fade-top);"></div>
+            }
             @* The same dark badge, white type, as the Skia crosshair's own labels. *@
             <div class="chart-hover-date"
                  style="position:absolute; top:@(Px(_hover.PlotBottom + 2)); @HoverDatePlacement(_hover) white-space:nowrap;
@@ -389,10 +398,37 @@
     /// </summary>
     private static string HoverDatePlacement(ChartHoverInfo h)
     {
-        double approx = h.DateText.Length * 7.5 + 12;
+        double approx = HoverDateWidth(h);
         if (h.BarX - approx / 2 < 0) return "left:0px;";
         if (h.BarX + approx / 2 > h.PlotWidth) return $"left:{Px(h.PlotWidth)}; transform:translateX(-100%);";
         return $"left:{Px(h.BarX)}; transform:translateX(-50%);";
+    }
+
+    /// <summary>The hover date label's width, estimated on the generous side (its real width is
+    /// the browser's): 0.75rem tabular figures plus its padding.</summary>
+    private static double HoverDateWidth(ChartHoverInfo h) => h.DateText.Length * 7.5 + 12;
+
+    /// <summary>
+    /// The time-axis tick labels the hover date label would cut, as CSS left and width, from
+    /// where the renderer drew them (<see cref="IPaneLayoutService.TimeAxisLabels"/>, fractions of
+    /// the plot width). A label within 4 px of the date label counts, the margin the keyboard
+    /// cursor's label keeps on the image; each cover is a pixel wider on each side for
+    /// anti-aliasing.
+    /// </summary>
+    internal static IEnumerable<(double Left, double Width)> HoverDateCovers(ChartHoverInfo h, IReadOnlyList<(float Left, float Right)>? labels)
+    {
+        if (labels == null || labels.Count == 0 || h.PlotWidth <= 0) yield break;
+        double w = HoverDateWidth(h);
+        double left = h.BarX - w / 2 < 0 ? 0
+            : h.BarX + w / 2 > h.PlotWidth ? h.PlotWidth - w
+            : h.BarX - w / 2;
+        double right = left + w;
+        foreach (var (l, r) in labels)
+        {
+            double lx = l * h.PlotWidth, rx = r * h.PlotWidth;
+            if (rx < left - 4 || lx > right + 4) continue;
+            yield return (lx - 1, rx - lx + 2);
+        }
     }
 
     private void OnHoverChanged()

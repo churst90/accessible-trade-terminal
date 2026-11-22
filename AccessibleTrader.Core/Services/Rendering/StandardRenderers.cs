@@ -1853,6 +1853,37 @@ namespace AccessibleTrader.Core.Services.Rendering
                 : floor + centreFromFloor + offset;
         }
 
+        /// <summary>
+        /// How many pixels the highest above-the-bar mark on screen reaches over the top of the
+        /// plot (<paramref name="ctx"/>'s pane), placed exactly as it is drawn (<see cref="MarkerY"/>,
+        /// stacking included); 0 when none does. The renderer keeps that much room under the price
+        /// pane's status band, since the plot is clipped there (Cipher A's stacked diamonds, cut in
+        /// half under the legend, 2026-11-22).
+        /// </summary>
+        internal static float AboveBarOverhang(RenderContext ctx, IEnumerable<ChartSeries> series)
+        {
+            float worst = 0f;
+            foreach (var s in series)
+            {
+                if (!s.IsVisible || s.IsDrawing) continue;
+                foreach (var c in s.Components)
+                {
+                    if (c.MarkerAnchor != MarkerAnchor.AboveBar || !c.IsVisible || c.IsEnabled == false || !c.IsDrawn) continue;
+                    var d = s.GetComponentData(c.Name);
+                    if (d == null) continue;
+                    var (up, _) = MarkerReach(ctx, s, c);
+                    for (int i = 0; i < ctx.Data.Count; i++)
+                    {
+                        int k = ctx.ViewportStart + i;
+                        if (k >= d.Length) break;
+                        if (k < 0 || double.IsNaN(d[k])) continue;
+                        worst = Math.Max(worst, ctx.Top - (MarkerY(ctx, s, c, i, d[k]) - up));
+                    }
+                }
+            }
+            return worst;
+        }
+
         /// <summary>How far a marker shape is drawn above and below its y, in pixels: a triangle
         /// stands on its y or hangs from it, the other shapes are centred on it.</summary>
         private static (float Up, float Down) MarkerReach(RenderContext ctx, ChartSeries series, ComponentConfig c)

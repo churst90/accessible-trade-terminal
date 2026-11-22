@@ -1496,15 +1496,14 @@
     internal sealed record DonationAddress(string Name, string Address, bool Crypto);
 
     /// <summary>The ways to give, as codyhurst.com lists them (2026-11-21). One EVM address
-    /// serves Ethereum, Arbitrum, Base and BNB Smart Chain, so it is one row per network a
-    /// sender picks, not one per address.</summary>
+    /// serves Ethereum, Arbitrum, Base and BNB Smart Chain, so it is one row (Cody, 2026-11-22:
+    /// BNB Smart Chain had a row of its own with the same address).</summary>
     internal static readonly DonationAddress[] DonationAddresses =
     {
         new("Cash App", "$churst90", false),
         new("PayPal", "cody@x64mail.com", false),
         new("Bitcoin", "bc1qp20rjw6vlddmt808v0h8gdrdcmx8n83pmzlaww", true),
-        new("Ethereum, Arbitrum or Base", "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47", true),
-        new("BNB Smart Chain", "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47", true),
+        new("Ethereum, Arbitrum, Base or BNB Smart Chain", "0x23b99484A369F718F371c8BFCa5F3FFc53B14F47", true),
         new("Solana", "HG5BvLsfAgyHGxJe8cfKBzf4qArAmb7LEc5TDe45zwEe", true),
         new("XRP", "rLAaVmjsofxnFJ6o6ZYF3hn6FddKtJnu8q", true),
         new("Kaspa", "kaspa:qypxfclrz0eyw4rn736mwr3ndyfk6c474py9l9mf6n9x9qhpchy6w3cr340mgzy", true),

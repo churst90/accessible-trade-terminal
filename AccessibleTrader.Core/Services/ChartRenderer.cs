@@ -382,8 +382,17 @@ namespace AccessibleTrader.Core.Services
                 int statusBar = crossIndex >= 0 ? viewportStart + crossIndex : Math.Clamp(cursorIndex, 0, data.Count - 1);
                 var statusBands = new Dictionary<string, PaneStatusBand>(StringComparer.Ordinal);
                 var (mainStatus, mainBand) = StatusBandFor("Main", mainOverlaySeries, statusBar, statusCtx, mainPaneRect, density, textScale, statusFont);
-                statusBands["Main"] = new PaneStatusBand(mainStatus.Lines.Count, mainBand / height);
-                var mainPlotRect = PlotRect(mainPaneRect, mainBand);
+                // Room above the candles for the marks an indicator stacks over them (Cipher A's
+                // diamonds and crosses). The plot is clipped at the band, and a mark over a candle
+                // at the top of the range was cut in half there, the top of the stack lost under
+                // the legend (Cody's screenshot, 2026-11-22). Only what the marks on screen need,
+                // none when none reach the band; held to a quarter of the pane. Values are mapped
+                // below it, so it is published as part of the band for the pointer's mapping; the
+                // clip stays at the band, so the marks draw in it.
+                float markHeadroom = MarkHeadroom(canvas, PlotRect(mainPaneRect, mainBand), visibleData, mainSeries,
+                    viewportStart, viewportLength, mainMin, mainMax, isLogScale, density);
+                statusBands["Main"] = new PaneStatusBand(mainStatus.Lines.Count, (mainBand + markHeadroom) / height);
+                var mainPlotRect = PlotRect(mainPaneRect, mainBand + markHeadroom);
                 var mainArea = mainPlotRect;
                 var mainAxisPlotRect = new SKRect(mainAxisRect.Left, mainArea.Top, mainAxisRect.Right, mainArea.Bottom);
                 // The formation layer still keeps its labels out of the block; with the band the
@@ -413,7 +422,7 @@ namespace AccessibleTrader.Core.Services
                         BadgeCentre(closeY, mainArea.Top, mainArea.Bottom, ScaleLabelHeight(density)), badgeText);
                 }
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase, kagiLooks: kagiLooks);
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect, statusBand: mainBand, markHeadroom: markHeadroom, chartStyle: chartStyle, scaleMode: mainScaleMode, scaleBase: mainScaleBase, kagiLooks: kagiLooks);
                 // Each visible plot's newest value as a label on the axis, in the plot's colour
                 // (TradingView's "labels on the price scale"), placed before the axis draws so the
                 // gridline labels keep out from under them as they keep out from under the badge.
@@ -529,11 +538,15 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusBand">The height of the pane's status band (<see cref="StatusBandFor"/>):
         /// the pane's background and border fill the whole pane, its values are mapped and clipped
         /// to what is below the band.</param>
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, IReadOnlyList<Charts.KagiLines.Look>? kagiLooks = null)
+        /// <param name="markHeadroom">Room kept between the band and the values for the marks
+        /// stacked above the candles (<see cref="MarkHeadroom"/>): values are mapped below it,
+        /// and drawing is clipped at the band, so the marks may use it.</param>
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, SKRect? chartRect = null, SKRect? avoid = null, float statusBand = 0f, float markHeadroom = 0f, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode scaleMode = PriceScaleMode.Regular, double scaleBase = double.NaN, IReadOnlyList<Charts.KagiLines.Look>? kagiLooks = null)
         {
             if (viewportLength <= 0) return;
             var paneRect = rect;
-            rect = PlotRect(rect, statusBand);
+            var clipRect = PlotRect(rect, statusBand);
+            rect = PlotRect(rect, statusBand + markHeadroom);
 
             int renderCount = Math.Max(1, viewportLength);
             float itemWidth = rect.Width / renderCount;
@@ -557,7 +570,7 @@ namespace AccessibleTrader.Core.Services
             {
                 // The background has filled the whole frame; everything after it — the data, its
                 // markers, fills and labels — is held to the plot, so nothing reaches the band.
-                if (li == 1) canvas.ClipRect(mainRect);
+                if (li == 1) canvas.ClipRect(clipRect);
                 _layers[li].Render(ctx, nonProfileSeries);
                 // Background tints are painted immediately after the BackgroundLayer (index 0),
                 // so they sit UNDER the grid, candle, data and overlay layers but OVER the pane
@@ -888,8 +901,23 @@ namespace AccessibleTrader.Core.Services
         /// label it would cut in half is left out.</param>
         private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density, SKRect? avoid = null)
         {
+            // Each label drawn, for the mouse's date label to blank out (IPaneLayoutService.TimeAxisLabels).
+            // Published once the axis is done, as a list nobody adds to afterwards: ChartArea reads it
+            // on the render thread.
+            var drawn = new List<(float Left, float Right)>();
+            try { RenderXAxisLabels(canvas, rect, visibleData, itemWidth, density, avoid, drawn); }
+            finally { _paneLayout.UpdateTimeAxisLabels(drawn); }
+        }
+
+        private void RenderXAxisLabels(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density,
+            SKRect? avoid, List<(float Left, float Right)> drawn)
+        {
             bool Clear(float left, float right) =>
                 avoid is not { } av || right < av.Left - (4 * density) || left > av.Right + (4 * density);
+            void Note(float left, float right)
+            {
+                if (rect.Width > 0) drawn.Add(((left - rect.Left) / rect.Width, (right - rect.Left) / rect.Width));
+            }
             if (!visibleData.Any()) return;
 
             // Adaptive label format driven by the visible span. A 6h chart showing
@@ -952,7 +980,10 @@ namespace AccessibleTrader.Core.Services
 
                 float labelRight = x + _textFont.MeasureText(label);
                 if (Clear(x, labelRight))
+                {
                     canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
+                    Note(x, labelRight);
+                }
                 lastLabelRight = labelRight;
             }
 
@@ -969,7 +1000,10 @@ namespace AccessibleTrader.Core.Services
                 float labelLeft = lastBarRight - (2 * density) - _textFont.MeasureText(label);
                 if (label != prevLabel && labelLeft > lastLabelRight + (8 * density)
                     && Clear(labelLeft, lastBarRight - (2 * density)))
+                {
                     canvas.DrawText(label, lastBarRight - (2 * density), textY, SKTextAlign.Right, _textFont, _textPaint);
+                    Note(labelLeft, lastBarRight - (2 * density));
+                }
             }
         }
 
@@ -1265,6 +1299,23 @@ namespace AccessibleTrader.Core.Services
                 paneRect.Height, paneRect.Width * ChartStatusLine.MaxWidthFraction,
                 line, t => font.MeasureText(t), budget);
             return (status, ChartStatusLine.BandHeight(status.Lines.Count, line, pad));
+        }
+
+        /// <summary>
+        /// How far the price pane's above-the-candle marks reach over the top of its plot, as it
+        /// would be without room for them: the room to keep (plus two pixels), none when no mark on
+        /// screen reaches the top, never more than a quarter of the plot. Measured with the marks'
+        /// own placement (<see cref="StandardRenderers.AboveBarOverhang"/>), so a stack of three on
+        /// the highest candle gets room for three.
+        /// </summary>
+        private float MarkHeadroom(SKCanvas canvas, SKRect plot, List<Ohlcv> visibleData, List<ChartSeries> mainSeries,
+            int viewportStart, int viewportLength, double min, double max, bool isLogScale, float density)
+        {
+            if (viewportLength <= 0 || plot.Height <= 0 || visibleData.Count == 0) return 0f;
+            var probe = new RenderContext(canvas, plot, visibleData, viewportStart, viewportLength, min, max, isLogScale,
+                plot.Width / viewportLength, density, "Main", -1, _theme.Current);
+            float overhang = StandardRenderers.AboveBarOverhang(probe, mainSeries);
+            return overhang <= 0 ? 0f : Math.Min(overhang + (2 * density), plot.Height * 0.25f);
         }
 
         /// <summary>The part of a pane its values are mapped into: everything below its status band.</summary>

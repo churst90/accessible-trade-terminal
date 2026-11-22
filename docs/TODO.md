@@ -14,8 +14,9 @@ running the sabotage is what found real ones. Test one thing, write down what th
 The order:
 
 1. **Heard by Cody.** Everything built since 2.13.1 up to 2.14.1 is heard and verified (Cody,
-   2026-11-21: the leaderboard, Cipher A above the candle, "all of the built but unheard stuff"). What
-   is left to hear is the 2026-11-21 notes work under "To hear". What he says comes first.
+   2026-11-21: the leaderboard, Cipher A above the candle, "all of the built but unheard stuff"), and
+   from 2.15.0 the settings, the Donate tab, the 9-13's reading and Cipher B's "9 components" (Cody,
+   2026-11-22). What is left to hear is under "To hear". What he says comes first.
 2. **Trading through the venues** is built but has not been tried on a demo, practice or real account.
    Treat it as unverified until an account answers.
 3. Cody's open questions (**Q**), then the open items below, then the older audit findings at the end.
@@ -53,39 +54,43 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
-- **Try 2.14.1** (released 2026-11-21: 2.14.0 with all seven downloads; the VPS runs the 2.14.0 build since 14:50 UTC): the Windows setup or zip from the
-  download page. What is not yet heard is listed under "The order" above.
+- **Try 2.15.0** (released 2026-11-22; the VPS runs the same build): the Windows setup or zip from
+  the download page. What is not yet heard is listed under "To hear".
+- **Look at the chart's two 2.15.0 fixes** (Cody's 2026-11-22 screenshot): the date under the mouse
+  pointer no longer sits beside half a date ("Oc"), and Cipher A's symbols over the highest candles
+  are drawn whole below the legend. Neither has been seen by Cody.
 - **Look at the rest of the dialogs** (2026-11-21 layout pass, CHANGES; on the VPS since 13:37 UTC):
   Settings > Keyboard, the Levels report, and anything at a narrow window. The dashboard and tables:
   Cody, 11-21, "read better now".
 
-## To hear (built 2026-11-21 and 11-22 from Cody's notes; on the VPS since 2026-11-22 11:20 UTC, not heard)
+## To hear (in 2.15.0, built 2026-11-21 and 11-22 from Cody's notes, not heard)
 
-Everything before this, from 2.13.1 to 2.14.1, Cody verified on 2026-11-21. Caveats for these are in
-CHANGES (Unreleased).
+Everything before this, from 2.13.1 to 2.14.1, Cody verified on 2026-11-21. On 2026-11-22 he heard the
+settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain row is now one with
+Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
+components". Caveats for these are in CHANGES (2.15.0).
 
-- [ ] **The 9-13 sequential** (Add Indicator, Reversal): the counts said and ticked, the 9 and 13
-  bells, perfection on focus, and the published recycle (2026-11-22: a new setup restarts the
-  countdown only at 1 to 1.618 times the size; Alt+Shift+D on the new 9 says which). **Not checked
-  against a TradingView script**: put a community "Sequential" script on the same chart and compare
-  where the 9s and 13s land; the 9s should match any of them, the 13s only one using the same
-  recycle. **Q:** should narration as a bar closes say "perfected" too (needs a template word)?
+- [ ] **The 9-13 against TradingView** (it reads right, Cody 2026-11-22): put a community
+  "Sequential" script on the same chart and compare where the 9s and 13s land; the 9s should match
+  any of them, the 13s only one using the same published recycle. **Q:** should narration as a bar
+  closes say "perfected" too (needs a template word)?
 - [ ] **Announce nearby levels while navigating** (Settings, Speech): off, no "Near resistance".
 - [ ] **The three workspace audit fixes** (2026-11-22): a stock or currency balance priced on a
   broker; the heatmap's history on an hour or day chart; a strategy saying a level source failed.
 - [ ] **Near support and resistance on every level** (pivots, Cipher A pivots, profile levels, your
   lines, price alerts), each named after the price.
 - [ ] **No candle pattern said unprompted on line-style charts.**
-- [ ] **The shorter settings, the Donate tab, "marker" wording, the heatmap under Add Indicator.**
+- [ ] **"Marker" wording, the heatmap under Add Indicator.**
 - [ ] **The audit-tail fixes you can hear:** Shift+F12 with nothing focused; a tab key with nowhere
   to go (1 to 9 past the last tab, Delete on the only tab, Home on the first) in the tab bar, whose
   key handling has no test; Pulse's Alt+Shift+D on its first bars; a quick trade on a euro pair.
 - [ ] **The manual:** read a chapter or two as a newcomer would; say what still assumes too much.
-- [ ] **Headlines from Finnhub only** (2026-11-22, not deployed yet): with the Finnhub key, stock and
+- [ ] **Headlines from Finnhub only** (2026-11-22): with the Finnhub key, stock and
   coin stories still said; the Alpaca checkbox gone from Settings → Narration; the dossier's Recent
   news footnote names Finnhub alone.
-- [ ] **"9 components"** on PageDown onto Cipher B (2026-11-22; every indicator now counts its muted
-  components too).
+
+Cody's decision (2026-11-22): **no Website button in the signed-in terminal.** Clicking Chart on the
+website opens the terminal without the site's navigation; he passed on adding a way back.
 
 Open questions from Cody's seven notes (2026-11-22):
 

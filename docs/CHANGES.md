@@ -4,11 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-**On the VPS:** everything below (45fc1a23, deployed 2026-11-22 11:20 UTC; e0791c7f after it is
-the manual only). **The website's** Manual, Quick Start, Shortcuts and What's New pages carry these
-docs too, ahead of the 2.14.1 download, with a notice on each saying so (remove it at the next
-release). Nothing below is heard yet. **The 2026-11-22 seven-notes section is not on the VPS's
-terminal yet; its docs are on the website.**
+Nothing yet.
+
+## [2.15.0] — 2026-11-22
+
+Everything since 2.14.1, newest first. **On the VPS:** all of it (the tagged commit, deployed after
+the tag, Cody 2026-11-22: "update, cut the release and bring the website up to date"). **The
+website** carries 2.15.0's downloads and docs. Cody has heard the settings, the Donate tab, the 9-13's
+reading and Cipher B's "9 components" (2026-11-22); the rest is under "To hear" in TODO. **Nothing
+here has been tried with money.**
+
+### 2026-11-22: the hover date no longer sits beside half a date; Cipher A's symbols over the top candles are drawn whole; one Donate row for the EVM chains
+
+From Cody's BTCUSDT 1d screenshot of the hosted terminal (Cipher A, Volume, Cipher B) and his notes
+on the Donate tab. He passed on a Website button in the signed-in terminal.
+
+- **The date under the mouse pointer covered half of a tick label** ("Oc" showing beside "Oct 6,
+  2026"). The tick labels are drawn on the chart image; the hover date is page text over it, so it
+  could not make the axis leave a label out the way the keyboard cursor's date does on the image.
+  The renderer now publishes where it drew each time-axis label (`IPaneLayoutService.TimeAxisLabels`,
+  fractions of the plot width, published after the axis is drawn), and `ChartArea` covers, in the axis
+  strip's own colour (`--chart-fade-top`), every label within 4 px of the hover date
+  (`ChartArea.HoverDateCovers`). Tests: `The_hover_date_covers_the_tick_labels_it_would_cut_and_no_others`
+  (red with the covers removed) and `Each_published_span_is_a_label_drawn_on_the_axis` (ink across
+  each published span and none just past its ends; red when nothing is published). **Caveat:** the
+  hover date's width is an estimate (7.5 px a character plus padding, on the generous side), since
+  its real width is the browser's; a label just beyond the estimate could still touch it. Not seen
+  by Cody.
+- **Cipher A's symbols over the highest candles were cut off under the legend.** The symbols stack
+  above the candle (since 2026-11-17), and over a candle at the top of the range the stack rose past
+  the top of the plot, which is clipped just under the status lines, so the top of it was lost there.
+  The price pane now keeps room between its status lines and its values for what the marks on screen
+  need (`ChartRenderer.MarkHeadroom`, measured with the marks' own placement through
+  `StandardRenderers.AboveBarOverhang`, stacking included, plus 2 px), none when no mark reaches the
+  top, never more than a quarter of the plot. The room is part of the published status band, so the
+  pointer, the hit tester and the drawing tools map values where they are drawn; drawing is still
+  clipped at the band. It applies to every indicator with above-the-candle marks (DBSI's shapes too).
+  Tests: `A_stack_of_marks_over_the_highest_candle_is_drawn_whole_below_the_legend` (three symbols on
+  every candle with the highs at the top: as many pixels of their colours as with room over the
+  candles, none in the legend's rows; 0 pixels against 12,245 with the room removed) and
+  `The_room_is_kept_only_when_a_mark_reaches_the_top`. One existing test,
+  `When_the_slot_is_too_narrow_no_label_is_drawn_and_zooming_in_brings_them_back`, compared a chart
+  with DBSI's shapes against one without, assuming both plots start at one height; both now use a
+  range with room over the candles. **Caveats:** a stack taller than a quarter of the plot is still
+  cut at the band (all six Cipher A symbols on one candle on a short pane); the plot's top moves down
+  by the room while such a mark is on screen, so the chart shifts a little when one scrolls in or out.
+  Below-the-candle marks at the bottom of the range were not changed. Not seen by Cody.
+- **One Donate row for the EVM chains.** BNB Smart Chain had its own row with the same address as
+  Ethereum, Arbitrum and Base; it is one row now, "Ethereum, Arbitrum, Base or BNB Smart Chain"
+  (Settings, Donate; `SettingsModalTests` updated).
 
 ### 2026-11-22: the website rewritten for the public — one Chart link, a "What is tested" page, downloads first; live 14:14 UTC
 
@@ -55,7 +99,7 @@ readable by anyone, and the detail kept in the manual (the docs-content pages ar
   `~/backups/trade-site-db-20261122-1414.json` (nav, FAQ, settings) and `*.bak-20261122-site` beside
   each changed file on the VPS. Nothing was heard through a screen reader.
 
-### 2026-11-22: Cody's seven notes on the manual — headlines from Finnhub only; the manual corrected on Cipher B, arrowing, platforms and the Strategy Lab — not deployed, not heard
+### 2026-11-22: Cody's seven notes on the manual — headlines from Finnhub only; the manual corrected on Cipher B, arrowing, platforms and the Strategy Lab — in 2.15.0; Cipher B's count heard
 
 - **Headlines come from Finnhub only.** Alpaca's news wire (an optional second source, off by
   default) is taken out of the code, the settings and the manual. Cody: "news headlines should only
