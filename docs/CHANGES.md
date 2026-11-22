@@ -10,6 +10,51 @@ docs too, ahead of the 2.14.1 download, with a notice on each saying so (remove 
 release). Nothing below is heard yet. **The 2026-11-22 seven-notes section is not on the VPS's
 terminal yet; its docs are on the website.**
 
+### 2026-11-22: the website rewritten for the public — one Chart link, a "What is tested" page, downloads first; live 14:14 UTC
+
+Cody asked for every suggestion from the site critique except hiding the leaderboard, one "Chart"
+link instead of "Chart" plus "Open terminal", no em dashes, everything consistent, accurate and
+readable by anyone, and the detail kept in the manual (the docs-content pages are unchanged).
+
+- **One Chart link.** Signed out it opens the demo at /chart; signed in, the nav's href becomes
+  /terminal/, and /chart itself asks the terminal's /terminal/account/status (localhost, 1.5 s timeout)
+  and answers 302 to /terminal/ (`Cache-Control: private, no-store`, `Vary: Cookie`). Top nav: Home,
+  Features, Chart, Download, Docs, FAQ, then Create account and Sign in (now /terminal/account/login)
+  when signed out, My account and Sign out when signed in. Quick Start left the nav (it is under Docs
+  and in the footer). No site link opens the terminal in a new tab any more.
+- **New /status page, "What is tested, and what is not"**: each version (website and Linux in daily
+  use; Windows app built and installed on CI with no screen-reader session on record; Mac never
+  started; phones not ready), the unconfirmed features (live trading in beta with no order through any
+  venue, withdrawals off, Dot Pad never on a device, Windows toast, no scripts in the Mac app) and the
+  known limits. Home, Features, Download, Platforms, FAQ and llms.txt link it. **Update it at every
+  release.**
+- **Home**: short hero ("free, open source"), six feature blocks, a free-account section framed as
+  learning with play money, the leaderboard kept and framed for early days, five questions, the two
+  "why" sections merged (the voc-rehab paragraph now says "a learning tool, not a promise of income"),
+  one blog post. Screenshots got short alts plus a "Describe this screenshot" expander.
+- **Features**: eight short sections, each linked to its manual chapter, and a table of what the
+  chart, the free account and the download each include. **Download**: the tables come first, "WebHost"
+  is called "the browser version", the launcher names are 2.14.1's, the release notes moved to What's
+  New and the limitations to /status. **Platforms**: a plain table (platform, what to use, screen
+  readers, tested) replacing the rendered PLATFORMS.md, which is linked on GitHub for developers.
+- **Smaller fixes**: Docs and Support said help was Alt+H (it is F1; Alt+H is the heatmap); Docs'
+  "Training, coming soon" removed; Developers no longer says you can drop a compiled plug-in into the
+  app (the trust manifest refuses it; the page now says pull request, or the .atpkg path); Privacy
+  dropped the mobile key stores, describes Linux's encrypted store and discloses the self-hosted,
+  cookieless GoatCounter; Privacy and Terms had a "last updated" that was always today's date; 404
+  linked the retired waitlist; footer reads "Code under GPL-3.0 · Site © 2026 Cody Hurst" and says
+  Contact and Donate instead of Support twice; titles and descriptions lost their em dashes;
+  `twitter:card` is `summary_large_image`; structured data no longer claims Linux arm64 and labels live
+  trading beta and the Dot Pad experimental; FAQ answers rewritten (no iOS VoiceOver or TalkBack
+  claims, no "options and futures through the major brokers", no "for individuals") with two new
+  questions (real money, the leaderboard), its categories in a sensible order; the site tagline no
+  longer says "The only fully accessible trading terminal".
+- **Caveats:** the signed-in /chart redirect was checked only signed out and with a cookie that is
+  not a session (both 200); it has not been tried with a real session. The site's files are not in
+  this repo: backups are `~/backups/trade-site-20261122-1414.tgz` (files),
+  `~/backups/trade-site-db-20261122-1414.json` (nav, FAQ, settings) and `*.bak-20261122-site` beside
+  each changed file on the VPS. Nothing was heard through a screen reader.
+
 ### 2026-11-22: Cody's seven notes on the manual — headlines from Finnhub only; the manual corrected on Cipher B, arrowing, platforms and the Strategy Lab — not deployed, not heard
 
 - **Headlines come from Finnhub only.** Alpaca's news wire (an optional second source, off by

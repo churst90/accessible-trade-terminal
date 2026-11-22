@@ -28,6 +28,9 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 
 ## Cody to do
 
+- **Check the website rewrite (2026-11-22, see CHANGES).** Signed in, open accessibletrader.com/chart:
+  it should go straight to your terminal (untested with a real session). Then read /status, the home
+  page and Download with your screen reader and say what jars. /status must be updated at each release.
 - **Turn on the website's email list.** It is live (the "Get the news by email" box) and saves signups,
   but sends nothing until:
   1. **A Brevo API key**: app.brevo.com, the menu under your name, **SMTP & API**, **API keys**,
