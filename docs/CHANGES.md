@@ -53,6 +53,18 @@ whole minutes equalled the candle volume exactly (112.1184 and 143.64028 BTC). T
 spoiling one trade of a real two-trade message and checking the other still comes through. Sabotaged 7
 ways, all red.
 
+**Kraken Futures added**: the plugin had no socket at all (REST only), so this is its first, the v1
+futures socket's `trade` feed plus its `heartbeat` feed. `side` is the taker's (196 of 219 against a
+ticker that lags the trades, none inside the spread). Fills and liquidations count; block trades are
+agreed off the book and have no taker, so they are left out. Trades are numbered per contract and the
+numbering carries on from the snapshot sent on subscribing (checked live: no jumps in 97), so a jump is a
+lost trade and that bar is not counted; the snapshot's own trades are from before counting starts and
+are not added. (The earlier probe that saw nothing had used PI_XBTUSD; the plugin's contracts are PF_.)
+Live: a whole minute equalled the candle volume exactly (1.5802 BTC on PF_XBTUSD, a quiet contract, so
+only one minute fell inside the window). Tests: 10 more. Sabotaged 10 ways, all red; one first try (taking
+out the snapshot's early return) stayed green because it changes nothing, as the snapshot falls through to
+the feed check, and was replaced by one that adds the snapshot's trades, which went red.
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -100,7 +112,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot, Coinbase, Gemini and Hyperliquid so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini and Hyperliquid so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).

@@ -6,6 +6,7 @@ using AccessibleTrader.Plugins.Coinbase;
 using AccessibleTrader.Plugins.Gemini;
 using AccessibleTrader.Plugins.Hyperliquid;
 using AccessibleTrader.Plugins.Kraken;
+using AccessibleTrader.Plugins.KrakenFutures;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
@@ -272,6 +273,52 @@ public class TradeFlowTests
     {
         Assert.Empty(HyperliquidProvider.ReadPublicTrades(HyperliquidTrades.Replace("\"channel\":\"trades\"", "\"channel\":\"candle\""), "BTC"));
         Assert.Empty(HyperliquidProvider.ReadPublicTrades("{", "BTC"));
+    }
+
+    // ── Kraken Futures ──────────────────────────────────────────────────────────
+
+    /// <summary>A trade as Kraken Futures sent it on 2026-11-23.</summary>
+    private const string KrakenFuturesTrade = """{"product_id":"PF_XBTUSD","feed":"trade","uid":"b6fc991b-08a4-44c0-b22d-6ebb38f8ef12","side":"buy","type":"fill","time":1795453936841,"qty":0.005,"price":61856.0,"seq":1134893}""";
+
+    [Fact]
+    public void Kraken_Futures_side_is_the_takers_and_the_trade_keeps_its_number()
+    {
+        var (seq, trades) = KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade, "PF_XBTUSD");
+        Assert.Equal(1134893, seq);
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795453936841).UtcDateTime, 61856.0, 0.005, OrderSide.Buy), Assert.Single(trades));
+        Assert.Equal(OrderSide.Sell, Assert.Single(KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade.Replace("\"side\":\"buy\"", "\"side\":\"sell\""), "PF_XBTUSD").Trades).TakerSide);
+        Assert.Single(KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade.Replace("\"fill\"", "\"liquidation\""), "PF_XBTUSD").Trades);
+    }
+
+    [Theory]
+    [InlineData("\"type\":\"fill\"", "\"type\":\"block\"")]       // agreed off the book: no taker
+    [InlineData("\"type\":\"fill\"", "\"type\":\"termination\"")]
+    [InlineData("\"side\":\"buy\"", "\"side\":\"\"")]
+    [InlineData("\"qty\":0.005", "\"qty\":0")]
+    public void Kraken_Futures_trades_with_no_taker_give_none_but_keep_their_number(string from, string to)
+    {
+        var (seq, trades) = KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade.Replace(from, to), "PF_XBTUSD");
+        Assert.Empty(trades);
+        Assert.Equal(1134893, seq);
+    }
+
+    [Fact]
+    public void Kraken_Futures_snapshot_gives_its_last_number_and_no_trades()
+    {
+        string snapshot = """{"feed":"trade_snapshot","product_id":"PF_XBTUSD","trades":[{"product_id":"PF_XBTUSD","feed":"trade","uid":"0af2","side":"buy","type":"fill","time":1795453933924,"qty":0.0006,"price":61863,"seq":1134892},{"product_id":"PF_XBTUSD","feed":"trade","uid":"0af1","side":"sell","type":"fill","time":1795453933000,"qty":0.1,"price":61860,"seq":1134891}]}""";
+        Assert.Equal((1134892L, 0), (KrakenFuturesProvider.ReadPublicTrades(snapshot, "PF_XBTUSD").Sequence, KrakenFuturesProvider.ReadPublicTrades(snapshot, "PF_XBTUSD").Trades.Count));
+    }
+
+    [Theory]
+    [InlineData("\"product_id\":\"PF_XBTUSD\"", "\"product_id\":\"PF_ETHUSD\"")]   // another contract's numbering
+    [InlineData("\"feed\":\"trade\"", "\"feed\":\"heartbeat\"")]
+    [InlineData("{\"product_id\"", "{\"event\":\"subscribed\",\"product_id\"")]
+    [InlineData("{", "[")]
+    public void Kraken_Futures_messages_that_are_not_this_contracts_trades_give_nothing_and_no_number(string from, string to)
+    {
+        var (seq, trades) = KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade.Replace(from, to), "PF_XBTUSD");
+        Assert.Empty(trades);
+        Assert.Equal(-1, seq);
     }
 
     // ── The tape ────────────────────────────────────────────────────────────────

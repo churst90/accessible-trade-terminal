@@ -42,7 +42,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
     /// the host allow-list are kept so that a revived demo is one constant away.
     /// </para>
     /// </summary>
-    public class KrakenFuturesProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
+    public class KrakenFuturesProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ITradeStreamProvider
     {
         private const string LiveHost = "https://futures.kraken.com";
 
@@ -274,6 +274,81 @@ namespace AccessibleTrader.Plugins.KrakenFutures
 
         public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol) =>
             Observable.Empty<OrderBookUpdate>();   // websocket streaming is a later slice
+
+        /// <summary>
+        /// Every trade on the contract with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>). The v1 futures socket's <c>trade</c> feed, plus its
+        /// <c>heartbeat</c> feed so a quiet contract's socket stays open. Trades are numbered per
+        /// contract (<c>seq</c>), carried on from the snapshot sent on subscribing: a jump means one
+        /// was lost, so the stream counts as dropped and up again, and that bar is not counted.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            string product = symbol.ToUpperInvariant();
+            string Subscribe(string feed) => new JObject
+            {
+                ["event"] = "subscribe",
+                ["feed"] = feed,
+                ["product_ids"] = new JArray { product },
+            }.ToString(Formatting.None);
+            long lastSeq = -1;
+            var ws = new ReconnectingWebSocket(Host.Replace("https://", "wss://") + "/ws/v1", heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Kraken Futures trade stream ({product}): {err}"));
+            ws.OnConnected(async w =>
+                {
+                    Interlocked.Exchange(ref lastSeq, -1);
+                    await w.SendAsync(Subscribe("trade"));
+                    await w.SendAsync(Subscribe("heartbeat"));
+                    onCounting(true);
+                })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg =>
+                {
+                    var (seq, trades) = ReadPublicTrades(msg, product);
+                    if (MessageSequence.IsGap(ref lastSeq, seq)) { onCounting(false); onCounting(true); }
+                    foreach (var t in trades) onTrade(t);
+                });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        /// <summary>
+        /// A futures socket message's last trade number (-1 if it has none) and its new trades
+        /// on this contract. The snapshot gives its last number and no trades: they are from
+        /// before subscribing. <c>side</c> is the taker's (checked live 2026-11-23: 196 of 219
+        /// against a ticker that lags the trades, none inside the spread). Only order-book trades
+        /// count: <c>fill</c> and <c>liquidation</c>; a block trade was agreed off the book and has
+        /// no taker.
+        /// </summary>
+        internal static (long Sequence, List<PublicTrade> Trades) ReadPublicTrades(string msg, string product)
+        {
+            var trades = new List<PublicTrade>();
+            long seq = -1;
+            try
+            {
+                var json = JObject.Parse(msg);
+                string feed = json["feed"]?.ToString() ?? "";
+                if (feed == "trade_snapshot" && string.Equals(json["product_id"]?.ToString(), product, StringComparison.OrdinalIgnoreCase)
+                    && json["trades"] is JArray snapshot)
+                {
+                    foreach (var t in snapshot)
+                        if (t["seq"] is JValue { Type: JTokenType.Integer } n) seq = Math.Max(seq, n.Value<long>());
+                    return (seq, trades);
+                }
+                if (feed != "trade" || json["event"] != null) return (seq, trades);
+                if (!string.Equals(json["product_id"]?.ToString(), product, StringComparison.OrdinalIgnoreCase)) return (seq, trades);
+                if (json["seq"] is JValue { Type: JTokenType.Integer } s) seq = s.Value<long>();
+                if (json["type"]?.ToString() is not ("fill" or "liquidation")) return (seq, trades);
+                OrderSide? taker = json["side"]?.ToString() switch { "buy" => OrderSide.Buy, "sell" => OrderSide.Sell, _ => null };
+                double price = json["price"]?.Value<double>() ?? 0, qty = json["qty"]?.Value<double>() ?? 0;
+                if (taker == null || price <= 0 || qty <= 0) return (seq, trades);
+                if (json["time"] is not JValue { Type: JTokenType.Integer } ms) return (seq, trades);
+                trades.Add(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(ms.Value<long>()).UtcDateTime, price, qty, taker.Value));
+            }
+            catch { /* malformed frame */ }
+            return (seq, trades);
+        }
 
         // ── ITradingProvider ──────────────────────────────────────────────────
 
