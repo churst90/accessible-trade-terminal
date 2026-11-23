@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Indicators update live.** Cipher B, the moving averages and every other indicator now follow the
+  price as it ticks, up to four times a second. Before, their values on the forming bar stayed where
+  they were until a new bar or a tab switch.
 - **True buy and sell volume** (Alt+A, Volume: Buy and Sell Volume (trades), Volume Delta (trades)).
   Each bar's volume split by the side that took each trade, counted from the exchange's own trades
   from when the chart opens (there is no history). MEXC, Kraken and Binance (spot and futures), Bitstamp, Coinbase, Gemini and Hyperliquid.

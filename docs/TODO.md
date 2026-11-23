@@ -70,6 +70,11 @@ settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain r
 Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
 components". Caveats for these are in CHANGES (2.15.0).
 
+- [ ] **Indicators update live** (2026-11-23, not in 2.15.0; restart the server on main first): leave
+  a chart with Cipher B and an EMA open, arrow to the last bar of each, wait a minute while the price
+  moves, arrow again. The values should have changed without switching tabs. CPU should stay calm on
+  a busy market (passes are capped at four a second). Buy and Sell Volume (trades) should also grow
+  live; that one was not probed.
 - [ ] **Invert the price pane, `I`** (2026-11-22, not in 2.15.0): press `I` on a chart. It should
   say "Price pane inverted..." and arrowing should sound a rising market FALLING in pitch, while the
   words still say the real prices and "up". An RSI pane below should sound as before. `I` again says

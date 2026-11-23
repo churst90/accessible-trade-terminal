@@ -98,6 +98,23 @@ namespace AccessibleTrader.Core.Services
                     }
                 }));
 
+            // ── Live ticks ──────────────────────────────────────────────────────────
+            //
+            // Cody, 2026-11-23: "the indicator values like in cipher b don't update I have to
+            // switch tabs then go back and then i see them updated". DataManager does not raise
+            // DataUpdated for a live tick (see its OnFocusedFeedUpdated), and nothing above
+            // watches the bars, so the forming bar's indicators were computed only when a new bar
+            // moved the view or a tab switch forced a full pass, while the candle kept moving.
+            // 6a3a3d73 fixed a busy market starving the recalculation, and its test raised
+            // DataUpdated by hand, which a real tick never does. Every live tick dispatches
+            // LiveTickObservedAction after the bars, so its stamp is the trigger. Skip(1): the
+            // store replays its current state on subscribe.
+            _subscriptions.Add(_store.StateStream
+                .Select(s => s.LastTickUtc)
+                .DistinctUntilChanged()
+                .Skip(1)
+                .Subscribe(_ => OnDataUpdated()));
+
             // Direct trigger when a series is added/updated — forces full recalculation so the
             // new indicator is calculated immediately without waiting for a viewport change.
             _subscriptions.Add(_eventBus.AsObservable<IndicatorUpdatedEvent>()
@@ -232,8 +249,20 @@ namespace AccessibleTrader.Core.Services
         {
             while (true)
             {
+                if (_disposed) { lock (_runGate) _running = false; return; }
+                // Every live tick now asks for a pass, and a busy market ticks ten times a second:
+                // passes back to back would keep a core busy for values no one can hear that fast.
+                // A pass waits out the rest of MinPassGap from the last one's start, the ticks
+                // meanwhile folding into it. A full recalculation that is owed (a new chart, an
+                // indicator added, a tab switch) does not wait.
+                long until = _lastPassStart + (long)MinPassGap.TotalMilliseconds;
+                while (Volatile.Read(ref _fullAsked) == _fullDone && !_disposed
+                       && Environment.TickCount64 < until)
+                    await Task.Delay((int)Math.Min(25, until - Environment.TickCount64)).ConfigureAwait(false);
+                lock (_runGate) _runAgain = false;
                 var cts = new CancellationTokenSource();
                 _tickCts = cts;
+                _lastPassStart = Environment.TickCount64;
                 try
                 {
                     await RecalculateCurrentAsync(cts.Token).ConfigureAwait(false);
@@ -246,9 +275,38 @@ namespace AccessibleTrader.Core.Services
                 lock (_runGate)
                 {
                     if (!_runAgain) { _running = false; return; }
-                    _runAgain = false;
                 }
             }
+        }
+
+        private long _lastPassStart = long.MinValue / 2;
+
+        /// <summary>The shortest time from one recalculation's start to the next: at most four a
+        /// second.</summary>
+        internal static readonly TimeSpan MinPassGap = TimeSpan.FromMilliseconds(250);
+
+        /// <summary>How often the order book is fetched while a heatmap is on the chart. It is a
+        /// network request; with every tick recalculating, fetching it each pass would send
+        /// several a second to the exchange.</summary>
+        internal static readonly TimeSpan BookInterval = TimeSpan.FromSeconds(1);
+        private long _bookFetchedAt = long.MinValue / 2;
+        private (List<OrderBookEntry> Bids, List<OrderBookEntry> Asks) _lastBook = (new(), new());
+        private volatile bool _disposed;
+
+        /// <summary>The order book for this pass: none without a heatmap on the chart (nothing else
+        /// reads it, and the heatmap history it feeds is only drawn by one), and otherwise at most
+        /// one fetch per <see cref="BookInterval"/>, the last one reused between.</summary>
+        private async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> BookForPassAsync(
+            IEnumerable<ChartSeries> activeSeries)
+        {
+            bool heatmap = activeSeries.Any(s => s.Components.Any(c => c.DisplayType == ComponentDisplayType.Heatmap));
+            if (!heatmap) return (new(), new());
+            long now = Environment.TickCount64;
+            if (now - _bookFetchedAt < (long)BookInterval.TotalMilliseconds) return _lastBook;
+            _bookFetchedAt = now;
+            var book = await _dataManager.GetOrderBookAsync().ConfigureAwait(false);
+            _lastBook = (book.Bids ?? new(), book.Asks ?? new());
+            return _lastBook;
         }
 
         private async Task RecalculateCurrentAsync(CancellationToken token)
@@ -258,10 +316,9 @@ namespace AccessibleTrader.Core.Services
 
             var activeSeries = _store.State.ActiveSeries;
 
-            // Fetch the live order book snapshot on every tick.
-            // This ensures the heatmap history service accumulates data regardless of
-            // whether the code path takes a full or incremental recalculation route.
-            var book = await _dataManager.GetOrderBookAsync().ConfigureAwait(false);
+            // The live order book, for the heatmap and the history it is rebuilt from, on either
+            // route below. Only while a heatmap is on the chart, at most once a second.
+            var book = await BookForPassAsync(activeSeries).ConfigureAwait(false);
 
             // A full recalc is needed when: forced, or any non-profile indicator series
             // has no component data yet (newly added indicator, fresh market load).
@@ -372,6 +429,7 @@ namespace AccessibleTrader.Core.Services
 
         public void Dispose()
         {
+            _disposed = true;
             _tickCts?.Cancel();
             _tickCts?.Dispose();
             _subscriptions.Dispose();

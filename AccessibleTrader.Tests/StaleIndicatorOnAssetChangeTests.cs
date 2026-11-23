@@ -356,7 +356,9 @@ namespace AccessibleTrader.Tests
         public async Task Ticks_faster_than_the_order_book_still_update_the_indicators()
         {
             var (svc, store, data, spy) = BuildOrchestration();
-            store.EmitState(ReadyState("Bitstamp", "BTC/USD", "1h"));
+            // A heatmap on the chart, so the passes do wait for the book (without one it is not
+            // fetched at all).
+            store.EmitState(WithHeatmap(ReadyState("Bitstamp", "BTC/USD", "1h")));
             data.RaiseDataUpdated();
             await spy.WaitForAnyCallAsync();
             spy.Reset();
@@ -378,6 +380,101 @@ namespace AccessibleTrader.Tests
             // And the last one is computed on the newest bars once the market pauses.
             await Task.Delay(800);
             Assert.Equal(109.5, spy.LastData![^1].Close);
+            svc.Dispose();
+        }
+
+        // ── A live tick reaches the indicators ───────────────────────────────
+        //
+        // Cody, 2026-11-23: "the indicator values like in cipher b don't update I have to switch
+        // tabs then go back and then i see them updated". The test above raises DataUpdated by
+        // hand, and a real live tick never raises it: DataManager dispatches the bars and then
+        // LiveTickObservedAction, and nothing here watched either. On his own session, read 80
+        // seconds apart, the Heikin-Ashi close went 61284.89 to 61280.89 and Volume 6.03 to 6.39
+        // while EMA 10 and every Cipher B value stayed exactly where they were.
+
+        [Fact]
+        public async Task A_live_tick_recalculates_the_indicators_on_the_new_close()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            var ready = ReadyState("Bitstamp", "BTC/USD", "1h");
+            store.EmitState(ready);
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            // What DataManager.OnFocusedFeedUpdated does for a tick: the bars, then the stamp.
+            var bars = MakeBars(20);
+            bars[^1] = bars[^1] with { Close = 123.25, High = 124 };
+            data.SetBars(bars);
+            store.EmitState(ready with { LastTickUtc = new DateTime(2026, 11, 23, 23, 20, 0, DateTimeKind.Utc) });
+
+            await spy.WaitForAnyCallAsync();
+            Assert.Equal(123.25, spy.LastData![^1].Close);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task A_burst_of_ticks_recalculates_at_most_four_times_a_second_and_ends_on_the_newest()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            var ready = ReadyState("Bitstamp", "BTC/USD", "1h");
+            store.EmitState(ready);
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+            spy.Reset();
+
+            var t0 = new DateTime(2026, 11, 23, 23, 0, 0, DateTimeKind.Utc);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (int t = 0; t < 40; t++)
+            {
+                var bars = MakeBars(20);
+                bars[^1] = bars[^1] with { Close = 100 + t, High = 101 + t };
+                data.SetBars(bars);
+                store.EmitState(ready with { LastTickUtc = t0.AddMilliseconds(t * 25) });
+                await Task.Delay(25);
+            }
+            await Task.Delay(600);
+            double seconds = sw.Elapsed.TotalSeconds;
+            int passes = spy.LastOnlyCalls + spy.FullCalls;
+
+            Assert.True(passes >= 2, $"forty ticks recalculated {passes} times");
+            Assert.True(passes <= Math.Ceiling(seconds * 4) + 1,
+                $"forty ticks in {seconds:F2}s recalculated {passes} times; at most four a second");
+            Assert.Equal(139, spy.LastData![^1].Close);
+            svc.Dispose();
+        }
+
+        [Fact]
+        public async Task Ticks_fetch_the_order_book_only_with_a_heatmap_and_at_most_once_a_second()
+        {
+            var (svc, store, data, spy) = BuildOrchestration();
+            var plain = ReadyState("Bitstamp", "BTC/USD", "1h");
+            store.EmitState(plain);
+            data.RaiseDataUpdated();
+            await spy.WaitForAnyCallAsync();
+
+            var t0 = new DateTime(2026, 11, 23, 23, 0, 0, DateTimeKind.Utc);
+            for (int t = 0; t < 8; t++)
+            {
+                store.EmitState(plain with { LastTickUtc = t0.AddSeconds(t) });
+                await Task.Delay(100);
+            }
+            await Task.Delay(400);
+            Assert.True(spy.LastOnlyCalls + spy.FullCalls > 1, "the ticks never recalculated, so this proves nothing");
+            Assert.Equal(0, data.BookCalls);
+
+            var heat = WithHeatmap(plain);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (int t = 0; t < 15; t++)
+            {
+                store.EmitState(heat with { LastTickUtc = t0.AddMinutes(1).AddSeconds(t) });
+                await Task.Delay(100);
+            }
+            await Task.Delay(400);
+            double seconds = sw.Elapsed.TotalSeconds;
+            Assert.True(data.BookCalls >= 1, "with a heatmap on the chart the book was never fetched");
+            Assert.True(data.BookCalls <= Math.Ceiling(seconds) + 1,
+                $"the book was fetched {data.BookCalls} times in {seconds:F2}s; at most once a second");
             svc.Dispose();
         }
 
@@ -409,6 +506,14 @@ namespace AccessibleTrader.Tests
                 DataStatus = DataStatus.Ready,
                 ActiveSeries = ImmutableList.Create(series)
             };
+        }
+
+        private static WorkspaceState WithHeatmap(WorkspaceState state)
+        {
+            var cfg = new SeriesConfig { Id = "heat", Name = "heat", IndicatorCode = "ORDERBOOK_HEATMAP", Pane = "Main" };
+            cfg.Components.Add(new ComponentConfig { Name = "Heatmap", DisplayType = ComponentDisplayType.Heatmap });
+            var heat = new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "heat" });
+            return state with { ActiveSeries = state.ActiveSeries.Add(heat) };
         }
 
         private static ChartSeries MakeSeries(string id, string code, bool requiresFullRecalc)
@@ -453,8 +558,11 @@ namespace AccessibleTrader.Tests
             /// (MEXC's took about 300 ms from Cody's desk, 2026-11-22).</summary>
             public TimeSpan BookDelay { get; set; }
 
+            public int BookCalls;
+
             public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync()
             {
+                Interlocked.Increment(ref BookCalls);
                 if (BookDelay > TimeSpan.Zero) await Task.Delay(BookDelay);
                 return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
             }

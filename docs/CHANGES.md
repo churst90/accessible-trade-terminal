@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: indicators update on every live tick, not only on a new bar or a tab switch
+
+Cody, 2026-11-23: "the indicator values like in cipher b don't update I have to switch tabs then go
+back and then i see them updated". His server was on the newest build (main 0d181e86); the bug was
+in it. **Cause:** a live tick updates the bars in the store (`UpdateDataAction`) and stamps
+`LiveTickObservedAction`, but DataManager deliberately does not raise `DataUpdated` for it, and
+nothing in `DataOrchestrationService` watched the ticks. So the forming bar's indicators were worked
+out only when a new bar moved the view or a tab switch forced a full pass, while the candle and
+Volume (which are not computed there) kept moving. **6a3a3d73's fix (2026-11-22) was real but did
+not reach this:** it stopped a busy market cancelling every recalculation, and its test raised
+`DataUpdated` by hand, which a production tick never does. Reproduced on a silent copy of his session
+(port 5299, Bitstamp BTC/USD 1h): over three readings 80 seconds apart the Heikin-Ashi close went
+61284.89, 61280.89, 61309.66 while EMA 10 stayed 61482.47 and Cipher B stayed -14.2 / -9.4 / 14.0.
+
+**Fix:** `DataOrchestrationService` recalculates on each change of `LastTickUtc`. Two things change
+with it, because every tick now asks for a pass: (1) passes start at most every 250 ms
+(`MinPassGap`; ticks in between fold into the next pass, which runs on the newest bars; a full
+recalculation that is owed, such as a new chart, an added indicator or a tab switch, does not wait);
+(2) the order book, a network request that used to be fetched before EVERY pass, is fetched only
+while an order-book heatmap is on the chart, at most once a second, the last one reused between.
+Nothing but the heatmap and its history read it.
+
+**After the fix,** the same probe read EMA 10 as 61492.13, 61490.87, 61486.39 and Cipher B's fast wave
+as -13.3, -13.3, -13.5 (it is smoothed on Heikin-Ashi candles, so a small move does not change its
+first decimal). Tests: 3 new in `StaleIndicatorOnAssetChangeTests` (a store tick alone recalculates on
+the new close; forty ticks in 1.6 s give at most four passes a second and end on the newest; the book
+is not fetched without a heatmap and at most once a second with one); the busy-market test now
+carries a heatmap so it still waits on the book. Sabotaged 4 of 4 red (no tick subscription, no gap,
+book always fetched, book every pass). **Not checked:** the trade-volume indicators (Buy and Sell
+Volume, Volume Delta (trades)) were added on the same path and should now move live too; not probed.
+Not heard by Cody; he needs to restart his server on main.
+
 ### 2026-11-23: Binance futures charts update live again
 
 Found while adding Binance's trades. Binance moved its futures market streams (klines, trades) to a
