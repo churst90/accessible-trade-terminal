@@ -362,6 +362,9 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, KlingerOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, PriceVolumeTrendProvider>();
             services.AddScoped<IIndicatorProvider, RelativeVolumeAtTimeProvider>();
+            // True buy/sell volume from the venue's trade stream (2026-11-23). The service owns the sockets.
+            services.AddScoped<AccessibleTrader.Core.Services.Feeds.ITradeFlowService, AccessibleTrader.Core.Services.Feeds.TradeFlowService>();
+            services.AddScoped<IIndicatorProvider, TradeFlowProvider>();
             services.AddScoped<IIndicatorProvider, ElderRayProvider>();
             services.AddScoped<IIndicatorProvider, FisherTransformProvider>();
             services.AddScoped<IIndicatorProvider, CoppockCurveProvider>();

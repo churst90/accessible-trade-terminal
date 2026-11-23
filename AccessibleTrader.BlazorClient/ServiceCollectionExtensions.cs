@@ -328,6 +328,9 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, KlingerOscillatorProvider>();
             services.AddSingleton<IIndicatorProvider, PriceVolumeTrendProvider>();
             services.AddSingleton<IIndicatorProvider, RelativeVolumeAtTimeProvider>();
+            // True buy/sell volume from the venue's trade stream (2026-11-23). The service owns the sockets.
+            services.AddSingleton<AccessibleTrader.Core.Services.Feeds.ITradeFlowService, AccessibleTrader.Core.Services.Feeds.TradeFlowService>();
+            services.AddSingleton<IIndicatorProvider, TradeFlowProvider>();
             services.AddSingleton<IIndicatorProvider, ElderRayProvider>();
             services.AddSingleton<IIndicatorProvider, FisherTransformProvider>();
             services.AddSingleton<IIndicatorProvider, CoppockCurveProvider>();

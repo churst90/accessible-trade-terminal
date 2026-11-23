@@ -728,6 +728,11 @@ namespace AccessibleTrader.Tests
             "TPOANCHOR.Profile",
             "TPOFR.Profile",
             "TPOSESSION.Profile",
+            // Counted from a venue's live trade stream, which a synthetic series has none of.
+            // TradeFlowTests.A_bars_split_does_not_change_when_later_bars_arrive pins causality.
+            "TRADE_DELTA.Delta",
+            "TRADE_VOLUME.Buy",
+            "TRADE_VOLUME.Sell",
             "Tma.Tma",
             // Genuinely rare, and newly so. Until 2026-08-27 the profile window grew with the
             // bar's array index, so early bars had a tiny profile, a collapsed value area, and a

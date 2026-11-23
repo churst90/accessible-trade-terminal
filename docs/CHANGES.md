@@ -4,6 +4,60 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: true buy and sell volume from the exchange's trades (MEXC first)
+
+Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
+any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
+This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
+live against its own candles.
+
+- `Sdk/Interfaces/ITradeStreamProvider`: an optional plugin capability, `SubscribeTradesAsync(market,
+  symbol, onTrade, onCounting)`, yielding `PublicTrade(Time, Price, Quantity, TakerSide)`. `onCounting`
+  is true on every (re)subscribe and false on a drop, so a bar a reconnect fell in is not counted.
+- MEXC: spot reads `spot@public.aggre.deals.v3.api.pb@100ms@SYMBOL` (protobuf `PublicAggreDeals`,
+  tradeType 1 = buyer took, 2 = seller took); futures reads `sub.deal` / `push.deal` (`T` 1/2, `v` in
+  contracts). Checked live 2026-11-23: spot sides agreed with MEXC's REST `isBuyerMaker` on 72 of 72
+  matched trades, and one minute's buy plus sell equalled its candle's volume on spot (17.1151 BTC) and
+  futures (2,329,360 contracts).
+- `Feeds/TradeFlowService`: one `TradeTape` per venue, market and symbol, opened the first time an
+  indicator asks and closed after 10 minutes nobody has. Per-second buy and sell sums, kept 3 days, and
+  the stretches the stream was up. `Sum(from, to)` answers only for a span the stream saw from its first
+  second, up to now for the forming bar. A venue not loaded yet at startup is asked again on the next
+  tick rather than written off; a failed stream waits 30 seconds before the next try.
+- `Indicators/TradeFlowProvider`: **Buy and Sell Volume (trades)** (`TRADE_VOLUME`, buy up, sell drawn
+  down) and **Volume Delta (trades)** (`TRADE_DELTA`, a running total from the first counted bar, back to
+  zero after a blank one, with the zero level). Blank before counting; the detail says why (connecting,
+  counting since, dropped, or the venue sends no sides). Speech: *"Buy 12.4, sell 8.1: buyers took 60
+  percent."*
+- The chart's market (`__market`) is now stamped on indicator parameters beside `__symbol`,
+  `__provider` and `__timeframe`, on all three orchestrator paths and the headless chart: spot and
+  futures are different streams.
+- `SignalCatalog.LiveOnly` withholds both from the strategy builder with a reason: a backtest has no
+  trades and the condition would never fire.
+
+Tests: `TradeFlowTests` (30): MEXC spot and futures decoding (sides, junk frames, a kline frame); the
+tape (split by second, a bar the stream started inside is blank, the forming bar to now, a drop, a late
+trade, retention); the indicators (blank bars, sell drawn down, the running delta and its reset, no venue
+means no stream, the unsupported message, speech, causality on fewer bars, withheld from strategies); the
+service (one stream per symbol, trades reach the tape, a venue without the capability, a venue not loaded
+yet, the retry pause, the idle close). `HeikinAshiIndicatorCandlesTests` now also checks every
+recalculation path and the headless chart pass the chart's venue, symbol and market.
+Sabotages: 35 of 37 red (sides flipped on spot and futures, the side, size and channel filters, the
+futures array form, the tape counting a bar the stream did not see from its start, no retention, the
+bar's end second included, trades appended out of order, a drop not ending the stretch, a stream per
+ask, a venue not loaded yet written off, no retry pause or no retry, the capability unchecked, the idle
+close never or at once, trades not wired to the tape, spot and futures sharing a tape, sell drawn up,
+uncounted bars as zero, the last bar zero-width, the market not passed, the delta not reset or not
+running, no reason for a blank, the share flipped, the sell speech sign, a stream with no venue, the
+strategy builder offering them, and each of the four places the market is stamped). The two that
+stayed green were guards that did nothing: MEXC's body-type check before a null check that already
+covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
+
+**Caveats:** not heard by Cody. MEXC only so far. No history, by the nature of the source: a bar is
+counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
+bar or two. The count lives in the server process: a restart starts it again. Not on the VPS (the demo's
+only live crypto venue is Bitstamp, which is not wired yet).
+
 ### 2026-11-23: day separators
 
 Cody 2026-11-23: *"if day separaters are a feature of other trading platforms, add them as a visual

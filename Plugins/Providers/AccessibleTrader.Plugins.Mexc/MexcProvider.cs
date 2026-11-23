@@ -17,7 +17,7 @@ namespace AccessibleTrader.Plugins.Mexc
     /// Protobuf (MEXC discontinued the JSON spot WS on 2025-08-04) decoded via the
     /// generated <see cref="MexcProtobuf"/> helper. Futures REST/WS are JSON.
     /// </summary>
-    public class MexcProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider
+    public class MexcProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider, ITradeStreamProvider
     {
         private const string SpotWsUrl    = "wss://wbs-api.mexc.com/ws";
         private const string FuturesWsUrl = "wss://contract.mexc.com/edge";
@@ -308,6 +308,77 @@ namespace AccessibleTrader.Plugins.Mexc
                     catch { /* malformed frame */ }
                 })
                 .OnError(err => SurfaceError($"MEXC futures kline stream ({futuresSymbol}): {err}"));
+        }
+
+        // ── Public trades (true buy/sell volume) ─────────────────────────────
+
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            var cleanSymbol = CleanSymbol(symbol);
+            bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
+            ReconnectingWebSocket ws;
+            if (isFutures)
+            {
+                string futuresSymbol = ToFuturesSymbol(cleanSymbol);
+                string sub = new JObject
+                {
+                    ["method"] = "sub.deal",
+                    ["param"] = new JObject { ["symbol"] = futuresSymbol },
+                }.ToString(Newtonsoft.Json.Formatting.None);
+                ws = new ReconnectingWebSocket(FuturesWsUrl)
+                    .WithHeartbeatMessage(FuturesPing)
+                    .OnConnected(async s => { await s.SendAsync(sub).ConfigureAwait(false); onCounting(true); })
+                    .OnMessage(text => { foreach (var t in ReadFuturesDeals(text)) onTrade(t); })
+                    .OnDisconnected(() => onCounting(false))
+                    .OnError(err => SurfaceError($"MEXC futures trade stream ({futuresSymbol}): {err}"));
+            }
+            else
+            {
+                string channel = $"spot@public.aggre.deals.v3.api.pb@100ms@{cleanSymbol}";
+                ws = new ReconnectingWebSocket(SpotWsUrl)
+                    .WithHeartbeatMessage(SpotPing)
+                    .OnConnected(async s => { await s.SendAsync(SubscribeMsg(channel)).ConfigureAwait(false); onCounting(true); })
+                    .OnBinary(data =>
+                    {
+                        var w = MexcProtobuf.TryParse(data);
+                        if (w == null) return;
+                        foreach (var t in MexcProtobuf.ReadDeals(w)) onTrade(t);
+                    })
+                    .OnMessage(text => SurfaceSubscribeError(text, "spot trades"))
+                    .OnDisconnected(() => onCounting(false))
+                    .OnError(err => SurfaceError($"MEXC spot trade stream ({cleanSymbol}): {err}"));
+            }
+            await ws.ConnectAsync().ConfigureAwait(false);
+            return ws;
+        }
+
+        /// <summary>
+        /// A futures push.deal frame: <c>{"channel":"push.deal","data":{"p":price,"v":contracts,
+        /// "T":1 buy / 2 sell,"t":ms}}</c>, the data an object or, batched, an array. Volume is in
+        /// contracts, the unit the futures candles' q counts.
+        /// </summary>
+        internal static List<PublicTrade> ReadFuturesDeals(string text)
+        {
+            var trades = new List<PublicTrade>();
+            try
+            {
+                var json = JObject.Parse(text);
+                if (json["channel"]?.ToString() != "push.deal") return trades;
+                var data = json["data"];
+                IEnumerable<JToken> items = data is JArray arr ? arr : data is JObject ? new[] { data } : Array.Empty<JToken>();
+                foreach (var d in items)
+                {
+                    int side = d["T"]?.Value<int>() ?? 0;
+                    double price = d["p"]?.Value<double>() ?? 0, qty = d["v"]?.Value<double>() ?? 0;
+                    long ms = d["t"]?.Value<long>() ?? 0;
+                    if (side is not (1 or 2) || price <= 0 || qty <= 0 || ms <= 0) continue;
+                    trades.Add(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime,
+                        price, qty, side == 1 ? OrderSide.Buy : OrderSide.Sell));
+                }
+            }
+            catch { /* malformed frame */ }
+            return trades;
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)

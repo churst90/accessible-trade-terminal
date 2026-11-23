@@ -485,6 +485,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!string.IsNullOrEmpty(_identity.Symbol)) parameters["__symbol"] = _identity.Symbol;
                 if (!string.IsNullOrEmpty(_identity.Provider)) parameters["__provider"] = _identity.Provider;
                 if (!string.IsNullOrEmpty(_identity.Timeframe)) parameters["__timeframe"] = _identity.Timeframe;
+                if (!string.IsNullOrEmpty(_identity.Market)) parameters["__market"] = _identity.Market;
                 // A tab showing Heikin-Ashi computes its indicators on Heikin-Ashi candles, as
                 // the open chart does, so its alerts and narration say what it shows.
                 IndicatorCandles.Stamp(parameters, _heikinAshi);

@@ -65,6 +65,16 @@ namespace AccessibleTrader.Core.Services.Strategies
             ["PREMIUM_DISCOUNT"] = "the strategy lab found no information in premium and discount zones (docs/archive/SMC_FINDINGS.md), so they are drawn and spoken but not offered to trade on",
         };
 
+        /// <summary>
+        /// Indicators counted from a venue's live trades, which have no history: a backtest would
+        /// see a blank series and a condition on it would never fire, with nothing to say why.
+        /// </summary>
+        internal static readonly IReadOnlyDictionary<string, string> LiveOnly = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            ["TRADE_VOLUME"] = "buy and sell volume is counted from the exchange's live trades from when the chart opened, so there is no history to test a strategy on",
+            ["TRADE_DELTA"] = "trade delta is counted from the exchange's live trades from when the chart opened, so there is no history to test a strategy on",
+        };
+
         internal static readonly IReadOnlyDictionary<string, string> Retired = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
             // Cody's 2026-10-17 report: hidden stops that said ±53, which the levels already say.
@@ -205,7 +215,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                         // the causal thing about a leaf that is permanently NaN would be beside
                         // the point.
                         string? why = notComputable ?? CausalityContract.RefusalReason(ind, comp)
-                            ?? (NoInformation.TryGetValue(ind.Code, out var none) ? none : null);
+                            ?? (NoInformation.TryGetValue(ind.Code, out var none) ? none : null)
+                            ?? (LiveOnly.TryGetValue(ind.Code, out var live) ? live : null);
                         if (why == null)
                         {
                             list.Add(descriptor);

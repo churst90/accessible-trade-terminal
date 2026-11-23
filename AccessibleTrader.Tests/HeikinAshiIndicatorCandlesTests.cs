@@ -334,7 +334,7 @@ public sealed class HeikinAshiIndicatorCandlesTests
         foreach (bool heikinAshi in new[] { true, false })
         {
             var store = new MockWorkspaceStore();
-            store.EmitState(WorkspaceState.Initial with { IsHeikinAshi = heikinAshi });
+            store.EmitState(WorkspaceState.Initial with { IsHeikinAshi = heikinAshi, Identity = new ChartIdentity("Futures", "MEXC", "BTC_USDT", "1m") });
             var engine = new RecordingEngine();
             var orch = new IndicatorOrchestrator(engine, new IndicatorStateMapper(), new NoDrawings(), new NoProfiles(),
                 new NoHeatmap(), store, new MockNotificationHub(), NullLogger<IndicatorOrchestrator>.Instance);
@@ -355,6 +355,12 @@ public sealed class HeikinAshiIndicatorCandlesTests
 
             var p = Assert.Single(engine.Parameters);
             Assert.Equal(heikinAshi, IndicatorCandles.IsHeikinAshi(p));
+            // And the chart's identity: buy and sell volume opens the venue's trade stream for
+            // this market (spot and futures are different streams) from these.
+            Assert.Equal("MEXC", p["__provider"]);
+            Assert.Equal("BTC_USDT", p["__symbol"]);
+            Assert.Equal("Futures", p["__market"]);
+            Assert.Equal("1m", p["__timeframe"]);
         }
     }
 
@@ -557,9 +563,10 @@ public sealed class HeikinAshiIndicatorCandlesTests
 
     // ── A headless tab (browser closed) computes on the candles it shows ──────
 
-    private static HeadlessChartFactory HeadlessStack()
+    private static HeadlessChartFactory HeadlessStack(params IIndicatorProvider[] more)
     {
         var providers = new List<IIndicatorProvider> { new CoreIndicatorProvider(), new SkenderTrendProvider() };
+        providers.AddRange(more);
         var indicators = new IndicatorService(providers, NullLogger<IndicatorService>.Instance);
         var engine = new IndicatorEngine(indicators, new CustomIndicatorRegistry(), providers);
         var styling = new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
@@ -586,6 +593,21 @@ public sealed class HeikinAshiIndicatorCandlesTests
         var obs = await chart.ObserveAsync(bars, isFullHistory: true, CancellationToken.None);
         Assert.NotNull(obs.State);
         return obs.State!.ActiveSeries.Single(s => s.IndicatorCode == "Ema").Data.ComponentData;
+    }
+
+    [Fact]
+    public async Task A_headless_tab_tells_its_indicators_which_venue_and_market_it_is()
+    {
+        var flow = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.Feeds.ITradeFlowService>();
+        var cfg = new SeriesConfig
+        {
+            Id = "t", Name = "Trades", FriendlyName = "Trades", IndicatorCode = TradeFlowProvider.VolumeCode,
+            Pane = "Pane_TradeVolume", IsVisible = true, IsAutoNarrated = true,   // only narrated series compute headless
+        };
+        var chart = HeadlessStack(new TradeFlowProvider(flow)).Create(new ChartIdentity("Futures", "MEXC", "BTC_USDT", "1m"),
+            new[] { cfg }, Array.Empty<AlertDefinition>(), false);
+        await chart.ObserveAsync(Bars(30), isFullHistory: true, CancellationToken.None);
+        flow.Received().Watch("Futures", "MEXC", "BTC_USDT");
     }
 
     [Fact]

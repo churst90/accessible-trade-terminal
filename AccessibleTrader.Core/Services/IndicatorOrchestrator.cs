@@ -149,6 +149,8 @@ namespace AccessibleTrader.Core.Services
                             parameters["__provider"] = state.Identity.Provider;
                         if (!string.IsNullOrEmpty(state.Identity.Timeframe))
                             parameters["__timeframe"] = state.Identity.Timeframe;
+                        if (!string.IsNullOrEmpty(state.Identity.Market))
+                            parameters["__market"] = state.Identity.Market;
                         IndicatorCandles.Stamp(parameters, heikinAshi);
 
                         // ── Adaptive parameter detection ─────────────────────────────────────
@@ -345,6 +347,8 @@ namespace AccessibleTrader.Core.Services
                             parameters["__provider"] = curState.Identity.Provider;
                         if (!string.IsNullOrEmpty(curState.Identity.Timeframe))
                             parameters["__timeframe"] = curState.Identity.Timeframe;
+                        if (!string.IsNullOrEmpty(curState.Identity.Market))
+                            parameters["__market"] = curState.Identity.Market;
                         IndicatorCandles.Stamp(parameters, heikinAshi);
 
                         // A NEW BAR: settle the one that just closed first. A tick only rewrites the
@@ -554,6 +558,7 @@ namespace AccessibleTrader.Core.Services
                 if (!string.IsNullOrEmpty(state.Identity.Symbol)) parameters["__symbol"] = state.Identity.Symbol;
                 if (!string.IsNullOrEmpty(state.Identity.Provider)) parameters["__provider"] = state.Identity.Provider;
                 if (!string.IsNullOrEmpty(state.Identity.Timeframe)) parameters["__timeframe"] = state.Identity.Timeframe;
+                if (!string.IsNullOrEmpty(state.Identity.Market)) parameters["__market"] = state.Identity.Market;
                 IndicatorCandles.Stamp(parameters, state.IsHeikinAshi);
                 var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                 var buffer = _mapper.MapResultsToBuffer(s, results, data.Count);

@@ -2988,7 +2988,8 @@ accumulation distribution line, Chaikin Money Flow, Force Index, MFI and VWMA, w
 there.
 
 **Where "buying" and "selling" come from.** The chart's candles say how much traded, not who was the
-buyer. So these count a bar's volume as buying when its candle closed up and selling when it closed
+buyer. (The next section counts the real split from the exchange's trades, from when the chart
+opens.) So these count a bar's volume as buying when its candle closed up and selling when it closed
 down. A doji takes the side of its close against the last close. That is the rule the Volume pane
 uses to draw, sound and say "up" or "down". TradingView's volume delta makes the same split on
 smaller bars inside each one. On a 1-minute chart the two are close. On a daily chart, a whole day's
@@ -3027,6 +3028,34 @@ over, not counted as zero. A dashed line marks 1, the usual, and crossing 2 play
 longer chart there is no time of day, so it compares each bar with the average of the 10 bars before
 it. The detail says which: *"Relative volume 1.57 times the usual volume by 10:00 over the last 10
 days, counting today so far."*
+
+### True buy and sell volume, from the exchange's trades
+
+The indicators above guess the side from the candle. Two more count it. A crypto exchange publishes
+every trade as it happens, with the side that took it: a **buy** is a buyer who paid the asking price,
+a **sell** a seller who took the bid. Both are under Volume in Alt+A, each in its own pane.
+
+**Buy and Sell Volume (trades)** splits each bar's volume into buying, drawn up from zero in green, and
+selling, drawn down in red. The two add up to the bar's volume. Arrowing onto either says both:
+*"Buy 12.4, sell 8.1: buyers took 60 percent."*
+
+**Volume Delta (trades)** is buying minus selling, added up from the first bar counted. It is drawn as
+columns, green above zero and red below, and crossing zero plays the level tone: *"Trade delta plus
+4.3, buyers ahead."*
+
+**There is no history.** The exchanges send trades from the moment you ask, not before. Counting starts
+when the chart opens, and a bar is counted only if the terminal saw it from its first second. The bars
+before that are blank, and so is the bar that was forming when the chart opened. On a 1-minute chart
+the first count arrives a minute or two after you open it; on a 1-hour chart, after the next hour
+starts. If the connection drops, the bar it dropped in is blank and the delta starts again from zero
+after it. The detail on a blank bar says why: still connecting, counting since when, dropped, or that
+the exchange does not send the side. Switching away and back keeps the count for the session (up to
+three days, and until nothing has looked at that symbol for ten minutes).
+
+Because there is no history, neither can be used in a strategy: a backtest would see nothing.
+
+**Which exchanges.** MEXC, spot and futures. On MEXC futures the volume is in contracts, as the candles
+count it. Stocks and forex feeds do not send the side of a trade, so these stay blank there and say so.
 
 All four are causal: each value uses only that bar and the bars before it. The strategy builder offers
 them like any other indicator. The lab has not tested them.

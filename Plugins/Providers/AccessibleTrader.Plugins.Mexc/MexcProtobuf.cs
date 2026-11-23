@@ -1,4 +1,5 @@
 using System.Globalization;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
@@ -41,6 +42,25 @@ namespace AccessibleTrader.Plugins.Mexc
 
             bar = new Ohlcv(date, open, high, low, close, vol);
             return true;
+        }
+
+        /// <summary>Projects a spot public-trades push (channel spot@public.aggre.deals.v3.api.pb)
+        /// into trades. tradeType is the taker's side, 1 buy and 2 sell; time is UTC milliseconds;
+        /// quantity is in the base coin, the unit the spot candles count volume in.</summary>
+        public static List<PublicTrade> ReadDeals(global::PushDataV3ApiWrapper wrapper)
+        {
+            var trades = new List<PublicTrade>();
+            var deals = wrapper.PublicAggreDeals?.Deals;   // null on any other push (a kline, a book)
+            if (deals == null) return trades;
+            foreach (var d in deals)
+            {
+                if (d.TradeType is not (1 or 2)) continue;
+                double price = ParseD(d.Price), qty = ParseD(d.Quantity);
+                if (price <= 0 || qty <= 0) continue;
+                trades.Add(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(d.Time).UtcDateTime,
+                    price, qty, d.TradeType == 1 ? OrderSide.Buy : OrderSide.Sell));
+            }
+            return trades;
         }
 
         /// <summary>Projects a private-order push into an <see cref="OrderUpdate"/>.
