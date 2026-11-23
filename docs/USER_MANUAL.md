@@ -3117,6 +3117,36 @@ top and each longer one below the last, an orderly uptrend; the bar it first get
 green, and the bar it first stacks down, red. Stacked is by length, not by slot, so it does not matter
 which slot you put which length in. All four share one average type.
 
+### Session levels: previous day, week and month; session high, low and opening range
+
+Two indicators under Reference Level in Alt+A, beside Pivot Levels, both on the price. Every line in
+them is a level: arrowing a candle near one says so by name, *"Near resistance at 91,400.00, previous
+day high"*, the same way the pivots do.
+
+**Previous Day, Week and Month Levels.** Yesterday's high, low and close, held flat all through today:
+the lines a day trader marks every morning. Last week's and last month's are there too, turned off;
+switch them on in the indicator's properties (P). Days are UTC, weeks run Monday to Sunday, months are
+calendar months, the same as Pivot Levels, whose pivot point is made from exactly these three numbers.
+The first close above yesterday's high each day gets a **green triangle** and a high tone, and the
+first below yesterday's low a **red triangle** and a low tone. The detail says *"Previous day high
+91,400.00, low 89,950.00, close 90,820.00. Close inside it, 580.00 under the high, 870.00 over the low.
+Previous week high 93,200.00, low 88,100.00."*
+
+**Session High, Low and Opening Range.** The session's high and low so far, and the high and low of its
+first 30 minutes, the **opening range**, which appears once those minutes are over. The first close
+above the range in a session is marked green, the first below it red. Session can be **UTC day**
+(midnight to midnight UTC, for crypto) or **New York** (9:30 to 16:00 New York time, for US stocks; bars
+outside those hours have no session lines). The range can be 1 to 600 minutes. A bar that opens inside
+the range is part of it, so on an hourly chart a 30-minute range is the session's first bar.
+
+**What is left out.** The first day, week, month or session on the chart began before the chart's
+first bar, as far as the terminal can tell, so it draws nothing: a "previous day high" made from half
+a day would be a wrong price, spoken as a level. Scroll back to load more and it fills in. The detail
+says so: *"Previous day: needs a whole day of bars on the chart; scroll back to load one."*
+
+TradingView's **session breaks**, a vertical line at each new day, are not drawn. The date is spoken
+when the cursor crosses into a new day.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

@@ -12,6 +12,11 @@
   at an earlier tick's reading until you switched tabs, so the bar read differently afterwards. The
   bar that closes is now worked out again on its final candle, and bars that arrive together no
   longer leave a gap.
+- **Session levels: the previous day's, week's and month's high, low and close, and the session's
+  high, low and opening range** (Alt+A, Reference Level). Arrowing near one says its name ("near
+  resistance at ..., previous day high"). A close beyond yesterday's high or low, or out of the
+  opening range, is marked and sounded once a day. Weekly pivots no longer restart in the middle of
+  New Year's week.
 - **Five trend overlays: linear regression channel, Chande Kroll Stop, McGinley Dynamic, Envelopes
   and a moving average ribbon** (Alt+A, Overlays). The regression channel's centre is the least
   squares moving average. Breakouts and crosses are marked and sounded, and the ribbon says its order

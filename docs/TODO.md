@@ -97,6 +97,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
+- [ ] **Session levels** (2026-11-23, not in 2.15.0): add Previous Day, Week and Month Levels and
+  Session High, Low and Opening Range from Alt+A, Reference Level, on BTC 15m. Arrowing near
+  yesterday's high should say "Near resistance at ..., previous day high"; the detail should give
+  yesterday's high, low and close and where the close is; the opening range should appear 30 minutes
+  into the UTC day. Try Session "New York" on a stock: nothing outside 9:30 to 16:00.
 - [ ] **Five trend overlays** (2026-11-23, not in 2.15.0): add the regression channel, Chande Kroll Stop,
   McGinley Dynamic, Envelopes and the ribbon from Alt+A, Overlays. The regression channel's detail
   should give the centre, slope, fit R and how many deviations the close is from the centre; the
@@ -254,8 +259,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
      CCI 6, which the existing CCI draws twice. ~~Linear Regression channel and slope (with the Least
      Squares MA as its centre line), Chande Kroll Stop, McGinley Dynamic, Envelopes, Moving Average
      Ribbon~~: **built 2026-11-23** (see CHANGES). McGinley is capped where TradingView's formula diverges.
-  5. **Session and time tools**: session high/low and opening range, previous day/week/month
-     high-low-close, day-of-week separators: each a level the "Near resistance" speech can name.
+  5. **Session and time tools**: ~~session high/low and opening range, previous day/week/month
+     high-low-close~~: **built 2026-11-23** (see CHANGES), each a level the "Near resistance" speech
+     names. **Day separators not built**: TradingView makes them a chart setting ("session breaks"),
+     not an indicator. A vertical line is a new kind of mark in about ten places, and the date is
+     already spoken when the cursor crosses into a new day. Ask Cody whether he wants them drawn.
   6. **Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines, chart
      pattern recognition (ChartPatternDetector exists for strategies; give it a visible indicator).
   Every one ships with a spoken form, sonification and the usual causality test (no future bars).

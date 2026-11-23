@@ -616,6 +616,13 @@ namespace AccessibleTrader.Tests
             // by turning the highs' bars upside down in
             // SmartMoneyIndicatorsTests.Equal_lows_and_low_sweeps_mirror_them.
             "LIQUIDITY.EqualLows",
+            // The probe series are 1400 hourly bars from 1 Jan 2020: January began on the first bar
+            // and March 1 is bar 1440, so no whole month ever ends on them. The same loop as the day
+            // and week lines, which they do exercise; pinned by
+            // SessionLevelsTests.A_month_carries_the_whole_previous_month.
+            "PREV_PERIOD_LEVELS.PMC",
+            "PREV_PERIOD_LEVELS.PMH",
+            "PREV_PERIOD_LEVELS.PML",
             "BNVISION_FUNDING.Funding",
             "BNVISION_FUNDING.FundingExtreme",
             "BNVISION_FUNDING.FundingZScore",

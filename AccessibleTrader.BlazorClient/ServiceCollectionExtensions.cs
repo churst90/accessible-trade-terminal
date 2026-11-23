@@ -340,6 +340,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, ChandeKrollStopProvider>();
             services.AddSingleton<IIndicatorProvider, McGinleyDynamicProvider>();
             services.AddSingleton<IIndicatorProvider, EnvelopesProvider>();
+            services.AddSingleton<IIndicatorProvider, PreviousPeriodLevelsProvider>();
+            services.AddSingleton<IIndicatorProvider, SessionRangeProvider>();
             services.AddSingleton<IIndicatorProvider, MovingAverageRibbonProvider>();
             services.AddSingleton<IIndicatorProvider, DbsiStyleProvider>();
             services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();

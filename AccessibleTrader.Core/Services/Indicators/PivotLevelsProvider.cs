@@ -259,7 +259,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 DefaultIsEnabled = visible ? null : false
             };
 
-        private static bool PeriodChanged(DateTime a, DateTime b, string period)
+        /// <summary>True when <paramref name="b"/> is in a different UTC day, ISO week or month from
+        /// <paramref name="a"/>. Shared with the previous-period levels, so the two agree on where a
+        /// period ends.</summary>
+        internal static bool PeriodChanged(DateTime a, DateTime b, string period)
         {
             return period.ToLowerInvariant() switch
             {
@@ -269,13 +272,11 @@ namespace AccessibleTrader.Core.Services.Indicators
             };
         }
 
+        // ISO 8601 year and week. Calendar.GetWeekOfYear(FirstFourDayWeek, Monday) with the calendar
+        // year was not ISO at the year's edge: Tue 31 Dec 2024 was week 53 of 2024 and Wed 1 Jan 2025
+        // week 1 of 2025, so the weekly pivots restarted mid-week every New Year.
         private static int GetWeekKey(DateTime d)
-        {
-            // Simple ISO-ish week key: year * 100 + week-of-year.
-            var cal = System.Globalization.CultureInfo.InvariantCulture.Calendar;
-            int week = cal.GetWeekOfYear(d, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-            return d.Year * 100 + week;
-        }
+            => System.Globalization.ISOWeek.GetYear(d) * 100 + System.Globalization.ISOWeek.GetWeekOfYear(d);
 
         private static double[] ComputeAtrWilder(ReadOnlySpan<Ohlcv> data, int period)
         {

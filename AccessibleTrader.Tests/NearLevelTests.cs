@@ -111,6 +111,26 @@ public sealed class NearLevelTests
         Assert.Contains(expected, Arrive(Indicator(PivotLevelsProvider.Code, component, at)));
     }
 
+    [Theory]
+    [InlineData(PreviousPeriodLevelsProvider.Code, "PDH", 12, "Near resistance at 12.00, previous day high.")]
+    [InlineData(PreviousPeriodLevelsProvider.Code, "PWL", 10, "Near support at 10.00, previous week low.")]
+    [InlineData(PreviousPeriodLevelsProvider.Code, "PMC", 12, "Near resistance at 12.00, previous month close.")]
+    [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompHigh, 12, "Near resistance at 12.00, session high.")]
+    [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompOrLow, 10, "Near support at 10.00, opening range low.")]
+    public void Previous_period_and_session_lines_are_levels(string code, string component, double at, string expected)
+    {
+        Assert.Contains(expected, Arrive(Indicator(code, component, at)));
+    }
+
+    [Theory]
+    [InlineData(PreviousPeriodLevelsProvider.Code, PreviousPeriodLevelsProvider.CompBrokeHigh)]
+    [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompBreakUp)]
+    public void Their_break_marks_are_not_levels(string code, string component)
+    {
+        // A mark sits at the close that broke out; it is an event, not a line to trade against.
+        Assert.DoesNotContain("Near", Arrive(Indicator(code, component, 12)));
+    }
+
     [Fact]
     public void The_pivot_zone_oscillator_is_not_a_price()
     {

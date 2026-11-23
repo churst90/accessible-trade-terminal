@@ -374,6 +374,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, ChandeKrollStopProvider>();
             services.AddScoped<IIndicatorProvider, McGinleyDynamicProvider>();
             services.AddScoped<IIndicatorProvider, EnvelopesProvider>();
+            services.AddScoped<IIndicatorProvider, PreviousPeriodLevelsProvider>();
+            services.AddScoped<IIndicatorProvider, SessionRangeProvider>();
             services.AddScoped<IIndicatorProvider, MovingAverageRibbonProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();

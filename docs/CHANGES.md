@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: session levels (previous day/week/month, session high/low and opening range); weekly pivots at New Year
+
+Indicator group 5 (Cody 2026-11-22). First checked against the suite: PIVOTS works out the previous
+period's high, low and close but draws only the pivots made from them; nothing drew the session's
+high and low or an opening range. Both new ones are in `SessionLevelProviders.cs`, registered in the
+desktop app, the web app and the lab, and named in `NavigationFeedbackManager.LevelName`, so arrowing
+near one says "Near resistance at ..., previous day high".
+
+- **`PREV_PERIOD_LEVELS`**: PDH/PDL/PDC (on), PWH/PWL/PWC and PMH/PML/PMC (off), held flat through the
+  next period. UTC days, ISO weeks, calendar months, the same boundaries as PIVOTS (it calls PIVOTS'
+  `PeriodChanged`), and its PP equals (PDH + PDL + PDC) / 3 on every bar, which a test pins. Marks the
+  first close above PDH and below PDL each day.
+- **`SESSION_RANGE`**: the session's running high and low, and the opening range (30 minutes by
+  default, 1 to 600), drawn from the first bar at or after its end. Session "UTC day" (default) or
+  "New York" 9:30 to 16:00 Eastern, DST from `ExchangeTime`; bars outside New York's hours have none.
+  A bar that opens inside the range belongs to it, so on hourly bars the 30-minute range is the first
+  bar. Marks the first close above and below the range each session.
+- **A period or session that began on the chart's first bar draws nothing**: it may have started
+  before it, and a "previous day high" from half a day would be a wrong price spoken as a level. A
+  session first seen after its range ended has a high and low but no opening range.
+- **Fixed: weekly pivots restarted mid-week at New Year.** The week key was
+  `Calendar.GetWeekOfYear(FirstFourDayWeek, Monday)` with the calendar year, which is not ISO 8601:
+  Tue 31 Dec 2024 was week 53 of 2024 and Wed 1 Jan 2025 week 1 of 2025, so Wednesday to Sunday of
+  that week took their pivots from its own Monday and Tuesday. Now `ISOWeek`. The new test
+  `WeeklyPivotsHoldForTheWholeIsoWeekAcrossNewYear` failed before the fix (118 expected, 132.67).
+
+Tests: `SessionLevelsTests` (17) against the bars worked out longhand, seven more in `NearLevelTests`,
+the pivot test, and the provider-wide contracts. The month lines are listed as blind spots of the
+causality guard: its 1400 hourly bars from 1 Jan 2020 never complete a month. Sabotages: 28 of 28 red (the period and week boundaries, partial periods, running vs held values,
+the once-a-day marks, the range's edge and length, New York hours and DST, spoken names, the web
+registration). A close *on* yesterday's low counting as below first passed; the fixture now closes on it.
+
+**Caveats:** not heard. Day separators not built (see TODO). Not on the VPS (ships with the next
+release). New York has no holiday calendar: on a market holiday there are no bars, so no session.
+
 ### 2026-11-23: five trend overlays (regression channel, Chande Kroll Stop, McGinley, Envelopes, MA ribbon)
 
 Indicator group 4, second half (Cody 2026-11-22: "adding all of the ones you listed to the inventory

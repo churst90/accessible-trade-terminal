@@ -94,6 +94,38 @@ namespace AccessibleTrader.Tests
             Assert.Equal(89.0,  r[PivotLevelsProvider.CompCamL4][last], 9);
         }
 
+        /// <summary>
+        /// Weekly pivots hold for the whole ISO week, New Year included. The week key was
+        /// <c>Calendar.GetWeekOfYear(FirstFourDayWeek, Monday)</c> with the calendar year, which is
+        /// not ISO 8601 at a year's edge: Tuesday 31 Dec 2024 is week 53 of 2024 there and Wednesday
+        /// 1 Jan 2025 week 1 of 2025, so the week "changed" on a Wednesday and the second half of
+        /// the week's pivots came from its own first two days. Every year has such a seam.
+        /// </summary>
+        [Fact]
+        public void WeeklyPivotsHoldForTheWholeIsoWeekAcrossNewYear()
+        {
+            var bars = new List<Ohlcv>();
+            var t = new DateTime(2024, 12, 23, 0, 0, 0, DateTimeKind.Utc);   // a Monday
+            for (int h = 0; h < 14 * 24; h += 6, t = t.AddHours(6))
+            {
+                double c = 100 + h / 6.0;   // a trend, so no two spans share a high, low and close
+                bars.Add(new Ohlcv(t, c, c + 1, c - 1, c, 1));
+            }
+            var rd = new Dictionary<string, double[]>();
+            Provider.Calculate(PivotLevelsProvider.Code, bars.ToArray().AsSpan(), new Dictionary<string, object>
+            {
+                { "Period", "Weekly" }, { "ZoneAtrTolerance", 0.5 }, { "AtrPeriod", 2 },
+            }, new IndicatorResultBuffer(rd, bars.Count));
+
+            var week = Enumerable.Range(0, bars.Count)
+                .Where(i => bars[i].Date >= new DateTime(2024, 12, 30, 0, 0, 0, DateTimeKind.Utc)
+                         && bars[i].Date < new DateTime(2025, 1, 6, 0, 0, 0, DateTimeKind.Utc))
+                .Select(i => rd[PivotLevelsProvider.CompPP][i]).ToList();
+            Assert.Equal(28, week.Count);
+            Assert.False(double.IsNaN(week[0]));
+            Assert.All(week, v => Assert.Equal(week[0], v));
+        }
+
         [Fact]
         public void TheFirstSessionHasNoPriorSessionSoItPublishesNothing()
         {

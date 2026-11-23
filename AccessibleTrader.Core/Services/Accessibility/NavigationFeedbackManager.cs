@@ -819,8 +819,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>
         /// The spoken name of an indicator part that is a price level, or null for a part that is
-        /// not one: the pivot lines ("pivot R1", "pivot point", "Camarilla H3") and Cipher A's
-        /// pivot high and low.
+        /// not one: the pivot lines ("pivot R1", "pivot point", "Camarilla H3"), Cipher A's
+        /// pivot high and low, the previous day's, week's and month's lines ("previous day high"),
+        /// and the session's ("session high", "opening range low").
         /// </summary>
         internal static string? LevelName(string? indicatorCode, string componentName)
         {
@@ -834,6 +835,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (string.Equals(indicatorCode, "CIPHER_A", StringComparison.OrdinalIgnoreCase)
                 && componentName is Indicators.CipherAProvider.CompPivotHigh or Indicators.CipherAProvider.CompPivotLow)
                 return "Cipher A " + componentName.ToLowerInvariant();
+            if (string.Equals(indicatorCode, Indicators.PreviousPeriodLevelsProvider.Code, StringComparison.OrdinalIgnoreCase))
+                return Indicators.PreviousPeriodLevelsProvider.SpokenName(componentName);
+            if (string.Equals(indicatorCode, Indicators.SessionRangeProvider.Code, StringComparison.OrdinalIgnoreCase))
+                return Indicators.SessionRangeProvider.SpokenName(componentName);
             return null;
         }
 
