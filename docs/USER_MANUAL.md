@@ -3054,7 +3054,7 @@ three days, and until nothing has looked at that symbol for ten minutes).
 
 Because there is no history, neither can be used in a strategy: a backtest would see nothing.
 
-**Which exchanges.** MEXC, spot and futures, and Bitstamp. On MEXC futures the volume is in contracts, as the candles
+**Which exchanges.** MEXC, spot and futures; Bitstamp; Kraken spot. On MEXC futures the volume is in contracts, as the candles
 count it. Stocks and forex feeds do not send the side of a trade, so these stay blank there and say so.
 
 All four are causal: each value uses only that bar and the bars before it. The strategy builder offers

@@ -12,6 +12,15 @@ newer order (the taker's) was on that side, and two whole minutes of buy plus se
 volume to the satoshi (0.54558938 and 5.9690261 BTC). Tests: 7 more in `TradeFlowTests` (sides, another
 book's trade, a subscription notice, an unknown type, a zero amount, junk, the whole-second fallback).
 
+**Kraken added** (spot): its own v2 socket on the `trade` channel with `snapshot:false`, so the 50 trades
+before subscribing are not counted; `side` is the taker's (80 of 80 buys at the ask, sells at the bid,
+checked live). A whole minute of buy plus sell equalled Kraken's candle volume exactly (6.35503979 BTC).
+The ISO timestamps are read as text: `JObject.Parse` would have turned them into local-culture dates
+without their fraction. Tests: 6 more (sides and UTC time, a German-culture machine, a snapshot, another
+channel, another pair, junk). Sabotaged, Bitstamp's parser too: 13 of 13 red (sides flipped, each filter
+removed, microseconds read as milliseconds, no whole-second fallback, dates parsed by Newtonsoft, local
+time).
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -59,7 +68,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC and Bitstamp so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp and Kraken spot so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).

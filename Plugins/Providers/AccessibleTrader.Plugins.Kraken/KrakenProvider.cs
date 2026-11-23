@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
 {
-    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider, IOrderDryRunProvider, ISymbolLeverageProvider
+    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider, IOrderDryRunProvider, ISymbolLeverageProvider, ITradeStreamProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -486,6 +486,62 @@ namespace AccessibleTrader.Plugins.Kraken
 
             await ws.ConnectAsync();
             return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
+        }
+
+        /// <summary>
+        /// Every trade on the pair with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>). Its own v2 socket on the trade channel, with no
+        /// snapshot: the last 50 trades before subscribing are not counted.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            var pair = FormatPair(symbol);
+            string subscribeMessage = new JObject
+            {
+                ["method"] = "subscribe",
+                ["params"] = new JObject
+                {
+                    ["channel"] = "trade",
+                    ["symbol"] = new JArray { pair },
+                    ["snapshot"] = false,
+                },
+            }.ToString(Newtonsoft.Json.Formatting.None);
+            var ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Kraken trade stream ({pair}): {err}"));
+            ws.OnConnected(async w => { await w.SendAsync(subscribeMessage); onCounting(true); })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg => { foreach (var t in ReadPublicTrades(msg, pair)) onTrade(t); });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        /// <summary>A v2 trade update as <see cref="PublicTrade"/>s. Kraken's <c>side</c> is the
+        /// taker's: checked live 2026-11-23, 80 of 80 buys printed at the ask and sells at the bid.
+        /// A snapshot (trades from before subscribing) is skipped.</summary>
+        internal static List<PublicTrade> ReadPublicTrades(string msg, string pair)
+        {
+            var trades = new List<PublicTrade>();
+            try
+            {
+                // Dates left as text: JObject.Parse would turn the timestamp into a DateTime and
+                // ToString() would then give it back in the local culture, without its fraction.
+                var json = JsonConvert.DeserializeObject<JObject>(msg, new JsonSerializerSettings { DateParseHandling = DateParseHandling.None });
+                if (json?["channel"]?.ToString() != "trade" || json["type"]?.ToString() != "update") return trades;
+                if (json["data"] is not JArray data) return trades;
+                foreach (var t in data)
+                {
+                    if (!string.Equals(t["symbol"]?.ToString(), pair, StringComparison.OrdinalIgnoreCase)) continue;
+                    string side = t["side"]?.ToString() ?? "";
+                    double price = t["price"]?.Value<double>() ?? 0, qty = t["qty"]?.Value<double>() ?? 0;
+                    if (side is not ("buy" or "sell") || price <= 0 || qty <= 0) continue;
+                    if (!DateTimeOffset.TryParse(t["timestamp"]?.ToString(), CultureInfo.InvariantCulture,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var at)) continue;
+                    trades.Add(new PublicTrade(at.UtcDateTime, price, qty, side == "buy" ? OrderSide.Buy : OrderSide.Sell));
+                }
+            }
+            catch { /* malformed frame */ }
+            return trades;
         }
 
         public override async Task SetSubscriptionAsync(string market, string symbol, string timeframe)

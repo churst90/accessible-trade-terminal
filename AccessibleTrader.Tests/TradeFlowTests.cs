@@ -2,6 +2,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Plugins.Bitstamp;
+using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
@@ -120,6 +121,41 @@ public class TradeFlowTests
         Assert.True(BitstampProvider.TryReadPublicTrade(BitstampBuy.Replace("\"microtimestamp\":\"1795451539288000\",", ""), "live_trades_btcusd", out var t));
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1795451539).UtcDateTime, t.Time);
     }
+
+    // ── Kraken ──────────────────────────────────────────────────────────────────
+
+    /// <summary>A v2 trade update as Kraken sent it on 2026-11-23.</summary>
+    private const string KrakenUpdate = """{"channel":"trade","type":"update","data":[{"symbol":"BTC/USD","side":"buy","price":62624.6,"qty":0.001,"ord_type":"limit","trade_id":117581742,"timestamp":"2026-11-23T16:34:08.541054Z"},{"symbol":"BTC/USD","side":"sell","price":62624.5,"qty":0.00046618,"ord_type":"market","trade_id":117581743,"timestamp":"2026-11-23T16:34:08.541054Z"}]}""";
+
+    [Fact]
+    public void Kraken_side_is_the_takers_and_the_time_keeps_its_fraction_in_UTC()
+    {
+        var trades = KrakenProvider.ReadPublicTrades(KrakenUpdate, "BTC/USD");
+        Assert.Equal(2, trades.Count);
+        Assert.Equal(new PublicTrade(new DateTime(2026, 11, 23, 16, 34, 8, DateTimeKind.Utc).AddTicks(5410540), 62624.6, 0.001, OrderSide.Buy), trades[0]);
+        Assert.Equal(DateTimeKind.Utc, trades[0].Time.Kind);
+        Assert.Equal(OrderSide.Sell, trades[1].TakerSide);
+    }
+
+    [Fact]
+    public void Kraken_time_does_not_depend_on_the_machines_culture()
+    {
+        var was = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            Assert.Equal(new DateTime(2026, 11, 23, 16, 34, 8, DateTimeKind.Utc).AddTicks(5410540), KrakenProvider.ReadPublicTrades(KrakenUpdate, "BTC/USD")[0].Time);
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = was; }
+    }
+
+    [Theory]
+    [InlineData("\"type\":\"update\"", "\"type\":\"snapshot\"")]       // trades from before subscribing
+    [InlineData("\"channel\":\"trade\"", "\"channel\":\"ohlc\"")]
+    [InlineData("BTC/USD", "ETH/USD")]
+    [InlineData("{", "[")]
+    public void Kraken_frames_that_are_not_new_trades_on_this_pair_give_none(string from, string to)
+        => Assert.Empty(KrakenProvider.ReadPublicTrades(KrakenUpdate.Replace(from, to), "BTC/USD"));
 
     // ── The tape ────────────────────────────────────────────────────────────────
 
