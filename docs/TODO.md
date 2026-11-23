@@ -97,6 +97,10 @@ components". Caveats for these are in CHANGES (2.15.0).
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
+- [ ] **Five trend overlays** (2026-11-23, not in 2.15.0): add the regression channel, Chande Kroll Stop,
+  McGinley Dynamic, Envelopes and the ribbon from Alt+A, Overlays. The regression channel's detail
+  should give the centre, slope, fit R and how many deviations the close is from the centre; the
+  ribbon's should name its order from the top and where the close sits. Too much in one detail?
 - [ ] **Eight oscillators** (2026-11-23, not in 2.15.0): add Elder-Ray, Fisher, Coppock, KST, Relative
   Vigor, SMI Ergodic, Awesome and Accelerator from Alt+A, Oscillators. Elder-Ray's detail should say
   where the high and the low were against the average; Fisher should say "stretched high" past 1.5;
@@ -247,9 +251,9 @@ needed: "don't worry about the custom scripts on the hosted vps".
   4. **Trend/oscillators**: ~~Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Relative Vigor,
      SMI Ergodic, Awesome/Accelerator Oscillator, Bull Bear Power~~: **built 2026-11-23** (see
      CHANGES). Bull Bear Power is Elder-Ray's third line. **Woodies CCI not built**: it is CCI 14 and
-     CCI 6, which the existing CCI draws twice. **Still to do:** Linear Regression channel and slope
-     (with the Least Squares MA as its centre line), Chande Kroll Stop, McGinley Dynamic, Envelopes,
-     Moving Average Ribbon.
+     CCI 6, which the existing CCI draws twice. ~~Linear Regression channel and slope (with the Least
+     Squares MA as its centre line), Chande Kroll Stop, McGinley Dynamic, Envelopes, Moving Average
+     Ribbon~~: **built 2026-11-23** (see CHANGES). McGinley is capped where TradingView's formula diverges.
   5. **Session and time tools**: session high/low and opening range, previous day/week/month
      high-low-close, day-of-week separators: each a level the "Near resistance" speech can name.
   6. **Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines, chart

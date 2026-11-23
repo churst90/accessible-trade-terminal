@@ -12,6 +12,10 @@
   at an earlier tick's reading until you switched tabs, so the bar read differently afterwards. The
   bar that closes is now worked out again on its final candle, and bars that arrive together no
   longer leave a gap.
+- **Five trend overlays: linear regression channel, Chande Kroll Stop, McGinley Dynamic, Envelopes
+  and a moving average ribbon** (Alt+A, Overlays). The regression channel's centre is the least
+  squares moving average. Breakouts and crosses are marked and sounded, and the ribbon says its order
+  and where the close is among its four lines.
 - **Eight oscillators: Elder-Ray with Bull Bear Power, Fisher Transform, Coppock Curve, Know Sure
   Thing, Relative Vigor Index, SMI Ergodic, and the Awesome and Accelerator oscillators** (Alt+A,
   Oscillators). Each one is in its own pane, computed the way TradingView's built-in is. The ones

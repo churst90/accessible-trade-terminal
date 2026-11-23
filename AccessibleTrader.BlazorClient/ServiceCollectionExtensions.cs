@@ -336,6 +336,11 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, SmiErgodicProvider>();
             services.AddSingleton<IIndicatorProvider, AwesomeOscillatorProvider>();
             services.AddSingleton<IIndicatorProvider, AcceleratorOscillatorProvider>();
+            services.AddSingleton<IIndicatorProvider, LinearRegressionChannelProvider>();
+            services.AddSingleton<IIndicatorProvider, ChandeKrollStopProvider>();
+            services.AddSingleton<IIndicatorProvider, McGinleyDynamicProvider>();
+            services.AddSingleton<IIndicatorProvider, EnvelopesProvider>();
+            services.AddSingleton<IIndicatorProvider, MovingAverageRibbonProvider>();
             services.AddSingleton<IIndicatorProvider, DbsiStyleProvider>();
             services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
 

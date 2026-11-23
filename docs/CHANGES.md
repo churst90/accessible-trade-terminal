@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: five trend overlays (regression channel, Chande Kroll Stop, McGinley, Envelopes, MA ribbon)
+
+Indicator group 4, second half (Cody 2026-11-22: "adding all of the ones you listed to the inventory
+that are missing"). First checked against the suite: none was there. The bands are Bollinger, Keltner
+and Donchian. MA_CLOUD is two averages and the cloud between them, not a ribbon of four. The stops are
+Chandelier, Supertrend and parabolic SAR. All five live in `TrendOverlayProviders.cs` and are
+registered in the desktop app, the web app and the lab.
+
+- **`LINREG_CHANNEL`**: a least-squares line over 100 closes. Its end value is the centre line,
+  which is the Least Squares Moving Average (`ta.linreg(close, n, 0)`), so the LSMA is not a sixth
+  indicator. Bands are 2 sample standard deviations of the residuals. Slope and Pearson's R are hidden
+  lines. Rolling: each bar holds the channel as it stood then, where TradingView redraws one channel
+  over the last 100 bars.
+- **`CHANDE_KROLL`**: TradingView's defaults (ATR 10, ×1, stop length 9), with ATR as `ta.atr`.
+- **`MCGINLEY`**: `mg[1] + (close − mg[1]) / (n · (close/mg[1])⁴)`, seeded from the EMA. **The step is
+  capped at 1** (the line goes at most to the close). Uncapped, a fall of about half in one bar makes
+  the step exceed 1 and the line diverges to −∞. The prepend causality guard caught it on probe
+  series 1. On ordinary bars the cap never applies.
+- **`ENVELOPES`**: a 20-bar SMA ±10%, any of the six average types.
+- **`MA_RIBBON`**: SMA 20/50/100/200. "Stacked" is by length, not slot. Marks fire on the first bar
+  stacked up or down.
+
+Tests: `TrendOverlaysTests` (23), each against the formula written out longhand, plus the
+provider-wide contracts (causality, prefix, prepend, metadata, narration). Sabotages: 27 of 27 red (formula, seed, cap, marks, detail words, a one-bar look-ahead, the web registration). The true range ignoring gaps first passed: the probe series never gap, so a gapped series was added.
+
+**Caveats:** not heard. Not checked against a TradingView chart, only against the formulas as
+published. The ribbon shares one average type for all four lines (TradingView lets each have its
+own). Not on the VPS (ships with the next release).
+
 ### 2026-11-23: a bar that closes keeps its final value; skipped bars are filled, not left empty
 
 Cody 2026-11-23, on DBSI: "saw the timestamps changed but not the bull/bear values, switched to the

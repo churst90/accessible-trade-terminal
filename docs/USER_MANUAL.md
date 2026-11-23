@@ -3079,6 +3079,44 @@ twice, at 14 and 6, for the same lines.
 All eight are causal. The strategy builder offers them like any other indicator. The lab has not tested
 them.
 
+### Trend overlays: regression channel, Chande Kroll Stop, McGinley, Envelopes, MA ribbon
+
+Five overlays on the price, each under Overlays in Alt+A, each computed the way TradingView's
+built-in is. A band's breakouts are marked: the bar the close goes out of the top gets a **green
+triangle** below it and a high tone, and out of the bottom a **red triangle** above it and a low
+tone. The detail says *"broke out of the top this bar"* or similar on that bar. They join Bollinger,
+Keltner, Donchian, Supertrend, the parabolic SAR and Chandelier Exit, which were already there.
+
+**Linear regression channel.** A straight line fitted to the last 100 closes by least squares, with
+lines two standard deviations of the misses above and below it. TradingView draws one channel over
+the last 100 bars. Here each bar has the channel as it stood on that bar, so arrowing back shows
+what you would have seen then. The centre line is the least squares moving average, so for the LSMA
+set the length you want (25 is common) and read the centre. The slope (price per bar) and the
+fit's R (0 to 1, how straight the closes were) are lines you can turn on. The detail says it all:
+*"Regression channel over 100 bars: centre 91,250.00, rising 12.40 a bar, fit R 0.92. Close 820.50
+above the centre, 0.8 deviations. Upper 93,100.00, lower 89,400.00."*
+
+**Chande Kroll Stop.** Two stops from the last 10 bars' extreme and the average true range. The long
+stop is the highest high less one ATR, the short stop the lowest low plus one ATR, and each is then
+taken at its own extreme over 9 bars so it moves in steps. The close falling through the long stop is
+marked red; rising through the short stop, green.
+
+**McGinley Dynamic.** A moving average that speeds up when price runs away from it and slows down when
+it comes back, 14 bars. The close crossing it is marked. One difference from TradingView: after a fall
+of about half in one bar, its formula overshoots and runs off to minus infinity. Here the line goes to
+the close instead. On ordinary bars the two are the same.
+
+**Envelopes.** A 20-bar average of the close with lines 10% above and below it. The average can be
+simple, exponential, weighted, Hull, DEMA or TEMA. The detail says where the close is inside the band:
+*"Close inside, 74 percent of the way up."*
+
+**Moving average ribbon.** Four averages of the close, 20, 50, 100 and 200 bars, read as one. The
+detail names them from the top down and says where the close is among them: *"Ribbon stacked up: from
+the top 20, 50, 100, 200. Close between the 20 and the 50."* **Stacked up** means the shortest is on
+top and each longer one below the last, an orderly uptrend; the bar it first gets there is marked
+green, and the bar it first stacks down, red. Stacked is by length, not by slot, so it does not matter
+which slot you put which length in. All four share one average type.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

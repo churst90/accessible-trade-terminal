@@ -370,6 +370,11 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, SmiErgodicProvider>();
             services.AddScoped<IIndicatorProvider, AwesomeOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, AcceleratorOscillatorProvider>();
+            services.AddScoped<IIndicatorProvider, LinearRegressionChannelProvider>();
+            services.AddScoped<IIndicatorProvider, ChandeKrollStopProvider>();
+            services.AddScoped<IIndicatorProvider, McGinleyDynamicProvider>();
+            services.AddScoped<IIndicatorProvider, EnvelopesProvider>();
+            services.AddScoped<IIndicatorProvider, MovingAverageRibbonProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 
