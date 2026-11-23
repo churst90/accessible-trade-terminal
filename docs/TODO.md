@@ -268,7 +268,9 @@ needed: "don't worry about the custom scripts on the hosted vps".
      separate feature. Cody 2026-11-23: build it only if it serves every exchange, not one.
      **Built for MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini and Hyperliquid 2026-11-23** (Buy and Sell Volume (trades), Volume Delta (trades); see
      CHANGES); **next:
-     Binance**, each checked live against its candles. Stocks and forex feeds carry no side. **Net Volume
+     Binance**, each checked live against its candles. **Binance futures user-data socket** (fills)
+     still opens on `/ws/`: unchecked whether Binance moved it like the klines (needs a real key; see
+     CHANGES "Binance futures charts update live again"). Stocks and forex feeds carry no side. **Net Volume
      declined by Cody** 2026-11-23 ("no net volume or woodies cci").
   4. **Trend/oscillators**: ~~Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Relative Vigor,
      SMI Ergodic, Awesome/Accelerator Oscillator, Bull Bear Power~~: **built 2026-11-23** (see

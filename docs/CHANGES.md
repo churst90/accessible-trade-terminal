@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: Binance futures charts update live again
+
+Found while adding Binance's trades. Binance moved its futures market streams (klines, trades) to a
+`/market` path on `fstream.binance.com`. The old `/ws/` path still opens for them and then sends
+nothing, with no error, so the plugin's socket looked connected and a futures chart simply stopped
+updating. Measured 2026-11-23: `btcusdt@kline_1m` gave 0 messages in 20 seconds on `/ws/` and 50 on
+`/market/ws/`; through the plugin, 0 live bars in 20 seconds before the fix and 60 after. The futures
+klines now use `/market/ws/`. Depth still streams on `/ws/` and is unchanged; the testnet sends on both
+paths and is unchanged. The kline URL test now expects `/market/ws/` and goes red with the fix taken
+out. **Not checked:** the futures user-data socket (order fills) still opens on `/ws/` with a listen
+key; whether Binance moved it as well needs a real key to see. Spot is unaffected. Cody is in the US,
+where Binance is blocked, so he cannot hear this one.
+
 ### 2026-11-23: true buy and sell volume from the exchange's trades (MEXC first)
 
 **Bitstamp added** (the demo's crypto venue): its own socket on `live_trades_<pair>`, `type` 0 = buyer

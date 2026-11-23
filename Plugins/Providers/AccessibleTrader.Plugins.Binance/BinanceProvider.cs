@@ -27,6 +27,12 @@ namespace AccessibleTrader.Plugins.Binance
         private string FutRest  => _isTestnet ? "https://testnet.binancefuture.com"  : "https://fapi.binance.com";
         private string SpotWs   => _isTestnet ? "wss://testnet.binance.vision/ws/"   : "wss://stream.binance.com:9443/ws/";
         private string FutWs    => _isTestnet ? "wss://stream.binancefuture.com/ws/" : "wss://fstream.binance.com/ws/";
+        // Futures market streams (klines, trades) moved to /market on the live host. The old /ws/
+        // path still opens for them and then sends nothing, with no error, so a futures chart
+        // stopped updating live without a word: measured 2026-11-23, btcusdt@kline_1m gave 0
+        // messages in 20 s on /ws/ and 50 on /market/ws/. Depth (depth20) still streams on /ws/.
+        // The testnet sends on both paths, so it keeps the one it has.
+        private string FutMarketWs => _isTestnet ? "wss://stream.binancefuture.com/ws/" : "wss://fstream.binance.com/market/ws/";
 
         private HttpClient? _httpField;
         private HttpClient Http => _httpField ??= PluginHostServices.CreateHttpClient(
@@ -390,7 +396,7 @@ namespace AccessibleTrader.Plugins.Binance
         internal Uri BuildKlineStreamUri(string market, string symbol, string timeframe)
         {
             bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
-            string wsBase = isFutures ? FutWs : SpotWs;
+            string wsBase = isFutures ? FutMarketWs : SpotWs;
             string interval = MapInterval(timeframe);
             return new Uri($"{wsBase}{CleanSymbol(symbol).ToLowerInvariant()}@kline_{interval}");
         }

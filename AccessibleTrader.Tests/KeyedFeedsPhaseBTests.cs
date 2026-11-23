@@ -392,7 +392,8 @@ namespace AccessibleTrader.Tests
 
             Assert.Equal("wss://stream.binance.com:9443/ws/btcusdt@kline_5m",
                 p.BuildKlineStreamUri("Crypto", "BTC/USDT", "5m").ToString());
-            Assert.Equal("wss://fstream.binance.com/ws/ethusdt@kline_1d",
+            // /market: the old /ws/ path opens for klines and sends nothing (2026-11-23).
+            Assert.Equal("wss://fstream.binance.com/market/ws/ethusdt@kline_1d",
                 p.BuildKlineStreamUri("Crypto|Futures USD-M", "ETH/USDT", "1d").ToString());
             // Unknown timeframe falls back to 1h — consolidation re-buckets client-side.
             Assert.Contains("@kline_1h",
