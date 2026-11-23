@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Day separators** (Settings, Appearance, Draw day separators; off by default). A dotted line where
+  each new day starts on charts with bars shorter than a day, at midnight on your clock.
 - **Live indicators keep each bar's final value.** When a bar closed, its indicator values could stay
   at an earlier tick's reading until you switched tabs, so the bar read differently afterwards. The
   bar that closes is now worked out again on its final candle, and bars that arrive together no

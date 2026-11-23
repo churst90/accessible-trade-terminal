@@ -104,6 +104,7 @@ namespace AccessibleTrader.Core.Services.Settings
             new("Interface earcons", "Sonification", "s-earcons-interface", "earcon boundary edge beep success retry info connection modal toggle terminal application tone"),
             new("Theme", "Appearance", "s-theme", "dark light contrast solarized braille colors background gradient new clone edit"),
             new("Draw chart patterns", "Appearance", "s-pattern-visuals", "pattern formation shape double top triangle target trigger visual low vision"),
+            new("Draw day separators", "Appearance", "s-day-separators", "day separator session break new day midnight vertical line visual low vision"),
             new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
             new("Color-vision-safe chart colors", "Appearance", "s-colorvision", "colorblind deuteranopia protanopia red green blue orange"),
             new("Hollow up-candles", "Appearance", "s-hollow-candles", "colorblind outline shape candle"),

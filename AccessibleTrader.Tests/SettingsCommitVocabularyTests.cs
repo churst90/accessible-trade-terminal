@@ -49,6 +49,8 @@ namespace AccessibleTrader.Tests
         {
             "OnThemeChanged",
             "OnPatternVisualsChanged",
+            // Day separators (Cody's 2026-11-23 "visual toggle with a default of off").
+            "OnDaySeparatorsChanged",
             "OnVisualEarconsChanged",
             "OnColorVisionChanged",
             "OnUiScaleChanged",
@@ -160,6 +162,7 @@ namespace AccessibleTrader.Tests
             {
                 "_uiScaleInitial",
                 "_showPatternVisualsInitial",
+                "_showDaySeparatorsInitial",
                 "_visualEarconsInitial",
                 "_colorVisionSafeInitial",
                 "_hollowUpCandlesInitial",
@@ -179,6 +182,14 @@ namespace AccessibleTrader.Tests
                 Assert.True(Regex.IsMatch(revert, $@"\b{live}\s*=\s*{field}\s*;"),
                     $"RevertPreviews mentions {field} but never sets {live} back to it, so that preview survives a Cancel.");
             }
+
+            // And setting the field back is not undoing the preview: the handler wrote the field to
+            // the saved setting, so RevertPreviews must write that setting again (found 2026-11-23:
+            // the day-separator revert could lose its App line and every check above still passed).
+            foreach (var handler in PreviewHandlers)
+                foreach (Match m in Regex.Matches(MethodBody(src, handler), @"\bApp\.(\w+)\s*=\s*_\w+\s*;"))
+                    Assert.True(Regex.IsMatch(revert, $@"\bApp\.{m.Groups[1].Value}\s*=\s*_\w+\s*;"),
+                        $"{handler} writes App.{m.Groups[1].Value} but RevertPreviews never writes it back, so the saved setting survives a Cancel.");
 
             // And Cancel actually calls it — a revert method nothing invokes reverts nothing.
             Assert.Contains("RevertPreviews()", MethodBody(src, "Cancel"), StringComparison.Ordinal);
@@ -281,7 +292,7 @@ namespace AccessibleTrader.Tests
                 "_hoverSonification", "_magnetSnap", "_swingSnap", "_timesInUtc", "_twelveHour", "_soundTheme",
                 "_touchNavMode", "_bgMonitoring", "_bgPollSeconds", "_liveBgTabs", "_resumeSession",
                 "_speechEnabled", "_sonificationEnabled", "_panningGranularity",
-                "_showPatternVisuals", "_visualEarcons", "_colorVisionSafe", "_hollowUpCandles",
+                "_showPatternVisuals", "_showDaySeparators", "_visualEarcons", "_colorVisionSafe", "_hollowUpCandles",
                 "_toolbarCaptions", "_uiScale",
             })
                 Assert.True(Regex.IsMatch(reset, @"\b" + Regex.Escape(field) + @"\s*="),

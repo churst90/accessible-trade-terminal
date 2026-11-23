@@ -3144,8 +3144,11 @@ first bar, as far as the terminal can tell, so it draws nothing: a "previous day
 a day would be a wrong price, spoken as a level. Scroll back to load more and it fills in. The detail
 says so: *"Previous day: needs a whole day of bars on the chart; scroll back to load one."*
 
-TradingView's **session breaks**, a vertical line at each new day, are not drawn. The date is spoken
-when the cursor crosses into a new day.
+**Day separators.** **Settings → Appearance → Draw day separators** (off by default) draws a dotted
+vertical line where each new day starts, like TradingView's session breaks. It is drawn on charts whose
+bars are shorter than a day, in every pane, under the candles. The day is the one the time axis and the
+speech name: your own clock, or UTC if you set times to UTC. It is a drawing only. The date is already
+spoken when the cursor crosses into a new day.
 
 ### Auto Fib and auto trend lines
 
@@ -5896,6 +5899,8 @@ visual accommodations. All of them are **off by default** — the terminal prese
 audio-first, and these exist for users who want a visual channel too. Each applies
 and saves the moment you toggle it:
 
+- **Draw day separators** draws a dotted line where each new day starts, on charts whose
+  bars are shorter than a day, at midnight on your clock (see "Session levels").
 - **Visual earcons** mirrors every sound cue — order fills, stops, take-profits,
   setups, errors, new bars, connection changes — as a brief on-screen badge naming
   the event, for deaf and hard-of-hearing traders or anyone working with the sound

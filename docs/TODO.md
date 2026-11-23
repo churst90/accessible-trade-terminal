@@ -97,6 +97,9 @@ components". Caveats for these are in CHANGES (2.15.0).
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
+- [ ] **Day separators** (2026-11-23, not in 2.15.0; for a sighted helper, nothing is spoken): Settings →
+  Appearance → Draw day separators. On a 1-hour chart a dotted line should stand at each midnight on
+  your clock, where the time axis changes date, in every pane; on a daily chart, none. Off again, gone.
 - [ ] **Auto Fib and auto trend lines** (2026-11-23, not in 2.15.0): add Auto Fib Retracement
   (Reference Level) and Auto Trend Lines (Overlays). Arrow near a Fib line or a trend line and hear
   "Near support at ..., Fib 61.8" or "..., trend line resistance"; hear the mark when a new swing
@@ -257,18 +260,19 @@ needed: "don't worry about the custom scripts on the hosted vps".
      carry no buy/sell split, so per bar it would be the Volume pane's up/down bars again. CVD signs
      each bar by its candle. A **true trade-side delta** from MEXC's deals stream (taker buys minus
      sells) would exist only from when the chart was opened, with no history behind it. It is a
-     separate feature, not built. Ask Cody if he wants it.
+     separate feature. Cody 2026-11-23: build it only if it serves every exchange, not one; it is
+     being built for the crypto venues (stocks and forex feeds carry no trade side). **Net Volume
+     declined by Cody** 2026-11-23 ("no net volume or woodies cci").
   4. **Trend/oscillators**: ~~Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Relative Vigor,
      SMI Ergodic, Awesome/Accelerator Oscillator, Bull Bear Power~~: **built 2026-11-23** (see
      CHANGES). Bull Bear Power is Elder-Ray's third line. **Woodies CCI not built**: it is CCI 14 and
-     CCI 6, which the existing CCI draws twice. ~~Linear Regression channel and slope (with the Least
+     CCI 6, which the existing CCI draws twice; **declined by Cody** 2026-11-23. ~~Linear Regression channel and slope (with the Least
      Squares MA as its centre line), Chande Kroll Stop, McGinley Dynamic, Envelopes, Moving Average
      Ribbon~~: **built 2026-11-23** (see CHANGES). McGinley is capped where TradingView's formula diverges.
   5. **Session and time tools**: ~~session high/low and opening range, previous day/week/month
      high-low-close~~: **built 2026-11-23** (see CHANGES), each a level the "Near resistance" speech
-     names. **Day separators not built**: TradingView makes them a chart setting ("session breaks"),
-     not an indicator. A vertical line is a new kind of mark in about ten places, and the date is
-     already spoken when the cursor crosses into a new day. Ask Cody whether he wants them drawn.
+     names. ~~Day separators~~: **built 2026-11-23** as Cody asked ("a visual toggle with a default
+     of off"): Settings → Appearance → Draw day separators (see CHANGES).
   6. ~~**Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines~~:
      **built 2026-11-23** (see CHANGES), each line a level the "Near resistance" speech names. **Chart
      pattern recognition was already there**: `ChartFormationLayer` draws the formations

@@ -78,7 +78,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                     // So each pane's status band is as tall as the DOM text ChartArea draws in
                     // it, which grows with Settings > Appearance > Text size.
                     (_settings?.UiScale ?? 100) / 100f,
-                    lead, chosen, state.ChartStyle, state.ScaleMode, state.IsPriceInverted);
+                    lead, chosen, state.ChartStyle, state.ScaleMode, state.IsPriceInverted,
+                    // Settings > Appearance > Draw day separators.
+                    _settings?.ShowDaySeparators == true);
             }
             catch { /* keep the last good frame */ }
         }

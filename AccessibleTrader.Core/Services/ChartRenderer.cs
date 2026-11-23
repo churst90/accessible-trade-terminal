@@ -48,6 +48,9 @@ namespace AccessibleTrader.Core.Services
         // IRenderLayer contract is not widened for the one pane that needs it.
         private IReadOnlyList<ChartSeries> _frameSeries = Array.Empty<ChartSeries>();
 
+        // Settings > Appearance > Draw day separators, for this frame (Rendering.DaySeparatorPainter).
+        private bool _frameDaySeparators;
+
         /// <summary>
         /// The price pane's axis value labels as the last frame placed them, with the strip and
         /// scale they were placed on — so a test can measure how far each label sits from its own
@@ -243,7 +246,7 @@ namespace AccessibleTrader.Core.Services
         /// <param name="statusTextScale">Settings → Appearance → Text size as a fraction (1 = 100%):
         /// the status lines are DOM text in rem, so the band each pane keeps for them grows with
         /// it (<see cref="ChartStatusLine.BandMetrics"/>).</param>
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode priceScaleMode = PriceScaleMode.Regular, bool isPriceInverted = false)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null, string? focusedSeriesId = null, int focusedComponentIndex = -1, ChartIdentity? identity = null, float statusTextScale = 1f, IReadOnlyList<(Analysis.ChartPatternKind, DateTime, DateTime)>? formationLead = null, (Analysis.ChartPatternKind, DateTime, DateTime)? formationChosen = null, PriceChartStyle chartStyle = PriceChartStyle.Candles, PriceScaleMode priceScaleMode = PriceScaleMode.Regular, bool isPriceInverted = false, bool daySeparators = false)
         {
             try
             {
@@ -301,6 +304,7 @@ namespace AccessibleTrader.Core.Services
                 _frameFormations = formations;
                 _frameFormationLead = formationLead;
                 _frameFormationChosen = formationChosen;
+                _frameDaySeparators = daySeparators;
                 // Background tints are declared per component now (BackgroundTintPainter), not
                 // found here by name: Cipher B's "Anchor Polarity" (removed from Cipher B on 2026-10-31) and
                 // Top/Bottom Detector's "Distribution Confidence" were the two hardcoded ones until 2026-10-17.
@@ -581,6 +585,9 @@ namespace AccessibleTrader.Core.Services
                 {
                     if (paneName == "Main") BackgroundTintPainter.PaintPriceChartTints(ctx, _frameSeries);
                     BackgroundTintPainter.PaintPaneTints(ctx, series);
+                    // Over the tints, under the data, in every pane: a line across the whole
+                    // stack reads as one boundary, as the gridlines do.
+                    if (_frameDaySeparators) DaySeparatorPainter.Paint(ctx);
                 }
                 // The volume profile's bars go UNDER the candles, on the pane fill like the tints.
                 // They were painted after everything, and in Cody's 2026-10-15 screenshots the

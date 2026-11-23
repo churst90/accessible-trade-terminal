@@ -1118,6 +1118,19 @@
                     </div>
 
                     <div class="modal-row">
+                        <label for="s-day-separators">Draw day separators</label>
+                        <input id="s-day-separators" type="checkbox"
+                               checked="@_showDaySeparators"
+                               @onchange="OnDaySeparatorsChanged"
+                               aria-describedby="s-day-separators-hint" />
+                    </div>
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span id="s-day-separators-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            A dotted line where each new day starts, on charts with bars shorter than a day.
+                        </span>
+                    </div>
+
+                    <div class="modal-row">
                         <label for="s-visual-earcons">Visual earcons</label>
                         <input id="s-visual-earcons" type="checkbox"
                                checked="@_visualEarcons"
@@ -1633,6 +1646,7 @@
     // Visual accessibility toggles (Phase D) — all default OFF, applied immediately.
     private bool _visualEarcons;
     private bool _showPatternVisuals;
+    private bool _showDaySeparators;
     private bool _colorVisionSafe;
     private bool _hollowUpCandles;
     private int _uiScale = 100;
@@ -1790,6 +1804,19 @@
         EventBus.Publish(new RedrawEvent());
     }
 
+    /// <summary>Applied immediately, like the formations above it; Cancel puts it back.</summary>
+    private void OnDaySeparatorsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _showDaySeparators = e.Value is bool b && b;
+        App.ShowDaySeparators = _showDaySeparators;
+        App.Save();
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _showDaySeparators
+                ? "Day separators will be drawn on intraday charts."
+                : "Day separators off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        EventBus.Publish(new RedrawEvent());
+    }
+
     /// <summary>
     /// Cody, 2026-09-06: an app that does not close when you close it is a surprise, so the
     /// switch has to say what it now does rather than change the window's behaviour in silence.
@@ -1890,6 +1917,7 @@
     // back; they are the only reason Cancel can undo an appearance change at all.
     private int    _uiScaleInitial;
     private bool   _showPatternVisualsInitial;
+    private bool   _showDaySeparatorsInitial;
     private bool   _visualEarconsInitial;
     private bool   _colorVisionSafeInitial;
     private bool   _hollowUpCandlesInitial;
@@ -2287,6 +2315,7 @@
         // Never read back before 2026-09-04: reopening Settings showed this unchecked however it
         // had been left, so the box disagreed with the chart it controls.
         _showPatternVisuals = App.ShowChartPatternVisuals;
+        _showDaySeparators = App.ShowDaySeparators;
         _colorVisionSafe = App.ColorVisionSafe;
         _hollowUpCandles = App.HollowUpCandles;
         _toolbarCaptions = App.ShowToolbarCaptions;
@@ -2307,6 +2336,7 @@
         _tradeStatusBarInitial     = _tradeStatusBar;
         _tradeStatusFigureInitial  = _tradeStatusFigure;
         _showPatternVisualsInitial = _showPatternVisuals;
+        _showDaySeparatorsInitial  = _showDaySeparators;
         _visualEarconsInitial      = _visualEarcons;
         _colorVisionSafeInitial    = _colorVisionSafe;
         _hollowUpCandlesInitial    = _hollowUpCandles;
@@ -2500,6 +2530,12 @@
         {
             _showPatternVisuals = _showPatternVisualsInitial;
             App.ShowChartPatternVisuals = _showPatternVisuals;
+            changed = true;
+        }
+        if (_showDaySeparators != _showDaySeparatorsInitial)
+        {
+            _showDaySeparators = _showDaySeparatorsInitial;
+            App.ShowDaySeparators = _showDaySeparators;
             changed = true;
         }
         if (_visualEarcons != _visualEarconsInitial)

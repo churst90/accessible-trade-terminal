@@ -94,6 +94,7 @@ namespace AccessibleTrader.Core.Services
         bool DescribeChartPatterns { get; set; }
         bool DescribeCandlePatterns { get; set; }
         bool ShowChartPatternVisuals { get; set; }
+        bool ShowDaySeparators { get; set; }
 
         // Narration (Settings → Narration) — the unprompted speech channel.
         bool NarrateFormingCandlePatterns { get; set; }
@@ -593,6 +594,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.ShowChartPatternVisuals, def: false);
             set => Set(SettingsKeys.ShowChartPatternVisuals, value);
+        }
+
+        /// <summary>
+        /// Draw a dotted line where each new day starts on an intraday chart
+        /// (Rendering.DaySeparatorPainter). Default OFF, Cody's call, 2026-11-23.
+        /// </summary>
+        public bool ShowDaySeparators
+        {
+            get => GetBool(SettingsKeys.ShowDaySeparators, def: false);
+            set => Set(SettingsKeys.ShowDaySeparators, value);
         }
 
         /// <summary>

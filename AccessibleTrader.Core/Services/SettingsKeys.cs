@@ -217,6 +217,9 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string ShowChartPatternVisuals = "appearance.showChartPatternVisuals";
 
+        /// <summary>Draw a line where each new day starts on an intraday chart. Default off.</summary>
+        public const string ShowDaySeparators = "appearance.showDaySeparators";
+
         /// <summary>
         /// How opaque the backing behind the chart's status lines is, in percent (TradingView:
         /// Chart settings, Status line, Background). Default 96, the legend's 245 of 255: below

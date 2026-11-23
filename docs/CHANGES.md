@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: day separators
+
+Cody 2026-11-23: *"if day separaters are a feature of other trading platforms, add them as a visual
+toggle with a default of off."* They are: TradingView's session breaks, and the same in MetaTrader,
+thinkorswim and NinjaTrader. **Settings → Appearance → Draw day separators**, off by default, applied
+at once and put back by Cancel like the other live previews there.
+
+- `Rendering/DaySeparatorPainter`: a dotted vertical line at the left edge of the first bar of each day,
+  in every pane, over the background tints and under the data. The day is the one the time axis and
+  the readouts use (`SpeechTimeFormatter.ToBarDisplay`): the user's clock, or UTC when times are set to
+  UTC. A line at UTC midnight would stand six bars from the axis's new date on a Chicago hourly chart.
+- No line on a daily-or-coarser chart (every bar is its own day). A gap of several days (a weekend)
+  is one line, at the first bar after it.
+- `ChartRenderer.Render` takes `daySeparators`; `ChartFrameRenderer` reads `IAppSettings.ShowDaySeparators`
+  each frame (key `appearance.showDaySeparators`). In the settings search as "day separator", "session
+  break", "midnight".
+
+Tests: `DaySeparatorTests` (12): where the lines go in UTC and on a Chicago clock (bar 6, not 0, in
+winter), one line a day, a weekend gap, none on daily bars; pixel checks that the switch draws exactly
+those columns and nothing else, that it draws nothing switched off or on a daily chart, that the frame
+follows the setting, and that it is off by default. `SettingsCommitVocabularyTests` now covers the
+checkbox's Cancel and reopen. Sabotages: 13 of 13 red (not painted, painted with the switch off, the frame ignoring or forcing the setting, daily bars included, the time of day compared instead of the date, the previous day never advanced, the line a bar late, UTC instead of the speech clock, a 4-pixel stub, default on, Cancel or reopen not restoring it). The Cancel one passed at first: the settings test checked the field was put back but not the saved setting, and now checks every live preview that way.
+
+**Caveats:** not seen by Cody. It is a drawing only; the date was already spoken when the cursor
+crosses into a new day. The day is always midnight to midnight on the user's clock: there is no
+choice of session (a stock's 9:30 open, a forex 17:00 New York roll). Not on the VPS (ships with the
+next release).
+
 ### 2026-11-23: auto Fib retracement and auto trend lines
 
 Indicator group 6 (Cody 2026-11-22). First checked against the suite: the Fibonacci retracement was a
