@@ -3,10 +3,12 @@ using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Plugins.Bitstamp;
 using AccessibleTrader.Plugins.Coinbase;
+using AccessibleTrader.Plugins.Gemini;
 using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using Google.Protobuf;
@@ -191,19 +193,51 @@ public class TradeFlowTests
         => Assert.Equal((-1L, 0), (CoinbaseProvider.ReadPublicTrades("{", "BTC-USD").Sequence, CoinbaseProvider.ReadPublicTrades("{", "BTC-USD").Trades.Count));
 
     [Fact]
-    public void A_skipped_Coinbase_message_number_is_a_gap_and_the_next_one_is_not()
+    public void A_skipped_message_number_is_a_gap_and_the_next_one_is_not()
     {
         long last = -1;
-        Assert.False(CoinbaseProvider.SequenceGap(ref last, 0));     // the first on a socket
-        Assert.False(CoinbaseProvider.SequenceGap(ref last, 1));
-        Assert.False(CoinbaseProvider.SequenceGap(ref last, -1));    // unnumbered: no change
+        Assert.False(MessageSequence.IsGap(ref last, 0));     // the first on a socket
+        Assert.False(MessageSequence.IsGap(ref last, 1));
+        Assert.False(MessageSequence.IsGap(ref last, -1));    // unnumbered: no change
         Assert.Equal(1, last);
-        Assert.True(CoinbaseProvider.SequenceGap(ref last, 3));      // 2 was lost
-        Assert.False(CoinbaseProvider.SequenceGap(ref last, 4));
+        Assert.True(MessageSequence.IsGap(ref last, 3));      // 2 was lost
+        Assert.False(MessageSequence.IsGap(ref last, 4));
 
         long fresh = -1;                                            // a new socket, numbered from wherever
-        Assert.False(CoinbaseProvider.SequenceGap(ref fresh, 7));
+        Assert.False(MessageSequence.IsGap(ref fresh, 7));
     }
+
+    // ── Gemini ──────────────────────────────────────────────────────────────────
+
+    /// <summary>A v1 market data update as Gemini sent it on 2026-11-23. makerSide "ask": the
+    /// seller was resting, so a buyer took it.</summary>
+    private const string GeminiUpdate = """{"eventId":1794982136514455,"events":[{"amount":"0.00007974","makerSide":"ask","price":"62109.53","tid":2840141038280647,"type":"trade"}],"socket_sequence":3,"timestamp":1795453036,"timestampms":1795453036304,"type":"update"}""";
+
+    [Fact]
+    public void Gemini_maker_side_ask_is_a_buyer_taking_and_bid_a_seller()
+    {
+        var (seq, trades) = GeminiProvider.ReadPublicTrades(GeminiUpdate);
+        Assert.Equal(3, seq);
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795453036304).UtcDateTime, 62109.53, 0.00007974, OrderSide.Buy), Assert.Single(trades));
+        Assert.Equal(OrderSide.Sell, Assert.Single(GeminiProvider.ReadPublicTrades(GeminiUpdate.Replace("\"makerSide\":\"ask\"", "\"makerSide\":\"bid\"")).Trades).TakerSide);
+    }
+
+    [Theory]
+    [InlineData("\"makerSide\":\"ask\"", "\"makerSide\":\"auction\"")]   // an auction trade has no taker
+    [InlineData("\"type\":\"trade\"", "\"type\":\"change\"")]
+    [InlineData("\"type\":\"update\"", "\"type\":\"heartbeat\"")]
+    [InlineData("\"amount\":\"0.00007974\"", "\"amount\":\"0\"")]
+    [InlineData("\"timestampms\":1795453036304,", "")]
+    public void Gemini_messages_with_no_taken_trade_give_none_but_keep_their_number(string from, string to)
+    {
+        var (seq, trades) = GeminiProvider.ReadPublicTrades(GeminiUpdate.Replace(from, to));
+        Assert.Empty(trades);
+        Assert.Equal(3, seq);
+    }
+
+    [Fact]
+    public void Gemini_junk_gives_nothing_and_no_number()
+        => Assert.Equal((-1L, 0), (GeminiProvider.ReadPublicTrades("{").Sequence, GeminiProvider.ReadPublicTrades("{").Trades.Count));
 
     // ── The tape ────────────────────────────────────────────────────────────────
 

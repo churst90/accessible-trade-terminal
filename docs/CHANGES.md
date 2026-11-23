@@ -32,6 +32,19 @@ candle's volume exactly (13.55263013 BTC; the Exchange candle endpoint had not p
 Tests: 8 more. Sabotaged 10 ways, all red; one ("a new socket's first number is a gap") was green until a
 test started a socket's numbering somewhere other than 0.
 
+**Gemini added**: the plugin had no socket (it reads over REST), so the trades come from Gemini's v1
+market data socket with trades only (`bids=false&offers=false&auctions=false`) and heartbeats, which
+sends nothing from before connecting. v1 labels `makerSide`, the resting side, so `ask` means a buyer
+took the trade: checked live against the v2 feed's taker `side` for the same trade ids, opposite on 97
+of 97. An auction trade has no taker and is left out, so on a pair with an auction that bar's buy plus
+sell is short of its volume. v1 numbers every message (`socket_sequence`), so a lost one marks the bar
+uncounted as on Coinbase; the gap check moved to the Sdk (`MessageSequence.IsGap`) for both. The
+socket follows the plugin's sandbox setting. Live: two whole minutes equalled Gemini's candle volume
+exactly (0.0870194 and 0.02521027 BTC). Tests: 7 more. Sabotaged 11 ways, all red (sides flipped, an
+auction read as a buy, each filter removed, the number read only from trade messages, milliseconds cut to
+seconds, and the gap check's three rules); a gap not acted on in the socket code is not covered by a
+test, only by the live run.
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -79,7 +92,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot and Coinbase so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot, Coinbase and Gemini so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).

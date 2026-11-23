@@ -43,7 +43,7 @@ namespace AccessibleTrader.Plugins.Gemini
     /// the reason lives and an <c>HttpRequestException</c> would discard it.
     /// </para>
     /// </summary>
-    public class GeminiProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider
+    public class GeminiProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ITradeStreamProvider
     {
         private const string LiveHost    = "https://api.gemini.com";
         private const string SandboxHost = "https://api.sandbox.gemini.com";
@@ -264,6 +264,70 @@ namespace AccessibleTrader.Plugins.Gemini
             // Sequence 0: the REST snapshot carries no sequence number, and inventing
             // one would let a consumer believe it could order updates against it.
             return new OrderBookSnapshot(symbol, bids, asks, 0, DateTime.UtcNow);
+        }
+
+        /// <summary>
+        /// Every trade on the symbol with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>). Gemini's v1 market data socket with trades only
+        /// (no book) and heartbeats; it sends no trades from before connecting. Every message is
+        /// numbered (<c>socket_sequence</c>): a gap means one was lost, so the stream counts as
+        /// dropped and up again, and the bar it fell in is not counted.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            string pair = symbol.Replace("/", "").Replace("-", "").ToUpperInvariant();
+            string url = Host.Replace("https://", "wss://") +
+                         $"/v1/marketdata/{Uri.EscapeDataString(pair)}?trades=true&heartbeat=true&bids=false&offers=false&auctions=false";
+            long lastSeq = -1;
+            var ws = new ReconnectingWebSocket(url, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Gemini trade stream ({pair}): {err}"));
+            ws.OnConnected(_ =>
+                {
+                    Interlocked.Exchange(ref lastSeq, -1);   // numbering starts again on a new socket
+                    onCounting(true);
+                    return Task.CompletedTask;
+                })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg =>
+                {
+                    var (seq, trades) = ReadPublicTrades(msg);
+                    if (MessageSequence.IsGap(ref lastSeq, seq)) { onCounting(false); onCounting(true); }
+                    foreach (var t in trades) onTrade(t);
+                });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        /// <summary>
+        /// A v1 market data message's <c>socket_sequence</c> (-1 if it has none) and its trades.
+        /// Gemini's v1 <c>makerSide</c> is the side that was resting, so <c>ask</c> means a buyer
+        /// took the trade: checked live 2026-11-23 against the v2 feed's taker side for the same
+        /// trade ids, opposite on 97 of 97. An auction trade has no taker and is left out.
+        /// </summary>
+        internal static (long Sequence, List<PublicTrade> Trades) ReadPublicTrades(string msg)
+        {
+            var trades = new List<PublicTrade>();
+            long seq = -1;
+            try
+            {
+                var json = JObject.Parse(msg);
+                if (json["socket_sequence"] is JValue { Type: JTokenType.Integer } n) seq = n.Value<long>();
+                if (json["type"]?.ToString() != "update" || json["events"] is not JArray events) return (seq, trades);
+                if (json["timestampms"] is not JValue { Type: JTokenType.Integer } ms) return (seq, trades);
+                var at = DateTimeOffset.FromUnixTimeMilliseconds(ms.Value<long>()).UtcDateTime;
+                foreach (var e in events)
+                {
+                    if (e["type"]?.ToString() != "trade") continue;
+                    OrderSide? taker = e["makerSide"]?.ToString() switch { "ask" => OrderSide.Buy, "bid" => OrderSide.Sell, _ => null };
+                    if (taker == null) continue;
+                    if (!double.TryParse(e["price"]?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double price) || price <= 0) continue;
+                    if (!double.TryParse(e["amount"]?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double amount) || amount <= 0) continue;
+                    trades.Add(new PublicTrade(at, price, amount, taker.Value));
+                }
+            }
+            catch { /* malformed frame */ }
+            return (seq, trades);
         }
 
         public IObservable<OrderBookUpdate> SubscribeOrderBook(string symbol) =>

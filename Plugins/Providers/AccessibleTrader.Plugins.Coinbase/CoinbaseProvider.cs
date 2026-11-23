@@ -245,21 +245,11 @@ namespace AccessibleTrader.Plugins.Coinbase
               .OnMessage(msg =>
                 {
                     var (seq, trades) = ReadPublicTrades(msg, productId);
-                    if (SequenceGap(ref lastSeq, seq)) { onCounting(false); onCounting(true); }
+                    if (MessageSequence.IsGap(ref lastSeq, seq)) { onCounting(false); onCounting(true); }
                     foreach (var t in trades) onTrade(t);
                 });
             await ws.ConnectAsync();
             return ws;
-        }
-
-        /// <summary>True when <paramref name="seq"/> does not follow the last one seen on this
-        /// socket, so a message was lost. -1 (no number) is not a gap; <paramref name="last"/> is
-        /// -1 until the first numbered message.</summary>
-        internal static bool SequenceGap(ref long last, long seq)
-        {
-            if (seq < 0) return false;
-            long before = Interlocked.Exchange(ref last, seq);
-            return before >= 0 && seq != before + 1;
         }
 
         /// <summary>
