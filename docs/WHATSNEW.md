@@ -12,6 +12,10 @@
   at an earlier tick's reading until you switched tabs, so the bar read differently afterwards. The
   bar that closes is now worked out again on its final candle, and bars that arrive together no
   longer leave a gap.
+- **Auto Fib retracement and auto trend lines** (Alt+A). The Fibonacci levels of the last finished
+  swing, and trend lines through the last two falling pivot highs and rising pivot lows. Arrowing near
+  one says its name ("near support at ..., Fib 61.8"). A new swing and a close through a trend line
+  are marked and sounded.
 - **Session levels: the previous day's, week's and month's high, low and close, and the session's
   high, low and opening range** (Alt+A, Reference Level). Arrowing near one says its name ("near
   resistance at ..., previous day high"). A close beyond yesterday's high or low, or out of the

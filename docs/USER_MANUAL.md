@@ -3147,6 +3147,33 @@ says so: *"Previous day: needs a whole day of bars on the chart; scroll back to 
 TradingView's **session breaks**, a vertical line at each new day, are not drawn. The date is spoken
 when the cursor crosses into a new day.
 
+### Auto Fib and auto trend lines
+
+Two indicators that draw from the swings what a chartist draws by hand. Every line in them is a level:
+arrowing a candle near one says so by name, *"Near support at 88,950.00, Fib 61.8"* or *"Near
+resistance at 92,100.00, trend line resistance"*.
+
+**Auto Fib Retracement** (Alt+A, Reference Level) takes the last finished swing from the ZigZag's
+turns, at the same 5 percent by default, and draws the Fibonacci levels on it: 0 at the swing's end,
+100 at its start, and 23.6, 38.2, 50, 61.8 and 78.6 between. After a swing up, 38.2 is 38.2 percent of
+the way back down. When a new turn is confirmed the levels are redrawn on the new swing, and that bar
+gets a triangle and a tone (up for a swing that ended at a high, down for one that ended at a low). The
+detail says *"Last swing up from 84,200.00 to 92,600.00, 7 bars since it ended. Close has retraced 52.4
+percent, between 50 and 61.8."*
+
+**Auto Trend Lines** (Alt+A, Overlays) draws a falling resistance line through the last two pivot
+highs, when the second is lower than the first, and a rising support line through the last two pivot
+lows, when the second is higher. A pivot is a high (or low) with 10 bars either side below (or above)
+it; that is the setting. The first close through a line is marked green (above resistance) or red
+(below support) with a tone, and the line stops there until the next pivot draws a new one. The detail
+gives each line's slope, its two pivots, where it is now and where the close is against it.
+
+**Why they start late.** Both are drawn only from the bar their swing or pivot became known: a ZigZag
+turn is known once price has moved the full percent away from it, and a pivot 10 bars after it. Drawing
+the lines back to the pivot itself would show, on the bars before, a level nobody could have seen then.
+So on the chart a trend line begins 10 bars to the right of its second pivot, and the Fibs change a few
+bars after the turn, not on it.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

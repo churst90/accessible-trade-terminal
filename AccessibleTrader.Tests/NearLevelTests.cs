@@ -117,6 +117,9 @@ public sealed class NearLevelTests
     [InlineData(PreviousPeriodLevelsProvider.Code, "PMC", 12, "Near resistance at 12.00, previous month close.")]
     [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompHigh, 12, "Near resistance at 12.00, session high.")]
     [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompOrLow, 10, "Near support at 10.00, opening range low.")]
+    [InlineData(AutoFibProvider.Code, "Fib618", 12, "Near resistance at 12.00, Fib 61.8.")]
+    [InlineData(AutoTrendLinesProvider.Code, AutoTrendLinesProvider.CompSupport, 10, "Near support at 10.00, trend line support.")]
+    [InlineData(AutoTrendLinesProvider.Code, AutoTrendLinesProvider.CompResistance, 12, "Near resistance at 12.00, trend line resistance.")]
     public void Previous_period_and_session_lines_are_levels(string code, string component, double at, string expected)
     {
         Assert.Contains(expected, Arrive(Indicator(code, component, at)));
@@ -125,6 +128,8 @@ public sealed class NearLevelTests
     [Theory]
     [InlineData(PreviousPeriodLevelsProvider.Code, PreviousPeriodLevelsProvider.CompBrokeHigh)]
     [InlineData(SessionRangeProvider.Code, SessionRangeProvider.CompBreakUp)]
+    [InlineData(AutoFibProvider.Code, AutoFibProvider.CompNewUp)]
+    [InlineData(AutoTrendLinesProvider.Code, AutoTrendLinesProvider.CompBrokeDown)]
     public void Their_break_marks_are_not_levels(string code, string component)
     {
         // A mark sits at the close that broke out; it is an event, not a line to trade against.

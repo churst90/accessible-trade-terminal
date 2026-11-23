@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: auto Fib retracement and auto trend lines
+
+Indicator group 6 (Cody 2026-11-22). First checked against the suite: the Fibonacci retracement was a
+drawing tool (both ends placed by hand), nothing drew one from the swings, and nothing drew trend
+lines. **Chart pattern recognition, the group's third item, was already built**: `ChartFormationLayer`
+draws what `ChartPatternDetector` finds (Settings → Appearance, off by default) and the formations are
+spoken, so nothing was added for it. Both new ones are in `AutoPatternProviders.cs`, registered in the
+desktop app, the web app and the lab, and named in `NavigationFeedbackManager.LevelName` ("Near
+support at ..., Fib 61.8", "..., trend line resistance").
+
+- **`AUTO_FIB`**: at each bar, the last two ZigZag turns confirmed by that bar (`ZigZagProvider.Compute`,
+  5 percent by default, the same setting), levels 0 / 23.6 / 38.2 / 50 / 61.8 / 78.6 / 100 measured back
+  from the newer turn, as step lines. Marks `NewFibSwingUp` / `NewFibSwingDown` on the bar a new turn
+  is confirmed and the levels are redrawn. These marks were added when the narration-route guard
+  (`EveryShippedIndicator_ActuallySpeaks_WhenNarrationIsOn`) failed on the first draft: levels alone
+  gave narration nothing to say. The detail gives the swing, the bars since it ended and how far the
+  close has retraced, between which two levels.
+- **`AUTO_TRENDLINES`**: pivots by `PivotMath.IsPivot` (10 bars each side by default). A resistance
+  line through the last two pivot highs when the newer is lower, a support line through the last two
+  pivot lows when the newer is higher, each drawn from the bar its second pivot is confirmed. The
+  first close through a line is marked and ends it; the next pivot can start a new one.
+- **Neither is drawn back over the bars before its swing or pivot was known.** On the chart a trend
+  line starts `pivotBars` bars right of its second pivot. TradingView's auto tools draw from the pivot
+  itself, which on past bars shows a level nobody could have seen.
+
+Tests: `AutoPatternsTests` (15) on hand-drawn fixtures worked out on paper (the swing turns and the
+bars they are confirmed on, the line's slope 5/6 a bar and its break bar), five more in
+`NearLevelTests`, and the provider-wide contracts (causality, metadata, narration). Sabotages: 25 of 25 red (turns used before they are confirmed, the level arithmetic and 61.8, the marks firing every bar or on the wrong side, the reversal percent and pivot bars ignored, a pivot read before its right-hand bars, rising highs or falling lows drawing a line, the slope, the break firing twice or the line running on past it, the detail and spoken names, the near-level names, the narration marks, the web registrations).
+
+**Caveats:** not heard. Not on the VPS (ships with the next release). The trend lines only join two
+pivots; they do not look for a third touch, and they ignore wicks through the line between the
+pivots. The Fib levels are retracements only, no extensions (the FIBEXT drawing tool still does those).
+
 ### 2026-11-23: session levels (previous day/week/month, session high/low and opening range); weekly pivots at New Year
 
 Indicator group 5 (Cody 2026-11-22). First checked against the suite: PIVOTS works out the previous

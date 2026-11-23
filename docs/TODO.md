@@ -97,6 +97,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
+- [ ] **Auto Fib and auto trend lines** (2026-11-23, not in 2.15.0): add Auto Fib Retracement
+  (Reference Level) and Auto Trend Lines (Overlays). Arrow near a Fib line or a trend line and hear
+  "Near support at ..., Fib 61.8" or "..., trend line resistance"; hear the mark when a new swing
+  redraws the Fibs and when a close breaks a trend line; read the detail (D) on each. Check that the
+  lines start where the swing or second pivot became known, not back at the pivot itself.
 - [ ] **Session levels** (2026-11-23, not in 2.15.0): add Previous Day, Week and Month Levels and
   Session High, Low and Opening Range from Alt+A, Reference Level, on BTC 15m. Arrowing near
   yesterday's high should say "Near resistance at ..., previous day high"; the detail should give
@@ -264,8 +269,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
      names. **Day separators not built**: TradingView makes them a chart setting ("session breaks"),
      not an indicator. A vertical line is a new kind of mark in about ten places, and the date is
      already spoken when the cursor crosses into a new day. Ask Cody whether he wants them drawn.
-  6. **Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines, chart
-     pattern recognition (ChartPatternDetector exists for strategies; give it a visible indicator).
+  6. ~~**Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines~~:
+     **built 2026-11-23** (see CHANGES), each line a level the "Near resistance" speech names. **Chart
+     pattern recognition was already there**: `ChartFormationLayer` draws the formations
+     `ChartPatternDetector` finds (Settings → Appearance, off by default), and they are spoken
+     (Settings → General → Describe chart patterns), so nothing new was added for it.
   Every one ships with a spoken form, sonification and the usual causality test (no future bars).
   LuxAlgo is a TradingView vendor: paid toolkits (Signals & Overlays, Price Action Concepts,
   Oscillator Matrix) and many free open-source scripts (their free "Smart Money Concepts" is one of

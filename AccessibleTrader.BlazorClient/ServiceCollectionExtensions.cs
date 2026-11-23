@@ -342,6 +342,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IIndicatorProvider, EnvelopesProvider>();
             services.AddSingleton<IIndicatorProvider, PreviousPeriodLevelsProvider>();
             services.AddSingleton<IIndicatorProvider, SessionRangeProvider>();
+            services.AddSingleton<IIndicatorProvider, AutoFibProvider>();
+            services.AddSingleton<IIndicatorProvider, AutoTrendLinesProvider>();
             services.AddSingleton<IIndicatorProvider, MovingAverageRibbonProvider>();
             services.AddSingleton<IIndicatorProvider, DbsiStyleProvider>();
             services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
