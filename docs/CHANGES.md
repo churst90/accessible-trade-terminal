@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: eight oscillators: Elder-Ray with Bull Bear Power, Fisher, Coppock, KST, vigor, SMI Ergodic, awesome, accelerator
+
+Group 4 of the indicator library in TODO, first half (Cody 2026-11-22: "adding all of the ones you
+listed to the inventory that are missing").
+
+**Checked for duplicates first.** None of the eight existed (the suite's oscillators are RSI, MACD,
+Stoch, StochRSI, CCI, Williams %R, CMO, ROC, momentum, PPO, TRIX, DPO, STC, the ultimate oscillator,
+Connors RSI and our own). Two of the list are not added as their own indicators. **Bull Bear Power**
+is `high + low − 2·EMA13`, which is Elder-Ray's bull power plus its bear power, so it is Elder-Ray's
+third line. **Woodies CCI** is CCI 14 and CCI 6 with patterns read between them; the existing CCI added
+twice draws the same lines, so it is not built.
+
+Eight providers in `MomentumOscillatorProviders.cs` on a shared `OscillatorProviderBase` (compute every
+component, a zero level, the signal-cross dot pair at 660 and 330 Hz). Registered on the desktop, the web
+host and the lab. All are causal, and each is TradingView's built-in formula:
+- **Elder-Ray and Bull Bear Power** (`ELDER_RAY`): high and low minus EMA 13, and their sum.
+- **Fisher Transform** (`FISHER`): Pine's recursion with its ±0.999 pin, the trigger one bar back,
+  levels at ±1.5 and 0. A flat window counts as the middle, where TradingView's division by zero
+  leaves a gap and restarts the recursion.
+- **Coppock Curve** (`COPPOCK`): WMA 10 of ROC 14 + ROC 11, with a mark where it turns up below zero.
+- **Know Sure Thing** (`KST`): ROC 10/15/20/30 smoothed 10/10/10/15, weighted 1 to 4, SMA 9 signal.
+- **Relative Vigor Index** (`RVGI`): sums over 10 of the 1-2-2-1 smoothed close − open and high − low,
+  smoothed the same way as its signal.
+- **SMI Ergodic** (`SMI_ERGODIC`): `ta.tsi` (20, 5, between −1 and 1), EMA 5 signal, and the gap as
+  columns: TradingView's Indicator and Oscillator in one.
+- **Awesome Oscillator** (`AWESOME_OSC`) and **Accelerator Oscillator** (`ACCELERATOR_OSC`):
+  SMA 5 − SMA 34 of the midpoint, and that minus its SMA 5.
+
+30 tests in `MomentumOscillatorsTests`; the suite is now 13057. Each formula is written out longhand
+in the test, a bar at a time, on the three probe series (from Pine's definitions, not a second call into
+the providers' helpers), with each one's first bar pinned. 31 sabotages, all red: Elder-Ray on an SMA, its sum as a difference, the side word, the high read
+from the next bar (the prefix causality guard); Fisher clamped instead of pinned, on the close, its
+trigger the same bar, the wrong decay, the stretched word; Coppock's ROCs subtracted, an SMA in place
+of the WMA, a turn above zero marked, every rise marked; KST unweighted, an EMA signal, the fourth
+leg's smoothing; vigor without the 1-2-2-1 smoothing, a flat smoothing, the detail's side; SMI singly
+smoothed, the oscillator's sign, scaled by 100; the awesome oscillator on the close or on EMAs, the
+accelerator on an EMA, rising and falling swapped, which average is on top; a cross marked a bar late,
+the down cross mirrored wrong, the signal word; and the web registration. All red on the first run. No guard exemptions were needed.
+
+**Caveats:** not heard by Cody. The awesome and accelerator columns are coloured by sign, not by
+TradingView's "rose from the last column"; the speech says rising or falling. The SMI line assumes
+`ta.tsi` is unscaled (between −1 and 1), which is how its built-in plots it. Eight more panes. The lab
+has not graded any of them. Not on the VPS (ships with the next release).
+
 ### 2026-11-23: volume flow: cumulative volume delta, Klinger, price volume trend, relative volume at time
 
 Group 3 of the indicator library in TODO (Cody 2026-11-22: "adding all of the ones you listed to the

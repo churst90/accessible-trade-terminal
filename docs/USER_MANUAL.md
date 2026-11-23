@@ -3031,6 +3031,54 @@ days, counting today so far."*
 All four are causal: each value uses only that bar and the bars before it. The strategy builder offers
 them like any other indicator. The lab has not tested them.
 
+### Momentum oscillators: Elder-Ray, Fisher, Coppock, KST, vigor, SMI Ergodic, awesome and accelerator
+
+Eight oscillators, each under Oscillators in Alt+A, each in its own pane, each computed the way
+TradingView's built-in is. Each has a dashed zero line, and crossing it plays the level tone. Each one
+with a signal line marks the bar it crosses above with a **green dot** and a high tone, and the bar it
+crosses below with a **red dot** and a low one. The detail says *"crossed above it this bar"* on that
+bar. They join RSI, MACD, stochastics, CCI, Williams %R, the ultimate oscillator, STC, CMO and the
+others already there.
+
+**Elder-Ray and Bull Bear Power.** Bull power is the high minus a 13-bar EMA of the close, bear power
+the low minus it, drawn as green and red columns. Bull power above zero says buyers pushed above the
+average this bar; bear power below zero says sellers pushed under it. **Bull Bear Power**, TradingView's
+own built-in, is the two added together, so it is the blue line in the same pane, not a separate
+indicator. The detail says both, in price units: *"Bull power plus 120.50: the high 120.50 above the
+13-bar EMA. Bear power minus 40.20: the low 40.20 below it. Bull bear power plus 80.30."*
+
+**Fisher Transform** places the bar's midpoint in its range over the last 9 bars, smooths it, and
+stretches it so the turns stand out. Its trigger is its own value one bar back. Past 1.5 either way is a
+stretched move, and both 1.5 lines play a tone. The detail says *"stretched high"* or *"stretched
+low"* there.
+
+**Coppock Curve** is a 10-bar weighted average of the 14-bar and 11-bar rates of change added together.
+It was made for monthly charts. Its classic signal is the curve **turning up while still below zero**,
+which is marked with a green dot and a tone. A turn above zero is not marked.
+
+**Know Sure Thing** adds four smoothed rates of change (10, 15, 20 and 30 bars), weighting the longer
+ones more, with a 9-bar average as its signal. Above zero, momentum is up over all four spans together.
+
+**Relative Vigor Index** (not the relative volatility index) asks how far candles closed from their opens
+against how far they ranged, over 10 bars. Above zero, candles have been closing above their opens,
+and the detail says so.
+
+**SMI Ergodic** is TradingView's SMI Ergodic Indicator and SMI Ergodic Oscillator in one pane. The line
+is the true strength index (the close's change, smoothed twice, over the size of the change, smoothed
+the same way). It is between minus 1 and 1, which is the usual true strength index divided by 100. A
+5-bar signal line, and the gap between the two as columns.
+
+**Awesome Oscillator** is a 5-bar average of each bar's midpoint minus a 34-bar one, as columns in price
+units. **Accelerator Oscillator** is the awesome oscillator minus its own 5-bar average, so it turns
+first. TradingView colours each column by whether it rose from the one before. Here they are green
+above zero and red below, and the speech says it: *"Awesome plus 1,204.50, falling."*
+
+**Not added:** Woodies CCI is a 14-bar CCI and a 6-bar one with patterns read between them. Add CCI
+twice, at 14 and 6, for the same lines.
+
+All eight are causal. The strategy builder offers them like any other indicator. The lab has not tested
+them.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

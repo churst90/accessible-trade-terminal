@@ -135,6 +135,14 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, KlingerOscillatorProvider>();
         services.AddSingleton<IIndicatorProvider, PriceVolumeTrendProvider>();
         services.AddSingleton<IIndicatorProvider, RelativeVolumeAtTimeProvider>();
+        services.AddSingleton<IIndicatorProvider, ElderRayProvider>();
+        services.AddSingleton<IIndicatorProvider, FisherTransformProvider>();
+        services.AddSingleton<IIndicatorProvider, CoppockCurveProvider>();
+        services.AddSingleton<IIndicatorProvider, KnowSureThingProvider>();
+        services.AddSingleton<IIndicatorProvider, RelativeVigorIndexProvider>();
+        services.AddSingleton<IIndicatorProvider, SmiErgodicProvider>();
+        services.AddSingleton<IIndicatorProvider, AwesomeOscillatorProvider>();
+        services.AddSingleton<IIndicatorProvider, AcceleratorOscillatorProvider>();
         services.AddSingleton<IIndicatorProvider, DbsiStyleProvider>();
         services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionFundingProvider>();

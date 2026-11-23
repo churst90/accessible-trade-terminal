@@ -93,6 +93,10 @@ components". Caveats for these are in CHANGES (2.15.0).
   should say "Volume delta plus ..., buyers ahead" and start again at zero each day; Klinger should
   ping when it crosses its signal; relative volume should sit near 1 most of the time and sound when
   it crosses 2. Are four more panes too many to arrow through, or should some share one?
+- [ ] **Eight oscillators** (2026-11-23, not in 2.15.0): add Elder-Ray, Fisher, Coppock, KST, Relative
+  Vigor, SMI Ergodic, Awesome and Accelerator from Alt+A, Oscillators. Elder-Ray's detail should say
+  where the high and the low were against the average; Fisher should say "stretched high" past 1.5;
+  the signal-line ones should ping on each cross. Can you tell the cross tones from the zero-line tone?
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -236,10 +240,12 @@ needed: "don't worry about the custom scripts on the hosted vps".
      each bar by its candle. A **true trade-side delta** from MEXC's deals stream (taker buys minus
      sells) would exist only from when the chart was opened, with no history behind it. It is a
      separate feature, not built. Ask Cody if he wants it.
-  4. **Trend/oscillators**: Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Linear Regression
-     channel and slope, Relative Vigor, SMI Ergodic, Awesome/Accelerator Oscillator, Woodies CCI,
-     Bull Bear Power, Chande Kroll Stop, McGinley Dynamic, Least Squares MA,
-     Envelopes, Moving Average Ribbon.
+  4. **Trend/oscillators**: ~~Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Relative Vigor,
+     SMI Ergodic, Awesome/Accelerator Oscillator, Bull Bear Power~~: **built 2026-11-23** (see
+     CHANGES). Bull Bear Power is Elder-Ray's third line. **Woodies CCI not built**: it is CCI 14 and
+     CCI 6, which the existing CCI draws twice. **Still to do:** Linear Regression channel and slope
+     (with the Least Squares MA as its centre line), Chande Kroll Stop, McGinley Dynamic, Envelopes,
+     Moving Average Ribbon.
   5. **Session and time tools**: session high/low and opening range, previous day/week/month
      high-low-close, day-of-week separators: each a level the "Near resistance" speech can name.
   6. **Auto patterns**: auto Fibonacci retracement from the last swing, auto trend lines, chart

@@ -362,6 +362,14 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, KlingerOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, PriceVolumeTrendProvider>();
             services.AddScoped<IIndicatorProvider, RelativeVolumeAtTimeProvider>();
+            services.AddScoped<IIndicatorProvider, ElderRayProvider>();
+            services.AddScoped<IIndicatorProvider, FisherTransformProvider>();
+            services.AddScoped<IIndicatorProvider, CoppockCurveProvider>();
+            services.AddScoped<IIndicatorProvider, KnowSureThingProvider>();
+            services.AddScoped<IIndicatorProvider, RelativeVigorIndexProvider>();
+            services.AddScoped<IIndicatorProvider, SmiErgodicProvider>();
+            services.AddScoped<IIndicatorProvider, AwesomeOscillatorProvider>();
+            services.AddScoped<IIndicatorProvider, AcceleratorOscillatorProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 

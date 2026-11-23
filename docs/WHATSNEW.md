@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Eight oscillators: Elder-Ray with Bull Bear Power, Fisher Transform, Coppock Curve, Know Sure
+  Thing, Relative Vigor Index, SMI Ergodic, and the Awesome and Accelerator oscillators** (Alt+A,
+  Oscillators). Each one is in its own pane, computed the way TradingView's built-in is. The ones
+  with a signal line mark and sound each cross of it. Coppock marks its classic signal, turning up
+  below zero.
 - **Four volume indicators: Cumulative Volume Delta, Klinger Oscillator, Price Volume Trend and
   Relative Volume at Time** (Alt+A, Volume). Volume delta adds up buying minus selling from the start
   of each day and says who is ahead. Klinger marks and sounds each cross of its signal line. Relative
