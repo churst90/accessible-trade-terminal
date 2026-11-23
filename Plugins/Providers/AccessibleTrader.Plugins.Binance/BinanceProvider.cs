@@ -20,7 +20,7 @@ namespace AccessibleTrader.Plugins.Binance
     /// the order book (REST + live), the user-data order stream, and full trading
     /// (balances, positions, open orders, place/cancel, leverage, protective TP/SL).
     /// </summary>
-    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider, IOrderDryRunProvider, ISymbolLeverageProvider
+    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider, IOrderDryRunProvider, ISymbolLeverageProvider, ITradeStreamProvider
     {
         // ── Endpoints (mainnet / testnet) ─────────────────────────────────────
         private string SpotRest => _isTestnet ? "https://testnet.binance.vision"     : "https://api.binance.com";
@@ -399,6 +399,83 @@ namespace AccessibleTrader.Plugins.Binance
             string wsBase = isFutures ? FutMarketWs : SpotWs;
             string interval = MapInterval(timeframe);
             return new Uri($"{wsBase}{CleanSymbol(symbol).ToLowerInvariant()}@kline_{interval}");
+        }
+
+        /// <summary>
+        /// Every trade on the symbol with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>): the <c>aggTrade</c> stream, spot or USD-M futures
+        /// (the futures one on <see cref="FutMarketWs"/>). Each aggregate trade is numbered per
+        /// symbol (<c>a</c>), one after another (no jumps in 2,790 spot and 5,711 futures,
+        /// 2026-11-23), so a jump means one was lost and the bar is not counted. The stream takes no
+        /// text ping; every 30 s it is asked for its subscriptions instead (it answers, and stays
+        /// open), so a dead connection fails on the send and reconnects.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            string clean = CleanSymbol(symbol);
+            long lastId = -1;
+            var ws = new ReconnectingWebSocket(BuildTradeStreamUri(market, symbol).ToString(), heartbeatInterval: TimeSpan.FromSeconds(30))
+                .WithHeartbeatMessage("{\"method\":\"LIST_SUBSCRIPTIONS\",\"id\":1}")
+                .OnError(e => _errorStream.OnNext($"Binance trade stream ({clean}): {e}"));
+            ws.OnConnected(_ =>
+                {
+                    Interlocked.Exchange(ref lastId, -1);
+                    onCounting(true);
+                    return Task.CompletedTask;
+                })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg =>
+                {
+                    var (id, trade) = ReadPublicTrade(msg, clean);
+                    if (MessageSequence.IsGap(ref lastId, id)) { onCounting(false); onCounting(true); }
+                    if (trade is { } t) onTrade(t);
+                });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        internal Uri BuildTradeStreamUri(string market, string symbol)
+        {
+            bool isFutures = market.Contains("Futures", StringComparison.OrdinalIgnoreCase);
+            return new Uri($"{(isFutures ? FutMarketWs : SpotWs)}{CleanSymbol(symbol).ToLowerInvariant()}@aggTrade");
+        }
+
+        /// <summary>
+        /// An <c>aggTrade</c> message's number (-1 if it is not one on this symbol) and its trade.
+        /// <c>m</c> says the BUYER was the maker, so true is a seller taking (checked live
+        /// 2026-11-23 against the book: spot 2,096 to 522, futures 4,676 to 863, the book ticker
+        /// being a separate socket that lags). <c>q</c> is the whole quantity. Spot: each closed
+        /// minute's sum equalled the kline volume exactly (6 of 6). USD-M futures: 4 of 8 exact and
+        /// the rest a little short (0.002 to 1.472 BTC, at most 0.56 percent of the minute); the
+        /// futures stream leaves out a few fills the kline counts, and why is not known.
+        /// </summary>
+        internal static (long Id, PublicTrade? Trade) ReadPublicTrade(string msg, string symbol)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(msg);
+                var r = doc.RootElement;
+                if (r.ValueKind != JsonValueKind.Object
+                    || !r.TryGetProperty("e", out var e) || e.ValueKind != JsonValueKind.String || e.GetString() != "aggTrade"
+                    || !r.TryGetProperty("s", out var s) || s.ValueKind != JsonValueKind.String
+                    || !string.Equals(s.GetString(), symbol, StringComparison.OrdinalIgnoreCase)
+                    || !r.TryGetProperty("a", out var a) || a.ValueKind != JsonValueKind.Number || !a.TryGetInt64(out long id))
+                    return (-1, null);
+                if (!r.TryGetProperty("m", out var m) || m.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return (id, null);
+                if (!Decimal(r, "p", out double price) || price <= 0 || !Decimal(r, "q", out double qty) || qty <= 0) return (id, null);
+                if (!r.TryGetProperty("T", out var t) || t.ValueKind != JsonValueKind.Number || !t.TryGetInt64(out long ms)) return (id, null);
+                return (id, new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime, price, qty,
+                    m.GetBoolean() ? OrderSide.Sell : OrderSide.Buy));
+            }
+            catch (JsonException) { return (-1, null); }
+
+            static bool Decimal(JsonElement r, string name, out double value)
+            {
+                value = 0;
+                return r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+                    && double.TryParse(v.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+            }
         }
 
         internal static bool TryParseKline(JsonElement root, out Ohlcv bar)

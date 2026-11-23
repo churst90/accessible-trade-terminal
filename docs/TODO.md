@@ -266,9 +266,9 @@ needed: "don't worry about the custom scripts on the hosted vps".
      each bar by its candle. A **true trade-side delta** from MEXC's deals stream (taker buys minus
      sells) would exist only from when the chart was opened, with no history behind it. It is a
      separate feature. Cody 2026-11-23: build it only if it serves every exchange, not one.
-     **Built for MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini and Hyperliquid 2026-11-23** (Buy and Sell Volume (trades), Volume Delta (trades); see
-     CHANGES); **next:
-     Binance**, each checked live against its candles. **Binance futures user-data socket** (fills)
+     **Built for MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini, Hyperliquid and Binance spot
+     and futures 2026-11-23** (Buy and Sell Volume (trades), Volume Delta (trades); see CHANGES), each
+     checked live against its candles; Binance futures runs a little short (why unknown). **Binance futures user-data socket** (fills)
      still opens on `/ws/`: unchecked whether Binance moved it like the klines (needs a real key; see
      CHANGES "Binance futures charts update live again"). Stocks and forex feeds carry no side. **Net Volume
      declined by Cody** 2026-11-23 ("no net volume or woodies cci").

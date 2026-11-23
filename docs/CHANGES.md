@@ -78,6 +78,26 @@ only one minute fell inside the window). Tests: 10 more. Sabotaged 10 ways, all 
 out the snapshot's early return) stayed green because it changes nothing, as the snapshot falls through to
 the feed check, and was replaced by one that adds the snapshot's trades, which went red.
 
+**Binance added**, spot and USD-M futures: the `aggTrade` stream (futures on the new `/market` path, see
+"Binance futures charts update live again" above). `m` says the buyer was the maker, so true is a seller
+taking (against the book: spot 2,096 to 522, futures 4,676 to 863, the book ticker being a separate
+socket that lags). Aggregate trades are numbered one after another per symbol (no jumps in 2,790 spot
+and 5,711 futures), so a jump is a lost trade and the bar is not counted. The stream takes no text ping,
+so every 30 seconds it is asked for its subscriptions instead; it answers and stays open (checked on
+both hosts), and a dead connection fails on the send. Live: **spot** equalled the kline volume exactly in
+6 of 6 minutes (through `data-stream.binance.vision`, the same data; `stream.binance.com`, which the
+plugin uses, is blocked from the US, so the plugin's own spot socket was not run). **Futures**, through
+the plugin: 4 of 8 minutes exact and the rest a little short, by 0.002 to 1.472 BTC (at most 0.56
+percent of the minute). The futures trade stream leaves out a few fills the kline counts. No aggregate
+straddled a minute, and liquidations do not line up with the shortfall, so why is not known; the manual
+says the two can add to a little less there. Tests: 13 more (including a de-DE culture test for the
+decimal strings and the futures `/market` URL). Sabotaged 10 ways, all red.
+
+**Manual fix:** the volume group's "All four are causal ... the strategy builder offers them" paragraph
+had ended up under the trade-volume section when it was added, where it read as if the trade
+indicators could be used in a strategy (they cannot). It is back under the four it means, which it now
+names.
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -125,7 +145,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini and Hyperliquid so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot and futures, Coinbase, Gemini, Hyperliquid and Binance spot and futures (futures a little short of the candle volume, see above); every crypto venue with a trade stream. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).

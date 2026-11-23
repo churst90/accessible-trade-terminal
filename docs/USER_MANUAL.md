@@ -3029,6 +3029,10 @@ longer chart there is no time of day, so it compares each bar with the average o
 it. The detail says which: *"Relative volume 1.57 times the usual volume by 10:00 over the last 10
 days, counting today so far."*
 
+All four (Cumulative Volume Delta, Klinger, Price Volume Trend and Relative Volume at Time) are
+causal: each value uses only that bar and the bars before it. The strategy builder offers them like
+any other indicator. The lab has not tested them.
+
 ### True buy and sell volume, from the exchange's trades
 
 The indicators above guess the side from the candle. Two more count it. A crypto exchange publishes
@@ -3054,11 +3058,12 @@ three days, and until nothing has looked at that symbol for ten minutes).
 
 Because there is no history, neither can be used in a strategy: a backtest would see nothing.
 
-**Which exchanges.** MEXC, spot and futures; Bitstamp; Kraken, spot and futures; Coinbase; Gemini; Hyperliquid. On MEXC futures the volume is in contracts, as the candles
-count it. Stocks and forex feeds do not send the side of a trade, so these stay blank there and say so.
-
-All four are causal: each value uses only that bar and the bars before it. The strategy builder offers
-them like any other indicator. The lab has not tested them.
+**Which exchanges.** MEXC, spot and futures; Bitstamp; Kraken, spot and futures; Coinbase; Gemini;
+Hyperliquid; Binance, spot and futures. On MEXC futures the volume is in contracts, as the candles
+count it. On Binance futures, buying and selling can add up to a little less than the bar's volume
+(at most about half a percent of a minute, when checked): Binance's trade stream leaves out a few fills
+its candles count. Stocks and forex feeds do not send the side of a trade, so these stay blank there
+and say so.
 
 ### Momentum oscillators: Elder-Ray, Fisher, Coppock, KST, vigor, SMI Ergodic, awesome and accelerator
 

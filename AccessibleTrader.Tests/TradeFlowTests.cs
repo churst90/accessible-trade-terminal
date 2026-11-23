@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Plugins.Binance;
 using AccessibleTrader.Plugins.Bitstamp;
 using AccessibleTrader.Plugins.Coinbase;
 using AccessibleTrader.Plugins.Gemini;
@@ -319,6 +320,68 @@ public class TradeFlowTests
         var (seq, trades) = KrakenFuturesProvider.ReadPublicTrades(KrakenFuturesTrade.Replace(from, to), "PF_XBTUSD");
         Assert.Empty(trades);
         Assert.Equal(-1, seq);
+    }
+
+    // ── Binance ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Aggregate trades as Binance sent them on 2026-11-23, spot and USD-M futures.</summary>
+    private const string BinanceSpotTrade = """{"e":"aggTrade","E":1795454459722,"s":"BTCUSDT","a":4129476253,"p":"61893.11000000","q":"0.00074000","f":6902642245,"l":6902642245,"T":1795454459722,"m":true,"M":true}""";
+    private const string BinanceFuturesTrade = """{"e":"aggTrade","E":1795454480176,"a":3545385008,"s":"BTCUSDT","p":"61869.00","q":"0.008","nq":"0.008","f":8327686050,"l":8327686050,"T":1795454480062,"m":false,"st":1}""";
+
+    [Fact]
+    public void Binance_m_is_the_buyer_being_the_maker_so_true_is_a_seller_taking()
+    {
+        var (id, trade) = BinanceProvider.ReadPublicTrade(BinanceSpotTrade, "BTCUSDT");
+        Assert.Equal(4129476253, id);
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795454459722).UtcDateTime, 61893.11, 0.00074, OrderSide.Sell), trade);
+        var (fid, ftrade) = BinanceProvider.ReadPublicTrade(BinanceFuturesTrade, "BTCUSDT");
+        Assert.Equal(3545385008, fid);
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795454480062).UtcDateTime, 61869.0, 0.008, OrderSide.Buy), ftrade);
+    }
+
+    [Fact]
+    public void Binance_prices_and_quantities_are_read_the_same_in_any_culture()
+    {
+        var was = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            var t = BinanceProvider.ReadPublicTrade(BinanceSpotTrade, "BTCUSDT").Trade!.Value;
+            Assert.Equal((61893.11, 0.00074), (t.Price, t.Quantity));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = was; }
+    }
+
+    [Theory]
+    [InlineData("\"m\":true,", "")]
+    [InlineData("\"m\":true", "\"m\":\"true\"")]
+    [InlineData("\"q\":\"0.00074000\"", "\"q\":\"0\"")]
+    [InlineData("\"p\":\"61893.11000000\"", "\"p\":\"0\"")]
+    [InlineData("\"T\":1795454459722", "\"T\":\"later\"")]
+    public void Binance_trades_with_no_side_or_size_give_none_but_keep_their_number(string from, string to)
+    {
+        var (id, trade) = BinanceProvider.ReadPublicTrade(BinanceSpotTrade.Replace(from, to), "BTCUSDT");
+        Assert.Null(trade);
+        Assert.Equal(4129476253, id);
+    }
+
+    [Theory]
+    [InlineData("\"s\":\"BTCUSDT\"", "\"s\":\"ETHUSDT\"")]   // another symbol's numbering
+    [InlineData("\"e\":\"aggTrade\"", "\"e\":\"trade\"")]
+    [InlineData("\"a\":4129476253", "\"a\":\"4129476253\"")]
+    [InlineData("{", "[")]
+    public void Binance_messages_that_are_not_this_symbols_trades_give_nothing_and_no_number(string from, string to)
+    {
+        var (id, trade) = BinanceProvider.ReadPublicTrade(BinanceSpotTrade.Replace(from, to), "BTCUSDT");
+        Assert.Null(trade);
+        Assert.Equal(-1, id);
+    }
+
+    [Fact]
+    public void Binance_heartbeat_reply_and_junk_give_nothing()
+    {
+        Assert.Equal((-1L, (PublicTrade?)null), BinanceProvider.ReadPublicTrade("""{"result":["btcusdt@aggTrade"],"id":1}""", "BTCUSDT"));
+        Assert.Equal((-1L, (PublicTrade?)null), BinanceProvider.ReadPublicTrade("not json", "BTCUSDT"));
     }
 
     // ── The tape ────────────────────────────────────────────────────────────────

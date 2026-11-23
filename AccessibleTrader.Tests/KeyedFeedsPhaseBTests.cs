@@ -401,6 +401,17 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void Binance_trade_stream_uri_puts_futures_on_the_market_path()
+        {
+            var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
+            // /market: the old futures /ws/ path opens for market streams and sends nothing (2026-11-23).
+            Assert.Equal("wss://fstream.binance.com/market/ws/btcusdt@aggTrade",
+                p.BuildTradeStreamUri("Crypto|Futures USD-M", "BTC/USDT").ToString());
+            Assert.Equal("wss://stream.binance.com:9443/ws/ethusdt@aggTrade",
+                p.BuildTradeStreamUri("Crypto", "ETH/USDT").ToString());
+        }
+
+        [Fact]
         public void Binance_kline_parse_reads_the_k_payload_and_rejects_empty_frames()
         {
             using var doc = JsonDocument.Parse("""
