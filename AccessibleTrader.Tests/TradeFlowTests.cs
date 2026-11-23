@@ -4,6 +4,7 @@ using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Plugins.Bitstamp;
 using AccessibleTrader.Plugins.Coinbase;
 using AccessibleTrader.Plugins.Gemini;
+using AccessibleTrader.Plugins.Hyperliquid;
 using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
@@ -238,6 +239,40 @@ public class TradeFlowTests
     [Fact]
     public void Gemini_junk_gives_nothing_and_no_number()
         => Assert.Equal((-1L, 0), (GeminiProvider.ReadPublicTrades("{").Sequence, GeminiProvider.ReadPublicTrades("{").Trades.Count));
+
+    // ── Hyperliquid ─────────────────────────────────────────────────────────────
+
+    /// <summary>A trades message as Hyperliquid sent it on 2026-11-23 (users shortened).</summary>
+    private const string HyperliquidTrades = """{"channel":"trades","data":[{"coin":"BTC","side":"A","px":"61898.0","sz":"0.04133","time":1795453592645,"hash":"0xb5dd","tid":832540384903394,"users":["0xd99f","0x5cc4"]},{"coin":"BTC","side":"B","px":"61898.0","sz":"0.00556","time":1795453592780,"hash":"0xdb4e","tid":411909269964288,"users":["0x1c96","0xf58b"]}]}""";
+
+    [Fact]
+    public void Hyperliquid_B_is_a_buyer_taking_and_A_a_seller()
+    {
+        var trades = HyperliquidProvider.ReadPublicTrades(HyperliquidTrades, "BTC");
+        Assert.Equal(2, trades.Count);
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795453592645).UtcDateTime, 61898.0, 0.04133, OrderSide.Sell), trades[0]);
+        Assert.Equal(OrderSide.Buy, trades[1].TakerSide);
+    }
+
+    /// <summary>Each case spoils only the first trade; the second, a buy, must still come through.</summary>
+    [Theory]
+    [InlineData("\"coin\":\"BTC\"", "\"coin\":\"ETH\"")]
+    [InlineData("\"side\":\"A\"", "\"side\":\"X\"")]
+    [InlineData("\"sz\":\"0.04133\"", "\"sz\":\"0\"")]
+    [InlineData("\"time\":1795453592645", "\"time\":\"soon\"")]
+    public void Hyperliquid_leaves_out_what_is_not_a_taken_trade_on_this_coin(string from, string to)
+    {
+        int at = HyperliquidTrades.IndexOf(from, StringComparison.Ordinal);
+        string spoiled = HyperliquidTrades[..at] + to + HyperliquidTrades[(at + from.Length)..];
+        Assert.Equal(OrderSide.Buy, Assert.Single(HyperliquidProvider.ReadPublicTrades(spoiled, "BTC")).TakerSide);
+    }
+
+    [Fact]
+    public void Hyperliquid_another_channel_or_junk_gives_none()
+    {
+        Assert.Empty(HyperliquidProvider.ReadPublicTrades(HyperliquidTrades.Replace("\"channel\":\"trades\"", "\"channel\":\"candle\""), "BTC"));
+        Assert.Empty(HyperliquidProvider.ReadPublicTrades("{", "BTC"));
+    }
 
     // ── The tape ────────────────────────────────────────────────────────────────
 

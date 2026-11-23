@@ -45,6 +45,14 @@ auction read as a buy, each filter removed, the number read only from trade mess
 seconds, and the gap check's three rules); a gap not acted on in the socket code is not covered by a
 test, only by the live run.
 
+**Hyperliquid added** (perps and spot, through the plugin's own coin lookup): its own socket on the
+`trades` subscription, with the plugin's ping. `side` is the taker's, `B` a buyer and `A` a seller (46 of
+47 trades outside the spread, checked live). Hyperliquid sends the last few trades on subscribing without
+marking them; they are older than the moment counting starts, so the tape leaves them out. Live: two
+whole minutes equalled the candle volume exactly (112.1184 and 143.64028 BTC). Tests: 6 more, each
+spoiling one trade of a real two-trade message and checking the other still comes through. Sabotaged 7
+ways, all red.
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -92,7 +100,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot, Coinbase and Gemini so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot, Coinbase, Gemini and Hyperliquid so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).
