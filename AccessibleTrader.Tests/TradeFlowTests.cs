@@ -2,6 +2,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Plugins.Bitstamp;
+using AccessibleTrader.Plugins.Coinbase;
 using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
@@ -156,6 +157,53 @@ public class TradeFlowTests
     [InlineData("{", "[")]
     public void Kraken_frames_that_are_not_new_trades_on_this_pair_give_none(string from, string to)
         => Assert.Empty(KrakenProvider.ReadPublicTrades(KrakenUpdate.Replace(from, to), "BTC/USD"));
+
+    // ── Coinbase ────────────────────────────────────────────────────────────────
+
+    /// <summary>A market_trades update as Coinbase sent it on 2026-11-23. Its side, BUY, is the
+    /// maker's: a seller took this trade.</summary>
+    private const string CoinbaseUpdate = """{"channel":"market_trades","timestamp":"2026-11-23T16:49:34.844075198Z","sequence_num":2,"events":[{"type":"update","trades":[{"product_id":"BTC-USD","trade_id":"1144325955","price":"62060.44","size":"0.00000002","time":"2026-11-23T16:49:34.808835Z","side":"BUY"}]}]}""";
+
+    [Fact]
+    public void Coinbase_side_is_the_makers_so_BUY_is_a_seller_taking()
+    {
+        var (seq, trades) = CoinbaseProvider.ReadPublicTrades(CoinbaseUpdate, "BTC-USD");
+        Assert.Equal(2, seq);
+        Assert.Equal(new PublicTrade(new DateTime(2026, 11, 23, 16, 49, 34, DateTimeKind.Utc).AddTicks(8088350), 62060.44, 0.00000002, OrderSide.Sell), Assert.Single(trades));
+        Assert.Equal(OrderSide.Buy, Assert.Single(CoinbaseProvider.ReadPublicTrades(CoinbaseUpdate.Replace("\"side\":\"BUY\"", "\"side\":\"SELL\""), "BTC-USD").Trades).TakerSide);
+    }
+
+    [Theory]
+    [InlineData("\"type\":\"update\"", "\"type\":\"snapshot\"")]      // the 100 trades from before subscribing
+    [InlineData("\"channel\":\"market_trades\"", "\"channel\":\"heartbeats\"")]
+    [InlineData("\"product_id\":\"BTC-USD\"", "\"product_id\":\"ETH-USD\"")]
+    [InlineData("\"side\":\"BUY\"", "\"side\":\"UNKNOWN_ORDER_SIDE\"")]
+    [InlineData("\"size\":\"0.00000002\"", "\"size\":\"0\"")]
+    public void Coinbase_frames_that_are_not_new_trades_on_this_product_give_none_but_keep_their_number(string from, string to)
+    {
+        var (seq, trades) = CoinbaseProvider.ReadPublicTrades(CoinbaseUpdate.Replace(from, to), "BTC-USD");
+        Assert.Empty(trades);
+        Assert.Equal(2, seq);   // a heartbeat or snapshot still counts in the numbering
+    }
+
+    [Fact]
+    public void Coinbase_junk_gives_nothing_and_no_number()
+        => Assert.Equal((-1L, 0), (CoinbaseProvider.ReadPublicTrades("{", "BTC-USD").Sequence, CoinbaseProvider.ReadPublicTrades("{", "BTC-USD").Trades.Count));
+
+    [Fact]
+    public void A_skipped_Coinbase_message_number_is_a_gap_and_the_next_one_is_not()
+    {
+        long last = -1;
+        Assert.False(CoinbaseProvider.SequenceGap(ref last, 0));     // the first on a socket
+        Assert.False(CoinbaseProvider.SequenceGap(ref last, 1));
+        Assert.False(CoinbaseProvider.SequenceGap(ref last, -1));    // unnumbered: no change
+        Assert.Equal(1, last);
+        Assert.True(CoinbaseProvider.SequenceGap(ref last, 3));      // 2 was lost
+        Assert.False(CoinbaseProvider.SequenceGap(ref last, 4));
+
+        long fresh = -1;                                            // a new socket, numbered from wherever
+        Assert.False(CoinbaseProvider.SequenceGap(ref fresh, 7));
+    }
 
     // ── The tape ────────────────────────────────────────────────────────────────
 

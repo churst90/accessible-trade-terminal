@@ -21,6 +21,17 @@ channel, another pair, junk). Sabotaged, Bitstamp's parser too: 13 of 13 red (si
 removed, microseconds read as milliseconds, no whole-second fallback, dates parsed by Newtonsoft, local
 time).
 
+**Coinbase added**: its own socket on the public `market_trades` channel, plus `heartbeats` so a quiet
+product's socket stays open. **Coinbase's `side` is the MAKER's, so it is turned round** (BUY means a
+seller took the trade). Checked two ways on 2026-11-23: against the book, 63 trades to 13 printed on the
+side the maker reading predicts; and the same trade ids carry the same side on Coinbase Exchange's REST
+trades, whose side is the maker order's (21 of 21). The 100-trade snapshot sent on subscribing is skipped.
+Coinbase numbers each message on a socket; a gap means one was lost, so the stream counts as dropped and
+up again, and that bar is not counted. Live: a whole minute's buy plus sell equalled the Advanced Trade
+candle's volume exactly (13.55263013 BTC; the Exchange candle endpoint had not published the minute yet).
+Tests: 8 more. Sabotaged 10 ways, all red; one ("a new socket's first number is a gap") was green until a
+test started a socket's numbering somewhere other than 0.
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -68,7 +79,7 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC, Bitstamp and Kraken spot so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC, Bitstamp, Kraken spot and Coinbase so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
 bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
 the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).

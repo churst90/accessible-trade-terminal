@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Coinbase
 {
-    public class CoinbaseProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider
+    public class CoinbaseProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, ITradeStreamProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -212,6 +212,94 @@ namespace AccessibleTrader.Plugins.Coinbase
                 .OnDisconnected(() => _connectionStateStream.OnNext(ConnectionState.Disconnected));
 
             await _ws.ConnectAsync();
+        }
+
+        /// <summary>
+        /// Every trade on the product with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>). Its own socket on the public market_trades
+        /// channel, with heartbeats so a quiet product's socket is not closed. Coinbase numbers
+        /// every message on a socket: a gap means one was lost, so the stream counts as dropped
+        /// and up again, and the bar it fell in is not counted.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            var productId = ToProductId(symbol);
+            string Subscribe(string channel) => new JObject
+            {
+                ["type"] = "subscribe",
+                ["product_ids"] = new JArray { productId },
+                ["channel"] = channel,
+            }.ToString(Newtonsoft.Json.Formatting.None);
+            long lastSeq = -1;
+            var ws = new ReconnectingWebSocket("wss://advanced-trade-ws.coinbase.com", heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Coinbase trade stream ({productId}): {err}"));
+            ws.OnConnected(async w =>
+                {
+                    Interlocked.Exchange(ref lastSeq, -1);   // numbering starts again on a new socket
+                    await w.SendAsync(Subscribe("market_trades"));
+                    await w.SendAsync(Subscribe("heartbeats"));
+                    onCounting(true);
+                })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg =>
+                {
+                    var (seq, trades) = ReadPublicTrades(msg, productId);
+                    if (SequenceGap(ref lastSeq, seq)) { onCounting(false); onCounting(true); }
+                    foreach (var t in trades) onTrade(t);
+                });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        /// <summary>True when <paramref name="seq"/> does not follow the last one seen on this
+        /// socket, so a message was lost. -1 (no number) is not a gap; <paramref name="last"/> is
+        /// -1 until the first numbered message.</summary>
+        internal static bool SequenceGap(ref long last, long seq)
+        {
+            if (seq < 0) return false;
+            long before = Interlocked.Exchange(ref last, seq);
+            return before >= 0 && seq != before + 1;
+        }
+
+        /// <summary>
+        /// A message's sequence number (-1 if it has none) and its new trades on this product.
+        /// The 100 trades sent on subscribing (the snapshot) are skipped. Coinbase's <c>side</c>
+        /// is the MAKER's, so it is turned round: checked live 2026-11-23, a trade labelled BUY
+        /// printed at the bid (a seller took it) 63 times to 13, and the same trade ids carry the
+        /// same side on Coinbase Exchange's trades, which documents its side as the maker order's
+        /// (21 of 21).
+        /// </summary>
+        internal static (long Sequence, List<PublicTrade> Trades) ReadPublicTrades(string msg, string productId)
+        {
+            var trades = new List<PublicTrade>();
+            long seq = -1;
+            try
+            {
+                // Dates left as text, as in Kraken's: parsed, they would come back in the local culture.
+                var json = Newtonsoft.Json.JsonConvert.DeserializeObject<JObject>(msg,
+                    new Newtonsoft.Json.JsonSerializerSettings { DateParseHandling = Newtonsoft.Json.DateParseHandling.None });
+                if (json == null) return (seq, trades);
+                if (json["sequence_num"] is JValue { Type: JTokenType.Integer } n) seq = n.Value<long>();
+                if (json["channel"]?.ToString() != "market_trades" || json["events"] is not JArray events) return (seq, trades);
+                foreach (var ev in events)
+                {
+                    if (ev["type"]?.ToString() != "update" || ev["trades"] is not JArray list) continue;
+                    foreach (var t in list)
+                    {
+                        if (!string.Equals(t["product_id"]?.ToString(), productId, StringComparison.OrdinalIgnoreCase)) continue;
+                        string maker = t["side"]?.ToString() ?? "";
+                        if (maker is not ("BUY" or "SELL")) continue;
+                        if (!double.TryParse(t["price"]?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double price) || price <= 0) continue;
+                        if (!double.TryParse(t["size"]?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double size) || size <= 0) continue;
+                        if (!DateTimeOffset.TryParse(t["time"]?.ToString(), CultureInfo.InvariantCulture,
+                                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var at)) continue;
+                        trades.Add(new PublicTrade(at.UtcDateTime, price, size, maker == "BUY" ? OrderSide.Sell : OrderSide.Buy));
+                    }
+                }
+            }
+            catch { /* malformed frame */ }
+            return (seq, trades);
         }
 
         private void HandleWebSocketMessage(string jsonStr)
