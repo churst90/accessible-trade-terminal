@@ -8,6 +8,13 @@
 
 ## Unreleased
 
+- **Four smart money overlays: Fair Value Gaps, Order Blocks, Liquidity (equal highs and lows, and
+  sweeps) and Premium and Discount** (Alt+A, Overlays). Each draws its zones or levels, marks and
+  sounds the bar a new one appears, and says the prices and how far they are from the close. The
+  strategy lab tested all five ideas against a plan written first and found no information in any
+  of them. In crypto, a sweep was followed by price carrying on, not reversing. So they are on the
+  chart to hear what other traders look at, but they are not offered in the strategy builder. The
+  manual has the numbers.
 - **Four new overlays: Supertrend, ZigZag, Williams Fractals and Pivot Points High/Low** (Alt+A,
   Overlays). Supertrend is a trailing line under or over price that marks and sounds each flip, and
   says "support" or "resistance". ZigZag joins the turns bigger than 5% and says the leg you are on.

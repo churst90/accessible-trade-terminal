@@ -2454,6 +2454,63 @@
         "command": "setup-grader-mc3 --priors exact --snapshots <absolute path to strategy-lab-data>",
         "implemented": true
       }
+    },
+    {
+      "id": "smart-money-concepts",
+      "title": "Smart money concepts: fair value gaps, order blocks, equal highs and lows, liquidity sweeps, premium and discount",
+      "family": "levels",
+      "claim": "Fair value gaps and order blocks act as support on the first return; equal highs draw price to them; a liquidity sweep reverses; buying discount in bullish structure beats buying premium.",
+      "evidence": "Falsified",
+      "scope": {
+        "assetClasses": [
+          "crypto",
+          "equities"
+        ],
+        "timeframe": "4h/1d",
+        "horizonBars": 20,
+        "notes": "Pre-registered in docs/archive/SMC_PREREG.md (92b43916) before any outcome. The lab graded the app's own providers (SmartMoneyProviders.cs). 7 crypto 4h files, 10 crypto 1d, 38 equities 1d. Development era before 2023, held-out 2023 on, read once for signs (dev verdicts committed first in 3535e67c). Year-block bootstrap, Holm over 5 primaries per class."
+      },
+      "effect": {
+        "measure": "R-over-isolating-control",
+        "value": 0.14,
+        "unit": "R",
+        "n": 391,
+        "p": 0.016,
+        "notes": "No information in any concept or class: 0 of 15 primaries pass Holm. The value is the closest, order blocks in crypto daily against the same break entered at depths from other blocks (Holm 0.078; held-out +0.120). Significant the other way in crypto: sweeps (L1 -0.54R 4h, -0.89R 1d, mirror p 0.0001; held-out -0.30, -0.44) and premium/discount (P1 crypto 4h -0.41R, mirror p 0.0001; held-out -0.17, and -0.20 in crypto 1d). Against random anchors gaps and blocks look strong in crypto (+0.31 to +1.31R): drift after the move, removed by the isolating control. Gap fill rates 76-83%, within about a point of random levels at the same depth.",
+        "variantsTried": 5
+      },
+      "controls": [
+        "isolating-depth-control-from-other-zones",
+        "random-anchor-same-depth",
+        "distance-binned-other-swings",
+        "random-same-direction-entries",
+        "year-block-bootstrap",
+        "holm-5-per-class",
+        "held-out-era-2023-plus"
+      ],
+      "breadth": null,
+      "firstMeasured": "2026-11-23",
+      "lastMeasured": "2026-11-23",
+      "source": "docs/archive/SMC_FINDINGS.md",
+      "correlatesWith": [
+        {
+          "id": "fibonacci-levels",
+          "note": "Same geometry: a random level is touched or filled about as often as the named one."
+        },
+        {
+          "id": "sweep-and-reclaim-entry",
+          "note": "The earlier sweep-and-reclaim of equal-high clusters, not supported; L1 here uses any swing level, a same-bar reclaim and paired random controls."
+        },
+        {
+          "id": "polarity-asset-class-fork",
+          "note": "The crypto 'other way' results (sweeps continue, premium beats discount) are crypto trending."
+        }
+      ],
+      "decay": [],
+      "reMeasure": {
+        "command": "smc --snapshots <absolute path to strategy-lab-data>",
+        "implemented": true
+      }
     }
   ]
 }

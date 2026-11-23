@@ -327,6 +327,14 @@ namespace AccessibleTrader.Tests
             "CYCLE_POSITION.Cycle Low Cancelled",
             "CYCLE_POSITION.Cycle Failed",
             "CYCLE_POSITION.Daily Timing Window",
+            // A fair value gap stays drawn until a close goes back through it, and its size is judged
+            // against the 14-bar ATR, which the first 14 bars of a chart do not have. On probe series 0
+            // a gap known at bar 30 is bar 13 of the chart that starts 17 bars later, too early to
+            // measure, and price never closes back under it: it is the newest open gap up to bar 1,115. Loading
+            // the older bars lets the chart see a gap it could not measure; no bar's answer uses a later
+            // bar (the prefix test above holds it to that). Diagnosed 2026-11-23.
+            "FAIR_VALUE_GAPS.GapUpTop",
+            "FAIR_VALUE_GAPS.GapUpBottom",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
             // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
@@ -602,6 +610,11 @@ namespace AccessibleTrader.Tests
         // causality checked either, so fixing the blanks is what made them testable.
         private static readonly string[] NotExercisedByTheseSeries =
         {
+            // Two swing lows within a tenth of an ATR with nothing under them in between: the probe
+            // series make equal highs but never equal lows. Same code as the highs, mirrored; pinned
+            // by turning the highs' bars upside down in
+            // SmartMoneyIndicatorsTests.Equal_lows_and_low_sweeps_mirror_them.
+            "LIQUIDITY.EqualLows",
             "BNVISION_FUNDING.Funding",
             "BNVISION_FUNDING.FundingExtreme",
             "BNVISION_FUNDING.FundingZScore",

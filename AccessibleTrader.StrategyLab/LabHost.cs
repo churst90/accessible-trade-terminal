@@ -127,6 +127,10 @@ public sealed class LabHost
         services.AddSingleton<IIndicatorProvider, ZigZagProvider>();
         services.AddSingleton<IIndicatorProvider, WilliamsFractalsProvider>();
         services.AddSingleton<IIndicatorProvider, PivotPointsHighLowProvider>();
+        services.AddSingleton<IIndicatorProvider, FairValueGapsProvider>();
+        services.AddSingleton<IIndicatorProvider, OrderBlocksProvider>();
+        services.AddSingleton<IIndicatorProvider, LiquidityProvider>();
+        services.AddSingleton<IIndicatorProvider, PremiumDiscountProvider>();
         services.AddSingleton<IIndicatorProvider, DbsiStyleProvider>();
         services.AddSingleton<IIndicatorProvider, BtcStrengthProvider>();
         services.AddSingleton<IIndicatorProvider, BinanceVisionFundingProvider>();

@@ -354,6 +354,10 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, ZigZagProvider>();
             services.AddScoped<IIndicatorProvider, WilliamsFractalsProvider>();
             services.AddScoped<IIndicatorProvider, PivotPointsHighLowProvider>();
+            services.AddScoped<IIndicatorProvider, FairValueGapsProvider>();
+            services.AddScoped<IIndicatorProvider, OrderBlocksProvider>();
+            services.AddScoped<IIndicatorProvider, LiquidityProvider>();
+            services.AddScoped<IIndicatorProvider, PremiumDiscountProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 

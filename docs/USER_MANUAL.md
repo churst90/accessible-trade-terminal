@@ -2930,6 +2930,57 @@ also has a *Last high* and *Last low* level, left out by default (include them u
 Appearance, Parts). Those take the price only from the bar that confirmed it, so they are safe
 to trade against: a close above the last fractal high is Williams' own breakout signal.
 
+### Smart money concepts: fair value gaps, order blocks, liquidity, premium and discount
+
+Four overlays for the ideas smart money concepts (SMC) traders talk about, each under Overlays in
+Alt+A. They use the same swings as each other: a high above the 5 bars on each side (change *Swing
+Bars Each Side* to widen it), known only 5 bars later.
+
+**Fair Value Gaps** marks a three-candle gap: the third bar's low above the first bar's high (a
+**gap up**) or its high below the first bar's low (a **gap down**). A gap smaller than a tenth of
+the ATR is left out (*Minimum Gap (ATR)*). A **green square** under the third bar marks a new gap
+up and a **red square** over it a gap down, each with its own tone. The newest open gap of each kind
+is drawn as a shaded band from the bar that made it until a close goes back through it. Arrowing
+over the band says *"Open gap up, 101.00 to 104.00."* The detail says whether a gap opened on that
+bar and where the open gaps are, with how far each is from the close.
+
+**Order Blocks** waits for a close above the last swing high, then marks the last down candle in
+the 10 bars before it as a **bullish order block**, drawn from its low to its high until a close
+goes under it. A close below the last swing low marks the last up candle as a **bearish** block.
+Each swing breaks once. An **up-triangle** marks the bar that made a bullish block, a
+**down-triangle** a bearish one: *"New bullish order block, top 102.00."*
+
+**Liquidity: Equal Highs and Lows, Sweeps** draws **equal highs**: two swing highs within a tenth
+of an ATR of each other (*Equal Within (ATR)*) with no bar above them in between. The line is at the higher of the two,
+from the bar the second one is known until a bar trades above it. Equal lows mirror them. When a bar
+trades through a swing high and **closes back under it**, that is a **sweep**, marked with a cross
+over the bar: *"Swept the high 110.10, closed back below."* A bar that closes above the high it
+took is a breakout and is not marked. Each level is taken once. One bar that takes two highs is one
+sweep, at the higher.
+
+**Premium and Discount** draws the dealing range from the last swing low to the last swing high,
+with the **equilibrium** halfway. The top half is shaded red (**premium**) and the bottom half green
+(**discount**). A **diamond** marks the bar the close moves into either half. Arrowing over the
+middle line says *"Equilibrium 105.00, price in premium."*, and the detail says how far up the range
+the close is and which way the last break of structure went: *"Premium and discount: moved into
+discount, 20% of the way up; range 100.00 to 110.00, equilibrium 105.00."*
+
+**What the lab found: no information in any of them.** Each idea was tested against a plan written
+before any result (`docs/archive/SMC_PREREG.md`): Bitcoin and nine other coins on 4-hour and daily
+bars, and 38 US stocks and ETFs on daily bars, 20 bars ahead (`docs/archive/SMC_FINDINGS.md`).
+- **Gaps and order blocks** did no better as support than the same pullback to a level that was
+  not a gap or a block.
+- **"Gaps get filled"** is true, 76 to 83% of the time, but a level at the same depth under any bar
+  fills about as often.
+- **Equal highs** were taken no more often than any other swing high the same distance away.
+- **Sweeps did not reverse in crypto. Price carried on the way it poked.** Shorting a swept high
+  lost against random entries on both timeframes, and again in 2023 to 2025.
+- **Discount was not better than premium.** In bullish crypto structure, premium did better.
+
+Crypto trends. So the four stay on the chart, drawn and spoken, because traders talk about them,
+but none of their parts is offered in the strategy builder, and the builder says why if a saved
+strategy names one.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double

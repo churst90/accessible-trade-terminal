@@ -50,6 +50,21 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// indistinguishable from a market that never got there. Listed here, the reason reaches
         /// <see cref="RefusalReason"/> and the evaluator says it (ConditionEvaluator.Resolve).
         /// </summary>
+        /// <summary>
+        /// Indicators drawn and spoken on the chart but withheld from strategies because the lab
+        /// graded them against a plan written before the look and found no information in them.
+        /// Keyed by indicator code; every component is refused with the reason.
+        /// </summary>
+        internal static readonly IReadOnlyDictionary<string, string> NoInformation = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            // 2026-11-23, docs/archive/SMC_FINDINGS.md: none of the five smart money concepts passed
+            // in any of crypto 4h, crypto daily or equities daily (prereg section 7).
+            ["FAIR_VALUE_GAPS"] = "the strategy lab found no information in fair value gaps (docs/archive/SMC_FINDINGS.md), so they are drawn and spoken but not offered to trade on",
+            ["ORDER_BLOCKS"] = "the strategy lab found no information in order blocks (docs/archive/SMC_FINDINGS.md), so they are drawn and spoken but not offered to trade on",
+            ["LIQUIDITY"] = "the strategy lab found no information in equal highs and lows or liquidity sweeps (docs/archive/SMC_FINDINGS.md), so they are drawn and spoken but not offered to trade on",
+            ["PREMIUM_DISCOUNT"] = "the strategy lab found no information in premium and discount zones (docs/archive/SMC_FINDINGS.md), so they are drawn and spoken but not offered to trade on",
+        };
+
         internal static readonly IReadOnlyDictionary<string, string> Retired = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
             // Cody's 2026-10-17 report: hidden stops that said ±53, which the levels already say.
@@ -189,7 +204,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                         // a more basic refusal than "this component reads the future", and saying
                         // the causal thing about a leaf that is permanently NaN would be beside
                         // the point.
-                        string? why = notComputable ?? CausalityContract.RefusalReason(ind, comp);
+                        string? why = notComputable ?? CausalityContract.RefusalReason(ind, comp)
+                            ?? (NoInformation.TryGetValue(ind.Code, out var none) ? none : null);
                         if (why == null)
                         {
                             list.Add(descriptor);

@@ -51,6 +51,9 @@
          slot routing directly without introducing a public surface that production
          callers shouldn't use. -->
     <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+    <!-- The strategy lab grades the smart money concepts with the chart's own rules (SmcMath),
+         not a copy of them: docs/archive/SMC_PREREG.md. -->
+    <InternalsVisibleTo Include="StrategyLab" />
   </ItemGroup>
 
 </Project>

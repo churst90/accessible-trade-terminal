@@ -82,6 +82,12 @@ components". Caveats for these are in CHANGES (2.15.0).
   "Supertrend up, support ..." and ping at each flip; ZigZag should say the leg ("falling leg, ...
   down 6.2%") and "still moving, not confirmed" on the last one; the fractal and pivot marks should
   say their price. Do the tones sit apart from Market Structure's on the same chart?
+- [ ] **Smart money overlays** (2026-11-23, not in 2.15.0): add Fair Value Gaps, Order Blocks,
+  Liquidity and Premium and Discount from Alt+A, Overlays, on BTC 4h. Arrowing over a gap band
+  should say "Open gap up, ... to ...", and a new gap should ping on its third bar. A sweep should
+  say "Swept the high ..., closed back below". Premium and Discount's middle line should say
+  "Equilibrium ..., price in premium". Six marker tones on one chart: can you tell them apart?
+  In the strategy builder, none of them should be offered.
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -214,11 +220,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
   against TradingView's built-ins, in the order proposed (most useful read aloud first):
   1. ~~**Supertrend**, **ZigZag**, **Williams Fractals**, **Pivot Points High/Low**~~: **built
      2026-11-22** (see CHANGES); not heard, not in the demo allow-list yet.
-  2. **Smart money concepts, the parts we lack**: order blocks, fair value gaps (imbalances), equal
-     highs/lows as liquidity, liquidity sweeps, premium/discount zones. Market Structure already has
-     Break of Structure and Change of Character. Value: an objective, spoken list of zones; not an
-     edge on its own (the Cipher schools tested as "No edge" alone; SMC should be graded the same way
-     in the lab before any claim).
+  2. ~~**Smart money concepts**: fair value gaps, order blocks, equal highs/lows, liquidity sweeps,
+     premium/discount~~: **built and graded 2026-11-23** (see CHANGES, `docs/archive/SMC_FINDINGS.md`).
+     No information in any of the five concepts or three classes. In crypto, sweeps were followed by
+     continuation and premium beat discount. On the chart, withheld from the strategy builder; not
+     heard.
   3. **Volume and order-flow**: Volume Delta / CVD (needs trade-side data, which MEXC's deals stream
      has), Klinger, Price Volume Trend, Net Volume, Relative Volume at Time.
   4. **Trend/oscillators**: Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Linear Regression

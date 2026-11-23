@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: smart money concepts on the chart, and the lab's verdict on them
+
+Cody, 2026-11-22: "SMC: test and report on the value provided", and 11-23: "proceed with the smc
+testing and the rest of the indicators in group 2". Group 2 of the six in TODO.
+
+**Not duplicates, checked first.** Nothing drew fair value gaps, order blocks, equal levels or a
+dealing range. Market Structure (`SWING_STRUCTURE`, break of structure and change of character)
+stays as it is, and the lab's `SweepReclaimCommand` tested equal-high clusters, not single swings.
+
+**The plan came first.** `docs/archive/SMC_PREREG.md` (92b43916) was committed before any outcome
+was computed, the development-era verdicts (3535e67c) before the held-out era was read, and the lab
+grades the providers' own output (`SmcMath`, visible to the lab through `InternalsVisibleTo
+StrategyLab`), not a second copy.
+
+Four providers in `SmartMoneyProviders.cs`, registered on the desktop, the web host and the lab. All
+are causal and recalculate on every tick:
+- **Fair Value Gaps** (`FAIR_VALUE_GAPS`): a three-candle gap of at least 0.1 ATR, the newest open
+  one of each kind shaded until a close goes back through it, with a square and a tone at the bar
+  that makes it.
+- **Order Blocks** (`ORDER_BLOCKS`): the last opposite candle in the 10 bars before a close through
+  the last swing; each swing breaks once.
+- **Liquidity: Equal Highs and Lows, Sweeps** (`LIQUIDITY`): equal levels within 0.1 ATR with
+  nothing through them in between, drawn until taken. A sweep is the first bar through a swing
+  level that closes back inside, and a breakout is not marked.
+- **Premium and Discount** (`PREMIUM_DISCOUNT`): the range from the last swing low to the last swing
+  high, both halves shaded. A diamond marks the bar the close enters a half. That is also its
+  narration route, since step-line levels do not narrate.
+
+Each part speaks its prices and the distance from the close, and each detail says what happened on
+that bar.
+
+**The verdict** (`docs/archive/SMC_FINDINGS.md`, `StrategyLab smc`): **no information** in any of the
+five concepts in crypto 4h, crypto daily or equities daily. 0 of 15 primaries pass Holm; the closest
+was order blocks in crypto daily (p 0.016, Holm 0.078). Sweeps (both crypto classes) and premium
+versus discount (crypto 4h) are significant the other way, and kept the sign in 2023 to 2025: price
+carried on the way it poked. Ledger row 35 and an edge record (`smart-money-concepts`). Per the plan,
+the indicators stay on the chart and **`SignalCatalog.NoInformation` withholds every part of them
+from the strategy builder** with the reason.
+
+20 tests in `SmartMoneyIndicatorsTests` (the suite is 12938, with the four in every per-indicator guard). 29 sabotages, all red: the gap floor, the gap edges, the
+mark bar, the down mirror, the mitigation edge, never mitigating (each side), a swing breaking
+twice, the oldest candle or the wrong colour for a block, a swing known at its own bar, no check
+between equal highs, no tolerance, the lower of the two, the level ending a bar early or never,
+every take a sweep, a level taken twice, the low mirror, premium and discount swapped, a range from
+one swing, the structure dropped, a premium mark on every bar, the detail's opened line, the
+distance sign, the range percent, the desktop registration, and the catalog offering them.
+
+Two guard exemptions, each with the measured reason. Fair value gaps' top and bottom are in
+`NotStableWhenHistoryIsPrepended`: a gap from bar 28 of probe series 0 cannot be measured on the
+chart that starts 17 bars later (no ATR yet) and price never closes under it, so it is the newest
+open gap up to bar 1,115. `LIQUIDITY.EqualLows` is in `NotExercisedByTheseSeries`: the probe
+series make no equal lows; the mirror test pins them.
+
+**Caveats:** not heard by Cody. One reading of how SMC is taught (5-bar swings, 0.1 ATR floors, the
+10-bar block search); other scripts draw them differently, and no variant was tried. Overlapping
+events make the p-values optimistic, which runs against a finding that was not made. Not on the VPS
+(ships with the next release).
+
 ### 2026-11-23: the braille chart turns over with the price pane
 
 Cody, asked whether the braille chart should turn over with `I`: "Yes, the braille chart should also

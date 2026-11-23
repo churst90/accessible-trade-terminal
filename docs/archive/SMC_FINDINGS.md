@@ -115,12 +115,34 @@ Section 5's "worth trading" is not reached, because no concept has information.
 
 ## 3. Held-out era (2023-01-01 on, signs only)
 
-To be read once, after the commit that holds section 2.
+Read once, after 3535e67c (section 2) was committed. The command prints only the sign and the
+size, no p-value. Nothing passed in development, so no class had a sign to confirm. These are
+reported because the plan says so (section 6).
+
+| test | crypto 4h | crypto 1d | equities 1d |
+|---|---|---|---|
+| F1 gap is support | −0.007 (n 7,422) | −0.012 (1,575) | −0.019 (8,426) |
+| O1 block is support | −0.004 (1,768) | +0.120 (424) | +0.041 (1,191) |
+| E1 equal highs draw price | +0.033 (232) | +0.088 (52) | +0.002 (152) |
+| L1 a sweep reverses | **−0.302** (2,607) | **−0.441** (647) | +0.144 (1,439) |
+| P1 discount in bull structure | **−0.168** (34,367) | **−0.205** (8,216) | −0.160 (18,979) |
+
+The event arms after costs: F1 net −0.114 / +0.090 / −0.196 R; O1 −0.050 / −0.234 / −0.251 R;
+L1 −0.460 / −0.493 / −0.180 R; P1 −0.146 / −0.463 / −0.238 R. Crypto daily's dev-era +0.55 R on gaps
+and +0.38 R on blocks fell to +0.09 and −0.23. That fits drift: 2014 to 2022 was a long crypto bull
+market, and the last three years were not.
+
+Secondaries, held-out: F2 +0.004 / −0.018 / +0.005 (fill rates 80.6%, 77.8%, 81.8%); L2 +0.093 /
++0.358 / −0.110; P2 −0.225 / −0.208 / −0.036. Random anchors: F1 +0.116 / +0.311 / −0.123; O1 +0.253
+/ +0.209 / −0.209. As before, positive in crypto and negative in equities.
+
+**The verdicts stand: no information for all five.** The crypto L1 and P1 signs match the
+development era's "other way" results in both crypto classes.
 
 ## 4. What the crypto reversals are and are not
 
-The two "other way" results were not the pre-registered claim. They are leads, not findings. Both
-say the same thing as the polarity finding (ALPHA_LEDGER #3: crypto trends, equities revert):
+The two "other way" results were not the pre-registered claim. They are leads, not findings, even
+though both kept their sign in the held-out era (section 3). Both say the same thing as the polarity finding (ALPHA_LEDGER #3: crypto trends, equities revert):
 - **Sweeps:** after a crypto bar trades through a swing high and closes back under it, price over the
   next 20 bars went **up** more than at random bars. Shorting the sweep lost 0.5 to 0.7 R a trade
   before costs. L2 says breakouts kept going even harder, so the sweep is the milder continuation,
