@@ -96,7 +96,11 @@ at once and put back by Cancel like the other live previews there.
   the readouts use (`SpeechTimeFormatter.ToBarDisplay`): the user's clock, or UTC when times are set to
   UTC. A line at UTC midnight would stand six bars from the axis's new date on a Chicago hourly chart.
 - No line on a daily-or-coarser chart (every bar is its own day). A gap of several days (a weekend)
-  is one line, at the first bar after it.
+  is one line, at the first bar after it. "Daily" is `SpeechTimeFormatter.IsDaily`, the one place
+  the threshold lives: the first version wrote `>= 86400` out itself, which
+  `DailyBarThresholdLivesInOnePlaceTests` exists to catch, and it would have failed CI. Found
+  before any push, while running another sabotage; every repo-scanning test class (83 classes, 769
+  tests) was then run and passes.
 - `ChartRenderer.Render` takes `daySeparators`; `ChartFrameRenderer` reads `IAppSettings.ShowDaySeparators`
   each frame (key `appearance.showDaySeparators`). In the settings search as "day separator", "session
   break", "midnight".

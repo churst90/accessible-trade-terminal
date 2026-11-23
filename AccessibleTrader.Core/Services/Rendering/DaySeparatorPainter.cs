@@ -32,7 +32,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         internal static List<int> Boundaries(IReadOnlyList<Ohlcv> bars, int barSeconds, Func<DateTime, DateTime> shown)
         {
             var starts = new List<int>();
-            if (bars.Count < 2 || barSeconds <= 0 || barSeconds >= 86400) return starts;
+            if (bars.Count < 2 || barSeconds <= 0 || Accessibility.SpeechTimeFormatter.IsDaily(barSeconds)) return starts;
             DateTime previous = shown(bars[0].Date).Date;
             for (int i = 1; i < bars.Count; i++)
             {
