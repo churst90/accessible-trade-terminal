@@ -164,6 +164,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var stateGraphicTrigger = _store.StateStream
                 .Select(s => (s.FocusedSeriesIndex, s.FocusedSeriesId, s.FocusedComponentIndex,
                               s.ViewportStartIndex, s.ViewportLength,
+                              // I turns the price pane over, so the pins turn over with it.
+                              s.IsPriceInverted,
                               // Visibility key — projects a string snapshot of every
                               // series + component IsVisible flag so 'h' (ToggleHideAction)
                               // triggers a redraw. We deliberately don't watch
@@ -504,7 +506,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 // No focusable series at all — render candles full canvas as a fallback.
                 DotPadDiagnostics.Log("BuildCanvas: empty tactile cycle, falling back to OHLC.");
-                return BuildOhlcCanvas(state.Data, state, cols, rows);
+                var candles = BuildOhlcCanvas(state.Data, state, cols, rows);
+                return state.IsPriceInverted ? FlipRows(candles) : candles;
             }
 
             int focusedIdx = FindTactileFocusIndex(cycle, state);
@@ -559,6 +562,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Used internally by <see cref="BuildCanvas"/> for both panes.
         /// </summary>
         internal static bool[,] BuildSeriesCanvas(
+            ChartSeries series, ComponentConfig? focusedComponent,
+            WorkspaceState state, int cols, int rows)
+        {
+            var canvas = BuildUprightSeriesCanvas(series, focusedComponent, state, cols, rows);
+            // Upside down the way the screen is (the I key): the price pane and what is drawn in it
+            // (the candles, overlays such as Supertrend), never an indicator pane. Turning the whole
+            // raster over is the screen's flip: the high sits lowest and the wicks change ends.
+            bool priceArea = series.Id == state.PrimarySeriesId || ChartMath.IsInvertedFor(state, series.Pane);
+            return state.IsPriceInverted && priceArea ? FlipRows(canvas) : canvas;
+        }
+
+        private static bool[,] FlipRows(bool[,] canvas)
+        {
+            int cols = canvas.GetLength(0), rows = canvas.GetLength(1);
+            var flipped = new bool[cols, rows];
+            for (int x = 0; x < cols; x++)
+                for (int y = 0; y < rows; y++)
+                    flipped[x, rows - 1 - y] = canvas[x, y];
+            return flipped;
+        }
+
+        private static bool[,] BuildUprightSeriesCanvas(
             ChartSeries series, ComponentConfig? focusedComponent,
             WorkspaceState state, int cols, int rows)
         {

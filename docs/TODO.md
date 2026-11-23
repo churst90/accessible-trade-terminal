@@ -75,7 +75,8 @@ components". Caveats for these are in CHANGES (2.15.0).
   words still say the real prices and "up". An RSI pane below should sound as before. `I` again says
   "Price pane upright". Ctrl+Alt+Shift+Y (the chart layout) names it; switch tabs and back, it stays per tab; save and reopen
   the workspace, it comes back. A line or alert placed with the mouse on the inverted pane should
-  land on the price you clicked.
+  land on the price you clicked. If a Dot Pad is ever connected, `I` should turn the candles over on the pins
+  (the top half when candles are focused) and leave an indicator pane's half as it was.
 - [ ] **Supertrend, ZigZag, Williams Fractals, Pivot Points High/Low** (2026-11-22, not in 2.15.0):
   add each from Alt+A, Overlays, on your BTC 4h chart and arrow along it. Supertrend should say
   "Supertrend up, support ..." and ping at each flip; ZigZag should say the leg ("falling leg, ...
@@ -202,10 +203,10 @@ needed: "don't worry about the custom scripts on the hosted vps".
   like your additions"); the design file says so. Stage 0 (chart notes, an Account tab in Settings
   that explains itself) is useful on its own. Not started.
 - [x] **Invert chart on `I`**: built 2026-11-22, see CHANGES and "To hear". Left out on purpose:
-  the braille/tactile chart and the picture the AI analyst is sent stay upright (both are read as
-  the market, not as the screen); templates do not carry it (it is a way of looking at one tab, not a
-  layout); the status line does not name it (it does not name log scale either). **Q for Cody:**
-  should the braille chart turn over too?
+  the picture the AI analyst is sent stays upright (it is read as the market, not as the screen);
+  templates do not carry it (it is a way of looking at one tab, not a
+  layout); the status line does not name it (it does not name log scale either). The braille chart turns over
+  too (Cody 2026-11-23: "Yes, the braille chart should also invert"), built the same day.
 - [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
   and make it super robust"; then "work through these, adding all of the ones you listed to the
   inventory that are missing", and for SMC "test and report on the value provided"). Each group is

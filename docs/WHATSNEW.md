@@ -16,7 +16,7 @@
 - **Turn the price pane upside down with I** (or `INVERT` in the Go bar), to check a bias. The pitch
   turns over with the picture, so a rising market falls in pitch while it is inverted; the words,
   prices and colours stay the market's, and indicator panes stay upright. Each tab keeps its own
-  setting; drawings and alerts keep real prices.
+  setting; drawings and alerts keep real prices. A braille graphics display turns over with it.
 - **An alert fires on the chart you set it on, and nowhere else.** With several tabs of the same
   coin on different timeframes, a price alert set on the 4-hour chart was checked on every tab, and
   a daily or monthly candle spanning the price made it fire again and again. Now it belongs to its

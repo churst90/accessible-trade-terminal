@@ -1035,7 +1035,12 @@ Pressing I says *"Price pane inverted. Higher prices are drawn lower and sound l
 directions are read as they are."* or *"Price pane upright."* The chart layout (Ctrl+Alt+Shift+Y)
 adds *"Inverted: 100,000 at the bottom, 90,000 at the top; the pitch is turned over with it."* Each
 tab keeps its own setting, and it is saved with the workspace. Chart templates do not carry it,
-and the braille chart and the picture sent to the AI analyst stay upright.
+and the picture sent to the AI analyst stays upright.
+
+A braille graphics display (the Dot Pad) turns over with the screen: the price pane and anything
+drawn in it, such as Supertrend, are upside down on the pins, so the highest bar's pins reach the
+bottom row, while an indicator pane on the other half of the display stays upright. Pressing I sends
+the new picture to the pins straight away.
 
 ### Heikin-Ashi, and what stays raw
 

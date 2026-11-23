@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: the braille chart turns over with the price pane
+
+Cody, asked whether the braille chart should turn over with `I`: "Yes, the braille chart should also
+invert." `TactileCanvasCoordinator.BuildSeriesCanvas` now flips the rows of the price pane's half of
+the display, and of an overlay drawn in the price pane (`ChartMath.IsInvertedFor`, the screen's own
+test), when the tab is inverted; an indicator pane's half stays upright. Flipping the whole raster is
+the screen's flip: the highest bar sits lowest and the wicks change ends. The candles-only fallback
+(nothing else on the chart) flips too. `IsPriceInverted` joined the keys that redraw the pins, so `I`
+sends a frame at once instead of on the next arrow.
+
+4 tests in `DotpadTactileDriverTests` (the suite is 12898): the candles mirror pin for pin with the
+highest bar reaching the bottom row; an overlay turns over and an RSI pane does not (with a check the
+probe is not symmetric); the fallback turns over; pressing `I` sends a new frame equal to the turned
+canvas (the fake driver now records frames and can report connected). 6 sabotages, all red: no flip,
+flip every pane, overlays left upright, fallback left upright, `I` not a redraw key, a flip one row
+off. **Caveats:** not felt on a Dot Pad (Cody has none here; the frame is checked, not the pins); the
+picture sent to the AI analyst still stays upright; not on the VPS (ships with the next release).
+
 ### 2026-11-22: Supertrend, ZigZag, Williams Fractals and Pivot Points High/Low
 
 Cody, 2026-11-22, on the indicator library: "work through these, adding all of the ones you listed

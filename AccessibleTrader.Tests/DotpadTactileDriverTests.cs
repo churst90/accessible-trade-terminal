@@ -751,20 +751,151 @@ namespace AccessibleTrader.Tests
             Assert.Equal("90", lower90);
         }
 
+        // ── Inverted price pane (I) ────────────────────────────────────────────
+
+        private static WorkspaceState RisingCandles(bool inverted, params ChartSeries[] extra)
+        {
+            var t0 = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var bars = Enumerable.Range(0, 5)
+                .Select(i => new Ohlcv(t0.AddMinutes(i), 100 + 10 * i, 106 + 10 * i, 98 + 10 * i, 104 + 10 * i, 1))
+                .ToArray();
+            var candles = new ChartSeries(
+                new SeriesConfig { Id = "candles", Name = "candles", FriendlyName = "Candles" },
+                new SeriesDataBuffer { SeriesId = "candles" });
+            return WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(bars),
+                ActiveSeries = ImmutableList.Create(candles).AddRange(extra),
+                FocusedSeriesId = "candles",
+                PrimarySeriesId = "candles",
+                ViewportStartIndex = 0,
+                ViewportLength = 5,
+                ViewportRange = (98, 146),
+                IsPriceInverted = inverted,
+            };
+        }
+
+        private static int TopPin(bool[,] canvas, int col)
+        {
+            for (int y = 0; y < canvas.GetLength(1); y++) if (canvas[col, y]) return y;
+            return -1;
+        }
+
+        private static ChartSeries LineSeries(string id, string pane, params double[] values)
+        {
+            var line = new ComponentConfig { Name = "line", DisplayName = id, DisplayType = ComponentDisplayType.Line, IsVisible = true };
+            return new ChartSeries(
+                new SeriesConfig { Id = id, Name = id, FriendlyName = id, Pane = pane, Components = { line } },
+                new SeriesDataBuffer { SeriesId = id, ComponentData = { ["line"] = values } });
+        }
+
+        [Fact]
+        public void Inverted_candles_turn_over_on_the_pins_the_highest_bar_sits_lowest()
+        {
+            var upright = TactileCanvasCoordinator.BuildSeriesCanvas(RisingCandles(false).ActiveSeries[0], null, RisingCandles(false), 30, 20);
+            var turned = TactileCanvasCoordinator.BuildSeriesCanvas(RisingCandles(true).ActiveSeries[0], null, RisingCandles(true), 30, 20);
+
+            // Upright, the rising last bar's top pin is near the top row; turned over, its pins
+            // run down to the bottom row and the first bar's run up to the top.
+            int lastCol = Enumerable.Range(0, 30).Last(c => HasAnyPinInColumn(upright, c, 20));
+            int firstCol = Enumerable.Range(0, 30).First(c => HasAnyPinInColumn(upright, c, 20));
+            Assert.True(TopPin(upright, lastCol) <= 1, $"upright last bar tops at row {TopPin(upright, lastCol)}");
+            Assert.True(turned[lastCol, 19], "turned over, the highest bar's high is the bottom row");
+            Assert.True(turned[firstCol, 0] || turned[firstCol, 1], "turned over, the lowest bar's low is at the top");
+
+            // Exactly the screen's flip: every pin mirrored, none added or lost.
+            for (int x = 0; x < 30; x++)
+                for (int y = 0; y < 20; y++)
+                    Assert.Equal(upright[x, y], turned[x, 19 - y]);
+        }
+
+        [Fact]
+        public void Inverted_turns_over_a_price_pane_overlay_but_never_an_indicator_pane()
+        {
+            var overlay = LineSeries("supertrend", "Main", 100, 110, 120, 130, 140);
+            var rsi = LineSeries("rsi", "RSI", 10, 30, 50, 70, 90);
+            var up = RisingCandles(false, overlay, rsi);
+            var inv = RisingCandles(true, overlay, rsi);
+
+            var overlayUp = TactileCanvasCoordinator.BuildSeriesCanvas(overlay, null, up, 30, 20);
+            var overlayInv = TactileCanvasCoordinator.BuildSeriesCanvas(overlay, null, inv, 30, 20);
+            var rsiUp = TactileCanvasCoordinator.BuildSeriesCanvas(rsi, null, up, 30, 20);
+            var rsiInv = TactileCanvasCoordinator.BuildSeriesCanvas(rsi, null, inv, 30, 20);
+
+            bool overlayTurned = false;
+            for (int x = 0; x < 30; x++)
+                for (int y = 0; y < 20; y++)
+                {
+                    Assert.Equal(overlayUp[x, y], overlayInv[x, 19 - y]);
+                    Assert.Equal(rsiUp[x, y], rsiInv[x, y]);
+                    overlayTurned |= overlayUp[x, y] != overlayInv[x, y];
+                }
+            Assert.True(overlayTurned, "the overlay probe must not be symmetric, or the mirror check proves nothing");
+        }
+
+        [Fact]
+        public void Inverted_candles_turn_over_when_nothing_else_is_on_the_chart_either()
+        {
+            // No focusable series at all: BuildCanvas falls back to candles over the whole display.
+            var up = RisingCandles(false) with { ActiveSeries = ImmutableList<ChartSeries>.Empty };
+            var inv = up with { IsPriceInverted = true };
+            var a = TactileCanvasCoordinator.BuildCanvas(up, 30, 20);
+            var b = TactileCanvasCoordinator.BuildCanvas(inv, 30, 20);
+            bool differs = false;
+            for (int x = 0; x < 30; x++)
+                for (int y = 0; y < 20; y++)
+                {
+                    Assert.Equal(a[x, y], b[x, 19 - y]);
+                    differs |= a[x, y] != b[x, y];
+                }
+            Assert.True(differs, "the probe must not be symmetric");
+        }
+
+        [Fact]
+        public void Pressing_I_redraws_the_pins_without_waiting_for_the_cursor_to_move()
+        {
+            var (coord, driver, _, _, stream) = BuildCoordinator(RisingCandles(false));
+            driver.DisplayWidth = 30;
+            driver.DisplayHeight = 20;
+            driver.IsConnected = true;
+            stream.OnNext(stream.Value with { ViewportLength = 4 });
+            stream.OnNext(stream.Value with { ViewportLength = 5 });
+            Assert.True(SpinWait.SpinUntil(() => { lock (driver.Canvases) return driver.Canvases.Count > 0; }, 3000), "no first render");
+            int before;
+            lock (driver.Canvases) before = driver.Canvases.Count;
+
+            stream.OnNext(stream.Value with { IsPriceInverted = true });
+
+            Assert.True(SpinWait.SpinUntil(() => { lock (driver.Canvases) return driver.Canvases.Count > before; }, 3000),
+                "turning the price pane over must send a new frame to the pins");
+            bool[,] last;
+            lock (driver.Canvases) last = driver.Canvases[^1];
+            var expected = TactileCanvasCoordinator.BuildCanvas(stream.Value, 30, 20);
+            for (int x = 0; x < 30; x++)
+                for (int y = 0; y < 20; y++)
+                    Assert.Equal(expected[x, y], last[x, y]);
+            coord.Dispose();
+        }
+
         // ── F1-F4 function-key handlers ────────────────────────────────────────
 
         private sealed class FakeTactileDriver : ITactileDriver
         {
-            public bool IsConnected => false;
+            public bool IsConnected { get; set; }
             public string DeviceName => "fake";
-            public int DisplayWidth => 0;
-            public int DisplayHeight => 0;
+            public int DisplayWidth { get; set; }
+            public int DisplayHeight { get; set; }
+            public readonly List<bool[,]> Canvases = new();
             public int BrailleCellCount => 0;
             public event EventHandler<TactileKeyEvent>? KeyPressed;
             public event EventHandler<TactileConnectionEvent>? ConnectionChanged;
             public Task ConnectAsync() => Task.CompletedTask;
             public Task DisconnectAsync() => Task.CompletedTask;
-            public Task RenderViewportAsync(bool[,] virtualCanvas, int startX, int startY) => Task.CompletedTask;
+            public Task RenderViewportAsync(bool[,] virtualCanvas, int startX, int startY)
+            {
+                lock (Canvases) Canvases.Add(virtualCanvas);
+                return Task.CompletedTask;
+            }
             public Task RenderBrailleTextAsync(string text) => Task.CompletedTask;
             public void Raise(TactileKey key) => KeyPressed?.Invoke(this, new TactileKeyEvent(key));
             public void RaiseConnection(bool connected, string name = "fake")
