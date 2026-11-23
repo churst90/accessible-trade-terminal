@@ -88,6 +88,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   say "Swept the high ..., closed back below". Premium and Discount's middle line should say
   "Equilibrium ..., price in premium". Six marker tones on one chart: can you tell them apart?
   In the strategy builder, none of them should be offered.
+- [ ] **Volume flow indicators** (2026-11-23, not in 2.15.0): add Cumulative Volume Delta, Klinger,
+  Price Volume Trend and Relative Volume at Time from Alt+A, Volume, on BTC 1h or 4h. The delta
+  should say "Volume delta plus ..., buyers ahead" and start again at zero each day; Klinger should
+  ping when it crosses its signal; relative volume should sit near 1 most of the time and sound when
+  it crosses 2. Are four more panes too many to arrow through, or should some share one?
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -225,8 +230,12 @@ needed: "don't worry about the custom scripts on the hosted vps".
      No information in any of the five concepts or three classes. In crypto, sweeps were followed by
      continuation and premium beat discount. On the chart, withheld from the strategy builder; not
      heard.
-  3. **Volume and order-flow**: Volume Delta / CVD (needs trade-side data, which MEXC's deals stream
-     has), Klinger, Price Volume Trend, Net Volume, Relative Volume at Time.
+  3. ~~**Volume and order-flow**: Volume Delta / CVD, Klinger, Price Volume Trend, Net Volume,
+     Relative Volume at Time~~: **built 2026-11-23** (see CHANGES), except **Net Volume**. The bars
+     carry no buy/sell split, so per bar it would be the Volume pane's up/down bars again. CVD signs
+     each bar by its candle. A **true trade-side delta** from MEXC's deals stream (taker buys minus
+     sells) would exist only from when the chart was opened, with no history behind it. It is a
+     separate feature, not built. Ask Cody if he wants it.
   4. **Trend/oscillators**: Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Linear Regression
      channel and slope, Relative Vigor, SMI Ergodic, Awesome/Accelerator Oscillator, Woodies CCI,
      Bull Bear Power, Chande Kroll Stop, McGinley Dynamic, Least Squares MA,

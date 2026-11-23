@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: volume flow: cumulative volume delta, Klinger, price volume trend, relative volume at time
+
+Group 3 of the indicator library in TODO (Cody 2026-11-22: "adding all of the ones you listed to the
+inventory that are missing"; 11-23: "the rest of the indicators").
+
+**Checked for duplicates first.** None of the five existed. The volume studies already there are
+OBV, ADL, Chaikin Money Flow and its oscillator, EOM, Force Index, MFI and VWMA. **Net Volume was not
+built**: the bars carry no buy/sell split, so per bar it is each bar's volume signed by its candle.
+That is what the Volume pane has drawn, sounded and said since 2026-11-22. A true trade-side delta
+from MEXC's deals stream would have no history before the chart opened. It is filed in TODO as a
+question for Cody.
+
+Four providers in `VolumeFlowProviders.cs`, registered on the desktop, the web host and the lab.
+All are causal, and each has its own pane:
+- **Cumulative Volume Delta** (`CVD`): candle-signed volume (a doji by its close against the last
+  close), summed from each anchor period's start: Auto, Day, Week (Monday), Month, Year or None.
+  Auto reads the shortest gap among the first 20 bars: under a day anchors to the day, under a week
+  to the month, otherwise the year. A period the chart starts partway through is blank. TradingView's
+  `1D`/`1W`/`12M` spellings are read too. Columns coloured by sign, with a zero level.
+- **Klinger Oscillator** (`KLINGER`): TradingView's built-in (volume signed by the change in hlc3,
+  EMA 34 − EMA 55, signal EMA 13), not Klinger's range-weighted original that Skender's `GetKvo`
+  computes. A dot and a tone on each signal cross, and a zero level.
+- **Price Volume Trend** (`PVT`): `ta.pvt`, a running total of volume times the percentage change.
+  Its detail gives the change over 20 bars, because its level depends on where the chart starts.
+- **Relative Volume at Time** (`RELVOL_AT_TIME`): volume against the average at the same time of day
+  over the last 10 days that had a bar then. Cumulative (the day so far) or Regular (this bar). A day
+  the chart starts partway through is left out. On daily and longer charts it compares with the 10
+  bars before. Levels at 1 (silent) and 2 (a tone).
+
+29 tests in `VolumeFlowIndicatorsTests` (49 cases with the theories); the suite is now 12987. Klinger is checked against its formula
+written out longhand on three probe series, from its first bar (55) and its signal's (67). PVT joins
+OBV in two places: `NotStableWhenHistoryIsPrepended` (a running total from the first bar) and
+narration's `KnownSilent` (no threshold to cross). 31 sabotages, all red: the delta never resetting, a doji as zero or signed the wrong way, a partial
+first day counted, the week starting Sunday, Auto anchoring a 4h chart to the month, the bar step
+taken as a mean (two weekend gaps), TradingView's spellings unread, the wrong side ahead; Klinger on
+hlc2, an unchanged price counted as down, bar 0 counted, an SMA signal, a cross on every bar, the down
+cross mirrored wrong, the detail's side; PVT as OBV, over the close, the slope sign; relative volume
+with one key for every time, today in its own average, too little history accepted, the cumulative sum
+not reset, the mode ignored, a partial first day, a missing bar counted as zero, a daily bar in its own
+average, the daily window, the detail's mode; the web registration, and PVT not exempted. Three were
+green at first (the step as a mean, the unchanged price, the down mirror, which the first patch did not
+break) and two new tests or a correct patch made them red. A case counting the partial first day
+against the prepend guard was dropped: the guard compares from bar 700, so it cannot see the start.
+
+**Caveats:** not heard by Cody. The delta is the chart's own bars signed by candle, not trades;
+on a daily chart that is a whole day one way, and the manual says so. Four more panes. The lab has
+not graded any of them. Not on the VPS (ships with the next release).
+
 ### 2026-11-23: smart money concepts on the chart, and the lab's verdict on them
 
 Cody, 2026-11-22: "SMC: test and report on the value provided", and 11-23: "proceed with the smc

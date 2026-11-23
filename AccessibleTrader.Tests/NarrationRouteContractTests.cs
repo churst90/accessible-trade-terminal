@@ -127,6 +127,7 @@ public sealed class NarrationRouteContractTests
         "CANDLES", "PRICE", "VOLUME", "HEATMAP", "AVWAP",
         // Unbounded accumulators — no threshold exists to cross
         "Adl", "Atr", "ForceIndex", "Hv", "Obv", "StdDev", "UlcerIndex",
+        "PVT",   // price volume trend: OBV weighted by the percentage move, a running total with no scale
         // Comparison overlays: another symbol's price, drawn here
         "COMPARE", "COMPARE_RATIO", "BTC_STRENGTH",
         // Data surfaces with no per-bar event of their own

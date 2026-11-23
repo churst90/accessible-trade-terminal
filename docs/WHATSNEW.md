@@ -8,6 +8,12 @@
 
 ## Unreleased
 
+- **Four volume indicators: Cumulative Volume Delta, Klinger Oscillator, Price Volume Trend and
+  Relative Volume at Time** (Alt+A, Volume). Volume delta adds up buying minus selling from the start
+  of each day and says who is ahead. Klinger marks and sounds each cross of its signal line. Relative
+  volume at time compares volume with the usual for that time of day, so a busy open is not called
+  unusual. The chart's candles do not say who bought, so a bar's volume counts as buying when its
+  candle closed up. The manual says what that means on a daily chart.
 - **Four smart money overlays: Fair Value Gaps, Order Blocks, Liquidity (equal highs and lows, and
   sweeps) and Premium and Discount** (Alt+A, Overlays). Each draws its zones or levels, marks and
   sounds the bar a new one appears, and says the prices and how far they are from the close. The

@@ -280,6 +280,7 @@ namespace AccessibleTrader.Tests
             "Adl.Adl",                  // running accumulation/distribution line, unanchored by definition
             "Adl.AdlSma",               // an SMA of the above, so it inherits the offset
             "Obv.Obv",                  // running on-balance volume, same
+            "PVT.Pvt",                  // price volume trend: OBV weighted by the percentage move, same
             "Vwap.Vwap",                // volume-weighted mean from the first bar held
 
             // ── Inherent: a long recursive filter still forgetting its seed at 700 bars ──────

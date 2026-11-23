@@ -358,6 +358,10 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IIndicatorProvider, OrderBlocksProvider>();
             services.AddScoped<IIndicatorProvider, LiquidityProvider>();
             services.AddScoped<IIndicatorProvider, PremiumDiscountProvider>();
+            services.AddScoped<IIndicatorProvider, CumulativeVolumeDeltaProvider>();
+            services.AddScoped<IIndicatorProvider, KlingerOscillatorProvider>();
+            services.AddScoped<IIndicatorProvider, PriceVolumeTrendProvider>();
+            services.AddScoped<IIndicatorProvider, RelativeVolumeAtTimeProvider>();
             services.AddScoped<IIndicatorProvider, DbsiStyleProvider>();
             services.AddScoped<IIndicatorProvider, BtcStrengthProvider>();
 

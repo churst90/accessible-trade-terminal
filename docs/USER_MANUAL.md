@@ -2981,6 +2981,56 @@ Crypto trends. So the four stay on the chart, drawn and spoken, because traders 
 but none of their parts is offered in the strategy builder, and the builder says why if a saved
 strategy names one.
 
+### Volume flow: cumulative volume delta, Klinger, price volume trend and relative volume at time
+
+Four volume indicators, each under Volume in Alt+A, each in its own pane. They add to OBV, the
+accumulation distribution line, Chaikin Money Flow, Force Index, MFI and VWMA, which were already
+there.
+
+**Where "buying" and "selling" come from.** The chart's candles say how much traded, not who was the
+buyer. So these count a bar's volume as buying when its candle closed up and selling when it closed
+down. A doji takes the side of its close against the last close. That is the rule the Volume pane
+uses to draw, sound and say "up" or "down". TradingView's volume delta makes the same split on
+smaller bars inside each one. On a 1-minute chart the two are close. On a daily chart, a whole day's
+volume goes one way here. There is no **Net Volume** indicator for this reason: bar by bar, it would
+be the Volume pane again.
+
+**Cumulative Volume Delta** adds up buying minus selling from the start of each day, and starts
+again from zero the next day. It is drawn as columns, green above zero and red below. *Anchor Period*
+is Auto (the day on an intraday chart, the month on a daily one, the year on a weekly one), Day,
+Week (from Monday), Month, Year or None (from the chart's first bar). A day the chart starts partway
+through is left blank, because its total would be missing the hours before. Crossing zero plays the
+level tone. Arrowing says *"Volume delta plus 1.2 million, buyers ahead."* The detail says since when,
+and what this bar added: *"Volume delta plus 1.2 million since the day opened: buyers ahead. This bar
+minus 300,000."*
+
+**Klinger Oscillator** is TradingView's built-in: each bar's volume counted up when the typical price
+(high, low and close averaged) rose and down when it fell, then a 34-bar EMA of that minus a 55-bar
+one, with a 13-bar EMA as its signal line. Above zero, volume has been coming in on up bars. A **green
+dot** marks the bar it crosses above its signal and a **red dot** the bar it crosses below, each with
+its own tone. Crossing zero plays the level tone. Klinger's original also weights the volume by the
+bar's range; the built-in most people see does not, so neither does this one.
+
+**Price Volume Trend** is a running total like OBV, but each bar adds its volume times its percentage
+change. A 1% rise adds a tenth of what a 10% rise does, where OBV adds all of the volume for either.
+Like OBV, its level depends on where the chart starts, so the detail also says how much it rose or
+fell over the last 20 bars: *"PVT plus 48,210, up 3,105 over the last 20 bars."* Like OBV, it does not
+speak on its own.
+
+**Relative Volume at Time** compares volume with the usual for the same time of day over the last 10
+days. 2 means twice the usual for this time, and 0.5 half. Volume has a daily shape: the open and the
+close are busy and the middle is quiet. Comparing with the bars just before would call every open
+unusual. Comparing with other days at the same time does not. *Calculation Mode* Cumulative (the
+default) compares the day so far, up to and including this bar, with the usual by this time. Regular
+compares this bar alone with the same bar on other days. A day with no bar at that time is passed
+over, not counted as zero. A dashed line marks 1, the usual, and crossing 2 plays a tone. On a daily or
+longer chart there is no time of day, so it compares each bar with the average of the 10 bars before
+it. The detail says which: *"Relative volume 1.57 times the usual volume by 10:00 over the last 10
+days, counting today so far."*
+
+All four are causal: each value uses only that bar and the bars before it. The strategy builder offers
+them like any other indicator. The lab has not tested them.
+
 ### Chart formations
 
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double
@@ -3957,7 +4007,7 @@ chart in front of you.
 
 What never speaks unprompted, whatever you flag: a continuous line's value (that is what the
 tones are for), your drawings (they read when you arrow onto them), a comparison overlay, and
-the unbounded accumulators — OBV, A/D, Force Index, ATR, standard deviation — which have no
+the unbounded accumulators — OBV, A/D, price volume trend, Force Index, ATR, standard deviation — which have no
 threshold that means anything. All three chords in this chapter use three modifiers and are
 the same on every head.
 
@@ -4084,7 +4134,7 @@ Four kinds of thing stay silent however you flag them, and it is deliberate: you
 (they answer to the drawing keys and read themselves when you arrow onto them), the **candles,
 volume and the profile surfaces** (the new-bar announcement *is* the candle's narration), the
 **comparison overlays** (another symbol's price, drawn here), and the **unbounded accumulators**
-— OBV, A/D line, Force Index, standard deviation, ATR, Ulcer, historical volatility. Those last
+— OBV, A/D line, price volume trend, Force Index, standard deviation, ATR, Ulcer, historical volatility. Those last
 ones have no threshold that means anything: an ATR of 400 is enormous on one asset and noise on
 another, so there is nothing to cross and inventing a number to cross would be worse than the
 silence.
