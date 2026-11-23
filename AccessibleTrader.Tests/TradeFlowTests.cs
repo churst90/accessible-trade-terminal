@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Indicators;
+using AccessibleTrader.Plugins.Bitstamp;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
@@ -88,6 +89,37 @@ public class TradeFlowTests
     [InlineData("not json")]
     public void MEXC_futures_frames_that_are_not_trades_give_none(string frame)
         => Assert.Empty(MexcProvider.ReadFuturesDeals(frame));
+
+    // ── Bitstamp ────────────────────────────────────────────────────────────────
+
+    /// <summary>A frame as Bitstamp sent it on 2026-11-23.</summary>
+    private const string BitstampBuy = """{"data":{"id":680317230,"timestamp":"1795451539","amount":0.00081782,"amount_str":"0.00081782","price":62543.79,"price_str":"62543.79","type":0,"microtimestamp":"1795451539288000","buy_order_id":2075101448728577,"sell_order_id":2075101441953799},"channel":"live_trades_btcusd","event":"trade"}""";
+
+    [Fact]
+    public void Bitstamp_type_0_is_a_buyer_taking_and_1_a_seller()
+    {
+        Assert.True(BitstampProvider.TryReadPublicTrade(BitstampBuy, "live_trades_btcusd", out var buy));
+        Assert.Equal(new PublicTrade(DateTimeOffset.FromUnixTimeMilliseconds(1795451539288).UtcDateTime, 62543.79, 0.00081782, OrderSide.Buy), buy);
+        Assert.Equal(DateTimeKind.Utc, buy.Time.Kind);
+        Assert.True(BitstampProvider.TryReadPublicTrade(BitstampBuy.Replace("\"type\":0", "\"type\":1"), "live_trades_btcusd", out var sell));
+        Assert.Equal(OrderSide.Sell, sell.TakerSide);
+    }
+
+    [Theory]
+    [InlineData("live_trades_ethusd", "\"type\":0", "\"type\":0")]           // another book's trade
+    [InlineData("live_trades_btcusd", "\"event\":\"trade\"", "\"event\":\"bts:subscription_succeeded\"")]
+    [InlineData("live_trades_btcusd", "\"type\":0", "\"type\":2")]
+    [InlineData("live_trades_btcusd", "\"amount\":0.00081782", "\"amount\":0")]
+    [InlineData("live_trades_btcusd", "{", "[")]
+    public void Bitstamp_frames_that_are_not_this_books_trades_give_none(string channel, string from, string to)
+        => Assert.False(BitstampProvider.TryReadPublicTrade(BitstampBuy.Replace(from, to), channel, out _));
+
+    [Fact]
+    public void Bitstamp_falls_back_to_whole_seconds()
+    {
+        Assert.True(BitstampProvider.TryReadPublicTrade(BitstampBuy.Replace("\"microtimestamp\":\"1795451539288000\",", ""), "live_trades_btcusd", out var t));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1795451539).UtcDateTime, t.Time);
+    }
 
     // ── The tape ────────────────────────────────────────────────────────────────
 

@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### 2026-11-23: true buy and sell volume from the exchange's trades (MEXC first)
 
+**Bitstamp added** (the demo's crypto venue): its own socket on `live_trades_<pair>`, `type` 0 = buyer
+took, 1 = seller took, `microtimestamp` for the time. Checked live 2026-11-23: on 60 of 60 trades the
+newer order (the taker's) was on that side, and two whole minutes of buy plus sell equalled the candle's
+volume to the satoshi (0.54558938 and 5.9690261 BTC). Tests: 7 more in `TradeFlowTests` (sides, another
+book's trade, a subscription notice, an unknown type, a zero amount, junk, the whole-second fallback).
+
 Cody 2026-11-23: *"true buy sell volume if only pertaining to one exchange no. if it can be useful for
 any exchange, yes."* It can: almost every crypto venue streams its public trades with the taker's side.
 This commit builds the shared part and MEXC; the other crypto venues follow one at a time, each checked
@@ -53,10 +59,10 @@ strategy builder offering them, and each of the four places the market is stampe
 stayed green were guards that did nothing: MEXC's body-type check before a null check that already
 covers it, and clamping a bar's end to now, which no up-stretch can tell apart. Both removed.
 
-**Caveats:** not heard by Cody. MEXC only so far. No history, by the nature of the source: a bar is
+**Caveats:** not heard by Cody. MEXC and Bitstamp so far. No history, by the nature of the source: a bar is
 counted only if the chart was open from its start, so a freshly opened chart shows nothing for the first
-bar or two. The count lives in the server process: a restart starts it again. Not on the VPS (the demo's
-only live crypto venue is Bitstamp, which is not wired yet).
+bar or two. The count lives in the server process: a restart starts it again. Not on the VPS yet (ships with
+the next release; the demo's live crypto venue is Bitstamp, so the demo will have it).
 
 ### 2026-11-23: day separators
 

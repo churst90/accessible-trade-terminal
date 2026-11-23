@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Bitstamp
 {
-    public class BitstampProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider
+    public class BitstampProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, ITradeStreamProvider
     {
         private readonly HttpClient _httpClient;
         private ReconnectingWebSocket? _ws;
@@ -262,6 +262,60 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
             await ws.ConnectAsync();
             return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
+        }
+
+        /// <summary>
+        /// Every trade on the book with the side that took it, for true buy/sell volume
+        /// (<see cref="ITradeStreamProvider"/>). Its own socket on live_trades, like the keyed
+        /// feeds above; re-subscribed on every reconnect, and counting is reported on and off with it.
+        /// </summary>
+        public async Task<IAsyncDisposable> SubscribeTradesAsync(string market, string symbol,
+            Action<PublicTrade> onTrade, Action<bool> onCounting)
+        {
+            string channel = $"live_trades_{ToBitstampPair(symbol)}";
+            string subscribeMessage = new JObject
+            {
+                ["event"] = "bts:subscribe",
+                ["data"] = new JObject { ["channel"] = channel },
+            }.ToString(Newtonsoft.Json.Formatting.None);
+            var ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                .OnError(err => _errorStream.OnNext($"Bitstamp trade stream ({channel}): {err}"));
+            ws.OnConnected(async w => { await w.SendAsync(subscribeMessage); onCounting(true); })
+              .OnDisconnected(() => onCounting(false))
+              .OnMessage(msg =>
+                {
+                    if (TryReadPublicTrade(msg, channel, out var trade)) onTrade(trade);
+                });
+            await ws.ConnectAsync();
+            return ws;
+        }
+
+        /// <summary>A live_trades event as a <see cref="PublicTrade"/>. Bitstamp's <c>type</c> is
+        /// the taker's side, 0 buy and 1 sell: checked live 2026-11-23, 60 of 60 trades had the
+        /// newer order on that side.</summary>
+        internal static bool TryReadPublicTrade(string msg, string channel, out PublicTrade trade)
+        {
+            trade = default;
+            try
+            {
+                var json = JObject.Parse(msg);
+                if (json["event"]?.ToString() != "trade" || json["channel"]?.ToString() != channel) return false;
+                var d = json["data"];
+                if (d == null) return false;
+                int type = d["type"]?.Value<int>() ?? -1;
+                double price = d["price"]?.Value<double>() ?? 0, amount = d["amount"]?.Value<double>() ?? 0;
+                if (type is not (0 or 1) || price <= 0 || amount <= 0) return false;
+                // microtimestamp is microseconds; timestamp, whole seconds, if it is missing.
+                DateTime time = long.TryParse(d["microtimestamp"]?.ToString(), out long us) && us > 0
+                    ? DateTime.UnixEpoch.AddTicks(us * 10)
+                    : long.TryParse(d["timestamp"]?.ToString(), out long sec) && sec > 0
+                        ? DateTimeOffset.FromUnixTimeSeconds(sec).UtcDateTime
+                        : default;
+                if (time == default) return false;
+                trade = new PublicTrade(time, price, amount, type == 0 ? OrderSide.Buy : OrderSide.Sell);
+                return true;
+            }
+            catch { return false; }   // malformed frame
         }
 
         /// <summary>

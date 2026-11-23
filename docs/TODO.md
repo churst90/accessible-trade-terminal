@@ -101,7 +101,7 @@ components". Caveats for these are in CHANGES (2.15.0).
   Sell Volume (trades) and Volume Delta (trades) from Alt+A, Volume. The bars before you opened it are
   blank (the detail says since when); after a minute or two the new bars should say *"Buy ..., sell
   ...: buyers took N percent."* and the two should add up to the Volume pane's bar. Try MEXC futures
-  too. Is a minute's wait before the first count acceptable?
+  too, and Bitstamp BTC/USD. Is a minute's wait before the first count acceptable?
 - [ ] **Day separators** (2026-11-23, not in 2.15.0; for a sighted helper, nothing is spoken): Settings →
   Appearance → Draw day separators. On a 1-hour chart a dotted line should stand at each midnight on
   your clock, where the time axis changes date, in every pane; on a daily chart, none. Off again, gone.
@@ -266,8 +266,8 @@ needed: "don't worry about the custom scripts on the hosted vps".
      each bar by its candle. A **true trade-side delta** from MEXC's deals stream (taker buys minus
      sells) would exist only from when the chart was opened, with no history behind it. It is a
      separate feature. Cody 2026-11-23: build it only if it serves every exchange, not one.
-     **Built for MEXC 2026-11-23** (Buy and Sell Volume (trades), Volume Delta (trades); see
-     CHANGES); **next: Bitstamp (the demo's venue), Kraken, Coinbase, Gemini, Hyperliquid, Kraken
+     **Built for MEXC and Bitstamp 2026-11-23** (Buy and Sell Volume (trades), Volume Delta (trades); see
+     CHANGES); **next: Kraken, Coinbase, Gemini, Hyperliquid, Kraken
      Futures, Binance**, each checked live against its candles. Stocks and forex feeds carry no side. **Net Volume
      declined by Cody** 2026-11-23 ("no net volume or woodies cci").
   4. **Trend/oscillators**: ~~Elder-Ray, Fisher Transform, Coppock, Know Sure Thing, Relative Vigor,
