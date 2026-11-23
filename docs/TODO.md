@@ -93,6 +93,10 @@ components". Caveats for these are in CHANGES (2.15.0).
   should say "Volume delta plus ..., buyers ahead" and start again at zero each day; Klinger should
   ping when it crosses its signal; relative volume should sit near 1 most of the time and sound when
   it crosses 2. Are four more panes too many to arrow through, or should some share one?
+- [ ] **Live values at the bar close** (2026-11-23, not in 2.15.0): on a busy 1-minute chart with
+  DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
+  should read the same before and after. Your local server was 12 commits behind main; pull and
+  restart it first, or you will hear the old bug.
 - [ ] **Eight oscillators** (2026-11-23, not in 2.15.0): add Elder-Ray, Fisher, Coppock, KST, Relative
   Vigor, SMI Ergodic, Awesome and Accelerator from Alt+A, Oscillators. Elder-Ray's detail should say
   where the high and the low were against the average; Fisher should say "stretched high" past 1.5;

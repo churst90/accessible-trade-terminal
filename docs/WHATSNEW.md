@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Live indicators keep each bar's final value.** When a bar closed, its indicator values could stay
+  at an earlier tick's reading until you switched tabs, so the bar read differently afterwards. The
+  bar that closes is now worked out again on its final candle, and bars that arrive together no
+  longer leave a gap.
 - **Eight oscillators: Elder-Ray with Bull Bear Power, Fisher Transform, Coppock Curve, Know Sure
   Thing, Relative Vigor Index, SMI Ergodic, and the Awesome and Accelerator oscillators** (Alt+A,
   Oscillators). Each one is in its own pane, computed the way TradingView's built-in is. The ones

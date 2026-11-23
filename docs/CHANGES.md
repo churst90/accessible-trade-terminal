@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-23: a bar that closes keeps its final value; skipped bars are filled, not left empty
+
+Cody 2026-11-23, on DBSI: "saw the timestamps changed but not the bull/bear values, switched to the
+15 min tab, then back to 1 hour and the bar values were different/shifted so this issue was not
+addressed completely."
+
+**Two things.** First, his local server was built from a checkout at 673f4eef, 12 commits behind
+main and before the live-indicator fix (6a3a3d73, ticks cancelling each other behind the order-book
+fetch). "Timestamps move, values don't" is that bug, and that build still has it.
+
+Second, a gap the live fix left. A tick only rewrites the last bar. When the first tick of a new bar
+arrived, the bar that had just closed kept whatever its last processed tick gave it. The ticks that
+finished it were never computed: ones folded into the same pass while the last one ran, and the
+exchange's final candle. A full recompute (a tab switch) then gave that bar its real value, which
+is the "different/shifted" Cody heard. `IndicatorOrchestrator.RecalculateLastAsync` now settles the
+closed bar first: one more last-bar pass over the bars up to it, once per bar, so ticks stay cheap.
+When more than one bar arrives at once (a slow feed, a sleeping laptop), the series is now recomputed.
+The old code left the bars in between as NaN, a hole only a tab switch filled.
+
+Tests: `RecalculateLastAsync_NewBar_SettlesTheBarThatJustClosedOnItsFinalCandle` (red before the fix:
+the closed bar read 30, its last tick, not 35, its close). `SlowDataArrival_RecomputesInsteadOfLeavingAHole`
+replaces the test that pinned the NaN hole (sabotaged: skipping the recompute turns it red). Two
+tests that pinned the old closed-bar value with a constant stub now use a stub that answers per bar.
+
+**Caveats:** not heard. Proven with a stub engine, not on a live DBSI chart. The indicators that
+rewrite history on every tick (`RequiresFullRecalcOnTick`) were never affected. Not on the VPS
+(ships with the next release).
+
 ### 2026-11-23: eight oscillators: Elder-Ray with Bull Bear Power, Fisher, Coppock, KST, vigor, SMI Ergodic, awesome, accelerator
 
 Group 4 of the indicator library in TODO, first half (Cody 2026-11-22: "adding all of the ones you

@@ -347,6 +347,31 @@ namespace AccessibleTrader.Core.Services
                             parameters["__timeframe"] = curState.Identity.Timeframe;
                         IndicatorCandles.Stamp(parameters, heikinAshi);
 
+                        // A NEW BAR: settle the one that just closed first. A tick only rewrites the
+                        // last bar, so the closed bar held whatever its last processed tick gave it,
+                        // and the ticks that finished it (folded into this same pass while the last
+                        // one ran, or the exchange's final candle) were never computed. Cody
+                        // 2026-11-23: the DBSI values sat still while the timestamps moved, and a tab
+                        // switch (a full recompute) then read "different/shifted" bars. One more
+                        // last-bar pass over the bars up to the closed one, once per bar, fixes it
+                        // without making every tick a recompute.
+                        int had = buffer.ComponentData.Values.Select(a => a.Length).DefaultIfEmpty(0).Max();
+                        if (had > 0 && data.Count > had + 1)
+                        {
+                            // Bars were skipped (a slow feed, a sleeping laptop): there is no last
+                            // value to carry, only a hole that a tab switch would fill. Fill it now.
+                            await RecalculateSeriesFullAsync(s, data, ct).ConfigureAwait(false);
+                            continue;
+                        }
+                        if (had > 0 && data.Count == had + 1)
+                        {
+                            var closedBars = new ArraySegment<Ohlcv>(data.Take(had).ToArray());
+                            var settled = await _engine.CalculateIncrementalAsync(s.IndicatorCode, closedBars, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
+                            foreach (var kvp in settled)
+                                if (buffer.ComponentData.TryGetValue(kvp.Key, out var arr) && arr.Length == had)
+                                    arr[^1] = kvp.Value;
+                        }
+
                         var results = await _engine.CalculateIncrementalAsync(s.IndicatorCode, data, parameters, buffer.ComponentData, ct).ConfigureAwait(false);
 
                         foreach (var kvp in results)

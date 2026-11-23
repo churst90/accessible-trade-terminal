@@ -48,11 +48,13 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task RecalculateLastAsync_FirstTickOfNewBar_GrowsArrayAndWritesTail()
         {
-            // data.Count (4) > arr.Length (3) → grow path. The new tail lands at index 3;
-            // indices 0-2 keep their pre-tick values (copied via Array.Copy).
+            // data.Count (4) > arr.Length (3) → grow path. The new tail lands at index 3; indices
+            // 0-1 keep their values (copied via Array.Copy), and index 2, the bar that just closed,
+            // is settled by a last-bar pass over the first three bars. The stub answers 90 + the
+            // bar count it was handed, so 93 is the settling pass and 94 the new bar's.
             var original = new[] { 10.0, 20.0, 30.0 };
             var (orch, store) = Build(
-                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 });
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 90.0 + data.Count });
 
             var series = MakeIndicatorSeries("rsi", "RSI", ("rsi", original));
             var data = MakeBars(4);
@@ -64,34 +66,30 @@ namespace AccessibleTrader.Tests
             Assert.Equal(4, result.Length);
             Assert.Equal(10.0, result[0]);
             Assert.Equal(20.0, result[1]);
-            Assert.Equal(30.0, result[2]);
-            Assert.Equal(99.0, result[3]);
+            Assert.Equal(93.0, result[2]);
+            Assert.Equal(94.0, result[3]);
         }
 
         [Fact]
-        public async Task RecalculateLastAsync_SlowDataArrival_FillsSkippedBarsWithNaN()
+        public async Task RecalculateLastAsync_SlowDataArrival_RecomputesInsteadOfLeavingAHole()
         {
-            // data.Count jumped by 3 (6 bars) vs. the stored array (3 entries). The grow
-            // path still runs, but the three middle bars must land as NaN so they never
-            // fire signals — Array.Fill(newArr, NaN) before Array.Copy guarantees this.
+            // data.Count jumped by 3 (6 bars) vs. the stored array (3 entries). Until 2026-11-23
+            // the grow path wrote the new last bar and left the bars between as NaN: a hole in
+            // the indicator that only a tab switch (a full recompute) filled. Now the series is
+            // recomputed, so every bar has the value a full calculation gives it.
             var original = new[] { 1.0, 2.0, 3.0 };
-            var (orch, store) = Build(
-                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 77.0 });
+            var (orch, store, engine) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 77.0 },
+                engineFull: data => new Dictionary<string, double[]> { ["rsi"] = data.Select((b, i) => i + 1.0).ToArray() });
 
             var series = MakeIndicatorSeries("rsi", "RSI", ("rsi", original));
             var data = MakeBars(6);
 
             await orch.RecalculateLastAsync(data, new[] { series }, CancellationToken.None);
 
-            var dispatched = AssertDispatched(store, series.Id);
-            var result = dispatched.Data.ComponentData["rsi"];
-            Assert.Equal(6, result.Length);
-            Assert.Equal(1.0, result[0]);
-            Assert.Equal(2.0, result[1]);
-            Assert.Equal(3.0, result[2]);
-            Assert.True(double.IsNaN(result[3]));
-            Assert.True(double.IsNaN(result[4]));
-            Assert.Equal(77.0, result[5]);
+            Assert.Equal(1, engine.FullCalcCalls);
+            var result = AssertDispatched(store, series.Id).Data.ComponentData["rsi"];
+            Assert.Equal(new[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 }, result);
         }
 
         [Fact]
@@ -259,6 +257,7 @@ namespace AccessibleTrader.Tests
             // The control, and the reason the fix is a DATE check rather than "recalculate
             // whenever the length changed": an appended bar must still take the cheap path,
             // or every tick on every chart becomes a full recalculation of every indicator.
+            // (The bar that just closed is settled by a second last-bar pass: 99 at index 2.)
             var (orch, store, engine) = BuildWithEngine(
                 engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 },
                 engineFull: data => new Dictionary<string, double[]> { ["rsi"] = new double[data.Count] });
@@ -269,7 +268,33 @@ namespace AccessibleTrader.Tests
 
             Assert.Equal(0, engine.FullCalcCalls);
             var result = AssertDispatched(store, series.Id).Data.ComponentData["rsi"];
-            Assert.Equal(new[] { 10.0, 20.0, 30.0, 99.0 }, result);
+            Assert.Equal(new[] { 10.0, 20.0, 99.0, 99.0 }, result);
+        }
+
+        [Fact]
+        public async Task RecalculateLastAsync_NewBar_SettlesTheBarThatJustClosedOnItsFinalCandle()
+        {
+            // Cody 2026-11-23: "saw the timestamps changed but not the bull/bear values, switched to
+            // the 15 min tab, then back to 1 hour and the bar values were different". A tick only
+            // rewrites the last bar. When the first tick of a new bar arrives, the bar that just
+            // closed holds whatever its last processed tick gave it, and the ticks that finished it
+            // (folded into the same pass, or the exchange's final candle) were never seen. Here the
+            // indicator is the close itself: bar 2 was 30 at its last tick and closed at 35.
+            var (orch, store, engine) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = data[^1].Close },
+                engineFull: data => new Dictionary<string, double[]> { ["rsi"] = data.Select(b => b.Close).ToArray() });
+
+            var series = MakeIndicatorSeries("rsi", "RSI", BarTime(0), ("rsi", new[] { 10.0, 20.0, 30.0 }));
+            var bars = new List<Ohlcv>
+            {
+                new(BarTime(0), 10, 10, 10, 10, 0), new(BarTime(1), 20, 20, 20, 20, 0),
+                new(BarTime(2), 30, 35, 30, 35, 0), new(BarTime(3), 35, 40, 35, 40, 0),
+            };
+
+            await orch.RecalculateLastAsync(bars, new[] { series }, CancellationToken.None);
+
+            Assert.Equal(new[] { 10.0, 20.0, 35.0, 40.0 }, AssertDispatched(store, series.Id).Data.ComponentData["rsi"]);
+            Assert.Equal(0, engine.FullCalcCalls);   // still the cheap path: two last-bar passes, not a recompute
         }
 
         [Fact]
