@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-24: Cipher B's waves say overbought and oversold at the levels you set
+
+Cody, 2026-11-24: "i changed the ob and os levels in cipher b to 60 and 75 and -60 and -75 but it stil
+said over sold when the value was above -60". The waves' own speech (`CipherBProvider.GetWTValueSpeech`)
+compared against a fixed ±53; the lines, their sound and the bar summary already followed the settings.
+This was filed in TODO as a known caveat. Now a provider's own words can carry `{zone}`, which
+`ProviderSpeechStrategy` fills from the series' level lines as set (the same `ResolveZone` the RSI
+and Stochastic templates use), and Cipher B's waves use it: with Trigger 1/2 at ±60 and the extremes at
+±75, a wave at -57.8 says just "-57.8", and one past -60 says "oversold". Defaults unchanged (±53).
+Tests: 3 in `CipherBWaveZoneFollowsTheLevelsTests` (raised levels leave 53 to 60 unnamed; past them
+still named; the defaults still name past 53 and no "{zone}" is ever read out). Sabotaged 4 of 4 red,
+the old fixed ±53 among them. Not heard by Cody.
+
 ### 2026-11-23: indicators update on every live tick, not only on a new bar or a tab switch
 
 Cody, 2026-11-23: "the indicator values like in cipher b don't update I have to switch tabs then go

@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Cipher B follows your overbought and oversold levels.** Change Trigger 1 and 2 (or the extremes)
+  and the waves say "overbought" and "oversold" past YOUR levels. Before, they always used 53.
 - **Indicators update live.** Cipher B, the moving averages and every other indicator now follow the
   price as it ticks, up to four times a second. Before, their values on the forming bar stayed where
   they were until a new bar or a tab switch.

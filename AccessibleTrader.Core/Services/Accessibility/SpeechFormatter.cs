@@ -1103,6 +1103,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ctx.Comp.Name, ctx.Value, ctx.Pt, compDataDict, ctx.DataIndex);
             if (speech == null) return null; // decline → template chain below
 
+            // A provider's own words can carry the zone the value is in, from the series' level
+            // lines as they are set now: ", {zone}" becomes ", overbought" or goes away. Cody,
+            // 2026-11-24: "i changed the ob and os levels in cipher b to 60 and 75 and -60 and
+            // -75 but it stil said over sold when the value was above -60". Cipher B's waves
+            // compared against a fixed ±53 here, which no setting reached.
+            if (speech.Contains("{zone}", StringComparison.Ordinal))
+            {
+                string zone = StandardTemplateStrategy.ResolveZone(series, ctx.Value, ctx.Comp).ToLowerInvariant();
+                speech = zone.Length == 0
+                    ? speech.Replace(", {zone}", "").Replace("{zone}", "")
+                    : speech.Replace("{zone}", zone);
+            }
+
             // On UP/DOWN (component switch) prepend "[Name]. [Type]." so the user hears what they
             // landed on; LEFT/RIGHT scans speak value only. The hidden/muted qualifier used to be
             // built here too, as `!IsVisible ? "Hidden. " : IsMuted ? "Muted. " : ""` — an

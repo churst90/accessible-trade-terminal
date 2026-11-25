@@ -70,6 +70,8 @@ settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain r
 Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
 components". Caveats for these are in CHANGES (2.15.0).
 
+- [ ] **Cipher B levels in speech** (2026-11-24, not in 2.15.0): set Trigger 1/2 to 60/-60, arrow the fast
+  wave to a bar between -53 and -60. It should say the number alone; past -60, "oversold".
 - [ ] **Indicators update live** (2026-11-23, not in 2.15.0; restart the server on main first): leave
   a chart with Cipher B and an EMA open, arrow to the last bar of each, wait a minute while the price
   moves, arrow again. The values should have changed without switching tabs. CPU should stay calm on
@@ -398,7 +400,7 @@ shapes are in the archive (the 2026-11-21 block at its end).
 - [ ] **Cipher C** (later, Cody: yes): read the check-box marks as events in the strategy catalog. Limits:
   4-hour daily and yearly readings off; 1-hour and shorter charts unmeasured; weekly charts match the
   original's weekly lows less well than daily (.516 vs .658 F1).
-- [ ] **Cipher B**: the waves' overbought/oversold uses ±53 whatever the Triggers say; the pane's floor is
+- [ ] **Cipher B**: the pane's floor is
   −103, so Trigger 2 below −53 clips the bar; a Different Timeframe shorter than the chart falls back to
   the chart; 4-hour and daily buckets on stocks are UTC-aligned.
 - [ ] **Heikin-Ashi**: custom compiled indicators on HA candles not tried in the app; a background tab's

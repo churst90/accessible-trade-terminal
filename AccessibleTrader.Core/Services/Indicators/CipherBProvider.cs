@@ -749,14 +749,12 @@ namespace AccessibleTrader.Core.Services.Indicators
             return value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        /// <summary>The wave's value, with "overbought" / "oversold" past ±53, the pane's
-        /// Overbought / Oversold levels.</summary>
-        private static string GetWTValueSpeech(double value)
-        {
-            if (value > 53)  return $"{value:F1}, overbought";
-            if (value < -53) return $"{value:F1}, oversold";
-            return $"{value:F1}";
-        }
+        /// <summary>The wave's value, then "overbought" / "oversold" past the pane's levels as they
+        /// are set now: the formatter fills {zone} from the series' Overbought / Oversold lines
+        /// (Trigger 1 / 2 and the extremes, ±53 / ±60 by default). Until 2026-11-24 this compared
+        /// against a fixed ±53, whatever the settings said.</summary>
+        private static string GetWTValueSpeech(double value) =>
+            value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + ", {zone}";
 
         private static string GetSignalDotSpeech(Ohlcv bar, IReadOnlyDictionary<string, double[]> data, int idx)
         {
@@ -821,9 +819,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// <summary>Where the sell dot sits: the buy dot's place turned over, near the pane's top.</summary>
         internal const double SellDotY = -McbBuyDotY;
 
-        /// <summary>The default Trigger 1 / Trigger 2, ±53. The wave speech says "overbought" /
-        /// "oversold" past it whatever the settings (the speech is not handed them; see docs/TODO.md);
-        /// the bar summary reads the settings.</summary>
+        /// <summary>The default Trigger 1 / Trigger 2, ±53. The wave speech and the bar summary both
+        /// read the settings.</summary>
         private const double OverboughtLevel = 53.0;
 
         /// <summary>The money flow as Cipher B draws it: 200/3 × <see cref="McbMoneyFlowShare"/>,
