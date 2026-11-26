@@ -176,8 +176,7 @@ Open questions from Cody's seven notes (2026-11-22):
   (prepared, see the Website item; it goes out with the release). On shipping the useful strategies
   in the terminal: the catalogue was checked. One spec is control-tested (the trend baseline,
   whose own verdict is that its specific numbers carry no information), and two live ones have a
-  plain walk-forward. Shipping them would undo the 2026-08-01 policy (docs/STRATEGY_LIBRARY_POLICY.md,
-  enforced by StrategyLibraryPolicyTests), so it is put to Cody rather than built.
+  plain walk-forward. Cody 2026-11-26: don't ship them (the 2026-08-01 policy stands).
 - **Phones:** to try Android, a CI job building an APK (not built yet); for iOS, a Mac with Xcode and
   an Apple ID (a free one installs for 7 days; TestFlight needs the paid developer program). Until
   then, phones use the web version.
@@ -343,9 +342,10 @@ needed: "don't worry about the custom scripts on the hosted vps".
   remove mention from the website")**: `includes/features.php` on the server says two false things.
   Line 166, "test it on years of history in the Strategy Lab", becomes "test it on years of history
   in the Strategy Manager's Backtest tab". The table row at line 234, "Strategies and the Strategy
-  Lab" (Yes for the download), becomes "Strategies and backtesting". The manual's own "The Strategy
-  Lab" section (on the site as /docs and in llms-full.txt) already says repository only; whether
-  to cut it to a pointer is asked of Cody. Not changed on the server: website edits wait for the
+  Lab" (Yes for the download), becomes "Strategies and backtesting". The manual's "The Strategy Lab"
+  section was cut to one sentence (Cody 11-26); the site's /docs and llms-full.txt pick it up when
+  synced at the release. Cody 11-26: the catalogue's strategies are NOT shipped in the terminal.
+  Not changed on the server: website edits wait for the
   release.
 - [ ] **Website**: redo "Take the audio tour" to show the different kinds of data (Cody: later). On a
   phone the leaderboard's caption scrolls off with the table. The terminal does not listen (speech

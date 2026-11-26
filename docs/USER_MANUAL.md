@@ -5530,63 +5530,8 @@ way so the decision is never invisible.
 
 ### The Strategy Lab
 
-Everything above runs inside the terminal. The **Strategy Lab** is a separate,
-optional command-line research harness — the place where strategy ideas are tested *before*
-they earn a spot in the application. It is **not in the downloads**: it lives only in the
-project's GitHub repository, and running it means cloning the repository and installing the
-.NET SDK. Nothing in the terminal needs it. The
-division of labor is deliberate: the lab is for research, the terminal is for
-trading. Nothing you run in the lab touches your workspaces, keys, or positions, and
-nothing in the terminal depends on the lab being present.
-
-The lab also **owns the strategies**. Its catalogue holds every spec this project has
-built — thirty of them, with their bracketed research tags ([v13], [v23] and so on) —
-each carrying a record of how far it was actually tested and what the verdict was. None
-of them is installed with the application. To put one in your own library you export it
-from the lab and import the file, which is the only route in:
-
-```
-dotnet run --project AccessibleTrader.StrategyLab -- catalogue list --verbose
-dotnet run --project AccessibleTrader.StrategyLab -- catalogue export \
-    --out my-strategies.json --id builtin.long.trend-baseline
-```
-
-`catalogue list --verbose` prints each strategy with what it was tested on, which
-controls were run, and the verdict — read it before you import anything. `--status`
-narrows the list to one evidence level (`--status Falsified` is a short and instructive
-list). Exporting in bulk by `--min-evidence` deliberately refuses to include anything
-recorded as Fragile or Falsified; if you want one of those, for instance to re-test it
-yourself, you have to name it with `--id`.
-
-You do not need the lab to validate a strategy day-to-day: the Strategy Manager's
-**Backtest** tab has walk-forward first-half / last-half buttons built in, which is
-the same honesty check in point-and-speak form. Reach for the lab when you want the
-heavier machinery — testing dozens of gate combinations at once, or stress-testing
-across many rolling windows instead of one split.
-
-The lab is run from a terminal window with the .NET SDK installed, from the
-repository root. `dotnet run --project AccessibleTrader.StrategyLab -- help` lists
-every command; the ones that matter:
-
-- `snapshot` — download bar history for a symbol into `strategy-lab-data/` (the
-  lab always works from these saved snapshots, so experiments are reproducible).
-- `catalogue list` / `catalogue export` — see what the lab holds, what the evidence
-  for each spec is, and write a strategy file the terminal can import.
-- `cftc-cot` — download CFTC positioning history for named contracts.
-- `run` / `walk` — backtest one built-in strategy by its id against a snapshot;
-  `walk` splits the data in half and reports each half separately, which is the
-  minimum standard of evidence used throughout this project.
-- `battery` — run the full grid of entry/gate combinations against a snapshot and
-  report which cells survive both halves with statistical confidence.
-- `rolling-window` — the strictest test: the same battery across many overlapping
-  windows, reporting how *consistently* each cell wins, not just whether it won
-  once.
-
-A typical session: fetch a snapshot, `walk` a strategy id you are curious about,
-and read the two halves side by side. If the first half and the second half
-disagree, the lab just saved you from a strategy that only worked in one era —
-which is precisely its job. All output is plain console text, fully readable with
-a screen reader, and per-trade CSVs are written for deeper review.
+The Strategy Lab, the command-line research tool this project tests strategy ideas in, is not
+part of the terminal or the downloads; it lives only in the project's GitHub repository.
 
 ---
 

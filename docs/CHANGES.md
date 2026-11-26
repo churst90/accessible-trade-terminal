@@ -11,9 +11,12 @@ mention from the website about it." The README's feature list called it "a strat
 backtesting" as if it came with the app; it now names the terminal's own backtesting and says the
 lab is repository-only. The website's features page claims the lab is in the download (two places
 in `includes/features.php`); the replacement words are in TODO and go out with the next release,
-not before. The catalogue's strategies are not shipped in the terminal: the one control-tested
-spec's verdict is that its numbers carry no information, and shipping would reverse the
-2026-08-01 library policy, so that is Cody's call.
+not before. The manual's "The Strategy Lab" section, which explained how to clone, run and export
+from the lab, is cut to one sentence saying it lives only in the repository (Cody: "cut the manual
+to a one line mention"); the lab's own docs (LAB_DESIGN.md, STRATEGY_CATALOGUE.md) keep the detail.
+The catalogue's strategies are not shipped in the terminal (Cody: "don't ship the strategies"):
+the one control-tested spec's verdict is that its numbers carry no information, and the
+2026-08-01 library policy stands.
 
 ### 2026-11-26: Gemini's limit-only and post-only markets take the orders they allow
 
