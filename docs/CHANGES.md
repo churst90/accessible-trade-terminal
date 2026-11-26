@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid builders' markets (HIP-3) can be traded
+
+Orders, modifies, cancels and leverage on builders' markets (xyz:TSLA-PERP and the rest) are
+sent under the builder's asset id (100000 + 10000 x its number + its place). Before the first
+one, the builder's number is checked against `perpDexs`, the list Hyperliquid's own SDK numbers
+from: a builder whose place differs, or a failed read of that list, refuses its orders in words
+rather than risk trading another market. A builder margined in a coin other than USDC is refused
+too (none with a live market was, on 2026-11-26). Each builder keeps its own margin, so
+positions and open orders are read per builder (`clearinghouseState` and `frontendOpenOrders`
+with `dex`) and merged; a failed builder read fails the whole read rather than drop positions.
+A builder where the account held nothing is not asked again for a minute (an open-orders read
+weighs 20 of the 1,200 a minute), unless an order there or the stream naming one of its markets
+wakes it. On a classic account each builder's margin is its own balance row, `USDC-PERPS-XYZ`,
+priced and sized as USDC; an opening order on a builder with no margin there is refused with
+"move USDC to xyz on Hyperliquid's website first" (the terminal moves no money). A unified
+account trades builders from its spot USDC and shows no such rows. Recorded fixtures from a
+public classic account (xyz: positions and orders; para: empty) and `perpDexs`, 2026-11-26.
+Sabotage 18/18. **Not tried with a real order**; the mode "portfolio margin" on a builder was not seen.
+
 ### 2026-11-26: Hyperliquid orders expire 60 seconds after they are signed
 
 Orders and modifies now carry `expiresAfter`, 60 seconds past the nonce and inside the signature,

@@ -469,21 +469,173 @@ namespace AccessibleTrader.Tests
             Assert.Equal("xyz:TSLA", funding["coin"]!.ToString());
         }
 
+        // A classic account (userAbstraction "disabled") recorded 2026-11-26 from a public trader:
+        // xyz margin $79M with positions and orders (cut to two of each), para empty.
+        private static FakeHttpMessageHandler BuilderAccount(string mode = "disabled", string? perpDexs = null) =>
+            WithBuilders(b => (b["type"]?.ToString(), b["dex"]?.ToString()) switch
+            {
+                ("perpDexs", _) => perpDexs ?? Fixture("recorded_perpDexs.json"),
+                ("userAbstraction", _) => "\"" + mode + "\"",
+                ("clearinghouseState", "xyz") => Fixture("recorded_builder_xyz_clearinghouseState.json"),
+                ("clearinghouseState", "para") => Fixture("recorded_builder_empty_clearinghouseState.json"),
+                ("frontendOpenOrders", "xyz") => Fixture("recorded_builder_xyz_frontendOpenOrders.json"),
+                ("frontendOpenOrders", "para") => "[]",
+                ("allMids", "xyz") => "{\"xyz:TSLA\":\"382.0\"}",
+                _ => null,
+            });
+
+        private static int AskedOn(FakeHttpMessageHandler h, string type, string? dex) =>
+            h.CapturedBodies.Select(JObject.Parse).Count(b => b["type"]?.ToString() == type && b["dex"]?.ToString() == dex);
+
         [Fact]
-        public async Task An_order_on_a_builders_market_is_refused_before_anything_is_signed()
+        public void A_builders_number_is_traded_only_when_perpDexs_gives_it_the_same_place()
         {
-            var h = WithBuilders();
+            var perps = HyperliquidWire.ParseAllPerpMetas(JArray.Parse(Fixture("recorded_allPerpMetas.json")));
+            var recorded = JArray.Parse(Fixture("recorded_perpDexs.json"));
+
+            Assert.Equal(new[] { "para", "xyz" }, HyperliquidWire.VerifiedBuilders(recorded, perps).OrderBy(d => d));
+
+            var swapped = (JArray)recorded.DeepClone();
+            swapped[1]!["name"] = "flx"; swapped[2]!["name"] = "xyz";      // xyz moved: its ids would be wrong
+            Assert.Equal(new[] { "para" }, HyperliquidWire.VerifiedBuilders(swapped, perps));
+            Assert.Empty(HyperliquidWire.VerifiedBuilders(null, perps));
+            // A builder met under two numbers is not trusted under either.
+            var twice = perps.Append(perps.First(a => a.Dex == "xyz") with { AssetId = 120001 });
+            Assert.Equal(new[] { "para" }, HyperliquidWire.VerifiedBuilders(recorded, twice));
+
+            var tsla = Assert.Single(perps, a => a.Coin == "xyz:TSLA");
+            Assert.Equal(1, tsla.BuilderNumber);
+            Assert.Null(HyperliquidWire.BuilderMarketRefusal(tsla, new HashSet<string> { "xyz" }));
+            Assert.Contains("could not confirm", HyperliquidWire.BuilderMarketRefusal(tsla, new HashSet<string> { "para" }));
+            Assert.Contains("margined in another coin than USDC",
+                HyperliquidWire.BuilderMarketRefusal(tsla with { Collateral = 360 }, new HashSet<string> { "xyz" }));
+            // flx margins in USDH (token 360); its markets were delisted, so one is relisted here.
+            var flx = (JObject)JArray.Parse(Fixture("recorded_allPerpMetas.json"))[2]!;
+            ((JArray)flx["universe"]!)[0]!["isDelisted"] = false;
+            var flxTsla = HyperliquidWire.ParseMeta(flx, 2).First();
+            Assert.Equal(360, flxTsla.Collateral);
+            Assert.Contains("margined in another coin than USDC", HyperliquidWire.BuilderMarketRefusal(flxTsla, new HashSet<string> { "flx" }));
+            Assert.Null(HyperliquidWire.BuilderMarketRefusal(Assert.Single(HyperliquidWire.ParseMeta(JObject.Parse(Fixture("meta.json"))), a => a.Coin == "BTC"), new HashSet<string>()));
+        }
+
+        [Fact]
+        public async Task An_order_on_a_builders_market_is_signed_under_its_builders_number()
+        {
+            var h = BuilderAccount();
+            var p = Provider(h);
+
+            string id = await p.PlaceOrderAsync(new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 380));
+            string market = await p.PlaceOrderAsync(new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Market));
+
+            Assert.Equal("777", id);
+            Assert.Equal("777", market);
+            var sent = Exchange(h);
+            Assert.All(sent.Where(b => b["action"]!["type"]!.ToString() == "updateLeverage"),
+                b => Assert.Equal(110001, b["action"]!["asset"]!.Value<int>()));
+            var orders = sent.Where(b => b["action"]!["type"]!.ToString() == "order").Select(b => b["action"]!["orders"]![0]!).ToList();
+            Assert.Equal(new[] { 110001, 110001 }, orders.Select(o => o["a"]!.Value<int>()));
+            Assert.Equal("401.1", orders[1]["p"]!.ToString());                 // the builder's own mid, 382 x 1.05
+        }
+
+        [Fact]
+        public async Task An_unconfirmed_builder_number_refuses_the_order_before_anything_is_signed()
+        {
+            var h = BuilderAccount(perpDexs: "[]");
             var p = Provider(h);
 
             string placed = await p.PlaceOrderAsync(new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 380));
             string modified = await p.ModifyOrderAsync("123", new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 381));
             double leverage = await p.SetLeverageAsync("xyz:TSLA-PERP", 5);
 
-            Assert.StartsWith("ORDER_FAILED:xyz:TSLA-PERP is a market the builder xyz runs on Hyperliquid", placed);
-            Assert.StartsWith("ORDER_FAILED:xyz:TSLA-PERP is a market the builder xyz runs on Hyperliquid", modified);
+            Assert.StartsWith("ORDER_FAILED:the terminal could not confirm with Hyperliquid which number the builder xyz has", placed);
+            Assert.StartsWith("ORDER_FAILED:the terminal could not confirm", modified);
             Assert.Equal(1.0, leverage);
             Assert.Empty(Exchange(h));
             Assert.Equal("777", await p.PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 12345)));   // vacuity
+        }
+
+        [Fact]
+        public async Task A_classic_account_with_no_margin_on_the_builder_is_told_to_move_some_and_nothing_is_signed()
+        {
+            var classic = BuilderAccount();
+            string refused = await Provider(classic).PlaceOrderAsync(new("para:TOTAL2-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 1000));
+
+            Assert.StartsWith("ORDER_FAILED:your margin on para, the builder that runs para:TOTAL2-PERP, is empty", refused);
+            Assert.Contains("move USDC to para on Hyperliquid's website", refused);
+            Assert.Empty(Exchange(classic));
+
+            // A close needs no new margin, and a unified account trades builders from its spot USDC.
+            var closing = BuilderAccount();
+            Assert.Equal("777", await Provider(closing).PlaceOrderAsync(new("para:TOTAL2-PERP", OrderSide.Sell, 1, OrderType.Limit, Price: 1000, ReduceOnly: true)));
+            var unified = BuilderAccount(mode: "unifiedAccount");
+            Assert.Equal("777", await Provider(unified).PlaceOrderAsync(new("para:TOTAL2-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 1000)));
+            Assert.Equal(0, AskedOn(unified, "clearinghouseState", "para"));
+        }
+
+        [Fact]
+        public async Task Positions_and_orders_include_each_builders_and_an_empty_builder_rests_a_minute()
+        {
+            var h = BuilderAccount();
+            var p = Provider(h);
+
+            var positions = await p.GetPositionsAsync();
+            var tsla = Assert.Single(positions, x => x.Symbol == "xyz:TSLA-PERP");
+            Assert.Equal(-13918.515, tsla.Quantity);
+            Assert.Equal(375.8, tsla.AveragePrice);
+            Assert.Contains(positions, x => x.Symbol == "xyz:GOLD-PERP");
+            Assert.Contains(positions, x => x.Symbol == "BTC-PERP");             // Hyperliquid's own still there
+
+            var orders = await p.GetOpenOrdersAsync();
+            Assert.Contains(orders, o => o.Symbol == "xyz:SILVER-PERP");
+            Assert.Contains(orders, o => o.Symbol == "xyz:CL-PERP");
+            Assert.Contains(orders, o => !o.Symbol.Contains(':'));
+
+            // para held nothing: not asked again inside the minute; xyz is.
+            await p.GetPositionsAsync();
+            await p.GetOpenOrdersAsync();
+            Assert.Equal(1, AskedOn(h, "clearinghouseState", "para"));
+            Assert.Equal(1, AskedOn(h, "frontendOpenOrders", "para"));
+            Assert.Equal(2, AskedOn(h, "clearinghouseState", "xyz"));
+
+            // The stream naming a para market, or an order there, reads it again at once.
+            p.WakeBuildersNamedIn("""{"channel":"orderUpdates","data":[{"order":{"coin":"para:TOTAL2","oid":1}}]}""");
+            await p.GetPositionsAsync();
+            Assert.Equal(2, AskedOn(h, "clearinghouseState", "para"));
+
+            // One market's orders are read on its builder alone.
+            int mainBefore = AskedOn(h, "frontendOpenOrders", null);
+            var silver = await p.GetOpenOrdersAsync("xyz:SILVER-PERP");
+            Assert.Equal("xyz:SILVER-PERP", Assert.Single(silver).Symbol);
+            Assert.Equal(mainBefore, AskedOn(h, "frontendOpenOrders", null));
+        }
+
+        [Fact]
+        public async Task A_failed_builder_read_fails_the_whole_positions_read()
+        {
+            var h = WithBuilders(b => (b["type"]?.ToString(), b["dex"]?.ToString()) switch
+            {
+                ("perpDexs", _) => Fixture("recorded_perpDexs.json"),
+                ("clearinghouseState", "xyz") => "not json",
+                ("clearinghouseState", "para") => Fixture("recorded_builder_empty_clearinghouseState.json"),
+                _ => null,
+            });
+
+            await Assert.ThrowsAnyAsync<Exception>(() => Provider(h).GetPositionsAsync());
+        }
+
+        [Fact]
+        public async Task A_classic_account_lists_each_builders_margin_as_its_own_usdc_row()
+        {
+            var classic = await Provider(BuilderAccount()).GetBalancesAsync();
+            var xyz = Assert.Single(classic, b => b.Asset == "USDC-PERPS-XYZ");
+            Assert.Equal(30084049.5801520012, xyz.Free, 6);
+            Assert.Equal(48967910.556847997, xyz.Locked, 6);
+            Assert.DoesNotContain(classic, b => b.Asset == "USDC-PERPS-PARA");     // empty
+
+            var unified = await Provider(BuilderAccount(mode: "unifiedAccount")).GetBalancesAsync();
+            Assert.DoesNotContain(unified, b => b.Asset.StartsWith("USDC-PERPS"));  // the same spot USDC
+
+            Assert.True(AccessibleTrader.Core.Services.Trading.QuickTradeEquity.IsCashAsset("USDC-PERPS-XYZ"));
         }
 
         [Fact]

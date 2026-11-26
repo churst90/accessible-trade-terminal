@@ -1,0 +1,65 @@
+{
+ "marginSummary": {
+  "accountValue": "79067652.7990750074",
+  "totalNtlPos": "244839552.7842420042",
+  "totalRawUsd": "284912711.8515570164",
+  "totalMarginUsed": "48967910.556847997"
+ },
+ "crossMarginSummary": {
+  "accountValue": "79067652.7990750074",
+  "totalNtlPos": "244839552.7842420042",
+  "totalRawUsd": "284912711.8515570164",
+  "totalMarginUsed": "48967910.556847997"
+ },
+ "crossMaintenanceMarginUsed": "7697046.5980540002",
+ "withdrawable": "30084049.5801520012",
+ "assetPositions": [
+  {
+   "type": "oneWay",
+   "position": {
+    "coin": "xyz:TSLA",
+    "szi": "-13918.515",
+    "leverage": {
+     "type": "cross",
+     "value": 5
+    },
+    "entryPx": "375.8",
+    "positionValue": "5315898.4339500004",
+    "unrealizedPnl": "-85309.786517",
+    "returnOnEquity": "-0.0815489348",
+    "liquidationPx": "5384.6087849359",
+    "marginUsed": "1063179.6867899999",
+    "maxLeverage": 20,
+    "cumFunding": {
+     "allTime": "-99952.537729",
+     "sinceOpen": "-12653.049667",
+     "sinceChange": "0.0"
+    }
+   }
+  },
+  {
+   "type": "oneWay",
+   "position": {
+    "coin": "xyz:GOLD",
+    "szi": "-7540.1679",
+    "leverage": {
+     "type": "cross",
+     "value": 5
+    },
+    "entryPx": "3804.52",
+    "positionValue": "26941019.9067000002",
+    "unrealizedPnl": "1745700.0576879999",
+    "returnOnEquity": "0.3042697213",
+    "liquidationPx": "12852.7910441783",
+    "marginUsed": "5388203.9813400004",
+    "maxLeverage": 25,
+    "cumFunding": {
+     "allTime": "-445353.881481",
+     "sinceOpen": "-407114.714608",
+     "sinceChange": "0.0"
+    }
+   }
+  }
+ ],
+ "time": 1795707884958
+}

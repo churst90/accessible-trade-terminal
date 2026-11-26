@@ -285,7 +285,11 @@ dollars, the mark price against the oracle (index), and the last 24 hours' volum
 Hyperliquid each time; on another exchange it says that exchange does not give them.
 Hyperliquid's Futures list also holds markets other firms run on it (shares such as
 xyz:TSLA-PERP, gold, indices), named with the firm's prefix. They chart, stream and show funding
-like the rest, but the terminal does not trade them yet: an order on one is refused and says so.
+like the rest, and they trade like the rest. Each firm keeps its own margin: on an ordinary
+Hyperliquid account you move USDC to that firm's margin on Hyperliquid's website first (the
+terminal does not move money), and an order with none there is refused and says so. A unified
+account trades them from its spot USDC. Each firm's margin is listed as its own balance, such
+as USDC-PERPS-XYZ, and your positions and open orders on them are listed with the rest.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary

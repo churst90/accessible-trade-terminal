@@ -391,6 +391,9 @@ namespace AccessibleTrader.Tests
         [InlineData("BTC.F", "BTC")]
         // Hyperliquid's perps margin is USDC in another account on the same venue.
         [InlineData("USDC-PERPS", "USDC")]
+        // And a builder's margin there (HIP-3); a name merely containing the letters is left alone.
+        [InlineData("USDC-PERPS-XYZ", "USDC")]
+        [InlineData("USDC-PERPSX", "USDC-PERPSX")]
         // A share class, not a staked Berkshire.
         [InlineData("BRK.B", "BRK.B")]
         [InlineData("BTC", "BTC")]

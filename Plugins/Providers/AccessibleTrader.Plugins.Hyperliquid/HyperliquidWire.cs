@@ -14,10 +14,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
     /// <param name="Dex">The builder ("xyz") for a market a builder deployed (HIP-3), empty for Hyperliquid's own.</param>
     internal sealed record AssetInfo(
         string Display, string Norm, string Coin, int AssetId, int SzDecimals,
-        bool IsSpot, int MaxLeverage, bool OnlyIsolated, string Dex = "")
+        bool IsSpot, int MaxLeverage, bool OnlyIsolated, string Dex = "", int Collateral = 0)
     {
         /// <summary>Where the market sits in its own universe list, and so in its asset contexts.</summary>
         public int MetaIndex => Dex.Length == 0 ? AssetId : AssetId % HyperliquidWire.BuilderDexStride;
+
+        /// <summary>The builder's number inside the asset id (its place in <c>perpDexs</c>); 0 for Hyperliquid's own.</summary>
+        public int BuilderNumber => Dex.Length == 0 ? 0 : (AssetId - HyperliquidWire.BuilderAssetOffset) / HyperliquidWire.BuilderDexStride;
     }
 
     /// <summary>The outcome of one entry in an order action's <c>statuses</c> list.</summary>
@@ -169,7 +172,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     IsSpot: false,
                     MaxLeverage: u["maxLeverage"]?.Value<int>() ?? 1,
                     OnlyIsolated: u["onlyIsolated"]?.Value<bool>() == true,
-                    Dex: dexIndex == 0 || colon < 1 ? "" : name[..colon]));
+                    Dex: dexIndex == 0 || colon < 1 ? "" : name[..colon],
+                    // The spot token the builder keeps margin in: 0 is USDC.
+                    Collateral: meta["collateralToken"]?.Value<int>() ?? 0));
             }
             return result;
         }
@@ -177,8 +182,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         /// <summary>
         /// Builders' perps (HIP-3) from the <c>allPerpMetas</c> reply: one universe per builder,
         /// Hyperliquid's own first (skipped; <c>meta</c> reads it). A builder's number is its place
-        /// in this list, which matched <c>perpDexs</c> on 2026-11-26; it only matters to a signed
-        /// order, and orders on builders' markets are refused for now (<see cref="BuilderMarketRefusal"/>).
+        /// in this list, which matched <c>perpDexs</c> on 2026-11-26 and is checked against it
+        /// before any order (<see cref="VerifiedBuilders"/>): the Python SDK numbers from
+        /// <c>perpDexs</c>, and a wrong number would sign an order for another market.
         /// </summary>
         public static List<AssetInfo> ParseAllPerpMetas(JArray? reply)
         {
@@ -190,12 +196,40 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         }
 
         /// <summary>
-        /// Builders' markets chart, stream and show funding, but are not traded yet: each builder
-        /// keeps its own margin (often in another stablecoin), and positions there are read per
-        /// builder. Until that is built an order would open a position the terminal cannot see.
+        /// The builders whose number in our asset ids is their place in <c>perpDexs</c> (the list
+        /// the Python SDK numbers from: 110000 + 10000 x its place after Hyperliquid's own).
+        /// A builder missing here is not traded.
         /// </summary>
-        public static string? BuilderMarketRefusal(AssetInfo asset) => asset.Dex.Length == 0 ? null
-            : $"{asset.Display} is a market the builder {asset.Dex} runs on Hyperliquid; the terminal charts it but does not trade it yet";
+        public static HashSet<string> VerifiedBuilders(JArray? perpDexs, IEnumerable<AssetInfo> perps)
+        {
+            var named = new Dictionary<int, string>();
+            for (int k = 1; perpDexs != null && k < perpDexs.Count; k++)
+                if (perpDexs[k] is JObject d && d["name"]?.ToString() is { Length: > 0 } n) named[k] = n;
+            var ok = new HashSet<string>(StringComparer.Ordinal);
+            var bad = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var a in perps.Where(a => a.Dex.Length > 0))
+                (named.TryGetValue(a.BuilderNumber, out var n) && n == a.Dex ? ok : bad).Add(a.Dex);
+            ok.ExceptWith(bad);
+            return ok;
+        }
+
+        /// <summary>
+        /// Why an order on a builder's market (HIP-3) is not sent, or null. Each builder keeps its
+        /// own margin; one that keeps it in a coin other than USDC is not traded (no live market
+        /// did on 2026-11-26), nor one whose number could not be checked.
+        /// </summary>
+        public static string? BuilderMarketRefusal(AssetInfo asset, IReadOnlySet<string> verified)
+        {
+            if (asset.Dex.Length == 0) return null;
+            if (asset.Collateral != 0)
+                return $"{asset.Display} is margined in another coin than USDC on its builder, {asset.Dex}; the terminal trades only builders' markets margined in USDC";
+            if (!verified.Contains(asset.Dex))
+                return $"the terminal could not confirm with Hyperliquid which number the builder {asset.Dex} has, and an order sent under the wrong number would trade another market; try again in a minute";
+            return null;
+        }
+
+        /// <summary>A builder's margin as a balance row: "USDC-PERPS-XYZ", apart from the main perps' "USDC-PERPS".</summary>
+        public static string BuilderMarginAsset(string dex) => "USDC-PERPS-" + dex.ToUpperInvariant();
 
         /// <summary>
         /// Spot pairs from the <c>spotMeta</c> reply. The pair's own <c>index</c> (not its list

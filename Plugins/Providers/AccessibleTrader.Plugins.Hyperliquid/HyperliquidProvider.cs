@@ -88,6 +88,16 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private Dictionary<string, AssetInfo> _perpByCoin = new(StringComparer.Ordinal);
         private DateTime _assetsLoadedAt = DateTime.MinValue;
         private static readonly TimeSpan AssetTtl = TimeSpan.FromMinutes(30);
+        // Builders whose number in our asset ids matched perpDexs at the last load (see VerifiedBuilders).
+        private IReadOnlySet<string> _verifiedBuilders = new HashSet<string>();
+
+        // Builders' margin, positions and orders are read one builder at a time (an open-orders
+        // read weighs 20 of the 1,200 a minute). A builder where the account held nothing is
+        // left alone for a minute; an order there, or the stream naming one of its markets,
+        // reads it again at once. Keyed "kind:dex".
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _builderQuietUntil = new(StringComparer.Ordinal);
+        internal static readonly TimeSpan BuilderQuietFor = TimeSpan.FromMinutes(1);
+        private static readonly Regex BuilderCoinInFrame = new("\"coin\":\"([A-Za-z0-9]+):", RegexOptions.Compiled);
 
         // Websocket state for the focused chart.
         private ReconnectingWebSocket? _ws;
@@ -185,6 +195,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             _account = address;
             _agentKey = secret;
             _accountMode = null;
+            _builderQuietUntil.Clear();
             _keyRefusal = CheckCredential(address, secret);
             if (_orderStreamWanted) StartAccountStream();   // another account or venue: follow it
         }
@@ -280,10 +291,27 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     SurfaceError($"Hyperliquid builders' markets failed: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
                 }
 
+                // The builders' numbers, checked against the list the SDK numbers from. A failure
+                // leaves them unverified, which refuses orders on them; charts are unaffected.
+                IReadOnlySet<string> verified = new HashSet<string>();
+                if (perps.Any(a => a.Dex.Length > 0))
+                {
+                    try
+                    {
+                        verified = HyperliquidWire.VerifiedBuilders(
+                            await InfoAsync(new JObject { ["type"] = "perpDexs" }, _heavyInfoLimiter).ConfigureAwait(false) as JArray, perps);
+                    }
+                    catch (Exception ex) when (!TransportFailure.IsTransient(ex))
+                    {
+                        SurfaceError($"Hyperliquid builders' list failed: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
+                    }
+                }
+
                 var all = perps.Concat(spot).ToList();
                 var byNorm = new Dictionary<string, AssetInfo>(StringComparer.Ordinal);
                 foreach (var a in all) byNorm.TryAdd(a.Norm, a);   // first (lowest id) wins on a duplicate name
                 _perpByCoin = perps.ToDictionary(a => a.Coin, a => a, StringComparer.Ordinal);
+                _verifiedBuilders = verified;
                 _byNorm = byNorm;
                 _assets = all;
                 _assetsLoadedAt = DateTime.UtcNow;
@@ -870,7 +898,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                             await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("userFills", user)).ConfigureAwait(false);
                         })
                         .OnDisconnected(() => _orderStream.Reset())
-                        .OnMessage(msg => _ = _orderStream.OnMessageAsync(msg));
+                        .OnMessage(msg => { WakeBuildersNamedIn(msg); _ = _orderStream.OnMessageAsync(msg); });
                     _accountWs = ws; _accountWsUser = user;
                 }
             }
@@ -958,7 +986,84 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 // matched spot's would let the two be summed or confused.
                 if (withdrawable > 0 || used > 0) list.Add(new Balance("USDC-PERPS", withdrawable, used));
             }
+            // Each builder's margin is its own balance on a classic account. Which builders there
+            // are comes from the market list, loaded here if nothing else has loaded it yet.
+            await EnsureAssetsAsync().ConfigureAwait(false);
+            foreach (var (dex, state) in await ReadBuildersAsync("state", BuilderStateAsync, HoldsAnything).ConfigureAwait(false))
+            {
+                double withdrawable = HyperliquidWire.D(state?["withdrawable"]);
+                double used = HyperliquidWire.D(state?["marginSummary"]?["totalMarginUsed"]);
+                if (withdrawable > 0 || used > 0) list.Add(new Balance(HyperliquidWire.BuilderMarginAsset(dex), withdrawable, used));
+            }
             return list;
+        }
+
+        // ── Builders' accounts (HIP-3) ───────────────────────────────────────
+
+        /// <summary>The builders the account is read on: those with listed markets margined in USDC.</summary>
+        private List<string> TradedBuilders() =>
+            _perpByCoin.Values.Where(a => a.Dex.Length > 0 && a.Collateral == 0)
+                .Select(a => a.Dex).Distinct(StringComparer.Ordinal).OrderBy(d => d, StringComparer.Ordinal).ToList();
+
+        /// <summary>
+        /// One read per builder not resting quiet; a builder whose reply holds nothing rests for
+        /// <see cref="BuilderQuietFor"/>. A failed read throws, so a caller never takes a partial
+        /// list of positions for the whole.
+        /// </summary>
+        private async Task<List<(string Dex, T Reply)>> ReadBuildersAsync<T>(string kind, Func<string, Task<T>> read, Func<T, bool> holdsSomething)
+        {
+            var now = DateTime.UtcNow;
+            var due = TradedBuilders().Where(d => !(_builderQuietUntil.TryGetValue(kind + ":" + d, out var until) && until > now)).ToList();
+            var replies = await Task.WhenAll(due.Select(async d => (Dex: d, Reply: await read(d).ConfigureAwait(false)))).ConfigureAwait(false);
+            foreach (var (dex, reply) in replies)
+            {
+                if (holdsSomething(reply)) _builderQuietUntil.TryRemove(kind + ":" + dex, out _);
+                else _builderQuietUntil[kind + ":" + dex] = now + BuilderQuietFor;
+            }
+            return replies.ToList();
+        }
+
+        /// <summary>The next read of this builder asks again, whatever it last held.</summary>
+        private void WakeBuilder(string dex)
+        {
+            if (dex.Length == 0) return;
+            foreach (var key in _builderQuietUntil.Keys)
+                if (key.EndsWith(":" + dex, StringComparison.Ordinal)) _builderQuietUntil.TryRemove(key, out _);
+        }
+
+        internal void WakeBuildersNamedIn(string frame)
+        {
+            if (_builderQuietUntil.IsEmpty || frame.IndexOf(':') < 0) return;
+            foreach (Match m in BuilderCoinInFrame.Matches(frame)) WakeBuilder(m.Groups[1].Value);
+        }
+
+        private async Task<JObject?> BuilderStateAsync(string dex) =>
+            await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account, ["dex"] = dex }, _lightInfoLimiter)
+                .ConfigureAwait(false) as JObject;
+
+        private async Task<JArray> OpenOrdersOnAsync(string dex)
+        {
+            var body = new JObject { ["type"] = "frontendOpenOrders", ["user"] = _account };
+            if (dex.Length > 0) body["dex"] = dex;
+            return await InfoAsync(body, _lightInfoLimiter).ConfigureAwait(false) as JArray ?? new JArray();
+        }
+
+        internal static bool HoldsAnything(JObject? state) =>
+            (state?["assetPositions"] as JArray)?.Count > 0 || HyperliquidWire.D(state?["marginSummary"]?["accountValue"]) > 0;
+
+        /// <summary>
+        /// On a classic account each builder's margin is apart from the main perps margin, and the
+        /// terminal does not move money: an order on a builder with none is refused in words before
+        /// anything is signed. Unified and portfolio accounts draw on spot USDC; an unread mode
+        /// lets the exchange decide.
+        /// </summary>
+        private async Task<string?> EmptyBuilderMarginRefusalAsync(AssetInfo asset)
+        {
+            if (await AccountModeAsync().ConfigureAwait(false) != "disabled") return null;
+            var state = await BuilderStateAsync(asset.Dex).ConfigureAwait(false);
+            if (HyperliquidWire.D(state?["marginSummary"]?["accountValue"]) > 0) return null;
+            return $"your margin on {asset.Dex}, the builder that runs {asset.Display}, is empty. Hyperliquid keeps each builder's margin apart " +
+                   $"from your main perpetuals margin, and the terminal does not move money: move USDC to {asset.Dex} on Hyperliquid's website first";
         }
 
         /// <summary>
@@ -969,6 +1074,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         /// <c>tokenToAvailableAfterMaintenance</c> (also recorded 2026-11-26).
         /// </summary>
         private async Task<bool> PoolsSpotCollateralAsync(JObject? spot)
+        {
+            string? mode = await AccountModeAsync().ConfigureAwait(false);
+            if (mode == null) return spot?["tokenToAvailableAfterMaintenance"] != null;
+            return PoolsSpotCollateral(mode);
+        }
+
+        /// <summary><c>userAbstraction</c>, remembered for ten minutes; null when it cannot be read (and not remembered).</summary>
+        private async Task<string?> AccountModeAsync()
         {
             var kept = _accountMode;
             string? mode = kept is { } k && k.Account == _account && DateTime.UtcNow - k.At < AccountModeTtl ? k.Mode : null;
@@ -982,12 +1095,11 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 }
                 catch (Exception)
                 {
-                    // Not remembered, so the next read asks again; the balances themselves were read.
+                    // Not remembered, so the next read asks again.
                 }
-                if (mode == null) return spot?["tokenToAvailableAfterMaintenance"] != null;
-                _accountMode = (_account, mode, DateTime.UtcNow);
+                if (mode != null) _accountMode = (_account, mode, DateTime.UtcNow);
             }
-            return PoolsSpotCollateral(mode);
+            return mode;
         }
 
         internal static bool PoolsSpotCollateral(string mode) =>
@@ -999,7 +1111,10 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             await EnsureAssetsAsync().ConfigureAwait(false);
             var state = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
-            return ParsePositions(state, _perpByCoin);
+            var list = ParsePositions(state, _perpByCoin);
+            foreach (var (_, builder) in await ReadBuildersAsync("state", BuilderStateAsync, HoldsAnything).ConfigureAwait(false))
+                list.AddRange(ParsePositions(builder, _perpByCoin));
+            return list;
         }
 
         internal static List<Position> ParsePositions(JObject? state, IReadOnlyDictionary<string, AssetInfo> perpByCoin)
@@ -1034,9 +1149,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             RequireAccount();
             await EnsureAssetsAsync().ConfigureAwait(false);
-            var json = await InfoAsync(new JObject { ["type"] = "frontendOpenOrders", ["user"] = _account }, _lightInfoLimiter)
-                .ConfigureAwait(false) as JArray ?? new JArray();
-            string? want = symbol == null ? null : Find(symbol, null)?.Coin ?? symbol;
+            // One market's orders are read on its own builder only; all orders, on every builder.
+            var market = symbol == null ? null : Find(symbol, null);
+            var json = await OpenOrdersOnAsync(market?.Dex ?? "").ConfigureAwait(false);
+            if (symbol == null)
+                foreach (var (_, rows) in await ReadBuildersAsync("orders", OpenOrdersOnAsync, r => r.Count > 0).ConfigureAwait(false))
+                    foreach (var row in rows) json.Add(row);
+            string? want = symbol == null ? null : market?.Coin ?? symbol;
             return ParseOpenOrders(json, DisplayForCoin).Where(o =>
                 want == null || string.Equals(o.Symbol, DisplayForCoin(want), StringComparison.OrdinalIgnoreCase)).ToList();
         }
@@ -1163,7 +1282,11 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             {
                 var asset = await ResolveAsync(signal.Symbol, signal.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {signal.Symbol}";
-                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) return $"ORDER_FAILED:{builder}";
+                if (HyperliquidWire.BuilderMarketRefusal(asset, _verifiedBuilders) is string builder) return $"ORDER_FAILED:{builder}";
+                if (asset.Dex.Length > 0 && !signal.ReduceOnly
+                    && await EmptyBuilderMarginRefusalAsync(asset).ConfigureAwait(false) is string empty)
+                    return $"ORDER_FAILED:{empty}";
+                WakeBuilder(asset.Dex);
 
                 // A perp order that opens or adds always states its leverage. The ticket sends
                 // none when its field says 1, and until 2026-11-10 none meant "leave the coin's
@@ -1359,7 +1482,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 if (!CanSign) return 1.0;
                 var asset = await ResolveAsync(symbol, "Futures").ConfigureAwait(false);
                 if (asset == null || asset.IsSpot) return 1.0;
-                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) { SurfaceError(builder, ErrorSeverity.Medium, ErrorCategory.Provider); return 1.0; }
+                if (HyperliquidWire.BuilderMarketRefusal(asset, _verifiedBuilders) is string builder) { SurfaceError(builder, ErrorSeverity.Medium, ErrorCategory.Provider); return 1.0; }
                 // Isolated unless the user chose otherwise elsewhere: a liquidation then takes one
                 // position, not the account.
                 string? err = await UpdateLeverageAsync(asset, leverage, isCross: false).ConfigureAwait(false);
@@ -1380,6 +1503,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 if (!CanSign || !long.TryParse(orderId, NumberStyles.None, CultureInfo.InvariantCulture, out long oid)) return false;
                 var asset = await ResolveAsync(symbol, null).ConfigureAwait(false);
                 if (asset == null) return false;
+                WakeBuilder(asset.Dex);
                 var reply = await ExchangeAsync(HyperliquidWire.CancelAction(new[] { (asset.AssetId, oid) })).ConfigureAwait(false);
                 var outcomes = HyperliquidWire.ParseOrderReply(reply);
                 return outcomes.Count > 0 && !outcomes[0].IsError;
@@ -1421,7 +1545,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             {
                 var asset = await ResolveAsync(replacement.Symbol, replacement.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {replacement.Symbol}";
-                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) return $"ORDER_FAILED:{builder}";
+                if (HyperliquidWire.BuilderMarketRefusal(asset, _verifiedBuilders) is string builder) return $"ORDER_FAILED:{builder}";
+                WakeBuilder(asset.Dex);
                 var (wires, _, err) = await BuildOrdersAsync(replacement, asset).ConfigureAwait(false);
                 if (err != null) return $"ORDER_FAILED:{err}";
 

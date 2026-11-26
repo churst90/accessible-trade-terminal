@@ -1,0 +1,38 @@
+[
+ {
+  "coin": "xyz:SILVER",
+  "side": "B",
+  "limitPx": "41.607",
+  "sz": "131.59",
+  "oid": 617343077946,
+  "timestamp": 1795707884681,
+  "triggerCondition": "N/A",
+  "isTrigger": false,
+  "triggerPx": "0.0",
+  "children": [],
+  "isPositionTpsl": false,
+  "reduceOnly": false,
+  "orderType": "Limit",
+  "origSz": "131.59",
+  "tif": "Alo",
+  "cloid": "0x76409360957b6f7d07d49e11dd3fa881"
+ },
+ {
+  "coin": "xyz:CL",
+  "side": "A",
+  "limitPx": "84.954",
+  "sz": "42.73",
+  "oid": 617343076676,
+  "timestamp": 1795707884355,
+  "triggerCondition": "N/A",
+  "isTrigger": false,
+  "triggerPx": "0.0",
+  "children": [],
+  "isPositionTpsl": false,
+  "reduceOnly": false,
+  "orderType": "Limit",
+  "origSz": "42.73",
+  "tif": "Alo",
+  "cloid": "0x93b8d8d9459b3379c61293cabd7ae3f9"
+ }
+]

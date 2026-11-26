@@ -159,8 +159,14 @@ namespace AccessibleTrader.Core.Services.Trading
         /// margin: the USDC a perps order is sized against, kept apart from spot USDC by the
         /// provider so the two are not summed.
         /// </para>
+        ///
+        /// <para>
+        /// Added 2026-11-26: a Hyperliquid builder's margin, <c>USDC-PERPS-XYZ</c>, is USDC too.
+        /// </para>
         /// </summary>
-        public static bool IsCashAsset(string? asset) => asset is not null && CashAssets.Contains(asset.Trim());
+        public static bool IsCashAsset(string? asset) => asset is not null
+            && (CashAssets.Contains(asset.Trim())
+                || asset.Trim().StartsWith("USDC-PERPS-", System.StringComparison.OrdinalIgnoreCase));
 
         private static readonly System.Collections.Generic.HashSet<string> CashAssets =
             new(System.StringComparer.OrdinalIgnoreCase)

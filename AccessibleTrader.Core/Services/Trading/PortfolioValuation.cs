@@ -89,12 +89,14 @@ namespace AccessibleTrader.Core.Services.Trading
         /// is worth exactly its base asset. Only these suffixes: <c>.B</c> and <c>.T</c> are
         /// also Kraken suffixes, but a stock venue's <c>BRK.B</c> is a different share class,
         /// not Berkshire priced as <c>BRK</c>. Hyperliquid's perps margin, <c>USDC-PERPS</c>, is
-        /// USDC held in another account on the same venue, so it is priced as <c>USDC</c>.
+        /// USDC held in another account on the same venue, so it is priced as <c>USDC</c>; so is a
+        /// builder's margin there, <c>USDC-PERPS-XYZ</c>.
         /// </summary>
         internal static string PricedAs(string asset)
         {
-            if (asset.EndsWith("-PERPS", StringComparison.OrdinalIgnoreCase))
-                return asset[..^"-PERPS".Length];
+            int perps = asset.IndexOf("-PERPS", StringComparison.OrdinalIgnoreCase);
+            if (perps > 0 && (asset.Length == perps + "-PERPS".Length || asset[perps + "-PERPS".Length] == '-'))
+                return asset[..perps];
             int dot = asset.LastIndexOf('.');
             if (dot <= 0) return asset;
             return asset[(dot + 1)..].ToUpperInvariant() switch

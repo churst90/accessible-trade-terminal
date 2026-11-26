@@ -403,8 +403,9 @@ shapes are in the archive (the 2026-11-21 block at its end).
   Go bar `FUND`: funding, open interest, mark against oracle and volume now (not heard).
   Orders and modifies expire 60 s after signing (`expiresAfter`; the exchange's expired wording
   is not recorded).
-  **Not built:** trading on builders' markets (refused in words; each builder has its own margin,
-  see the provider doc's Follow-ups); open-interest HISTORY from Hyperliquid (none published, so
+  Builders' markets trade (number checked against `perpDexs`, per-builder positions, orders and
+  margin rows, empty-margin refusal on classic accounts); no real order sent.
+  **Not built:** open-interest HISTORY from Hyperliquid (none published, so
   the Open Interest and Crowding indicators on its charts still read Binance's).
   **Still to see:** a triggered stop or target filling
   through the stream ("stop hit" needs the order type from `orderStatus` on that id).
