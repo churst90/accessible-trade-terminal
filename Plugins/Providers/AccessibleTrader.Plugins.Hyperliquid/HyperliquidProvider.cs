@@ -1190,7 +1190,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     if (lerr != null) return $"ORDER_FAILED:{lerr}";
                 }
 
-                var reply = await ExchangeAsync(HyperliquidWire.OrderAction(wires, grouping)).ConfigureAwait(false);
+                var reply = await ExchangeAsync(HyperliquidWire.OrderAction(wires, grouping), expires: true).ConfigureAwait(false);
                 var outcomes = HyperliquidWire.ParseOrderReply(reply);
                 if (outcomes.Count == 0) return "ORDER_FAILED:Hyperliquid accepted the request but returned no order status";
 
@@ -1425,7 +1425,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 var (wires, _, err) = await BuildOrdersAsync(replacement, asset).ConfigureAwait(false);
                 if (err != null) return $"ORDER_FAILED:{err}";
 
-                var reply = await ExchangeAsync(HyperliquidWire.ModifyAction(oid, wires[0])).ConfigureAwait(false);
+                var reply = await ExchangeAsync(HyperliquidWire.ModifyAction(oid, wires[0]), expires: true).ConfigureAwait(false);
                 if (!string.Equals(reply["status"]?.ToString(), "ok", StringComparison.OrdinalIgnoreCase))
                     return $"ORDER_FAILED:{reply["response"]}";
                 return orderId;
@@ -1480,18 +1480,24 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         /// Signs and posts one action. The JSON action and the signed msgpack come from the SAME
         /// tree, so what is sent is what was signed. The reply is returned as the exchange gave it:
         /// <c>{"status":"ok"|"err",...}</c>.
+        /// <para><paramref name="expires"/> (orders and modifies): the action carries
+        /// <c>expiresAfter</c>, signed, <see cref="OrderExpiry"/> past its nonce, so an order held
+        /// up on the way is refused rather than placed at a price that has moved. Cancels, leverage
+        /// and the dead-man's switch carry none: a late cancel is still wanted.</para>
         /// </summary>
-        private async Task<JObject> ExchangeAsync(OrderedMap action)
+        private async Task<JObject> ExchangeAsync(OrderedMap action, bool expires = false)
         {
             if (!CanSign) throw new InvalidOperationException("No Hyperliquid agent wallet is configured.");
             ulong nonce = NextNonce();
-            var sig = HyperliquidSigner.SignL1Action(_agentKey, action, null, nonce, _isMainnet);
+            ulong? expiresAfter = expires ? nonce + (ulong)OrderExpiry.TotalMilliseconds : null;
+            var sig = HyperliquidSigner.SignL1Action(_agentKey, action, null, nonce, _isMainnet, expiresAfter);
             var payload = new JObject
             {
                 ["action"] = HyperliquidWire.ToJson(action),
                 ["nonce"] = nonce,
                 ["signature"] = new JObject { ["r"] = sig.R, ["s"] = sig.S, ["v"] = sig.V },
             };
+            if (expiresAfter.HasValue) payload["expiresAfter"] = expiresAfter.Value;
 
             await _exchangeLimiter.WaitAsync().ConfigureAwait(false);
             using var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json");
@@ -1501,11 +1507,28 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             JObject? json = null;
             try { json = JObject.Parse(text); } catch (JsonReaderException) { }
             // A refusal the exchange explains keeps its explanation whatever the status code.
-            if (json != null && json["status"] != null) return json;
+            if (json != null && json["status"] != null)
+            {
+                // Hyperliquid's wording for an expired action is not recorded (a test from a wallet
+                // with no account is refused before the expiry is checked), so any refusal that
+                // speaks of expiry gets the likely cause added: the computer's clock.
+                if (expiresAfter.HasValue && json["status"]?.ToString() == "err"
+                    && json["response"]?.Type == JTokenType.String
+                    && json["response"]!.ToString().Contains("expir", StringComparison.OrdinalIgnoreCase))
+                    json["response"] = json["response"] + ExpiredHint;
+                return json;
+            }
             if (!res.IsSuccessStatusCode)
                 throw new HttpRequestException($"Hyperliquid refused the order request: HTTP {(int)res.StatusCode}{Excerpt(text)}", null, res.StatusCode);
             return json ?? throw new HttpRequestException("Hyperliquid answered the order request with a non-JSON body.");
         }
+
+        /// <summary>How long a signed order or modify stays good (<c>expiresAfter</c>, past the nonce).</summary>
+        internal static readonly TimeSpan OrderExpiry = TimeSpan.FromSeconds(60);
+
+        internal const string ExpiredHint =
+            ". The order is stamped to expire 60 seconds after it is signed, by this computer's clock; " +
+            "if this keeps happening, that clock is probably wrong. Set it to update automatically.";
 
         /// <summary>Millisecond clock, forced strictly increasing: the exchange rejects a nonce it has seen.</summary>
         private ulong NextNonce()

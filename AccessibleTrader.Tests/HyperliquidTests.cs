@@ -824,10 +824,14 @@ namespace AccessibleTrader.Tests
                 body["action"]!.ToString(Newtonsoft.Json.Formatting.None));
             ulong nonce = body["nonce"]!.Value<ulong>();
             Assert.True(nonce > 1_700_000_000_000UL);
+            // Stamped to expire 60 s after the nonce, and the stamp is inside the signature
+            // (checked live on 2026-11-26: the exchange recovered the signing key's address).
+            ulong expiresAfter = body["expiresAfter"]!.Value<ulong>();
+            Assert.Equal(nonce + 60_000UL, expiresAfter);
             var expected = HyperliquidSigner.SignL1Action(Key, HyperliquidWire.OrderAction(new[]
             {
                 HyperliquidWire.OrderWire(0, true, "12346", "0.5", false, HyperliquidWire.LimitType("Gtc"), null),
-            }), null, nonce, isMainnet: true);
+            }), null, nonce, isMainnet: true, expiresAfter);
             Assert.Equal(expected.R, body["signature"]!["r"]!.ToString());
             Assert.Equal(expected.S, body["signature"]!["s"]!.ToString());
             Assert.Equal(expected.V, body["signature"]!["v"]!.Value<int>());
@@ -851,7 +855,7 @@ namespace AccessibleTrader.Tests
             var asTestnet = HyperliquidSigner.SignL1Action(Key, HyperliquidWire.OrderAction(new[]
             {
                 HyperliquidWire.OrderWire(0, true, "100", "0.5", false, HyperliquidWire.LimitType("Gtc"), null),
-            }), null, nonce, isMainnet: false);
+            }), null, nonce, isMainnet: false, body["expiresAfter"]!.Value<ulong>());
             Assert.Equal(asTestnet.R, body["signature"]!["r"]!.ToString());
         }
 
@@ -1097,6 +1101,44 @@ namespace AccessibleTrader.Tests
 
             Assert.True(ok);
             Assert.Equal("""{"type":"cancel","cancels":[{"a":0,"o":12345}]}""", Single(h)["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        [Fact]
+        public async Task Only_orders_and_modifies_carry_an_expiry_and_a_late_cancel_still_counts()
+        {
+            var h = Armed(exchange: b => b["action"]!["type"]!.ToString() == "cancel"
+                ? Reply("cancel", "{\"statuses\":[\"success\"]}")
+                : "{\"status\":\"ok\",\"response\":{\"type\":\"order\",\"data\":{\"statuses\":[{\"resting\":{\"oid\":12345}}]}}}");
+            var p = Provider(h);
+
+            await p.PlaceOrderAsync(new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 3000, Leverage: 5));
+            await p.ModifyOrderAsync("12345", new("BTC-PERP", OrderSide.Buy, 0.25, OrderType.Limit, Price: 91000));
+            await p.CancelOrderAsync("12345", "BTC-PERP");
+
+            var sent = Exchange(h).ToDictionary(b => b["action"]!["type"]!.ToString(), b => b["expiresAfter"]);
+            Assert.Equal(new[] { "cancel", "modify", "order", "updateLeverage" }, sent.Keys.OrderBy(k => k));
+            Assert.NotNull(sent["order"]);
+            Assert.NotNull(sent["modify"]);
+            Assert.Null(sent["cancel"]);
+            Assert.Null(sent["updateLeverage"]);
+        }
+
+        private static string OrderRefused(JObject body, string why) =>
+            body["action"]!["type"]!.ToString() == "updateLeverage"
+                ? "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}"
+                : new JObject { ["status"] = "err", ["response"] = why }.ToString();
+
+        [Fact]
+        public async Task A_refusal_that_speaks_of_expiry_names_the_clock_and_others_are_left_alone()
+        {
+            var late = Armed(exchange: b => OrderRefused(b, "Action expired."));
+            string expired = await Provider(late).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 100));
+            Assert.StartsWith("ORDER_FAILED:Action expired.", expired);
+            Assert.Contains("clock is probably wrong", expired);
+
+            var other = Armed(exchange: b => OrderRefused(b, "Insufficient margin."));
+            Assert.Equal("ORDER_FAILED:Insufficient margin.",
+                await Provider(other).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 100)));
         }
 
         [Fact]

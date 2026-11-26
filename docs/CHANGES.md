@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid orders expire 60 seconds after they are signed
+
+Orders and modifies now carry `expiresAfter`, 60 seconds past the nonce and inside the signature,
+so an order held up on the way is refused rather than placed at a price that has moved. Cancels,
+leverage changes and the dead-man's switch carry none: a late cancel is still wanted. Checked
+live on Hyperliquid's testnet from a throwaway key with no account (nothing can trade): the
+exchange recovered that key's address from a signature with the expiry in it, and a different
+address when the expiry was sent but left out of the hash, so the stamp is signed the way the
+exchange checks it. **Not recorded:** the exchange's wording for an expired order (that key is
+refused before the expiry is looked at); any refusal that speaks of expiry gets a sentence added
+pointing at the computer's clock. Sabotage 7/7.
+
 ### 2026-11-26: Go bar `FUND`: a perpetual's funding and open interest, now
 
 Hyperliquid publishes funding and open interest only as they stand now (no open-interest

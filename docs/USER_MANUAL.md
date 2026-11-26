@@ -272,6 +272,9 @@ Fills, partial fills, cancels and refusals on Hyperliquid are announced as the e
 them, including orders you place on Hyperliquid's own website. A cancel or refusal you did not
 ask for says why, for example "it is post-only and would have traded at once". If that stream
 cannot connect, each order you place from the terminal is followed by asking Hyperliquid instead.
+Each order and change of order is stamped to expire 60 seconds after it is sent, so one held up on
+the way is refused rather than filled at a price that has since moved. If orders keep being
+refused as expired, your computer's clock is probably wrong. Cancels are never stamped.
 On a unified account, where your perpetuals trade from your spot USDC, the balance lists that
 USDC once. The Funding Rate indicator (Alt+A, Derivatives) on a Hyperliquid chart reads
 Hyperliquid's own funding. Hyperliquid pays every hour, and the indicator says that hourly rate

@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Hyperliquid orders expire if they arrive late.** An order or change of order that takes more
+  than 60 seconds to reach Hyperliquid is refused instead of filling at a stale price.
 - **Funding and open interest now.** Type `FUND` in the Go bar (Alt+G) on a Hyperliquid chart to
   hear the market's funding right now (per 8 hours, who pays whom and what it comes to over a
   year), open interest in coins and dollars, the mark price against the oracle, and the day's

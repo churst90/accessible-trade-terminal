@@ -401,6 +401,8 @@ shapes are in the archive (the 2026-11-21 block at its end).
   indicator on its charts + the cross-series cache refreshing (it fetched once per session).
   Builders' markets (HIP-3, 178 listed: shares, metals, indices) chart, stream and show funding.
   Go bar `FUND`: funding, open interest, mark against oracle and volume now (not heard).
+  Orders and modifies expire 60 s after signing (`expiresAfter`; the exchange's expired wording
+  is not recorded).
   **Not built:** trading on builders' markets (refused in words; each builder has its own margin,
   see the provider doc's Follow-ups); open-interest HISTORY from Hyperliquid (none published, so
   the Open Interest and Crowding indicators on its charts still read Binance's).
