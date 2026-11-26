@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Paper: one position per symbol, whichever tab you trade from.** With BTCUSDT bought on Kraken,
+  a buy from your Bitstamp tab now adds to the Kraken trade at Kraken's price and tells you so.
+  Before, it was refused.
 - **"Entered overbought" follows your levels.** When a bar closes, RSI and Cipher B's wave now say
   "entered overbought" and "oversold" at the lines you set in Properties. Before, they used 70/30
   and 53 there, even after the rest of the app followed your lines.

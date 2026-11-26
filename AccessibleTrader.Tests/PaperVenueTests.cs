@@ -17,8 +17,15 @@ namespace AccessibleTrader.Tests
     /// simulated broker, keyed by symbol, which never learned which venue an order was for. With
     /// BTCUSDT bought on a Kraken tab and a Bitstamp BTCUSDT tab open, Bitstamp's bars filled the
     /// Kraken position's stop (the two venues print different lows), and a Bitstamp order merged
-    /// into the Kraken position. One position per symbol stays the rule (separate accounts per
-    /// venue is a question for Cody in TODO); what changes is that only its own venue moves it.
+    /// into the Kraken position. One position per symbol stays the rule; what changes is that only
+    /// its own venue moves it.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>2026-11-26</b>, Cody: one paper balance whatever the venue, and "make it consistent
+    /// across the board". A second venue's order for the symbol used to be refused; now it is
+    /// moved onto the trade's venue (as a close from that tab always was), priced there, and its
+    /// fill says so.
     /// </para>
     /// </summary>
     public sealed class PaperVenueTests : IDisposable
@@ -99,20 +106,78 @@ namespace AccessibleTrader.Tests
             lock (updates) Assert.True(Assert.Single(updates, u => u.Status == OrderStatus.Filled).StopTriggered);
         }
 
+        /// <summary>
+        /// Cody, 2026-11-26: paper is one account whatever the venue, "make it consistent across
+        /// the board". A second venue's order for a symbol already traded ADDS to the trade, on
+        /// the trade's venue and at its price, and the fill says so. It used to be refused.
+        /// </summary>
         [Fact]
-        public async Task An_order_from_another_venues_chart_is_refused_not_merged()
+        public async Task An_order_from_another_venues_chart_adds_to_the_trade_at_its_venues_price()
         {
-            var paper = Make(out var store, out _);
+            var paper = Make(out var store, out var updates);
             store.EmitState(Front(Kraken, 80_600));
-            await PlaceOn(paper, "Kraken", new TradeSignal("BTCUSDT", OrderSide.Buy, 1.0));
+            await PlaceOn(paper, "Kraken", new TradeSignal("BTCUSDT", OrderSide.Buy, 0.5));
+            lock (updates) Assert.Null(Assert.Single(updates, u => u.Status == OrderStatus.Filled).Reason);
+            lock (updates) updates.Clear();
 
             store.EmitState(Front(Bitstamp, 80_400, Behind(0, Kraken, 80_600)));
-            var result = await PlaceOn(paper, "Bitstamp", new TradeSignal("BTCUSDT", OrderSide.Buy, 2.0));
+            var result = await PlaceOn(paper, "Bitstamp", new TradeSignal("BTCUSDT", OrderSide.Buy, 0.25));
 
-            Assert.Equal("ORDER_FAILED:your paper BTCUSDT trade is on Kraken, and paper trading keeps one "
-                       + "position per symbol, so this Bitstamp order was not placed. Trade it from the Kraken "
-                       + "chart, or close it first", result);
-            Assert.Equal(1.0, Assert.Single(await paper.GetPositionsAsync()).Quantity, 9);
+            Assert.DoesNotContain("ORDER_FAILED", result);
+            var position = Assert.Single(await paper.GetPositionsAsync());
+            Assert.Equal(0.75, position.Quantity, 9);
+            Assert.Equal(80_600, position.AveragePrice, 6);   // Kraken's, not Bitstamp's 80,400
+            Assert.Equal(new[] { Kraken }, paper.ExposedIdentities());
+            lock (updates)
+            {
+                var fill = Assert.Single(updates, u => u.Status == OrderStatus.Filled);
+                Assert.Equal(80_600, fill.FilledPrice, 6);
+                Assert.Equal("Added to your paper BTCUSDT trade on Kraken, at Kraken's price: paper keeps "
+                           + "one position per symbol", fill.Reason);
+            }
+        }
+
+        [Fact]
+        public async Task An_order_moved_onto_a_venue_with_no_tab_keeps_the_trades_chart()
+        {
+            // Kraken's tab was closed. The front chart is Bitstamp on 15 minutes; the trade's own
+            // chart (Kraken, 1 hour) is what its monitor keeps pricing, and an order moved onto
+            // Kraken must not rename the front chart "Kraken" and file the trade under it.
+            var paper = Make(out var store, out _);
+            store.EmitState(Front(Kraken, 80_600));
+            await PlaceOn(paper, "Kraken", new TradeSignal("BTCUSDT", OrderSide.Buy, 0.5));
+            store.EmitState(Front(Bitstamp with { Timeframe = "15m" }, 80_400));
+            paper.ProcessBar("BTCUSDT", Bar(80_580, 80_600, 0), Stream(Kraken));
+
+            var result = await PlaceOn(paper, "Bitstamp", new TradeSignal("BTCUSDT", OrderSide.Buy, 0.25));
+
+            Assert.DoesNotContain("ORDER_FAILED", result);
+            Assert.Equal(new[] { Kraken }, paper.ExposedIdentities());
+        }
+
+        [Fact]
+        public async Task A_limit_from_another_venues_chart_rests_on_the_trades_venue()
+        {
+            var paper = Make(out var store, out var updates);
+            store.EmitState(Front(Kraken, 80_600));
+            await PlaceOn(paper, "Kraken", new TradeSignal("BTCUSDT", OrderSide.Buy, 0.5));
+            store.EmitState(Front(Bitstamp, 80_400, Behind(0, Kraken, 80_600)));
+
+            var oid = await PlaceOn(paper, "Bitstamp",
+                new TradeSignal("BTCUSDT", OrderSide.Buy, 0.25, Type: OrderType.Limit, Price: 80_500));
+            Assert.DoesNotContain("ORDER_FAILED", oid);
+            lock (updates) updates.Clear();
+
+            // Bitstamp trades through 80,500; Kraken has not yet.
+            paper.ProcessBar("BTCUSDT", Bar(80_300, 80_400, 1), Stream(Bitstamp));
+            paper.ProcessBar("BTCUSDT", Bar(80_550, 80_600, 1), Stream(Kraken));
+            lock (updates) Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Filled);
+
+            paper.ProcessBar("BTCUSDT", Bar(80_450, 80_600, 0), Stream(Kraken));
+            lock (updates)
+                Assert.StartsWith("Added to your paper BTCUSDT trade on Kraken",
+                    Assert.Single(updates, u => u.Status == OrderStatus.Filled).Reason);
+            Assert.Equal(0.75, Assert.Single(await paper.GetPositionsAsync()).Quantity, 9);
         }
 
         [Fact]

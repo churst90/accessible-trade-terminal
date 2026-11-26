@@ -490,13 +490,22 @@ namespace AccessibleTrader.Core.Services
             //     live price for symbol" and there was no way to act on it from that screen.
             string symbol = await ResolveLedgerKeyAsync(raw).ConfigureAwait(false);
 
-            // A close (or a stop or target on the position) sent from another venue's chart acts
-            // where the position is, priced from there: refusing it would leave the user unable to
-            // protect or leave a trade from the tab they are on.
-            if (venue != null && signal.ReduceOnly)
+            // Any order for a symbol already traded on another venue acts where the trade is,
+            // priced from there. Paper is one account whatever the venue (Cody, 2026-11-26: "the
+            // venue doesn't matter in paper mode"; "make it consistent across the board"), so a
+            // second venue's buy ADDS to the position instead of being refused, as a close or a
+            // stop from that tab always has. Said on the fill, because the user is looking at
+            // another venue's price.
+            string? redirectedFrom = null;
+            if (venue != null)
                 lock (_lock)
                     if (HomeVenueOf(symbol) is string at && !string.Equals(at, venue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!signal.ReduceOnly) redirectedFrom = venue;
                         venue = at;
+                    }
+            string? fillNote = redirectedFrom == null ? null
+                : $"Added to your paper {raw} trade on {venue}, at {venue}'s price: paper keeps one position per symbol";
 
             double marketPrice = 0;
             if (signal.Type == OrderType.Market)
@@ -518,15 +527,9 @@ namespace AccessibleTrader.Core.Services
                 if (!string.Equals(symbol, raw, StringComparison.OrdinalIgnoreCase))
                     _ledgerAlias[raw] = symbol;
 
-                // One paper position per symbol, on one venue. The ledger is keyed by symbol, so an
-                // order for this symbol from another venue's chart would merge into the position
-                // and price it with that venue's bars. Refused, and said, rather than merged.
+                // One paper position per symbol, on one venue: an order from another venue's chart
+                // was moved onto the trade's venue above. Until 2026-11-26 it was refused here.
                 string? home = HomeVenueOf(symbol);
-                if (venue != null && home != null
-                    && !string.Equals(home, venue, StringComparison.OrdinalIgnoreCase))
-                    return $"ORDER_FAILED:your paper {raw} trade is on {home}, and paper trading keeps one "
-                         + $"position per symbol, so this {venue} order was not placed. Trade it from the {home} "
-                         + "chart, or close it first";
 
                 if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
@@ -544,7 +547,9 @@ namespace AccessibleTrader.Core.Services
                 if (string.IsNullOrEmpty(traded.Provider) && venue != null)
                     traded = (_store?.State.Identity ?? default) with { Provider = venue, Symbol = raw };
                 // An order naming no venue (the Positions screen) does not move an open trade's venue.
-                if (!string.IsNullOrEmpty(traded.Provider)
+                // Nor does one moved here from another venue's chart: with no tab open on the
+                // trade's venue, `traded` is the front chart's market under that venue's name.
+                if (redirectedFrom == null && !string.IsNullOrEmpty(traded.Provider)
                     && (home == null || string.Equals(home, traded.Provider, StringComparison.OrdinalIgnoreCase)))
                     _exposureIdentity[symbol] = traded;
 
@@ -585,7 +590,7 @@ namespace AccessibleTrader.Core.Services
                     string id = NewId();
                     DateTime filledAt = DateTime.UtcNow;
                     var pnl = ApplyFill(symbol, signal.Side, mktQty, px, ParseMarginMode(signal.MarginType), filledAt);
-                    Emit(id, symbol, signal.Side, mktQty, px, 0, OrderStatus.Filled, false, false, pnl);
+                    Emit(id, symbol, signal.Side, mktQty, px, 0, OrderStatus.Filled, false, false, pnl, reason: fillNote);
                     RecordFill(symbol, signal.Side, mktQty, px, pnl, id, filledAt);
 
                     // A market entry exists the instant it fills, so its protection can
@@ -672,7 +677,7 @@ namespace AccessibleTrader.Core.Services
 
                 Rest(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
                     ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket,
-                    marginMode: ParseMarginMode(signal.MarginType)));
+                    marginMode: ParseMarginMode(signal.MarginType)) { FillNote = fillNote });
                 Persist();
                 return oid;
             }
@@ -1065,7 +1070,7 @@ namespace AccessibleTrader.Core.Services
 
                     DateTime filledAt = DateTime.UtcNow;
                     var pnl = ApplyFill(o.Symbol, o.Side, qty, px, o.MarginMode, filledAt);
-                    Emit(o.Id, o.Symbol, o.Side, qty, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
+                    Emit(o.Id, o.Symbol, o.Side, qty, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null, reason: o.FillNote);
                     RecordFill(o.Symbol, o.Side, qty, px, pnl, o.Id, filledAt);
                     CancelOcoSiblings(o);
 
@@ -2385,6 +2390,13 @@ namespace AccessibleTrader.Core.Services
             /// for orders carrying no protection.
             /// </summary>
             public BracketSpec? Bracket { get; }
+
+            /// <summary>
+            /// Said on the fill: an entry placed from another venue's chart that was moved onto
+            /// the venue this symbol's trade is on. Not saved: after a restart the order still
+            /// fills where it should, just without the sentence.
+            /// </summary>
+            public string? FillNote { get; init; }
 
             /// <summary>
             /// When this order joined the book, and what each bar stream's forming bar

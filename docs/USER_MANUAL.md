@@ -4559,9 +4559,10 @@ Kraken tab is never filled by a Bitstamp BTCUSDT low, because the two venues pri
 prices.
 
 **One paper position per symbol, on one venue.** The paper account holds one position per
-symbol, and it lives on the venue where you opened it. A new order for that symbol from another
-venue's tab is refused, and you are told why; it is never merged into the first. A close from
-another venue's tab, or from the Positions tab, closes it at its own venue's price.
+symbol, from one balance, and it lives on the venue where you opened it. An order for that symbol
+from another venue's tab is added to it on that venue, at that venue's price, and the fill tells you:
+"Added to your paper BTCUSDT trade on Kraken, at Kraken's price." A close from another venue's tab,
+or from the Positions tab, closes it at its own venue's price.
 
 ### Paper or live — check this first
 

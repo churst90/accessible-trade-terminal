@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: on paper, a second venue's order adds to the trade instead of being refused
+
+Cody, 2026-11-26, on paper with several tabs and venues: "it should pull from one account balance
+since the venue doesn't matter in paper mode", and "make it consistent across the board". It was
+already one balance (`PaperAccountHub`). But with BTCUSDT bought on a Kraken tab, a buy from a
+Bitstamp BTCUSDT tab was refused ("your paper BTCUSDT trade is on Kraken..."), while a close or a stop
+from that tab was already moved onto Kraken. Now every order is treated like the close: it is placed
+on the trade's venue and priced from there (Kraken's 80,600, not Bitstamp's 80,400), a limit rests
+there and fills on that venue's bars, and the fill says "Added to your paper BTCUSDT trade on Kraken,
+at Kraken's price: paper keeps one position per symbol." An order moved this way does not change the
+chart the trade is priced from, even when the trade's venue has no tab open. **Caveat:** a resting
+order's sentence is kept in memory only; after a restart it still fills on the right venue but
+without the sentence. A venue's own practice account (Gemini sandbox, Hyperliquid testnet) is still
+separate.
+
+Tests: `PaperVenueTests`, where the refusal test is replaced by three:
+- a market buy adds at the trade's venue's price and says so;
+- a limit rests on the trade's venue, is not filled by Bitstamp trading through it, and fills on
+  Kraken with the sentence;
+- with Kraken's tab closed, the trade stays filed under Kraken 1 hour, not the Bitstamp 15-minute
+  chart in front.
+
+Sabotaged 4 of 4 red: no move for entries; the market fill's sentence dropped; the resting fill's
+sentence dropped; and a moved order rewriting the trade's chart. Not tried by Cody.
+
 ### 2026-11-26: "entered overbought" on a closed bar follows your lines too
 
 Cody, 2026-11-26: "If I adjust an os/ob level or any level that's customizable in an indicator, that

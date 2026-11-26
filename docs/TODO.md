@@ -372,10 +372,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
   futures (no price to hand).
 - [ ] **Several tabs and venues, on PAPER** (2026-11-05): move a stop with a take profit set (silent,
   target kept); arm a quick trade, switch tabs, Ctrl+Enter (says where it was armed, places nothing);
-  BTCUSDT on Kraken and Bitstamp, buy on one then the other (refused). **Paper accounts per venue:
-  Cody 2026-11-26, no**: one paper balance whatever the venue (it already is one, `PaperAccountHub`).
-  Open: whether a second venue's order for the same symbol should add to the position instead of
-  being refused (asked 11-26). A venue's own practice account (Gemini sandbox, Hyperliquid testnet) is a
+  BTCUSDT on Kraken and Bitstamp, buy on one then the other: **since 2026-11-26 the second ADDS to
+  the first** at the first venue's price and the fill says "Added to your paper BTCUSDT trade on
+  Kraken..." (Cody 11-26: "make it consistent across the board"; one paper balance whatever the
+  venue, `PaperAccountHub`). A venue's own practice account (Gemini sandbox, Hyperliquid testnet) is a
   Paper environment on that venue's profile and is separate.
 - [ ] **Hyperliquid** (2026-11-04, no order ever sent): Cody to make a testnet agent wallet, add a Paper
   profile, place a small limit, cancel it, place a bracket; then I record real replies for the fixtures.
