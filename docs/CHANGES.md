@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid vaults and subaccounts
+
+A Hyperliquid profile's third field (Passphrase, which Hyperliquid had no use for; the profile
+dialog now names it "Vault or subaccount" for Hyperliquid) takes a vault or subaccount address.
+Set, every exchange request carries it as the top-level `vaultAddress` and inside the signature
+(the signer already hashed it; the SDK's vault test vectors pin that), and every account read,
+balances, positions, open orders, fills, TWAPs, builder margins and the account mode, asks about
+it, as does the order stream. The agent is still checked against the main wallet
+(`extraAgents`), and the key check's message names the vault. An entry that is not an address, or
+is the main address, refuses the profile before any request. **Not tried:** Hyperliquid's docs say
+the main account signs for a subaccount or vault; that an agent it approved may do so is how the
+official Python SDK is used but has not been seen live here. No test reaches which account the
+order stream subscribes for (it needs a live socket). 12 sabotages all went red.
+
 ### 2026-11-26: Hyperliquid TWAP orders
 
 The ticket's Type list offers **TWAP** where the venue runs one (a new SDK flag,

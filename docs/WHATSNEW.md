@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Hyperliquid subaccounts and vaults.** Put a subaccount's or vault's address in the profile's
+  "Vault or subaccount" field to trade it with your usual agent key; balances, positions and orders
+  are then its own.
 - **TWAP orders on Hyperliquid.** Choose TWAP in the trading ticket's Type list, set how many
   minutes, and Hyperliquid buys or sells your size in small slices about every 30 seconds until the
   time is up. It is listed with your open orders with how much is done and when it ends, and Cancel

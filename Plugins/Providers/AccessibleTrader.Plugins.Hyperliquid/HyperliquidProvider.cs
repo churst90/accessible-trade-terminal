@@ -73,6 +73,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         private string _account = "";     // main wallet address — what reads ask about
         private string _agentKey = "";    // agent wallet private key — what signs
+        private string? _vault;           // vault or subaccount traded for (lowercase), if any
+
+        /// <summary>
+        /// Whose account is read and traded: the vault or subaccount when one is set, otherwise
+        /// the main wallet. The agent is always approved by the main wallet, which is who signs.
+        /// </summary>
+        private string Owner => _vault ?? _account;
         private string? _keyRefusal;      // why the supplied key will not be used, if it will not
         private bool _isMainnet = true;   // reads default to mainnet; trading needs a configured credential
         private bool _configured;
@@ -185,6 +192,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             string address = config.TryGetValue(ProviderConfigKeys.ApiKey, out var k) ? (k ?? "").Trim() : "";
             string secret  = config.TryGetValue(ProviderConfigKeys.ApiSecret, out var s) ? (s ?? "").Trim() : "";
+            // The profile's Passphrase field, which Hyperliquid has no other use for.
+            string vault   = config.TryGetValue(ProviderConfigKeys.Passphrase, out var v) ? (v ?? "").Trim() : "";
 
             // Fail-safe polarity: only an explicit Live is the real venue; a missing or unknown
             // environment is the testnet.
@@ -195,10 +204,11 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
             _account = address;
             _agentKey = secret;
+            _vault = vault.Length == 0 ? null : vault.ToLowerInvariant();
             _accountMode = null;
             _builderQuietUntil.Clear();
             _twapsQuietUntil = DateTime.MinValue;
-            _keyRefusal = CheckCredential(address, secret);
+            _keyRefusal = CheckCredential(address, secret, vault);
             if (_orderStreamWanted) StartAccountStream();   // another account or venue: follow it
         }
 
@@ -207,11 +217,18 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         /// a secret that is the MAIN wallet's own key. That key can withdraw everything; the whole
         /// design is that the terminal holds only an agent.
         /// </summary>
-        internal static string? CheckCredential(string address, string secret)
+        internal static string? CheckCredential(string address, string secret, string vault = "")
         {
-            if (address.Length == 0 && secret.Length == 0) return null;   // public data only
+            if (address.Length == 0 && secret.Length == 0 && vault.Length == 0) return null;   // public data only
             if (!AddressShape.IsMatch(address))
                 return "The API key field must hold your main Hyperliquid account address: 0x followed by 40 hex characters.";
+            // A vault that is not an address must stop everything, reads included: reading or
+            // trading the main account instead would be the wrong account in silence.
+            if (vault.Length > 0 && !AddressShape.IsMatch(vault))
+                return "The passphrase field, if used, must hold the vault or subaccount address to trade for: 0x followed by 40 hex characters.";
+            if (string.Equals(vault, address, StringComparison.OrdinalIgnoreCase))
+                return "The passphrase field holds your main account address. Leave it empty to trade your main account, "
+                     + "or put a vault or subaccount address there to trade that.";
             if (secret.Length == 0)
                 return "Add the agent wallet's private key in the secret field to trade; the address alone gives read-only access.";
             if (!KeyShape.IsMatch(secret))
@@ -242,8 +259,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 bool approved = agents.Any(a =>
                     string.Equals(a["address"]?.ToString(), agent, StringComparison.OrdinalIgnoreCase));
                 string venue = _isMainnet ? "mainnet" : "testnet";
+                string forVault = _vault != null ? $", trading for {_vault}" : "";
                 return approved
-                    ? (true, $"Agent wallet {agent} is approved for {_account} on Hyperliquid {venue}")
+                    ? (true, $"Agent wallet {agent} is approved for {_account} on Hyperliquid {venue}{forVault}")
                     : (false, $"Agent wallet {agent} is not approved for {_account} on Hyperliquid {venue}. "
                             + "Approve it at app.hyperliquid.xyz/API (testnet: app.hyperliquid-testnet.xyz/API).");
             }
@@ -836,6 +854,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (accountWs != null) await CloseQuietlyAsync(accountWs).ConfigureAwait(false);
 
             ScrubCredentials(() => _agentKey = "", () => _account = "");
+            _vault = null;
             _keyRefusal = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
@@ -869,7 +888,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             get
             {
                 lock (_accountWsLock)
-                    return _accountWs?.IsConnected == true && _accountWsUser == _account && _orderStream.Subscribed;
+                    return _accountWs?.IsConnected == true && _accountWsUser == Owner && _orderStream.Subscribed;
             }
         }
 
@@ -881,7 +900,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private void StartAccountStream()
         {
             ReconnectingWebSocket? old = null, ws = null;
-            string user = _account;
+            string user = Owner;
             lock (_accountWsLock)
             {
                 bool valid = AddressShape.IsMatch(user);
@@ -932,14 +951,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         private async Task<string?> OrderTypeAsync(long oid)
         {
-            var reply = await InfoAsync(new JObject { ["type"] = "orderStatus", ["user"] = _account, ["oid"] = oid }, _lightInfoLimiter)
+            var reply = await InfoAsync(new JObject { ["type"] = "orderStatus", ["user"] = Owner, ["oid"] = oid }, _lightInfoLimiter)
                 .ConfigureAwait(false);
             return reply["order"]?["order"]?["orderType"]?.ToString();
         }
 
         private async Task<(double Qty, double Price)> RestFillsAsync(long oid)
         {
-            var fills = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = _account }, _heavyInfoLimiter)
+            var fills = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = Owner }, _heavyInfoLimiter)
                 .ConfigureAwait(false) as JArray ?? new JArray();
             return FillAverage(fills, oid.ToString(CultureInfo.InvariantCulture));
         }
@@ -965,7 +984,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             RequireAccount();
             var list = new List<Balance>();
 
-            var spot = await InfoAsync(new JObject { ["type"] = "spotClearinghouseState", ["user"] = _account }, _lightInfoLimiter)
+            var spot = await InfoAsync(new JObject { ["type"] = "spotClearinghouseState", ["user"] = Owner }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             foreach (var b in spot?["balances"] as JArray ?? new JArray())
             {
@@ -979,7 +998,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             // counted it twice in the equity the quick trade sizes from.
             if (await PoolsSpotCollateralAsync(spot).ConfigureAwait(false)) return list;
 
-            var perp = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account }, _lightInfoLimiter)
+            var perp = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = Owner }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             if (perp != null)
             {
@@ -1041,12 +1060,12 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         }
 
         private async Task<JObject?> BuilderStateAsync(string dex) =>
-            await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account, ["dex"] = dex }, _lightInfoLimiter)
+            await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = Owner, ["dex"] = dex }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
 
         private async Task<JArray> OpenOrdersOnAsync(string dex)
         {
-            var body = new JObject { ["type"] = "frontendOpenOrders", ["user"] = _account };
+            var body = new JObject { ["type"] = "frontendOpenOrders", ["user"] = Owner };
             if (dex.Length > 0) body["dex"] = dex;
             return await InfoAsync(body, _lightInfoLimiter).ConfigureAwait(false) as JArray ?? new JArray();
         }
@@ -1087,12 +1106,12 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private async Task<string?> AccountModeAsync()
         {
             var kept = _accountMode;
-            string? mode = kept is { } k && k.Account == _account && DateTime.UtcNow - k.At < AccountModeTtl ? k.Mode : null;
+            string? mode = kept is { } k && k.Account == Owner && DateTime.UtcNow - k.At < AccountModeTtl ? k.Mode : null;
             if (mode == null)
             {
                 try
                 {
-                    var reply = await InfoAsync(new JObject { ["type"] = "userAbstraction", ["user"] = _account }, _lightInfoLimiter)
+                    var reply = await InfoAsync(new JObject { ["type"] = "userAbstraction", ["user"] = Owner }, _lightInfoLimiter)
                         .ConfigureAwait(false);
                     if (reply.Type == JTokenType.String) mode = reply.ToString();
                 }
@@ -1100,7 +1119,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 {
                     // Not remembered, so the next read asks again.
                 }
-                if (mode != null) _accountMode = (_account, mode, DateTime.UtcNow);
+                if (mode != null) _accountMode = (Owner, mode, DateTime.UtcNow);
             }
             return mode;
         }
@@ -1112,7 +1131,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             RequireAccount();
             await EnsureAssetsAsync().ConfigureAwait(false);
-            var state = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account }, _lightInfoLimiter)
+            var state = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = Owner }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             var list = ParsePositions(state, _perpByCoin);
             foreach (var (_, builder) in await ReadBuildersAsync("state", BuilderStateAsync, HoldsAnything).ConfigureAwait(false))
@@ -1186,14 +1205,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private async Task<List<OpenOrder>> RunningTwapsAsync()
         {
             if (DateTime.UtcNow < _twapsQuietUntil) return new();
-            var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = _account }, _heavyInfoLimiter)
+            var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = Owner }, _heavyInfoLimiter)
                 .ConfigureAwait(false) as JArray ?? new JArray();
             if (RunningTwapIds(history).Count == 0)
             {
                 _twapsQuietUntil = DateTime.UtcNow + BuilderQuietFor;
                 return new();
             }
-            var web = await InfoAsync(new JObject { ["type"] = "webData2", ["user"] = _account }, _heavyInfoLimiter)
+            var web = await InfoAsync(new JObject { ["type"] = "webData2", ["user"] = Owner }, _heavyInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             return ParseTwapStates(web?["twapStates"] as JArray ?? new JArray(), DisplayForCoin);
         }
@@ -1322,7 +1341,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             RequireAccount();
             await EnsureAssetsAsync().ConfigureAwait(false);
-            var json = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = _account }, _heavyInfoLimiter)
+            var json = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = Owner }, _heavyInfoLimiter)
                 .ConfigureAwait(false) as JArray ?? new JArray();
             string? want = symbol == null ? null : Find(symbol, null)?.Coin ?? symbol;
             return ParseFills(json, DisplayForCoin)
@@ -1348,7 +1367,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (HyperliquidWire.TryTwapId(orderId, out long twapId))
             {
                 await EnsureAssetsAsync().ConfigureAwait(false);
-                var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = _account }, _heavyInfoLimiter)
+                var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = Owner }, _heavyInfoLimiter)
                     .ConfigureAwait(false) as JArray ?? new JArray();
                 return TwapSnapshot(history, twapId, DisplayForCoin);
             }
@@ -1356,7 +1375,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             await EnsureAssetsAsync().ConfigureAwait(false);
 
             // A transport failure throws out of here on purpose: null means "answered, no such order".
-            var reply = await InfoAsync(new JObject { ["type"] = "orderStatus", ["user"] = _account, ["oid"] = oid }, _lightInfoLimiter)
+            var reply = await InfoAsync(new JObject { ["type"] = "orderStatus", ["user"] = Owner, ["oid"] = oid }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             var snapshot = ParseOrderStatus(reply, DisplayForCoin);
             if (snapshot is null || snapshot.FilledQuantity <= 0 || snapshot.FilledPrice > 0) return snapshot;
@@ -1814,13 +1833,16 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (!CanSign) throw new InvalidOperationException("No Hyperliquid agent wallet is configured.");
             ulong nonce = NextNonce();
             ulong? expiresAfter = expires ? nonce + (ulong)OrderExpiry.TotalMilliseconds : null;
-            var sig = HyperliquidSigner.SignL1Action(_agentKey, action, null, nonce, _isMainnet, expiresAfter);
+            // A vault or subaccount is named beside the action and inside what is signed
+            // (Hyperliquid's docs: the main account signs, vaultAddress names whose it is).
+            var sig = HyperliquidSigner.SignL1Action(_agentKey, action, _vault, nonce, _isMainnet, expiresAfter);
             var payload = new JObject
             {
                 ["action"] = HyperliquidWire.ToJson(action),
                 ["nonce"] = nonce,
                 ["signature"] = new JObject { ["r"] = sig.R, ["s"] = sig.S, ["v"] = sig.V },
             };
+            if (_vault != null) payload["vaultAddress"] = _vault;
             if (expiresAfter.HasValue) payload["expiresAfter"] = expiresAfter.Value;
 
             await _exchangeLimiter.WaitAsync().ConfigureAwait(false);

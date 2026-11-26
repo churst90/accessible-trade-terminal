@@ -1750,5 +1750,132 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Hyperliquid_declares_TWAP()
             => Assert.True(new HyperliquidProvider().Capabilities.HasFlag(ProviderCapabilities.Twap));
+
+        // ── 11. Vaults and subaccounts ───────────────────────────────────────
+
+        // Hyperliquid's own HLP vault, written as a checksummed address would be.
+        private const string Vault = "0xDfC24b077bC1425AD1DEA75bCB6f8158E10Df303";
+        private static readonly string VaultLower = Vault.ToLowerInvariant();
+
+        private static HyperliquidProvider VaultProvider(FakeHttpMessageHandler h, string vault = Vault)
+        {
+            var p = new HyperliquidProvider();
+            p.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = Main, ["ApiSecret"] = Key, [ProviderConfigKeys.Passphrase] = vault,
+                [ProviderConfigKeys.Environment] = ProviderConfigKeys.Live,
+            });
+            SetHttp(p, h);
+            return p;
+        }
+
+        [Fact]
+        public async Task With_a_vault_set_an_order_names_it_beside_the_action_and_inside_the_signature()
+        {
+            var h = Armed();
+            var p = VaultProvider(h);
+
+            await p.PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 12345.678));
+
+            var body = Single(h);
+            Assert.Equal(VaultLower, body["vaultAddress"]!.ToString());
+            ulong nonce = body["nonce"]!.Value<ulong>();
+            ulong expiresAfter = body["expiresAfter"]!.Value<ulong>();
+            var action = HyperliquidWire.OrderAction(new[]
+            {
+                HyperliquidWire.OrderWire(0, true, "12346", "0.5", false, HyperliquidWire.LimitType("Gtc"), null),
+            });
+            var forVault = HyperliquidSigner.SignL1Action(Key, action, VaultLower, nonce, isMainnet: true, expiresAfter);
+            var forMain = HyperliquidSigner.SignL1Action(Key, action, null, nonce, isMainnet: true, expiresAfter);
+            Assert.Equal(forVault.R, body["signature"]!["r"]!.ToString());
+            Assert.Equal(forVault.S, body["signature"]!["s"]!.ToString());
+            Assert.NotEqual(forMain.R, forVault.R);
+            // The leverage update that comes first is the vault's too.
+            Assert.Equal(2, Exchange(h).Count);
+            Assert.All(Exchange(h), b => Assert.Equal(VaultLower, b["vaultAddress"]?.ToString()));
+        }
+
+        [Fact]
+        public async Task With_a_vault_set_a_cancel_names_it_and_signs_it_in_unstamped()
+        {
+            var h = Armed(exchange: _ => Reply("cancel", "{\"statuses\":[\"success\"]}"));
+            var p = VaultProvider(h);
+
+            Assert.True(await p.CancelOrderAsync("12345", "BTC-PERP"));
+
+            var body = Assert.Single(Exchange(h));
+            Assert.Equal(VaultLower, body["vaultAddress"]!.ToString());
+            Assert.Null(body["expiresAfter"]);
+            var expected = HyperliquidSigner.SignL1Action(Key, HyperliquidWire.CancelAction(new[] { (0, 12345L) }),
+                VaultLower, body["nonce"]!.Value<ulong>(), isMainnet: true);
+            Assert.Equal(expected.R, body["signature"]!["r"]!.ToString());
+        }
+
+        [Fact]
+        public async Task With_a_vault_set_balances_positions_and_orders_are_read_for_the_vault()
+        {
+            var h = Armed();
+            var p = VaultProvider(h);
+
+            await p.GetBalancesAsync();
+            await p.GetPositionsAsync();
+            await p.GetOpenOrdersAsync();
+
+            var users = h.CapturedBodies.Select(b => JObject.Parse(b)["user"]?.ToString()).Where(u => u != null).Distinct().ToList();
+            Assert.Equal(new[] { VaultLower }, users);
+        }
+
+        [Fact]
+        public async Task With_a_vault_set_the_agent_is_still_checked_against_the_main_wallet()
+        {
+            string agent = HyperliquidSigner.AddressOf(Key);
+            var h = Armed(info: b => b["type"]!.ToString() == "extraAgents" ? "[{\"address\":\"" + agent + "\",\"name\":\"terminal\",\"validUntil\":1}]" : null);
+
+            var (ok, msg) = await VaultProvider(h).ValidateApiKeyAsync();
+
+            Assert.True(ok, msg);
+            Assert.EndsWith(", trading for " + VaultLower, msg);
+            var ask = JObject.Parse(Assert.Single(h.CapturedBodies, b => b.Contains("extraAgents")));
+            Assert.Equal(Main, ask["user"]!.ToString());
+        }
+
+        [Theory]
+        [InlineData("0x12", "must hold the vault or subaccount address")]
+        [InlineData("vault", "must hold the vault or subaccount address")]
+        [InlineData(Main, "holds your main account address")]
+        [InlineData("0x1719884EB866CB12B2287399B15F7DB5E7D775EA", "holds your main account address")]
+        public void A_vault_that_is_not_an_address_or_is_the_main_wallet_is_refused(string vault, string words)
+            => Assert.Contains(words, HyperliquidProvider.CheckCredential(Main, Key, vault));
+
+        [Fact]
+        public void A_vault_address_or_none_is_accepted()
+        {
+            Assert.Null(HyperliquidProvider.CheckCredential(Main, Key, Vault));
+            Assert.Null(HyperliquidProvider.CheckCredential(Main, Key, ""));
+            Assert.Null(HyperliquidProvider.CheckCredential("", "", ""));
+        }
+
+        [Fact]
+        public async Task A_refused_vault_stops_reads_and_orders_before_anything_is_sent()
+        {
+            var h = Armed();
+            var p = VaultProvider(h, "0x12");
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => p.GetPositionsAsync());
+            string placed = await p.PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 100));
+
+            Assert.StartsWith("ORDER_FAILED:The passphrase field, if used, must hold the vault or subaccount address", placed);
+
+            Assert.DoesNotContain(h.CapturedBodies, b => b.Contains("\"user\"") || b.Contains("\"action\""));
+        }
+
+        [Fact]
+        public void The_profile_dialog_names_the_passphrase_field_for_hyperliquid()
+        {
+            Assert.Equal("Vault or subaccount address (optional)",
+                AccessibleTrader.BlazorClient.Components.ApiKeysModal.PassphraseLabel("Hyperliquid"));
+            Assert.Equal("Passphrase (optional)",
+                AccessibleTrader.BlazorClient.Components.ApiKeysModal.PassphraseLabel("Kraken"));
+        }
     }
 }

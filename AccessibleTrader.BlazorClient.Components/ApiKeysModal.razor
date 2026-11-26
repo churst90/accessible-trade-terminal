@@ -209,9 +209,11 @@
                 </div>
 
                 <div class="modal-row">
-                    <label for="key-pass">Passphrase</label>
-                    <input id="key-pass" type="password" autocomplete="off" spellcheck="false" placeholder="Optional"
-                           @bind="_newPassphrase" aria-label="Passphrase (optional)" style="flex:1;" />
+                    @* Hyperliquid has no passphrase; the field takes the vault or subaccount to trade for. *@
+                    <label for="key-pass">@(IsHyperliquid(_newProvider) ? "Vault or subaccount" : "Passphrase")</label>
+                    <input id="key-pass" type="password" autocomplete="off" spellcheck="false"
+                           placeholder="@(IsHyperliquid(_newProvider) ? "Optional: 0x address to trade for" : "Optional")"
+                           @bind="_newPassphrase" aria-label="@PassphraseLabel(_newProvider)" style="flex:1;" />
                 </div>
 
                 @* Deliberately its own bordered block rather than one more row: marking
@@ -295,6 +297,12 @@
     private string _newApiKey      = "";
     private string _newApiSecret   = "";
     private string _newPassphrase  = "";
+
+    private static bool IsHyperliquid(string provider) => ProviderNames.Match(provider, "Hyperliquid");
+
+    /// <summary>The third credential field's spoken name, which says what it is for on this provider.</summary>
+    internal static string PassphraseLabel(string provider) =>
+        IsHyperliquid(provider) ? "Vault or subaccount address (optional)" : "Passphrase (optional)";
     private bool   _newAllowsWithdrawal;
     private string? _formError;
 

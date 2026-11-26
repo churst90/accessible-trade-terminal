@@ -257,7 +257,8 @@ Live. Paper points the provider at its simulated/sandbox endpoints; Live uses yo
 real, funded account. Below that you set the **Market Type** (Spot, Futures, Crypto
 or Stocks) and then enter the **API Key**, the **API Secret**, and, only if your
 provider issues one, a **Passphrase** (it is labelled Optional and you can leave it
-blank for providers that do not use one). All three secret fields are masked.
+blank for providers that do not use one; for Hyperliquid the same field is named "Vault or
+subaccount", described below). All three secret fields are masked.
 
 **Hyperliquid** (perpetuals and spot on Hyperliquid's own chain, margined in USDC; not
 available to United States persons or in Ontario) trades through an *agent wallet*, a key
@@ -298,6 +299,13 @@ listed with your open orders as "TWAP 48 of 1,707 done at 1,688 average, over 14
 and when it ends (finished, stopped, or stopped by Hyperliquid with the reason), not at each
 slice. A TWAP carries no stop or target, cannot be changed (cancel it and place another), and is
 not simulated by paper trading. Its slices are not listed among your fills.
+To trade a **subaccount** or a **vault** you lead, put its address in the profile's third field,
+which for Hyperliquid is named "Vault or subaccount" (Passphrase on other providers); leave it
+empty to trade your main account. The main account and agent key stay as they are: Hyperliquid
+has the main account's agent sign for the subaccount or vault. Balances, positions, open orders
+and announced fills are then that subaccount's or vault's. An entry that is not an address, or is
+your main address, stops the profile before anything is sent. For two accounts at once, make two
+profiles.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary
