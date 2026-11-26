@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Funding and open interest now.** Type `FUND` in the Go bar (Alt+G) on a Hyperliquid chart to
+  hear the market's funding right now (per 8 hours, who pays whom and what it comes to over a
+  year), open interest in coins and dollars, the mark price against the oracle, and the day's
+  volume. Other exchanges say they do not give these yet.
 - **More Hyperliquid markets.** Hyperliquid's Futures list now includes the markets other firms
   run on it: shares such as xyz:TSLA-PERP, gold and stock indices, 178 in all. You can chart them,
   hear live bars, read the book and see their funding. Trading them is not built yet; an order on

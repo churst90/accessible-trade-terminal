@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Go bar `FUND`: a perpetual's funding and open interest, now
+
+Hyperliquid publishes funding and open interest only as they stand now (no open-interest
+history), so the indicators could not show its open interest at all. `FUND` (or `OI`) in the Go
+bar, with no key, asks the chart's venue and says one sentence: funding per 8 hours whatever the
+venue's period (Hyperliquid pays hourly), who pays whom, how often, roughly what it comes to over
+a year; open interest in the coin and in dollars; mark against index (Hyperliquid's oracle), as
+a percentage; the last 24 hours' volume. A venue gives it through a new SDK capability,
+`IPerpetualContextProvider`; only Hyperliquid has it, and another venue's chart says so. A spot
+pair says it has no funding. Live read-only through the real provider on 2026-11-26 (BTC, HYPE,
+xyz:TSLA, para:TOTAL2; PURR/USDC spot got none); recorded `metaAndAssetCtxs` fixture; sabotage
+10/10. Not heard in the app.
+
 ### 2026-11-26: Hyperliquid's builder markets (HIP-3): charts, live bars, book and funding
 
 Hyperliquid also lists perpetuals that other firms deploy on it ("HIP-3"): on 2026-11-26, 178 of

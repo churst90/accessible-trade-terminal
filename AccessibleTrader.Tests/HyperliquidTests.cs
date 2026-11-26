@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using AccessibleTrader.Plugins.Hyperliquid;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Tests.Fakes;
@@ -652,6 +653,21 @@ namespace AccessibleTrader.Tests
             Assert.Equal(-0.0001, ctx!.FundingRate);
             Assert.Equal(9.0, ctx.OpenInterest);
             Assert.Null(HyperliquidProvider.ParseAssetContext(reply, 5, "X-PERP"));
+        }
+
+        [Fact]
+        public async Task The_funding_readout_reads_the_recorded_context_as_hourly_funding()
+        {
+            // metaAndAssetCtxs as it came on 2026-11-26, cut to BTC and ETH: funding negative.
+            var h = Armed(info: b => b["type"]?.ToString() == "metaAndAssetCtxs" ? Fixture("recorded_metaAndAssetCtxs.json") : null);
+            var p = Provider(h);
+
+            var source = p.GetCapability<IPerpetualContextProvider>();
+            var btc = await source!.GetPerpetualContextAsync("BTC-PERP");
+            var spot = await source.GetPerpetualContextAsync("PURR/USDC");
+
+            Assert.Equal(new PerpetualContext("BTC-PERP", -0.0000107689, 1, 35269.2580999999, 60427, 60452, 3405189961.0582513809), btc);
+            Assert.Null(spot);
         }
 
         [Fact]

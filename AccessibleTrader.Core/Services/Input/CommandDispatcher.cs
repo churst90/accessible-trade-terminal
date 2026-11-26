@@ -63,6 +63,7 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly MarketPulse.MarketPulseService? _marketPulse;
         private readonly ChangeLog.ChangeLogCatchUpService? _changeLog;
         private readonly MarketPulse.MorningBriefService? _morningBrief;
+        private readonly Feeds.FundingNowService? _fundingNow;
         private readonly DemoPolicy? _demo;
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
@@ -107,7 +108,8 @@ namespace AccessibleTrader.Core.Services.Input
             ChangeLog.ChangeLogCatchUpService? changeLog = null,
             DemoPolicy? demo = null,
             Headlines.HeadlineNavigator? headlineNavigator = null,
-            MarketPulse.MorningBriefService? morningBrief = null)
+            MarketPulse.MorningBriefService? morningBrief = null,
+            Feeds.FundingNowService? fundingNow = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -132,6 +134,7 @@ namespace AccessibleTrader.Core.Services.Input
             _headlineNavigator = headlineNavigator;
             _changeLog = changeLog;
             _morningBrief = morningBrief;
+            _fundingNow = fundingNow;
             _demo = demo;
             _quickTrade = quickTrade;
 
@@ -388,6 +391,13 @@ namespace AccessibleTrader.Core.Services.Input
                     // What happened while you were not listening. The catch-up owns the plan,
                     // the words and the caught-up mark; this only starts the press.
                     if (_changeLog != null) _ = _changeLog.SpeakAsync();
+                    return;
+
+                case SystemCommand.SpeakFundingNow:
+                    // Read from the chart's venue off the dispatcher's thread, like the pulse.
+                    if (_fundingNow != null) _ = _fundingNow.SpeakAsync(_store.State);
+                    else _eventBus.Publish(new AnnouncementEvent(
+                        "Funding now is unavailable.", true, Channel: SpeechChannel.Interface));
                     return;
 
                 case SystemCommand.MorningBrief:

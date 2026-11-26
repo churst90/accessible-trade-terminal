@@ -400,8 +400,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
   public account), recorded account fixtures, Hyperliquid's own funding in the Funding Rate
   indicator on its charts + the cross-series cache refreshing (it fetched once per session).
   Builders' markets (HIP-3, 178 listed: shares, metals, indices) chart, stream and show funding.
+  Go bar `FUND`: funding, open interest, mark against oracle and volume now (not heard).
   **Not built:** trading on builders' markets (refused in words; each builder has its own margin,
-  see the provider doc's Follow-ups); open interest from Hyperliquid (no history published).
+  see the provider doc's Follow-ups); open-interest HISTORY from Hyperliquid (none published, so
+  the Open Interest and Crowding indicators on its charts still read Binance's).
   **Still to see:** a triggered stop or target filling
   through the stream ("stop hit" needs the order type from `orderStatus` on that id).
 - [ ] **Position P&L since you left** has not been read against a live venue; no currency is named.

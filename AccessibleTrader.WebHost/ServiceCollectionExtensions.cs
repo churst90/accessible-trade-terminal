@@ -798,6 +798,8 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.IMarketPulseReader>(sp =>
                 sp.GetRequiredService<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>());
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
+            // Go bar FUND: reads the chart's venue each time, keeps nothing.
+            services.AddScoped<AccessibleTrader.Core.Services.Feeds.FundingNowService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal
             // stack and the shortcut profile it reads are scoped per signed-in user too.
             services.AddScoped<AccessibleTrader.Core.Services.GoBar.GoBarService>();

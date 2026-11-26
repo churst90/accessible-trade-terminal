@@ -562,6 +562,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+P | Market pulse — the "Pulse" watchlist spoken as one sentence (stocks, indices, crypto, forex, gold, oil, VIX, then what you hold) |
 | Ctrl+Alt+P | Market pulse detail — the last Alt+P reading item by item: symbol and source, last price, the change to two decimals from its stated start, and how old the quote is (never fetches) |
 | Ctrl+Alt+B | Morning brief — what changed (as Alt+U), the market pulse (as Alt+P, kept for Ctrl+Alt+P), then today's market events at your level for your markets, in one go (Go bar `BRIEF`) |
+| Go bar `FUND` (or `OI`; no key) | Funding and open interest now — the chart's perpetual as its venue publishes it this moment: funding per 8 hours, who pays, how often and what it comes to over a year, open interest in the coin and in dollars, mark against index, and the day's volume. Hyperliquid only for now; another venue says it does not give them |
 | Alt+U | What changed — the catch-up of money, alerts, events released and connection problems since you last listened. Press again for the rest |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |
 | Alt+Comma | Custom scripts panel (PineScript / Roslyn) |

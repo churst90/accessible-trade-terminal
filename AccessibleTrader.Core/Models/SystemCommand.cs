@@ -371,6 +371,9 @@ namespace AccessibleTrader.Core.Models
         CycleDrawingAnchor,
         /// <summary>Ctrl+Alt+Shift+B: snap the selected anchor's price onto its bar's high,
         /// low, open or close — nearest first, then cycling through the four.</summary>
-        SnapAnchorToBar
+        SnapAnchorToBar,
+        /// <summary>Go bar FUND (no key): the chart's perpetual now, funding, open interest,
+        /// mark against index and the day's volume, read from the venue.</summary>
+        SpeakFundingNow
     }
 }

@@ -819,6 +819,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.IMarketPulseReader>(sp =>
                 sp.GetRequiredService<AccessibleTrader.Core.Services.MarketPulse.MarketPulseService>());
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
+            // Go bar FUND: reads the chart's venue each time, keeps nothing.
+            services.AddSingleton<AccessibleTrader.Core.Services.Feeds.FundingNowService>();
             // Alt+G. The registry and matcher are static; the service owns the close-then-
             // dispatch sequence and reads the live shortcut profile for the key it says.
             services.AddSingleton<AccessibleTrader.Core.Services.GoBar.GoBarService>();

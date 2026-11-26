@@ -39,7 +39,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
     /// its own agent approval. Anything not explicitly Live is testnet.
     /// </para>
     /// </summary>
-    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider, ITradeStreamProvider
+    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider, ITradeStreamProvider, IPerpetualContextProvider
     {
         private const string MainnetRest = "https://api.hyperliquid.xyz";
         private const string TestnetRest = "https://api.hyperliquid-testnet.xyz";
@@ -145,6 +145,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (typeof(T) == typeof(IMarketDataProvider)) return this as T;
             if (typeof(T) == typeof(ITradingProvider))    return this as T;
             if (typeof(T) == typeof(IOrderBookProvider))  return this as T;
+            if (typeof(T) == typeof(IPerpetualContextProvider)) return this as T;
             return null;
         }
 
@@ -549,6 +550,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (asset == null || asset.IsSpot) return null;
             var json = await InfoAsync(WithDex(new JObject { ["type"] = "metaAndAssetCtxs" }, asset), _heavyInfoLimiter).ConfigureAwait(false) as JArray;
             return ParseAssetContext(json, asset.MetaIndex, asset.Display);
+        }
+
+        /// <summary>The spoken "funding now" readout's source: the asset context, funding paid every hour.</summary>
+        public async Task<PerpetualContext?> GetPerpetualContextAsync(string symbol, CancellationToken ct = default)
+        {
+            var c = await GetAssetContextAsync(symbol).ConfigureAwait(false);
+            return c is null ? null : new PerpetualContext(c.Symbol, c.FundingRate, FundingIntervalHours: 1,
+                c.OpenInterest, c.MarkPrice, c.OraclePrice, c.DayVolumeUsd);
         }
 
         /// <summary>A builder's market is read from that builder's lists; Hyperliquid's own need no <c>dex</c>.</summary>
