@@ -171,8 +171,13 @@ Open questions from Cody's seven notes (2026-11-22):
 
 - ~~**Arrowing after Home or End**~~: **answered by Cody 2026-11-26**: keep it; Home and End read
   only the component in focus, not the whole bar. Nothing to change.
-- **The Strategy Lab:** offer its exported strategy list (a JSON) as a download, or leave it in the
-  repository only?
+- ~~**The Strategy Lab:** offer its exported strategy list (a JSON) as a download, or leave it in the
+  repository only?~~ **Answered by Cody 2026-11-26: repository only**, and take it off the website
+  (prepared, see the Website item; it goes out with the release). On shipping the useful strategies
+  in the terminal: the catalogue was checked. One spec is control-tested (the trend baseline,
+  whose own verdict is that its specific numbers carry no information), and two live ones have a
+  plain walk-forward. Shipping them would undo the 2026-08-01 policy (docs/STRATEGY_LIBRARY_POLICY.md,
+  enforced by StrategyLibraryPolicyTests), so it is put to Cody rather than built.
 - **Phones:** to try Android, a CI job building an APK (not built yet); for iOS, a Mac with Xcode and
   an Apple ID (a free one installs for 7 days; TestFlight needs the paid developer program). Until
   then, phones use the web version.
@@ -334,6 +339,14 @@ needed: "don't worry about the custom scripts on the hosted vps".
   included.
 - [ ] **Profiles**: the buying/selling split is by bar direction; true delta needs lower-timeframe or
   tick data.
+- [ ] **Website, at the next release (Strategy Lab, Cody 2026-11-26: "keep it in repository and ...
+  remove mention from the website")**: `includes/features.php` on the server says two false things.
+  Line 166, "test it on years of history in the Strategy Lab", becomes "test it on years of history
+  in the Strategy Manager's Backtest tab". The table row at line 234, "Strategies and the Strategy
+  Lab" (Yes for the download), becomes "Strategies and backtesting". The manual's own "The Strategy
+  Lab" section (on the site as /docs and in llms-full.txt) already says repository only; whether
+  to cut it to a pointer is asked of Cody. Not changed on the server: website edits wait for the
+  release.
 - [ ] **Website**: redo "Take the audio tour" to show the different kinds of data (Cody: later). On a
   phone the leaderboard's caption scrolls off with the table. The terminal does not listen (speech
   input), so the site says keyboard or touchscreen in.

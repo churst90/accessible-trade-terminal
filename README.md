@@ -37,8 +37,9 @@ It is free, donation-supported, and developed in the open by a blind trader who 
 - **Indicators, drawings and alerts**, all reachable and editable from the keyboard.
 - **Your own indicators**, written in C# or transpiled from Pine Script, compiled and run in
   an OS-level sandbox.
-- **A strategy lab** for backtesting, with the statistical controls that stop a backtest from
-  flattering itself.
+- **Strategies and backtesting** in the terminal, with a first-half / last-half walk-forward
+  check. The research **Strategy Lab**, with the statistical controls that stop a backtest from
+  flattering itself, lives in this repository and is not in the downloads.
 
 ## Getting it
 

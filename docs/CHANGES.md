@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: the Strategy Lab stays in the repository
+
+Cody, 2026-11-26: "keep it in repository and if users shouldn't download it specifically remove
+mention from the website about it." The README's feature list called it "a strategy lab for
+backtesting" as if it came with the app; it now names the terminal's own backtesting and says the
+lab is repository-only. The website's features page claims the lab is in the download (two places
+in `includes/features.php`); the replacement words are in TODO and go out with the next release,
+not before. The catalogue's strategies are not shipped in the terminal: the one control-tested
+spec's verdict is that its numbers carry no information, and shipping would reverse the
+2026-08-01 library policy, so that is Cody's call.
+
 ### 2026-11-26: Gemini's limit-only and post-only markets take the orders they allow
 
 Cody, 2026-11-26, asked whether a Gemini limit_only market should let limit orders through: "I'd
