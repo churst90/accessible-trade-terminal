@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: five fixes from the accessibility review of the new trading fields
+
+The accessibility agents were registered on 2026-11-26, and their first review covered the
+dead-man's switch fields, the TWAP fields in the trading ticket and Hyperliquid's vault field. I
+checked each finding against the code; Cody agreed to fixes 1 to 5.
+
+1. **Vault or subaccount field, API keys dialog.** For Hyperliquid it is now plain text (it holds a
+   public address): masked, a screen reader said "password" and echoed nothing, so a 42-character
+   address could not be checked by ear. Other providers' passphrases stay masked. It has a hint
+   ("Leave blank to trade your own account..."), an address that is not 0x and 40 hex characters,
+   or is the main address, is refused at Save in words with the field marked invalid (editing the
+   field or changing provider takes the mark and the message away), and changing the provider
+   empties the field (its meaning changes with the provider).
+2. **Dead-man's switch seconds.** An entry outside 30 to 3600 is corrected and said ("Dead-man's
+   switch seconds must be 30 to 3600. Set to 30."); an emptied or non-numeric one keeps the old wait
+   and says so. The message stays beside the field and in its description until a good entry
+   (not aria-invalid: the field then holds a good number).
+3. **Dead-man's switch hints.** The seconds field has its own short hint ("30 to 3600. Used only when
+   the switch is on.") instead of pointing at the long one, which was read twice in a row. The long
+   hint now leads with the consequence: all open orders there cancelled, which may include
+   stop-losses and targets, positions left open without them.
+4. **TWAP minutes.** Below 1 the field is marked invalid with a message and Place is refused, as for
+   a zero quantity; before, the review said "TWAP over 0 minutes" and only Hyperliquid refused it.
+5. **TWAP price in open orders.** "none filled yet" before the first slice and "average" with the
+   price after, instead of a bare 0.
+
+The reviewer also said switching the dead-man's switch on or off was silent; it is not (saving
+Settings applies it and the service speaks on, off or failure). Not done, on purpose: speaking
+"fields added" when TWAP is picked, and a fieldset around the two dead-man's switch fields.
+
+A second review of the finished change found nothing blocking; two of its three small points are
+fixed above (no "invalid" on a corrected seconds value; the vault error leaves with its mark). The
+third is not: a Save that fails twice with the same message may not be re-read, because the
+dialog's role=alert text did not change. That holds for every error in the API keys dialog, not just
+this one, and is in TODO.
+
+Tests: `AccessibilityReviewFixesTests` (16, bUnit on the three dialogs plus the three rules).
+Sabotages: 17 of 17 red (vault masked again, passphrase kept across providers, no vault check, vault
+not marked, clamp not said, seconds marked invalid (first that it was, then, after the second review,
+that it was not), shared hint, old hint order, silent clamp rule, empty entry not said, 0 minutes not
+gated, minutes not marked, bare 0 price cell, rule without TWAP, vault error kept on a provider
+change, vault error kept on an edit). The aria-invalid values then moved from null to "false" to
+match the dialogs' convention (ModalContractScanTests); the tests read "true" when invalid, so those
+sabotages still apply, but they were not re-run after that change.
+
+Caveats: bUnit cannot show what a browser puts in a number field, so that the seconds field shows
+30 after typing 5 (the fix renders the raw entry once, then the corrected one, because Blazor diffs
+against its last render) is unverified in a real browser. Nothing seen or heard in the app.
+
 ### 2026-11-26: the dead-man's switch (Hyperliquid), off by default
 
 Cody asked for it, with his rule that orders stay until he cancels them. So it is off by default,

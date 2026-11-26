@@ -164,14 +164,24 @@
                         </div>
                         <div class="modal-row">
                             <label for="s-dead-mans-seconds">Dead-man's switch seconds</label>
+                            @* Its own short hint: the checkbox above carries the long one, and
+                               pointing both at it read about sixty words twice in a row (a11y
+                               review 2026-11-26). An out-of-range entry is corrected and said, and
+                               the message stays linked until the next good one. Not aria-invalid:
+                               the field then holds a good number, and "invalid" on it would mislead. *@
                             <input id="s-dead-mans-seconds" type="number"
                                    min="@AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MinSeconds"
                                    max="@AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MaxSeconds" step="10"
-                                   aria-describedby="s-dead-mans-switch-hint"
-                                   value="@_deadMansSeconds"
+                                   aria-describedby="@(_deadMansSecondsError != null ? "s-dead-mans-seconds-err s-dead-mans-seconds-hint" : "s-dead-mans-seconds-hint")"
+                                   value="@(_deadMansSecondsShown ?? _deadMansSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture))"
                                    @onchange="OnDeadMansSecondsChanged" />
                         </div>
-                        <p id="s-dead-mans-switch-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Cancels your orders if the terminal stops. Hyperliquid only for now. If the terminal crashes, the computer is forced off or the connection drops for this long (30 to 3600 seconds), the venue cancels all your open orders there, which may include stops and targets. Positions stay open. Closing the terminal normally keeps your orders.</p>
+                        @if (_deadMansSecondsError != null)
+                        {
+                            <p id="s-dead-mans-seconds-err" class="field-error" style="margin:-8px 0 4px;">@_deadMansSecondsError</p>
+                        }
+                        <p id="s-dead-mans-seconds-hint" style="margin:-8px 0 8px; color:var(--text-muted); font-size:0.9em;">30 to 3600. Used only when the switch is on.</p>
+                        <p id="s-dead-mans-switch-hint" style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">If the terminal stops for that many seconds (it crashes, the computer is forced off or the connection drops), the venue cancels all your open orders there, which may include stop-losses and targets. Positions stay open, without those orders. Closing the terminal normally keeps your orders. Hyperliquid only for now.</p>
 
                     }
                     @* Two established, genuinely different ways to size a trade. The terminal
@@ -2110,10 +2120,46 @@
     private void OnLiveBgTabsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _liveBgTabs = e.Value is bool b && b;
 
-    private void OnDeadMansSecondsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    private string? _deadMansSecondsError;
+    private string? _deadMansSecondsShown;   // the raw entry, for one render only
+
+    /// <summary>
+    /// A wait outside 30 to 3600, or no number at all, is corrected and SAID: a silent clamp
+    /// left a user who typed 5 hearing 30 with no reason given, on a setting that can cancel
+    /// stops. The raw entry is rendered once before the corrected one, because Blazor diffs
+    /// against what it last rendered, not what is in the field: 5 corrected to 30 when 30 was
+    /// rendered last is no change, and the field would go on showing 5.
+    /// </summary>
+    private async Task OnDeadMansSecondsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
-        if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
-        _deadMansSeconds = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.ClampSeconds(seconds);
+        var (value, message) = DeadMansSecondsEntry(e.Value?.ToString(), _deadMansSeconds);
+        if (message != null)
+        {
+            _deadMansSecondsShown = e.Value?.ToString() ?? "";
+            StateHasChanged();
+            await Task.Yield();
+            _deadMansSecondsShown = null;
+        }
+        _deadMansSeconds = value;
+        _deadMansSecondsError = message;
+        if (message != null)
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, message));
+    }
+
+    /// <summary>The wait an entry gives, and what to say when it had to be corrected (null when not).</summary>
+    internal static (int Value, string? Message) DeadMansSecondsEntry(string? entry, int current)
+    {
+        const int min = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MinSeconds;
+        const int max = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MaxSeconds;
+        if (!int.TryParse(entry?.Trim(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int seconds))
+            return (current, $"Dead-man's switch seconds needs a number from {min} to {max}. Kept at {current}.");
+        if (seconds is < min or > max)
+        {
+            int clamped = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.ClampSeconds(seconds);
+            return (clamped, $"Dead-man's switch seconds must be {min} to {max}. Set to {clamped}.");
+        }
+        return (seconds, null);
     }
 
     private void OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -2301,6 +2347,7 @@
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _deadMansSwitch = Settings.GetSetting(SettingsKeys.DeadMansSwitch)?.ToObject<bool>() ?? false;
+        _deadMansSecondsError = null;
         _deadMansSeconds = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.ClampSeconds(
             Settings.GetSetting(SettingsKeys.DeadMansSwitchSeconds)?.ToObject<int>()
             ?? AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.DefaultSeconds);

@@ -211,9 +211,14 @@
                                 <div class="entry-row">
                                     <label for="twap-minutes">Minutes</label>
                                     <input id="twap-minutes" type="number" min="1" step="1" @bind="_twapMinutes"
-                                           aria-describedby="twap-minutes-hint"
+                                           aria-invalid="@(TwapMinutesError.Length > 0 ? "true" : "false")"
+                                           aria-describedby="@(TwapMinutesError.Length > 0 ? "twap-minutes-err twap-minutes-hint" : "twap-minutes-hint")"
                                            @oninput='() => VoidReviewIfArmed("TWAP minutes")' />
                                     <span id="twap-minutes-hint" class="field-hint">The venue buys or sells a slice about every 30 seconds until this many minutes have passed.</span>
+                                    @if (TwapMinutesError.Length > 0)
+                                    {
+                                        <span id="twap-minutes-err" class="field-error">@TwapMinutesError</span>
+                                    }
                                 </div>
                                 <div class="entry-row">
                                     <label for="twap-randomize">Randomize slice sizes</label>
@@ -745,7 +750,7 @@
                                                     <td>@o.Side</td>
                                                     <td>@TypeName(o.Type)</td>
                                                     <td>@PriceFormatter.FormatQuantity(o.Quantity)</td>
-                                                    <td>@PriceFormatter.FormatPrice(o.Price)</td>
+                                                    <td>@OpenOrderPriceText(o)</td>
                                                     <td>@o.Status</td>
                                                     @* Visible text, not "✕": that character is announced as "times",
                                                        as "ex", or skipped entirely depending on the screen reader and
@@ -1297,6 +1302,7 @@
             || string.IsNullOrEmpty(Store.State.Identity.Provider))
             return "No chart symbol is loaded, so there is nothing to trade.";
         if (QtyInvalid) return QtyErrorText;
+        if (TwapMinutesError.Length > 0) return TwapMinutesError;
         return null;
     }
 
@@ -1426,6 +1432,20 @@
         : _orderType.ToLowerInvariant();
 
     private static string TypeName(OrderType t) => t == OrderType.Twap ? "TWAP" : t.ToString();
+
+    /// <summary>
+    /// Checked before Place like the quantity, not left to the venue: 0 minutes read as
+    /// "TWAP over 0 minutes" in the review and was refused only after Place (a11y review 2026-11-26).
+    /// </summary>
+    private string TwapMinutesError => IsTwap && _twapMinutes < 1 ? "Enter how many minutes the TWAP runs over, 1 or more." : "";
+
+    /// <summary>
+    /// The Price cell of an open order. A TWAP has no price of its own: the venue reports the
+    /// average fill so far, 0 before the first slice, and a bare "0" sounded like a real price.
+    /// </summary>
+    internal static string OpenOrderPriceText(OpenOrder o) => o.Type != OrderType.Twap
+        ? PriceFormatter.FormatPrice(o.Price)
+        : o.Price > 0 ? "average " + PriceFormatter.FormatPrice(o.Price) : "none filled yet";
 
     protected override void OnInitialized()
     {

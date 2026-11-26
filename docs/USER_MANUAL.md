@@ -298,17 +298,22 @@ listed with your open orders as "TWAP 48 of 1,707 done at 1,688 average, over 14
 15:25 UTC", and Cancel stops it; what it already traded stays traded. It is heard when it starts
 and when it ends (finished, stopped, or stopped by Hyperliquid with the reason), not at each
 slice. A TWAP carries no stop or target, cannot be changed (cancel it and place another), and is
-not simulated by paper trading. Its slices are not listed among your fills.
+not simulated by paper trading. Its slices are not listed among your fills. Its Price cell says
+"none filled yet" until the first slice, then "average" and the average so far. Minutes below 1
+are marked in the ticket and stop Place, as a quantity of zero does.
 To trade a **subaccount** or a **vault** you lead, put its address in the profile's third field,
 which for Hyperliquid is named "Vault or subaccount" (Passphrase on other providers); leave it
-empty to trade your main account. The main account and agent key stay as they are: Hyperliquid
+empty to trade your main account. For Hyperliquid that field is plain text, not hidden like a
+password, so you can read back the address you pasted; one that is not an address, or is your
+main address, is refused when you Save. Changing the provider empties the field. The main account and agent key stay as they are: Hyperliquid
 has the main account's agent sign for the subaccount or vault. Balances, positions, open orders
 and announced fills are then that subaccount's or vault's. An entry that is not an address, or is
 your main address, stops the profile before anything is sent. For two accounts at once, make two
 profiles.
 Hyperliquid also offers a **dead-man's switch**, off unless you turn it on: in Settings (F12),
 General tab, Trading, tick "Dead-man's switch", set "Dead-man's switch seconds" (30 to 3600,
-60 by default) and Save. While the terminal runs it tells Hyperliquid every 20 seconds to cancel your open orders that many seconds from now, so the time
+60 by default) and Save. A number outside 30 to 3600 is corrected and the terminal says so
+("Dead-man's switch seconds must be 30 to 3600. Set to 30."). While the terminal runs it tells Hyperliquid every 20 seconds to cancel your open orders that many seconds from now, so the time
 never comes. If the terminal crashes, the computer is forced off or the connection drops for
 that long, Hyperliquid cancels every open order on the account, which may include your stops and
 targets. Positions stay open. **Closing the terminal normally keeps your orders**, and so does

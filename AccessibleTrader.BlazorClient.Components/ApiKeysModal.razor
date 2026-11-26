@@ -158,7 +158,7 @@
 
                 <div class="modal-row">
                     <label for="key-provider">Provider</label>
-                    <select id="key-provider" @bind="_newProvider">
+                    <select id="key-provider" @bind="_newProvider" @bind:after="OnProviderChanged">
                         @foreach (var p in _knownProviders)
                         {
                             <option value="@p">@p</option>
@@ -209,12 +209,22 @@
                 </div>
 
                 <div class="modal-row">
-                    @* Hyperliquid has no passphrase; the field takes the vault or subaccount to trade for. *@
+                    @* Hyperliquid has no passphrase; the field takes the vault or subaccount to trade for.
+                       That is a PUBLIC address, so it is plain text there: masked, a screen reader said
+                       "password" and echoed nothing, and 42 characters could not be checked by ear
+                       (a11y review 2026-11-26). A real passphrase stays masked. *@
                     <label for="key-pass">@(IsHyperliquid(_newProvider) ? "Vault or subaccount" : "Passphrase")</label>
-                    <input id="key-pass" type="password" autocomplete="off" spellcheck="false"
+                    <input id="key-pass" type="@(IsHyperliquid(_newProvider) ? "text" : "password")" autocomplete="off" spellcheck="false"
                            placeholder="@(IsHyperliquid(_newProvider) ? "Optional: 0x address to trade for" : "Optional")"
-                           @bind="_newPassphrase" aria-label="@PassphraseLabel(_newProvider)" style="flex:1;" />
+                           aria-invalid="@(_vaultInvalid ? "true" : "false")"
+                           aria-describedby="@(IsHyperliquid(_newProvider) ? (_vaultInvalid ? "apikeys-form-error key-pass-hint" : "key-pass-hint") : null)"
+                           @bind="_newPassphrase" @bind:after="ClearVaultInvalid"
+                           aria-label="@PassphraseLabel(_newProvider)" style="flex:1;" />
                 </div>
+                @if (IsHyperliquid(_newProvider))
+                {
+                    <p id="key-pass-hint" class="field-hint" style="margin:-4px 0 8px;">Leave blank to trade your own account. To trade a vault or subaccount, paste its address: 0x and 40 letters or digits.</p>
+                }
 
                 @* Deliberately its own bordered block rather than one more row: marking
                    a profile withdrawal-enabled is a different act from adding a trading
@@ -252,7 +262,7 @@
 
                 @if (!string.IsNullOrEmpty(_formError))
                 {
-                    <p role="alert" style="color:#c00; margin-top:6px; font-size:0.88rem;">@_formError</p>
+                    <p id="apikeys-form-error" role="alert" style="color:#c00; margin-top:6px; font-size:0.88rem;">@_formError</p>
                 }
 
                 <div style="margin-top:12px; display:flex; justify-content:flex-end;">
@@ -301,6 +311,39 @@
     private static bool IsHyperliquid(string provider) => ProviderNames.Match(provider, "Hyperliquid");
 
     /// <summary>The third credential field's spoken name, which says what it is for on this provider.</summary>
+    private bool _vaultInvalid;
+    // The vault's error goes with its mark: left on screen it described a field already changed.
+    private void ClearVaultInvalid()
+    {
+        if (_vaultInvalid) _formError = null;
+        _vaultInvalid = false;
+    }
+
+    /// <summary>
+    /// A passphrase left over from another provider must not ride along into a Hyperliquid
+    /// profile as a "vault", or the other way round: the field changes meaning with the provider.
+    /// </summary>
+    private void OnProviderChanged()
+    {
+        _newPassphrase = "";
+        _vaultInvalid = false;
+        _formError = null;
+    }
+
+    /// <summary>
+    /// Hyperliquid's vault field checked at Save, in the words the provider would refuse it in
+    /// later, instead of a profile that saves and then cannot trade. Null when it is fine.
+    /// </summary>
+    internal static string? VaultError(string provider, string vault, string apiKey)
+    {
+        if (!IsHyperliquid(provider) || vault.Length == 0) return null;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(vault, "^0x[0-9a-fA-F]{40}$"))
+            return "Vault or subaccount must be an address: 0x and 40 letters or digits. Leave it blank to trade your own account.";
+        if (string.Equals(vault, apiKey.Trim(), StringComparison.OrdinalIgnoreCase))
+            return "Vault or subaccount is your main account address. Leave it blank to trade your own account.";
+        return null;
+    }
+
     internal static string PassphraseLabel(string provider) =>
         IsHyperliquid(provider) ? "Vault or subaccount address (optional)" : "Passphrase (optional)";
     private bool   _newAllowsWithdrawal;
@@ -447,6 +490,14 @@
             _formError = "API key is required.";
             return;
         }
+        if (IsHyperliquid(_newProvider))
+            _newPassphrase = _newPassphrase.Trim();
+        if (VaultError(_newProvider, _newPassphrase, _newApiKey) is string vaultError)
+        {
+            _formError = vaultError;
+            _vaultInvalid = true;
+            return;
+        }
         if (_keys.Any(k => k.Nickname.Equals(_newNickname, StringComparison.OrdinalIgnoreCase)))
         {
             _formError = $"A profile named \"{_newNickname}\" already exists.";
@@ -504,6 +555,7 @@
             _newApiKey = "";
             _newApiSecret = "";
             _newPassphrase = "";
+            _vaultInvalid = false;
             _newAllowsWithdrawal = false;
             _formError = null;
             StateHasChanged();

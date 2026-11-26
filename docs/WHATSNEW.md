@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Clearer trading fields (from an accessibility review).** Hyperliquid's "Vault or subaccount"
+  field is now plain text you can read back, with a hint, and a bad address is refused at Save. The
+  dead-man's switch seconds field says when it corrects a number, and its hint is short and its
+  own. TWAP minutes of 0 are marked before you press Place, and a TWAP that has not filled yet
+  says "none filled yet" for its price instead of 0.
 - **Dead-man's switch on Hyperliquid (off unless you turn it on).** Settings (F12), General,
   Trading: if the terminal crashes, the computer is forced off or the connection drops for the
   seconds you choose (60 by default), Hyperliquid cancels your open orders there, which may

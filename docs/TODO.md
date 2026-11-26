@@ -419,6 +419,16 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## Known limits and smaller open items
 
+- [ ] **Accessibility review, rounds 3 and 4** (agents registered 2026-11-26). Round 1 (dead-man's
+  switch fields) and round 2 (trading ticket TWAP fields, the vault field) are done; see CHANGES
+  2026-11-26. Next: the rest of Settings, then Help, the toolbar, the Go bar and chart-type
+  settings. Left from round 2 on purpose (Cody agreed fixes 1 to 5 only): speaking "Minutes and
+  Randomize fields added" when TWAP is picked, and a fieldset around the two dead-man's switch
+  fields. Not checked in a real browser: that the seconds field shows the corrected number after
+  an out-of-range entry (bUnit cannot show it; the fix renders the raw entry once first).
+  Also left: in the API keys dialog a Save that fails twice with the same message may not be
+  re-read (the role=alert text did not change); true of every error there, not only the vault's.
+
 - [ ] **Intermittent: `ReconnectingWebSocketBehaviourTests.A_ping_that_gets_through_resets_the_count`**
   timed out at 20 s in CI on 2026-11-26 (1 of the last 12 failed runs; 15/15 locally). The heartbeat
   loop counts only while the socket is Open, so a socket that drops and is slow to reconnect on a
