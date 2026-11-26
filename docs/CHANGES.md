@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid's builder markets (HIP-3): charts, live bars, book and funding
+
+Hyperliquid also lists perpetuals that other firms deploy on it ("HIP-3"): on 2026-11-26, 178 of
+them across four builders, most of them xyz's shares, metals and indices (xyz:TSLA-PERP traded
+$28M that day, its index XYZ100 $533M). The terminal listed none. They now join the Futures list
+under the venue's own names ("xyz:TSLA-PERP"; a builder's "BTC" never collides with
+Hyperliquid's), read in one `allPerpMetas` call, and chart, stream, show the book and feed the
+Funding Rate indicator like any other market. Builders that delisted everything (flx, vntl,
+hyna, km, cash, abcd) are left out. **Not traded yet:** each builder keeps its own margin, and
+positions there are read per builder, so an order, a modify or a leverage change on one is
+refused in words rather than opening a position the terminal could not see. Checked live and
+read-only through the real provider; recorded fixture; sabotage 10/10. Not seen or heard in the app.
+
 ### 2026-11-26: Five change-log tests were a date bomb (CI red on 2aa6922f)
 
 The push of 2aa6922f went red on GitHub: five ChangeLogStore/ChangeLogRecorder tests failed,

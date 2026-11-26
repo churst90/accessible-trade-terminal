@@ -268,6 +268,17 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     SurfaceError($"Hyperliquid spot metadata failed: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
                 }
 
+                // Builders' markets too (HIP-3: shares, metals, indices), best effort like spot.
+                try
+                {
+                    perps.AddRange(HyperliquidWire.ParseAllPerpMetas(
+                        await InfoAsync(new JObject { ["type"] = "allPerpMetas" }, _heavyInfoLimiter).ConfigureAwait(false) as JArray));
+                }
+                catch (Exception ex) when (!TransportFailure.IsTransient(ex))
+                {
+                    SurfaceError($"Hyperliquid builders' markets failed: {ex.Message}", ErrorSeverity.Low, ErrorCategory.Provider);
+                }
+
                 var all = perps.Concat(spot).ToList();
                 var byNorm = new Dictionary<string, AssetInfo>(StringComparer.Ordinal);
                 foreach (var a in all) byNorm.TryAdd(a.Norm, a);   // first (lowest id) wins on a duplicate name
@@ -536,8 +547,15 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             var asset = await ResolveAsync(symbol, "Futures").ConfigureAwait(false);
             if (asset == null || asset.IsSpot) return null;
-            var json = await InfoAsync(new JObject { ["type"] = "metaAndAssetCtxs" }, _heavyInfoLimiter).ConfigureAwait(false) as JArray;
-            return ParseAssetContext(json, asset.AssetId, asset.Display);
+            var json = await InfoAsync(WithDex(new JObject { ["type"] = "metaAndAssetCtxs" }, asset), _heavyInfoLimiter).ConfigureAwait(false) as JArray;
+            return ParseAssetContext(json, asset.MetaIndex, asset.Display);
+        }
+
+        /// <summary>A builder's market is read from that builder's lists; Hyperliquid's own need no <c>dex</c>.</summary>
+        private static JObject WithDex(JObject body, AssetInfo asset)
+        {
+            if (asset.Dex.Length > 0) body["dex"] = asset.Dex;
+            return body;
         }
 
         internal static HyperliquidAssetContext? ParseAssetContext(JArray? reply, int index, string display)
@@ -1136,6 +1154,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             {
                 var asset = await ResolveAsync(signal.Symbol, signal.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {signal.Symbol}";
+                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) return $"ORDER_FAILED:{builder}";
 
                 // A perp order that opens or adds always states its leverage. The ticket sends
                 // none when its field says 1, and until 2026-11-10 none meant "leave the coin's
@@ -1305,7 +1324,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         private async Task<double?> GetMidAsync(AssetInfo asset)
         {
-            var mids = await InfoAsync(new JObject { ["type"] = "allMids" }, _lightInfoLimiter).ConfigureAwait(false) as JObject;
+            var mids = await InfoAsync(WithDex(new JObject { ["type"] = "allMids" }, asset), _lightInfoLimiter).ConfigureAwait(false) as JObject;
             double v = HyperliquidWire.D(mids?[asset.Coin]);
             return v > 0 ? v : null;
         }
@@ -1331,6 +1350,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 if (!CanSign) return 1.0;
                 var asset = await ResolveAsync(symbol, "Futures").ConfigureAwait(false);
                 if (asset == null || asset.IsSpot) return 1.0;
+                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) { SurfaceError(builder, ErrorSeverity.Medium, ErrorCategory.Provider); return 1.0; }
                 // Isolated unless the user chose otherwise elsewhere: a liquidation then takes one
                 // position, not the account.
                 string? err = await UpdateLeverageAsync(asset, leverage, isCross: false).ConfigureAwait(false);
@@ -1392,6 +1412,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             {
                 var asset = await ResolveAsync(replacement.Symbol, replacement.SubType).ConfigureAwait(false);
                 if (asset == null) return $"ORDER_FAILED:Hyperliquid has no market named {replacement.Symbol}";
+                if (HyperliquidWire.BuilderMarketRefusal(asset) is string builder) return $"ORDER_FAILED:{builder}";
                 var (wires, _, err) = await BuildOrdersAsync(replacement, asset).ConfigureAwait(false);
                 if (err != null) return $"ORDER_FAILED:{err}";
 

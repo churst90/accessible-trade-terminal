@@ -9,10 +9,16 @@ namespace AccessibleTrader.Plugins.Hyperliquid
     /// <param name="Display">The symbol the app shows and stores, "BTC-PERP" or "HYPE-USDC".</param>
     /// <param name="Norm">Display with separators removed and uppercased; how typed symbols are matched.</param>
     /// <param name="Coin">The name the API wants in info calls: "BTC" for a perp, "@107" for most spot pairs.</param>
-    /// <param name="AssetId">The integer in a signed order: the perp's index, or 10000 + the spot pair's index.</param>
+    /// <param name="AssetId">The integer in a signed order: the perp's index, 10000 + the spot pair's index,
+    /// or for a builder's market 100000 + 10000 × the builder's number + its index there.</param>
+    /// <param name="Dex">The builder ("xyz") for a market a builder deployed (HIP-3), empty for Hyperliquid's own.</param>
     internal sealed record AssetInfo(
         string Display, string Norm, string Coin, int AssetId, int SzDecimals,
-        bool IsSpot, int MaxLeverage, bool OnlyIsolated);
+        bool IsSpot, int MaxLeverage, bool OnlyIsolated, string Dex = "")
+    {
+        /// <summary>Where the market sits in its own universe list, and so in its asset contexts.</summary>
+        public int MetaIndex => Dex.Length == 0 ? AssetId : AssetId % HyperliquidWire.BuilderDexStride;
+    }
 
     /// <summary>The outcome of one entry in an order action's <c>statuses</c> list.</summary>
     internal sealed record OrderOutcome(string? Oid, string? Error, bool Filled, double FilledSize, double AvgPrice)
@@ -31,6 +37,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         public const int PerpMaxDecimals = 6;
         public const int SpotMaxDecimals = 8;
         public const int SpotAssetOffset = 10000;
+        public const int BuilderAssetOffset = 100000;
+        public const int BuilderDexStride = 10000;
 
         // ── Numbers ───────────────────────────────────────────────────────────
 
@@ -138,9 +146,10 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         /// <summary>
         /// Perps from the <c>meta</c> reply. The asset id is the position in the universe list,
         /// which is why delisted entries are kept in the numbering and only skipped from the
-        /// list of tradable symbols.
+        /// list of tradable symbols. <paramref name="dexIndex"/> is the builder's number for a
+        /// builder's universe (whose names already carry its prefix, "xyz:TSLA"); 0 is Hyperliquid's own.
         /// </summary>
-        public static List<AssetInfo> ParseMeta(JObject meta)
+        public static List<AssetInfo> ParseMeta(JObject meta, int dexIndex = 0)
         {
             var result = new List<AssetInfo>();
             var universe = meta["universe"] as JArray ?? new JArray();
@@ -150,18 +159,43 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 string name = u["name"]?.ToString() ?? "";
                 if (name.Length == 0) continue;
                 if (u["isDelisted"]?.Value<bool>() == true) continue;
+                int colon = name.IndexOf(':');
                 result.Add(new AssetInfo(
                     Display: name + "-PERP",
                     Norm: Normalise(name + "-PERP"),
                     Coin: name,
-                    AssetId: i,
+                    AssetId: dexIndex == 0 ? i : BuilderAssetOffset + dexIndex * BuilderDexStride + i,
                     SzDecimals: u["szDecimals"]?.Value<int>() ?? 0,
                     IsSpot: false,
                     MaxLeverage: u["maxLeverage"]?.Value<int>() ?? 1,
-                    OnlyIsolated: u["onlyIsolated"]?.Value<bool>() == true));
+                    OnlyIsolated: u["onlyIsolated"]?.Value<bool>() == true,
+                    Dex: dexIndex == 0 || colon < 1 ? "" : name[..colon]));
             }
             return result;
         }
+
+        /// <summary>
+        /// Builders' perps (HIP-3) from the <c>allPerpMetas</c> reply: one universe per builder,
+        /// Hyperliquid's own first (skipped; <c>meta</c> reads it). A builder's number is its place
+        /// in this list, which matched <c>perpDexs</c> on 2026-11-26; it only matters to a signed
+        /// order, and orders on builders' markets are refused for now (<see cref="BuilderMarketRefusal"/>).
+        /// </summary>
+        public static List<AssetInfo> ParseAllPerpMetas(JArray? reply)
+        {
+            var result = new List<AssetInfo>();
+            if (reply is null) return result;
+            for (int k = 1; k < reply.Count; k++)
+                if (reply[k] is JObject meta) result.AddRange(ParseMeta(meta, k));
+            return result;
+        }
+
+        /// <summary>
+        /// Builders' markets chart, stream and show funding, but are not traded yet: each builder
+        /// keeps its own margin (often in another stablecoin), and positions there are read per
+        /// builder. Until that is built an order would open a position the terminal cannot see.
+        /// </summary>
+        public static string? BuilderMarketRefusal(AssetInfo asset) => asset.Dex.Length == 0 ? null
+            : $"{asset.Display} is a market the builder {asset.Dex} runs on Hyperliquid; the terminal charts it but does not trade it yet";
 
         /// <summary>
         /// Spot pairs from the <c>spotMeta</c> reply. The pair's own <c>index</c> (not its list

@@ -36,6 +36,7 @@ namespace AccessibleTrader.Tests
         [Theory]
         [InlineData("Hyperliquid", "BTC-PERP", "BTC-PERP_FUNDING")]
         [InlineData("hyperliquid", "HYPE-PERP", "HYPE-PERP_FUNDING")]
+        [InlineData("Hyperliquid", "xyz:TSLA-PERP", "xyz:TSLA-PERP_FUNDING")]   // a builder's market (HIP-3)
         public void FundingRate_on_a_Hyperliquid_chart_reads_Hyperliquids_own_funding(string provider, string symbol, string expected)
         {
             // Its symbols have no Binance archive twin ("BTC-PERP" became "BTCPERPUSDT_FUNDING",

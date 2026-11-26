@@ -400,6 +400,91 @@ namespace AccessibleTrader.Tests
         private static int Asked(FakeHttpMessageHandler h, string type) =>
             h.CapturedBodies.Count(b => b.Contains("\"type\":\"" + type + "\""));
 
+        // ── Builders' markets (HIP-3) ─────────────────────────────────────────
+        // recorded_allPerpMetas.json is the 2026-11-26 reply cut at each list's TAIL, so every
+        // market keeps its real place: xyz 0..34 (32 and 33 delisted), flx 0..1 (both delisted,
+        // like all of flx), para 0..3 (3 delisted).
+
+        private static FakeHttpMessageHandler WithBuilders(Func<JObject, string?>? more = null) =>
+            Armed(info: b => b["type"]?.ToString() == "allPerpMetas" ? Fixture("recorded_allPerpMetas.json") : more?.Invoke(b));
+
+        [Fact]
+        public void A_builders_market_is_numbered_from_100000_by_its_builder_and_keeps_its_prefix()
+        {
+            var all = HyperliquidWire.ParseAllPerpMetas(JArray.Parse(Fixture("recorded_allPerpMetas.json")));
+
+            var tsla = Assert.Single(all, a => a.Coin == "xyz:TSLA");
+            Assert.Equal("xyz:TSLA-PERP", tsla.Display);
+            Assert.Equal("xyz", tsla.Dex);
+            Assert.Equal(110001, tsla.AssetId);
+            Assert.Equal(1, tsla.MetaIndex);
+            Assert.False(tsla.IsSpot);
+            Assert.DoesNotContain(all, a => a.Coin is "xyz:URANIUM" or "xyz:ALUMINIUM");   // delisted, but...
+            Assert.Equal(110034, Assert.Single(all, a => a.Coin == "xyz:SMSN").AssetId);   // ...still numbered
+            var total2 = Assert.Single(all, a => a.Coin == "para:TOTAL2");
+            Assert.Equal(180000, total2.AssetId);
+            Assert.Equal("para", total2.Dex);
+            Assert.DoesNotContain(all, a => a.Dex is "" or "flx");   // Hyperliquid's own come from meta
+        }
+
+        [Fact]
+        public async Task Builders_markets_are_listed_and_charted_by_their_own_names()
+        {
+            var h = WithBuilders();
+            var p = Provider(h);
+
+            var futures = await p.GetAvailableSymbolsAsync(MarketType.Crypto, "Futures");
+            await p.FetchOhlcvAsync(new MarketDataRequest("Crypto", "xyz:tsla", "1h"));
+
+            Assert.Contains("BTC-PERP", futures);
+            Assert.Contains("xyz:TSLA-PERP", futures);
+            Assert.Contains("para:TOTAL2-PERP", futures);
+            Assert.DoesNotContain(futures, s => s.StartsWith("flx:"));
+            var ask = h.CapturedBodies.Select(JObject.Parse).Last(b => b["type"]?.ToString() == "candleSnapshot");
+            Assert.Equal("xyz:TSLA", ask["req"]!["coin"]!.ToString());
+        }
+
+        [Fact]
+        public async Task A_builders_market_reads_its_context_and_funding_from_its_builder()
+        {
+            var h = WithBuilders(b => b["type"]?.ToString() switch
+            {
+                "metaAndAssetCtxs" => "[{\"universe\":[]},[{\"markPx\":\"60312\"},{\"markPx\":\"382.13\"}]]",
+                "fundingHistory" => "[]",
+                _ => null,
+            });
+            var p = Provider(h);
+
+            var tsla = await p.GetAssetContextAsync("xyz:TSLA-PERP");
+            var btc = await p.GetAssetContextAsync("BTC-PERP");
+            await p.FetchOhlcvAsync(new MarketDataRequest("Derivatives", "xyz:TSLA-PERP_FUNDING", "1h"));
+
+            Assert.Equal(382.13, tsla!.MarkPrice);     // its place in xyz's list, not 110001
+            Assert.Equal(60312, btc!.MarkPrice);
+            var asks = h.CapturedBodies.Select(JObject.Parse).Where(b => b["type"]?.ToString() == "metaAndAssetCtxs").ToList();
+            Assert.Equal("xyz", asks[0]["dex"]?.ToString());
+            Assert.Null(asks[1]["dex"]);
+            var funding = h.CapturedBodies.Select(JObject.Parse).Single(b => b["type"]?.ToString() == "fundingHistory");
+            Assert.Equal("xyz:TSLA", funding["coin"]!.ToString());
+        }
+
+        [Fact]
+        public async Task An_order_on_a_builders_market_is_refused_before_anything_is_signed()
+        {
+            var h = WithBuilders();
+            var p = Provider(h);
+
+            string placed = await p.PlaceOrderAsync(new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 380));
+            string modified = await p.ModifyOrderAsync("123", new("xyz:TSLA-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 381));
+            double leverage = await p.SetLeverageAsync("xyz:TSLA-PERP", 5);
+
+            Assert.StartsWith("ORDER_FAILED:xyz:TSLA-PERP is a market the builder xyz runs on Hyperliquid", placed);
+            Assert.StartsWith("ORDER_FAILED:xyz:TSLA-PERP is a market the builder xyz runs on Hyperliquid", modified);
+            Assert.Equal(1.0, leverage);
+            Assert.Empty(Exchange(h));
+            Assert.Equal("777", await p.PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Limit, Price: 12345)));   // vacuity
+        }
+
         [Fact]
         public async Task A_funding_series_is_the_venues_hourly_rate_as_percent_per_8_hours()
         {

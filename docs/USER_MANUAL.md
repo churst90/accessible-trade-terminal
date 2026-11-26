@@ -276,6 +276,9 @@ On a unified account, where your perpetuals trade from your spot USDC, the balan
 USDC once. The Funding Rate indicator (Alt+A, Derivatives) on a Hyperliquid chart reads
 Hyperliquid's own funding. Hyperliquid pays every hour, and the indicator says that hourly rate
 times eight, "per 8 hours", so its levels mean the same as on exchanges that pay every 8 hours.
+Hyperliquid's Futures list also holds markets other firms run on it (shares such as
+xyz:TSLA-PERP, gold, indices), named with the firm's prefix. They chart, stream and show funding
+like the rest, but the terminal does not trade them yet: an order on one is refused and says so.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary

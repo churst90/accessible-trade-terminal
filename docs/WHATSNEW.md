@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **More Hyperliquid markets.** Hyperliquid's Futures list now includes the markets other firms
+  run on it: shares such as xyz:TSLA-PERP, gold and stock indices, 178 in all. You can chart them,
+  hear live bars, read the book and see their funding. Trading them is not built yet; an order on
+  one is refused and tells you so.
 - **Funding Rate on Hyperliquid charts.** On a Hyperliquid chart, the Funding Rate indicator now
   shows Hyperliquid's own funding (it pays every hour; shown times eight, per 8 hours, so the
   levels read the same as elsewhere). Before, the pane was empty there. Funding, open interest and
