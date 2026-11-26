@@ -302,6 +302,50 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             new OrderedMap().Add("type", "updateLeverage").Add("asset", asset)
                 .Add("isCross", isCross).Add("leverage", leverage);
 
+        /// <summary>
+        /// A TWAP: the exchange splits <paramref name="size"/> into market slices about every 30
+        /// seconds over <paramref name="minutes"/>. Keys in the docs' order: a, b, s, r, m, t.
+        /// </summary>
+        public static OrderedMap TwapOrderAction(int asset, bool isBuy, string size, bool reduceOnly, int minutes, bool randomize) =>
+            new OrderedMap().Add("type", "twapOrder").Add("twap", new OrderedMap()
+                .Add("a", asset).Add("b", isBuy).Add("s", size).Add("r", reduceOnly)
+                .Add("m", minutes).Add("t", randomize));
+
+        /// <summary>Stops a running TWAP. Keys a, t sit on the action itself, not in a nested object.</summary>
+        public static OrderedMap TwapCancelAction(int asset, long twapId) =>
+            new OrderedMap().Add("type", "twapCancel").Add("a", asset).Add("t", twapId);
+
+        /// <summary>A TWAP's id among the open orders: "twap:" and the exchange's number, so it can never be read as an order number.</summary>
+        public const string TwapIdPrefix = "twap:";
+
+        public static bool TryTwapId(string? id, out long twapId)
+        {
+            twapId = 0;
+            return id != null && id.StartsWith(TwapIdPrefix, StringComparison.Ordinal)
+                && long.TryParse(id.AsSpan(TwapIdPrefix.Length), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out twapId);
+        }
+
+        /// <summary>
+        /// The id of a placed TWAP, or the refusal. Unlike an order's, the reply carries ONE
+        /// status object, not a list: <c>{"running":{"twapId":N}}</c> or <c>{"error":"..."}</c>.
+        /// </summary>
+        public static (long? TwapId, string? Error) ParseTwapReply(JObject reply)
+        {
+            if (!string.Equals(reply["status"]?.ToString(), "ok", StringComparison.OrdinalIgnoreCase))
+                return (null, reply["response"]?.ToString() ?? "Hyperliquid refused the request");
+            var st = reply["response"]?["data"]?["status"];
+            if (st is JObject o)
+            {
+                if (o["error"] != null) return (null, o["error"]!.ToString());
+                if (o["running"]?["twapId"] is JToken id && long.TryParse(id.ToString(),
+                        System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long n))
+                    return (n, null);
+            }
+            if (st?.Type == JTokenType.String && st.ToString() == "success") return (null, null);
+            return (null, "Hyperliquid answered with a status this terminal does not recognise: " + (st?.ToString(Newtonsoft.Json.Formatting.None) ?? "nothing"));
+        }
+
         /// <summary>The dead-man's switch: cancel everything at <paramref name="timeMs"/>, or clear it when null.</summary>
         public static OrderedMap ScheduleCancelAction(long? timeMs)
         {

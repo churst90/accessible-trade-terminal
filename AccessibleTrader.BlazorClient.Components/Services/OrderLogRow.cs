@@ -95,6 +95,7 @@ namespace AccessibleTrader.BlazorClient.Services
             "StopLimit" => "Stop limit",
             "TakeProfitMarket" => "Take profit",
             "TakeProfitLimit" => "Take profit limit",
+            "Twap" => "TWAP",
             _ => type,
         };
 

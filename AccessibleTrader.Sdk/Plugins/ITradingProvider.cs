@@ -17,6 +17,9 @@ namespace AccessibleTrader.Sdk.Plugins
         StopLimit,      // Stop-loss as limit order once trigger price is hit
         TakeProfitMarket,
         TakeProfitLimit,
+        // Time-weighted: the venue splits the size into small market slices over
+        // TradeSignal.TwapMinutes. Sent only to a provider declaring ProviderCapabilities.Twap.
+        Twap,
     }
 
     /// <summary>How a trailing-stop distance is interpreted.</summary>
@@ -65,7 +68,9 @@ namespace AccessibleTrader.Sdk.Plugins
         bool       ReduceOnly     = false,    // Futures: order may only reduce a position
         bool       PostOnly       = false,    // Limit orders: maker-only
         string?    PositionSide   = null,     // Hedge mode: "LONG" / "SHORT" / "BOTH"
-        string?    OcoGroupId     = null      // One-cancels-other: orders sharing a group id cancel each other on fill (paper broker enforces; exchanges with native OCO may map it)
+        string?    OcoGroupId     = null,     // One-cancels-other: orders sharing a group id cancel each other on fill (paper broker enforces; exchanges with native OCO may map it)
+        int?       TwapMinutes    = null,     // Twap: how long the venue spreads the order over
+        bool       TwapRandomize  = false     // Twap: let the venue vary each slice's size
     );
 
     public record Balance(string Asset, double Free, double Locked);

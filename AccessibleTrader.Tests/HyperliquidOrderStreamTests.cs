@@ -176,19 +176,81 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public async Task Streaming_is_claimed_only_once_both_subscriptions_are_confirmed_and_not_after_a_reset()
+        public async Task Streaming_is_claimed_only_once_all_three_subscriptions_are_confirmed_and_not_after_a_reset()
         {
             var rig = new Rig();
             var subs = (JArray)Frames["subscriptionResponses"]!;
             Assert.Equal(2, subs.Count);
+            var twaps = Twap["ws_subscriptionResponse"]!.ToString();
 
             Assert.False(rig.Stream.Subscribed);
             await rig.Stream.OnMessageAsync(subs[0].ToString());
             Assert.False(rig.Stream.Subscribed);
             await rig.Stream.OnMessageAsync(subs[1].ToString());
+            Assert.False(rig.Stream.Subscribed);              // orders and fills, but a TWAP would go unheard
+            await rig.Stream.OnMessageAsync(twaps);
             Assert.True(rig.Stream.Subscribed);
             rig.Stream.Reset();
             Assert.False(rig.Stream.Subscribed);
+        }
+
+        // ── TWAPs (recorded 2026-11-26, Fixtures/Hyperliquid/recorded_twap.json) ──
+
+        private static readonly JObject Twap = JObject.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "Hyperliquid", "recorded_twap.json")));
+
+        private static JToken Entry(long id, string status) =>
+            ((JArray)Twap["twapHistory"]!).First(e => e["twapId"]!.Value<long>() == id && e["status"]!["status"]!.ToString() == status);
+
+        [Fact]
+        public async Task The_first_TWAP_frame_is_the_whole_history_and_says_nothing()
+        {
+            var rig = new Rig();
+
+            await rig.Stream.OnMessageAsync(Twap["ws_history_snapshot"]!.ToString());
+
+            Assert.Empty(rig.Emitted);
+            // Vacuity: the same entries, not marked as the snapshot, are heard.
+            var live = (JObject)Twap["ws_history_snapshot"]!.DeepClone();
+            ((JObject)live["data"]!).Remove("isSnapshot");
+            await rig.Stream.OnMessageAsync(live.ToString());
+            Assert.Equal(3, rig.Emitted.Count);
+            Assert.All(rig.Emitted, u => Assert.StartsWith("twap:", u.OrderId));
+        }
+
+        [Theory]
+        [InlineData(2851918, "activated", OrderStatus.New, 0.0, 1707.8203, null)]
+        [InlineData(2732029, "waitingForTrigger", OrderStatus.New, 0.0, 62667.62, null)]
+        [InlineData(2827524, "finished", OrderStatus.Filled, 64445.81, 0.0, null)]
+        [InlineData(2833341, "terminated", OrderStatus.Cancelled, 15654.3, 63921.78, null)]
+        [InlineData(2815388, "error", OrderStatus.Cancelled, 1030.01, 3733.0, "Insufficient margin to place order.")]
+        public void Each_recorded_TWAP_entry_is_an_order_update(long id, string status, OrderStatus state, double done, double left, string? reason)
+        {
+            var u = HyperliquidOrderStream.TwapUpdate(Entry(id, status), c => c + "-PERP")!;
+
+            Assert.Equal("twap:" + id, u.OrderId);
+            Assert.Equal(state, u.Status);
+            Assert.Equal(done, u.FilledQuantity, 6);
+            Assert.Equal(left, u.RemainingQuantity, 6);
+            Assert.Equal(reason, u.Reason);
+        }
+
+        [Fact]
+        public void A_TWAP_that_errored_with_nothing_traded_is_rejected_and_the_rest_is_read_right()
+        {
+            var error = Entry(2815388, "error").DeepClone();
+            error["state"]!["executedSz"] = "0.0";
+            Assert.Equal(OrderStatus.Rejected, HyperliquidOrderStream.TwapUpdate(error, c => c)!.Status);
+
+            var done = HyperliquidOrderStream.TwapUpdate(Entry(2827524, "finished"), c => c + "-PERP")!;
+            Assert.Equal("xyz:SPCX-PERP", done.Symbol);
+            Assert.Equal(OrderSide.Sell, done.Side);
+            Assert.Equal(125.170054, done.FilledPrice, 6);
+            Assert.Equal(new DateTime(2026, 11, 25, 1, 8, 6, DateTimeKind.Utc), done.Timestamp);
+
+            var odd = Entry(2827524, "finished").DeepClone();
+            odd["status"]!["status"] = "paused";
+            Assert.Null(HyperliquidOrderStream.TwapUpdate(odd, c => c));      // a word not known is not guessed at
         }
 
         [Theory]

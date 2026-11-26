@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **TWAP orders on Hyperliquid.** Choose TWAP in the trading ticket's Type list, set how many
+  minutes, and Hyperliquid buys or sells your size in small slices about every 30 seconds until the
+  time is up. It is listed with your open orders with how much is done and when it ends, and Cancel
+  stops it. Not simulated by paper trading. Not tried with a real order yet.
 - **Hyperliquid orders expire if they arrive late.** An order or change of order that takes more
   than 60 seconds to reach Hyperliquid is refused instead of filling at a stale price.
 - **Funding and open interest now.** Type `FUND` in the Go bar (Alt+G) on a Hyperliquid chart to

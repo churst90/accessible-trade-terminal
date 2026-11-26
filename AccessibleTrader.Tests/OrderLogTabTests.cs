@@ -98,6 +98,19 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void A_TWAP_reads_as_TWAP_and_a_stop_limit_in_words()
+        {
+            var paths = new TempWorkspacePaths();
+            var log = LogAt(paths, Nov);
+            log.Placement("Hyperliquid", new("ETH-PERP", OrderSide.Buy, 2, OrderType.Twap, TwapMinutes: 30),
+                new OrderPlacement(OrderOutcome.Placed, "twap:7", "twap:7", null));
+            LogAt(paths, Nov.AddMinutes(1)).Placement("Kraken", new("BTCUSD", OrderSide.Sell, 1, OrderType.StopLimit, 90000),
+                new OrderPlacement(OrderOutcome.Placed, "o2", "o2", null));
+
+            Assert.Equal(new[] { "Stop limit", "TWAP" }, log.Recent().Select(r => OrderLogRow.From(r).Type));
+        }
+
+        [Fact]
         public void A_refusal_reads_as_refused_with_the_reason_first()
         {
             var paths = new TempWorkspacePaths();

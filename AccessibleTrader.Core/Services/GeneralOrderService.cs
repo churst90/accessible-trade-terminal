@@ -529,6 +529,15 @@ namespace AccessibleTrader.Core.Services
                     + "order would open with no protection. Send the entry without them, then place a "
                     + "separate stop order once it fills");
             }
+            // A TWAP is the venue's own slicer: a provider without one would read the type it does
+            // not know as something else, or fail on it in its own words. Refused here, in ours.
+            // The paper broker declares no TWAP, so practice mode lands here as well.
+            if (signal.Type == OrderType.Twap && !tp.Capabilities.HasFlag(ProviderCapabilities.Twap))
+            {
+                return OrderPlacement.Parse(tp is IPaperTradingProvider
+                    ? "ORDER_FAILED:paper trading does not simulate TWAP orders. Turn paper trading off with F12 to send one to the venue"
+                    : $"ORDER_FAILED:{providerName} does not run TWAP orders");
+            }
             try
             {
                 // The paper broker is told which venue's chart this order is for (PaperOrderVenue).

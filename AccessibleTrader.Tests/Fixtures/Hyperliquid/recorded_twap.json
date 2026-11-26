@@ -1,0 +1,302 @@
+{
+ "_recorded": "2026-11-26, read without a key from a public account running TWAPs on Hyperliquid mainnet. twapHistory (REST info) is trimmed to five TWAPs, kept verbatim and in the reply's own order; webData2 is cut to its twapStates; the websocket history snapshot is cut to its first three entries.",
+ "twapHistory": [
+  {
+   "time": 1795706745,
+   "state": {
+    "coin": "ETH",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "1707.8203",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 1440,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795706745318,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "activated"
+   },
+   "twapId": 2851918
+  },
+  {
+   "time": 1795602294,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "79576.08",
+    "executedSz": "15654.3",
+    "executedNtl": "1917450.7364000001",
+    "minutes": 30,
+    "reduceOnly": true,
+    "randomize": false,
+    "timestamp": 1795601946127,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "terminated"
+   },
+   "twapId": 2833341
+  },
+  {
+   "time": 1795601946,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "79576.08",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 30,
+    "reduceOnly": true,
+    "randomize": false,
+    "timestamp": 1795601946127,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "activated"
+   },
+   "twapId": 2833341
+  },
+  {
+   "time": 1795568886,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "A",
+    "sz": "64445.81",
+    "executedSz": "64445.81",
+    "executedNtl": "8066685.5155999996",
+    "minutes": 30,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795567084352,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "finished"
+   },
+   "twapId": 2827524
+  },
+  {
+   "time": 1795567084,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "A",
+    "sz": "64445.81",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 30,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795567084352,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "activated"
+   },
+   "twapId": 2827524
+  },
+  {
+   "time": 1795513084,
+   "state": {
+    "coin": "ZEC",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "A",
+    "sz": "4763.01",
+    "executedSz": "1030.01",
+    "executedNtl": "783203.2034",
+    "minutes": 1470,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795494002936,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "error",
+    "description": "Insufficient margin to place order."
+   },
+   "twapId": 2815388
+  },
+  {
+   "time": 1795494002,
+   "state": {
+    "coin": "ZEC",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "A",
+    "sz": "4763.01",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 1470,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795494002936,
+    "trigger": null,
+    "stopPx": null
+   },
+   "status": {
+    "status": "activated"
+   },
+   "twapId": 2815388
+  },
+  {
+   "time": 1795041698,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "62667.62",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 240,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795006258700,
+    "trigger": {
+     "px": "140.0",
+     "above": false
+    },
+    "stopPx": null
+   },
+   "status": {
+    "status": "terminated"
+   },
+   "twapId": 2732029
+  },
+  {
+   "time": 1795006258,
+   "state": {
+    "coin": "xyz:SPCX",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "62667.62",
+    "executedSz": "0.0",
+    "executedNtl": "0.0",
+    "minutes": 240,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795006258700,
+    "trigger": {
+     "px": "140.0",
+     "above": false
+    },
+    "stopPx": null
+   },
+   "status": {
+    "status": "waitingForTrigger"
+   },
+   "twapId": 2732029
+  }
+ ],
+ "webData2_twapStates": [
+  [
+   2851918,
+   {
+    "coin": "ETH",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+    "side": "B",
+    "sz": "1707.8203",
+    "executedSz": "48.6085",
+    "executedNtl": "82063.45866",
+    "minutes": 1440,
+    "reduceOnly": false,
+    "randomize": false,
+    "timestamp": 1795706745318,
+    "trigger": null,
+    "stopPx": null
+   }
+  ]
+ ],
+ "ws_subscriptionResponse": {
+  "channel": "subscriptionResponse",
+  "data": {
+   "method": "subscribe",
+   "subscription": {
+    "type": "userTwapHistory",
+    "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d"
+   }
+  }
+ },
+ "ws_history_snapshot": {
+  "channel": "userTwapHistory",
+  "data": {
+   "isSnapshot": true,
+   "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+   "history": [
+    {
+     "time": 1793880333,
+     "state": {
+      "coin": "xyz:SKHX",
+      "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+      "side": "A",
+      "sz": "10622.662",
+      "executedSz": "4343.228",
+      "executedNtl": "4239277.6003200002",
+      "minutes": 2910,
+      "reduceOnly": false,
+      "randomize": false,
+      "timestamp": 1793808933072,
+      "trigger": null,
+      "stopPx": null
+     },
+     "status": {
+      "status": "terminated"
+     },
+     "twapId": 2529773
+    },
+    {
+     "time": 1793882686,
+     "state": {
+      "coin": "xyz:SKHX",
+      "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+      "side": "B",
+      "sz": "4343.228",
+      "executedSz": "0.0",
+      "executedNtl": "0.0",
+      "minutes": 90,
+      "reduceOnly": true,
+      "randomize": false,
+      "timestamp": 1793882686364,
+      "trigger": null,
+      "stopPx": null
+     },
+     "status": {
+      "status": "activated"
+     },
+     "twapId": 2542658
+    },
+    {
+     "time": 1793888088,
+     "state": {
+      "coin": "xyz:SKHX",
+      "user": "0xdfb690eaae46e19c459d7a79af4844bc0d57294d",
+      "side": "B",
+      "sz": "4343.228",
+      "executedSz": "4343.228",
+      "executedNtl": "4028662.5766699999",
+      "minutes": 90,
+      "reduceOnly": true,
+      "randomize": false,
+      "timestamp": 1793882686364,
+      "trigger": null,
+      "stopPx": null
+     },
+     "status": {
+      "status": "finished"
+     },
+     "twapId": 2542658
+    }
+   ]
+  }
+ }
+}

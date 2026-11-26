@@ -405,6 +405,8 @@ shapes are in the archive (the 2026-11-21 block at its end).
   is not recorded).
   Builders' markets trade (number checked against `perpDexs`, per-builder positions, orders and
   margin rows, empty-margin refusal on classic accounts); no real order sent.
+  TWAP orders (ticket Type, open-orders row with progress, cancel, start/end heard; paper refuses);
+  no real TWAP sent, a live `userTwapHistory` frame not seen, slice fills not in the fills list.
   **Not built:** open-interest HISTORY from Hyperliquid (none published, so
   the Open Interest and Crowding indicators on its charts still read Binance's).
   **Still to see:** a triggered stop or target filling

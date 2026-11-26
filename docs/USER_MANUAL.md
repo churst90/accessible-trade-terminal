@@ -290,6 +290,14 @@ Hyperliquid account you move USDC to that firm's margin on Hyperliquid's website
 terminal does not move money), and an order with none there is refused and says so. A unified
 account trades them from its spot USDC. Each firm's margin is listed as its own balance, such
 as USDC-PERPS-XYZ, and your positions and open orders on them are listed with the rest.
+Hyperliquid also runs **TWAP** orders: choose TWAP in the ticket's Type list, give the size and
+how many minutes to spread it over, and Hyperliquid buys or sells a small market slice about every
+30 seconds until the time is up (tick "Randomize slice sizes" to vary them). A running TWAP is
+listed with your open orders as "TWAP 48 of 1,707 done at 1,688 average, over 1440 minutes, ends
+15:25 UTC", and Cancel stops it; what it already traded stays traded. It is heard when it starts
+and when it ends (finished, stopped, or stopped by Hyperliquid with the reason), not at each
+slice. A TWAP carries no stop or target, cannot be changed (cancel it and place another), and is
+not simulated by paper trading. Its slices are not listed among your fills.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary
@@ -4640,7 +4648,9 @@ so on those the quantity is a number of contracts (see "Coinbase futures" below)
 trading has no leverage, so a position's value is its quantity times its price.
 
 The Type list holds the full set: **Market**, **Limit**, **Stop-Market**,
-**Stop-Limit**, **Take-Profit-Market**, and **Take-Profit-Limit**. The fields that
+**Stop-Limit**, **Take-Profit-Market**, and **Take-Profit-Limit**, plus **TWAP** on an
+exchange that runs one itself (Hyperliquid; see its paragraph under API keys), which adds a
+"Minutes" field and a "Randomize slice sizes" checkbox. The fields that
 appear depend on it. The stop and take-profit types reveal a "Trigger Price" — the
 level at which the order activates. The limit-style types (Limit, Stop-Limit,
 Take-Profit-Limit) reveal a "Limit Price" and, with it, a "Time in force" choice of

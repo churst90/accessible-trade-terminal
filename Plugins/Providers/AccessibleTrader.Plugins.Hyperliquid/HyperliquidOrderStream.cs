@@ -34,7 +34,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private readonly object _gate = new();
         private readonly Dictionary<long, Tally> _fills = new();
         private readonly Dictionary<long, (double OrigSize, DateTime Seen)> _orders = new();
-        private bool _ordersOn, _fillsOn;
+        private bool _ordersOn, _fillsOn, _twapsOn;
 
         private readonly Func<string, string> _display;
         private readonly Func<long, Task<string?>> _orderType;
@@ -53,13 +53,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             _display = display; _orderType = orderType; _restFills = restFills; _emit = emit; _fillWait = fillWait;
         }
 
-        /// <summary>True once the venue has confirmed both subscriptions on the current connection.</summary>
-        public bool Subscribed { get { lock (_gate) return _ordersOn && _fillsOn; } }
+        /// <summary>True once the venue has confirmed all three subscriptions on the current connection.
+        /// Until then the order service polls instead, so a TWAP's ending is never left unheard.</summary>
+        public bool Subscribed { get { lock (_gate) return _ordersOn && _fillsOn && _twapsOn; } }
 
         /// <summary>A new connection: nothing is subscribed on it yet.</summary>
         public void Reset()
         {
-            lock (_gate) { _ordersOn = false; _fillsOn = false; }
+            lock (_gate) { _ordersOn = false; _fillsOn = false; _twapsOn = false; }
         }
 
         public static string SubscribeMessage(string type, string user) =>
@@ -87,10 +88,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     {
                         if (type == "orderUpdates") _ordersOn = true;
                         else if (type == "userFills") _fillsOn = true;
+                        else if (type == "userTwapHistory") _twapsOn = true;
                     }
                     return Task.CompletedTask;
                 case "userFills":
                     OnFills(root["data"] as JObject);
+                    return Task.CompletedTask;
+                case "userTwapHistory":
+                    OnTwaps(root["data"] as JObject);
                     return Task.CompletedTask;
                 case "orderUpdates":
                     var pending = new List<Task>();
@@ -134,6 +139,50 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     Timestamp: Time(f["time"]),
                     RealizedPnL: pnl != 0 ? pnl : null));
             }
+        }
+
+        /// <summary>
+        /// A TWAP starting or ending. The first frame is the account's whole TWAP history, marked
+        /// <c>isSnapshot</c> (recorded 2026-11-26) and skipped like the fills'. Later frames are
+        /// read the same shape; none was seen live, so a frame that is not is simply ignored.
+        /// Slices are not announced one by one: they come about every 30 seconds.
+        /// </summary>
+        private void OnTwaps(JObject? data)
+        {
+            if (data is null || data["isSnapshot"]?.Value<bool>() == true) return;
+            foreach (var entry in data["history"] as JArray ?? new JArray())
+                if (TwapUpdate(entry, _display) is OrderUpdate u) _emit(u);
+        }
+
+        /// <summary>
+        /// One twapHistory entry as an order update, id "twap:" and the number: activated is New,
+        /// finished Filled, terminated Cancelled, error Rejected when nothing traded (or Cancelled
+        /// with the venue's reason when some did, so the traded part is still said).
+        /// </summary>
+        internal static OrderUpdate? TwapUpdate(JToken entry, Func<string, string> display)
+        {
+            if (entry["twapId"]?.Type != JTokenType.Integer || entry["state"] is not JObject st) return null;
+            string status = entry["status"]?["status"]?.ToString() ?? "";
+            string? why = entry["status"]?["description"]?.ToString();
+            double size = HyperliquidWire.D(st["sz"]), done = HyperliquidWire.D(st["executedSz"]);
+            double price = done > 0 ? HyperliquidWire.D(st["executedNtl"]) / done : 0;
+            (OrderStatus State, string? Reason)? mapped = status switch
+            {
+                "activated" or "waitingForTrigger" => (OrderStatus.New, null),
+                "finished"   => (OrderStatus.Filled, null),
+                "terminated" => (OrderStatus.Cancelled, null),
+                "error"      => (done > 0 ? OrderStatus.Cancelled : OrderStatus.Rejected, why ?? "the venue stopped it"),
+                _            => null,
+            };
+            if (mapped is not var (state, reason)) return null;
+            long seconds = entry["time"]?.Type == JTokenType.Integer ? entry["time"]!.Value<long>() : 0;
+            return new OrderUpdate(HyperliquidWire.TwapIdPrefix + entry["twapId"]!.Value<long>().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                display(st["coin"]?.ToString() ?? ""),
+                st["side"]?.ToString() == "A" ? OrderSide.Sell : OrderSide.Buy,
+                Q(done), price, state == OrderStatus.Filled ? 0 : Q(Math.Max(0, size - done)), state,
+                StopTriggered: false, TakeProfitTriggered: false,
+                Timestamp: seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime : DateTime.UtcNow,
+                Reason: reason);
         }
 
         private Task? OnOrder(JToken item)

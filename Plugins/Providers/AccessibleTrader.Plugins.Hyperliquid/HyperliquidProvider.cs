@@ -148,7 +148,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             ProviderCapabilities.Leverage | ProviderCapabilities.FuturesTrading |
             ProviderCapabilities.IsolatedMargin | ProviderCapabilities.Shorting |
             ProviderCapabilities.ReduceOnly | ProviderCapabilities.PostOnly |
-            ProviderCapabilities.TimeInForce | ProviderCapabilities.Brackets;
+            ProviderCapabilities.TimeInForce | ProviderCapabilities.Brackets |
+            ProviderCapabilities.Twap;
 
         public override T? GetCapability<T>() where T : class
         {
@@ -196,6 +197,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             _agentKey = secret;
             _accountMode = null;
             _builderQuietUntil.Clear();
+            _twapsQuietUntil = DateTime.MinValue;
             _keyRefusal = CheckCredential(address, secret);
             if (_orderStreamWanted) StartAccountStream();   // another account or venue: follow it
         }
@@ -896,9 +898,10 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                             _orderStream.Reset();
                             await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("orderUpdates", user)).ConfigureAwait(false);
                             await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("userFills", user)).ConfigureAwait(false);
+                            await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("userTwapHistory", user)).ConfigureAwait(false);
                         })
                         .OnDisconnected(() => _orderStream.Reset())
-                        .OnMessage(msg => { WakeBuildersNamedIn(msg); _ = _orderStream.OnMessageAsync(msg); });
+                        .OnMessage(msg => { WakeBuildersNamedIn(msg); WakeTwapsOn(msg); _ = _orderStream.OnMessageAsync(msg); });
                     _accountWs = ws; _accountWsUser = user;
                 }
             }
@@ -1156,8 +1159,128 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 foreach (var (_, rows) in await ReadBuildersAsync("orders", OpenOrdersOnAsync, r => r.Count > 0).ConfigureAwait(false))
                     foreach (var row in rows) json.Add(row);
             string? want = symbol == null ? null : market?.Coin ?? symbol;
-            return ParseOpenOrders(json, DisplayForCoin).Where(o =>
+            return ParseOpenOrders(json, DisplayForCoin).Concat(await RunningTwapsAsync().ConfigureAwait(false)).Where(o =>
                 want == null || string.Equals(o.Symbol, DisplayForCoin(want), StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // ── TWAPs ─────────────────────────────────────────────────────────────
+
+        private DateTime _twapsQuietUntil;
+
+        /// <summary>The next open-orders read asks for TWAPs again.</summary>
+        private void WakeTwaps() => _twapsQuietUntil = DateTime.MinValue;
+
+        /// <summary>A frame about the account's TWAPs (one started on the website, say) wakes the read.</summary>
+        internal void WakeTwapsOn(string frame)
+        {
+            if (frame.Contains("\"userTwapHistory\"", StringComparison.Ordinal)) WakeTwaps();
+        }
+
+        /// <summary>
+        /// The account's running TWAPs as open orders. twapHistory says whether any runs; only
+        /// then is webData2 read, for their progress: it is about 300 KB for any account (it
+        /// carries every market's context) and the history is the account's own. With none
+        /// running the read rests <see cref="BuilderQuietFor"/>, or until a TWAP is placed or the
+        /// stream names one. A failed read throws, so no caller takes a list missing a TWAP.
+        /// </summary>
+        private async Task<List<OpenOrder>> RunningTwapsAsync()
+        {
+            if (DateTime.UtcNow < _twapsQuietUntil) return new();
+            var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = _account }, _heavyInfoLimiter)
+                .ConfigureAwait(false) as JArray ?? new JArray();
+            if (RunningTwapIds(history).Count == 0)
+            {
+                _twapsQuietUntil = DateTime.UtcNow + BuilderQuietFor;
+                return new();
+            }
+            var web = await InfoAsync(new JObject { ["type"] = "webData2", ["user"] = _account }, _heavyInfoLimiter)
+                .ConfigureAwait(false) as JObject;
+            return ParseTwapStates(web?["twapStates"] as JArray ?? new JArray(), DisplayForCoin);
+        }
+
+        private static readonly HashSet<string> TwapEnded = new(StringComparer.Ordinal) { "finished", "terminated", "error" };
+
+        /// <summary>
+        /// The ids in twapHistory with no ending entry. The history lists each TWAP once when it
+        /// starts and again when it ends, in no promised order (recorded 2026-11-26: not sorted).
+        /// </summary>
+        internal static HashSet<long> RunningTwapIds(JArray history)
+        {
+            var started = new HashSet<long>();
+            var ended = new HashSet<long>();
+            foreach (var e in history)
+            {
+                if (e["twapId"]?.Type != JTokenType.Integer) continue;
+                long id = e["twapId"]!.Value<long>();
+                (TwapEnded.Contains(e["status"]?["status"]?.ToString() ?? "") ? ended : started).Add(id);
+            }
+            started.ExceptWith(ended);
+            return started;
+        }
+
+        /// <summary>
+        /// webData2's <c>twapStates</c>, <c>[[id, state], ...]</c>, as open orders: the id is
+        /// "twap:" and the number, the quantity what is still to trade, the price the average so
+        /// far (0 before the first slice), and the status says the progress in words.
+        /// </summary>
+        internal static List<OpenOrder> ParseTwapStates(JArray states, Func<string, string> display)
+        {
+            var list = new List<OpenOrder>();
+            foreach (var pair in states)
+            {
+                if (pair is not JArray { Count: >= 2 } a || a[0].Type != JTokenType.Integer || a[1] is not JObject st) continue;
+                double size = HyperliquidWire.D(st["sz"]), done = HyperliquidWire.D(st["executedSz"]);
+                double average = done > 0 ? HyperliquidWire.D(st["executedNtl"]) / done : 0;
+                int minutes = st["minutes"]?.Value<int>() ?? 0;
+                var started = DateTimeOffset.FromUnixTimeMilliseconds(st["timestamp"]?.Value<long>() ?? 0).UtcDateTime;
+                list.Add(new OpenOrder(
+                    HyperliquidWire.TwapIdPrefix + a[0].Value<long>().ToString(CultureInfo.InvariantCulture),
+                    display(st["coin"]?.ToString() ?? ""),
+                    st["side"]?.ToString() == "A" ? OrderSide.Sell : OrderSide.Buy,
+                    OrderType.Twap,
+                    Math.Max(0, size - done),
+                    average,
+                    TwapProgress(size, done, average, minutes, started, st["reduceOnly"]?.Value<bool>() == true)));
+            }
+            return list;
+        }
+
+        internal static string TwapProgress(double size, double done, double average, int minutes, DateTime startedUtc, bool reduceOnly)
+        {
+            string N(double v) => v.ToString("0.########", CultureInfo.InvariantCulture);
+            string s = $"TWAP {N(done)} of {N(size)} done";
+            if (done > 0) s += $" at {N(Math.Round(average, 6))} average";
+            s += $", over {minutes} minutes, ends {startedUtc.AddMinutes(minutes):HH:mm} UTC";
+            return reduceOnly ? s + ", reduce only" : s;
+        }
+
+        /// <summary>
+        /// A TWAP's state from twapHistory: its ending entry if it has one, or still working.
+        /// A TWAP that stopped on an error with nothing traded is rejected; one that traded some
+        /// first is cancelled, so the part that did trade is still reported.
+        /// </summary>
+        internal static OrderStatusSnapshot? TwapSnapshot(JArray history, long twapId, Func<string, string> display)
+        {
+            JToken? start = null, end = null;
+            foreach (var e in history)
+            {
+                if (e["twapId"]?.Type != JTokenType.Integer || e["twapId"]!.Value<long>() != twapId) continue;
+                if (TwapEnded.Contains(e["status"]?["status"]?.ToString() ?? "")) end = e; else start = e;
+            }
+            var entry = end ?? start;
+            if (entry?["state"] is not JObject st) return null;
+            double size = HyperliquidWire.D(st["sz"]), done = HyperliquidWire.D(st["executedSz"]);
+            double average = done > 0 ? HyperliquidWire.D(st["executedNtl"]) / done : 0;
+            var side = st["side"]?.ToString() == "A" ? OrderSide.Sell : OrderSide.Buy;
+            string sym = display(st["coin"]?.ToString() ?? "");
+            var state = (end?["status"]?["status"]?.ToString()) switch
+            {
+                "finished"   => PolledOrderState.Filled,
+                "terminated" => PolledOrderState.Cancelled,
+                "error"      => done > 0 ? PolledOrderState.Cancelled : PolledOrderState.Rejected,
+                _            => done > 0 ? PolledOrderState.PartiallyFilled : PolledOrderState.Working,
+            };
+            return new OrderStatusSnapshot(state, side, sym, done, average, Math.Max(0, size - done));
         }
 
         private string DisplayForCoin(string coin)
@@ -1222,6 +1345,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
             RequireAccount();
+            if (HyperliquidWire.TryTwapId(orderId, out long twapId))
+            {
+                await EnsureAssetsAsync().ConfigureAwait(false);
+                var history = await InfoAsync(new JObject { ["type"] = "twapHistory", ["user"] = _account }, _heavyInfoLimiter)
+                    .ConfigureAwait(false) as JArray ?? new JArray();
+                return TwapSnapshot(history, twapId, DisplayForCoin);
+            }
             if (!long.TryParse(orderId, NumberStyles.None, CultureInfo.InvariantCulture, out long oid)) return null;
             await EnsureAssetsAsync().ConfigureAwait(false);
 
@@ -1288,6 +1418,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                     return $"ORDER_FAILED:{empty}";
                 WakeBuilder(asset.Dex);
 
+                if (signal.Type == OrderType.Twap)
+                    return await PlaceTwapAsync(signal, asset).ConfigureAwait(false);
+
                 // A perp order that opens or adds always states its leverage. The ticket sends
                 // none when its field says 1, and until 2026-11-10 none meant "leave the coin's
                 // leverage alone", so a 1x ticket traded at whatever the account was last set to
@@ -1331,6 +1464,45 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 return entry.Oid ?? "ORDER_FAILED:Hyperliquid placed the order but returned no id";
             }
             catch (Exception ex) { return $"ORDER_FAILED:{ex.Message}"; }
+        }
+
+        /// <summary>
+        /// A TWAP: one action, and the exchange works the size in market slices about every 30
+        /// seconds over the minutes asked. Checked first like any order (size, $10 minimum at the
+        /// middle price, leverage ceiling); then the leverage is stated the same way; then sent.
+        /// It carries no stop or target and no price. Returns "twap:" and its id.
+        /// </summary>
+        private async Task<string> PlaceTwapAsync(TradeSignal signal, AssetInfo asset)
+        {
+            if (signal.StopLoss is > 0 || signal.TakeProfit is > 0)
+                return "ORDER_FAILED:a TWAP carries no stop loss or take profit; place them as separate orders";
+            if (signal.TwapMinutes is not > 0)
+                return "ORDER_FAILED:a TWAP needs how many minutes to run over";
+            bool buy = signal.Side == OrderSide.Buy;
+            decimal size = HyperliquidWire.RoundSize(signal.Quantity, asset.SzDecimals);
+            if (size <= 0)
+                return $"ORDER_FAILED:size {signal.Quantity.ToString(CultureInfo.InvariantCulture)} rounds to zero at {asset.SzDecimals} decimals for {asset.Display}";
+            double? mid = await GetMidAsync(asset).ConfigureAwait(false);
+            if (mid is not > 0) return $"ORDER_FAILED:no current price for {asset.Display} to value the TWAP";
+            if (MinimumValueRefusal(signal, asset, size, mid.Value) is string small) return $"ORDER_FAILED:{small}";
+
+            double? leverage = signal.Leverage is > 0 ? signal.Leverage : signal.ReduceOnly ? null : 1.0;
+            if (leverage != null && !asset.IsSpot)
+            {
+                if (HyperliquidWire.LeverageRefusal(asset, leverage.Value) is string bad) return $"ORDER_FAILED:{bad}";
+                bool isolated = !string.Equals(signal.MarginType, "Cross", StringComparison.OrdinalIgnoreCase);
+                string? lerr = await UpdateLeverageAsync(asset, leverage.Value, isCross: !isolated).ConfigureAwait(false);
+                if (lerr != null) return $"ORDER_FAILED:{lerr}";
+            }
+
+            WakeTwaps();
+            var reply = await ExchangeAsync(HyperliquidWire.TwapOrderAction(asset.AssetId, buy, HyperliquidWire.FormatWire(size),
+                signal.ReduceOnly, signal.TwapMinutes.Value, signal.TwapRandomize), expires: true).ConfigureAwait(false);
+            var (id, error) = HyperliquidWire.ParseTwapReply(reply);
+            if (error != null) return $"ORDER_FAILED:{error}";
+            return id is long n
+                ? HyperliquidWire.TwapIdPrefix + n.ToString(CultureInfo.InvariantCulture)
+                : "ORDER_FAILED:Hyperliquid accepted the TWAP but returned no id";
         }
 
         /// <summary>
@@ -1500,7 +1672,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             try
             {
-                if (!CanSign || !long.TryParse(orderId, NumberStyles.None, CultureInfo.InvariantCulture, out long oid)) return false;
+                if (!CanSign) return false;
+                if (HyperliquidWire.TryTwapId(orderId, out long twapId))
+                {
+                    var market = await ResolveAsync(symbol, null).ConfigureAwait(false);
+                    return market != null && await CancelTwapAsync(market, twapId).ConfigureAwait(false);
+                }
+                if (!long.TryParse(orderId, NumberStyles.None, CultureInfo.InvariantCulture, out long oid)) return false;
                 var asset = await ResolveAsync(symbol, null).ConfigureAwait(false);
                 if (asset == null) return false;
                 WakeBuilder(asset.Dex);
@@ -1515,20 +1693,37 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             }
         }
 
-        /// <summary>Cancels every open order (optionally one market's) in a single action. Returns how many were cancelled.</summary>
+        /// <summary>Stops a running TWAP; what it already traded stays traded. A refusal is said in the venue's words.</summary>
+        private async Task<bool> CancelTwapAsync(AssetInfo asset, long twapId)
+        {
+            WakeTwaps();
+            var reply = await ExchangeAsync(HyperliquidWire.TwapCancelAction(asset.AssetId, twapId)).ConfigureAwait(false);
+            var (_, error) = HyperliquidWire.ParseTwapReply(reply);
+            if (error != null) SurfaceError($"Hyperliquid did not stop the TWAP: {error}", ErrorSeverity.Medium, ErrorCategory.Provider);
+            return error == null;
+        }
+
+        /// <summary>Cancels every open order (optionally one market's) in a single action, and stops
+        /// every running TWAP (one action each). Returns how many were cancelled or stopped.</summary>
         public async Task<int> CancelAllAsync(string? symbol = null)
         {
             if (!CanSign) return 0;
             var open = await GetOpenOrdersAsync(symbol).ConfigureAwait(false);
             var cancels = new List<(int, long)>();
+            int stopped = 0;
             foreach (var o in open)
             {
                 var asset = await ResolveAsync(o.Symbol, null).ConfigureAwait(false);
-                if (asset != null && long.TryParse(o.Id, out long oid)) cancels.Add((asset.AssetId, oid));
+                if (asset == null) continue;
+                if (HyperliquidWire.TryTwapId(o.Id, out long twapId))
+                {
+                    if (await CancelTwapAsync(asset, twapId).ConfigureAwait(false)) stopped++;
+                }
+                else if (long.TryParse(o.Id, out long oid)) cancels.Add((asset.AssetId, oid));
             }
-            if (cancels.Count == 0) return 0;
+            if (cancels.Count == 0) return stopped;
             var reply = await ExchangeAsync(HyperliquidWire.CancelAction(cancels)).ConfigureAwait(false);
-            return HyperliquidWire.ParseOrderReply(reply).Count(o => !o.IsError);
+            return stopped + HyperliquidWire.ParseOrderReply(reply).Count(o => !o.IsError);
         }
 
         /// <summary>
@@ -1539,6 +1734,10 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         {
             if (_keyRefusal != null) return $"ORDER_FAILED:{_keyRefusal}";
             if (!CanSign) return "ORDER_FAILED:no Hyperliquid agent wallet configured";
+            if (HyperliquidWire.TryTwapId(orderId, out _))
+                return "ORDER_FAILED:a running TWAP cannot be changed; cancel it and place another";
+            if (replacement.Type == OrderType.Twap)
+                return "ORDER_FAILED:an order cannot be changed into a TWAP; cancel it and place one";
             if (!long.TryParse(orderId, NumberStyles.None, CultureInfo.InvariantCulture, out long oid))
                 return "ORDER_FAILED:order id is not a Hyperliquid order number";
             try

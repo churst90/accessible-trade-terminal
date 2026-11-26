@@ -151,5 +151,15 @@ namespace AccessibleTrader.Sdk.Enums
         /// never be able to move money.
         /// </summary>
         Withdrawals = 1 << 15,
+
+        // ── Execution ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Places <c>OrderType.Twap</c>: the venue itself works the size in small market
+        /// slices over <c>TradeSignal.TwapMinutes</c>, lists it among the open orders while it
+        /// runs (id prefixed <c>twap:</c>), and cancels it by that id. The terminal does not
+        /// slice anything itself, so a provider without this flag never sees a TWAP.
+        /// </summary>
+        Twap = 1 << 16,
     }
 }

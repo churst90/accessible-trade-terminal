@@ -198,8 +198,29 @@
                                     <option value="Stop-Limit">Stop-Limit</option>
                                     <option value="Take-Profit-Market">Take-Profit-Market</option>
                                     <option value="Take-Profit-Limit">Take-Profit-Limit</option>
+                                    @* Only where the venue itself runs it: the terminal slices nothing. *@
+                                    @if (_caps.HasFlag(ProviderCapabilities.Twap))
+                                    {
+                                        <option value="TWAP">TWAP, spread over time</option>
+                                    }
                                 </select>
                             </div>
+
+                            @if (IsTwap)
+                            {
+                                <div class="entry-row">
+                                    <label for="twap-minutes">Minutes</label>
+                                    <input id="twap-minutes" type="number" min="1" step="1" @bind="_twapMinutes"
+                                           aria-describedby="twap-minutes-hint"
+                                           @oninput='() => VoidReviewIfArmed("TWAP minutes")' />
+                                    <span id="twap-minutes-hint" class="field-hint">The venue buys or sells a slice about every 30 seconds until this many minutes have passed.</span>
+                                </div>
+                                <div class="entry-row">
+                                    <label for="twap-randomize">Randomize slice sizes</label>
+                                    <input id="twap-randomize" type="checkbox" checked="@_twapRandomize"
+                                           @onchange='e => { _twapRandomize = e.Value is bool b && b; VoidReviewIfArmed("Randomize slice sizes"); }' />
+                                </div>
+                            }
 
                             @if (NeedsTrigger)
                             {
@@ -400,7 +421,7 @@
                                     <GatedButton ElementId="order-confirm-live"
                                             class="@SubmitButtonClass"
                                             Gate="SubmitGate" Channel="SpeechChannel.Critical"
-                                            aria-label="@($"Confirm {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()} order. Sends to the live account.")"
+                                            aria-label="@($"Confirm {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {OrderTypeWords} order. Sends to the live account.")"
                                             OnClick="SubmitOrder">Confirm @_orderSide @PriceFormatter.FormatQuantity(_orderQty) @Store.State.Identity.Symbol</GatedButton>
                                     <button type="button" @onclick="CancelReview" aria-label="Cancel, do not submit the live order">Cancel</button>
                                 </div>
@@ -722,7 +743,7 @@
                                                     <td>@o.Symbol</td>
                                                     <td>@row.Account.DisplayName</td>
                                                     <td>@o.Side</td>
-                                                    <td>@o.Type</td>
+                                                    <td>@TypeName(o.Type)</td>
                                                     <td>@PriceFormatter.FormatQuantity(o.Quantity)</td>
                                                     <td>@PriceFormatter.FormatPrice(o.Price)</td>
                                                     <td>@o.Status</td>
@@ -730,7 +751,7 @@
                                                        as "ex", or skipped entirely depending on the screen reader and
                                                        its punctuation level, and a button whose name might be nothing
                                                        at all is the worst control on a money screen. *@
-                                                    <td><GatedButton aria-label="@($"Cancel order, {o.Side} {o.Type} {PriceFormatter.FormatQuantity(o.Quantity)} {o.Symbol} on {row.Account.DisplayName}")" Gate="InFlightGate" Channel="SpeechChannel.Critical" OnClick="() => CancelOrder(row)">Cancel order</GatedButton></td>
+                                                    <td><GatedButton aria-label="@($"Cancel order, {o.Side} {TypeName(o.Type)} {PriceFormatter.FormatQuantity(o.Quantity)} {o.Symbol} on {row.Account.DisplayName}")" Gate="InFlightGate" Channel="SpeechChannel.Critical" OnClick="() => CancelOrder(row)">Cancel order</GatedButton></td>
                                                 </tr>
                                             }
                                             @if (!_openOrders.Any())
@@ -1026,6 +1047,8 @@
     private string _tif           = "GTC";
     private bool   _reduceOnly;
     private bool   _postOnly;
+    private int    _twapMinutes = 30;
+    private bool   _twapRandomize;
     private string _positionSide  = "BOTH";
     // Isolated, not Cross. Cross is the mode that lets one position take the rest of
     // the account with it, and a default nobody chose should not be the one with the
@@ -1395,6 +1418,14 @@
     private bool NeedsLimit   => _orderType is "Limit" or "Stop-Limit" or "Take-Profit-Limit";
     private bool NeedsTrigger => _orderType is "Stop-Market" or "Stop-Limit" or "Take-Profit-Market" or "Take-Profit-Limit";
     private bool IsEntryType  => _orderType is "Market" or "Limit";
+    private bool IsTwap       => _orderType == "TWAP";
+
+    /// <summary>The order type as the review, the confirm button and the placed message say it.</summary>
+    private string OrderTypeWords => IsTwap
+        ? $"TWAP over {_twapMinutes} {(_twapMinutes == 1 ? "minute" : "minutes")}{(_twapRandomize ? ", random slice sizes" : "")}"
+        : _orderType.ToLowerInvariant();
+
+    private static string TypeName(OrderType t) => t == OrderType.Twap ? "TWAP" : t.ToString();
 
     protected override void OnInitialized()
     {
@@ -1437,6 +1468,7 @@
         _activeKeyNickname = active?.Nickname ?? "";
 
         _caps           = supported ? await OrderService.GetCapabilitiesAsync(provider) : ProviderCapabilities.None;
+        if (IsTwap && !_caps.HasFlag(ProviderCapabilities.Twap)) _orderType = "Market";
 
         // Ask the provider which books it has rather than assuming Spot/Futures.
         // Venues differ, and a hardcoded pair would offer futures on exchanges that
@@ -2294,7 +2326,7 @@
                       Store.State.Identity.Symbol, _positions.Select(r => r.Position.Symbol)) ?? ""
                 : "";
             if (sectorHint.Length > 0) sectorHint = " " + sectorHint;
-            string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sectorHint}";
+            string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {OrderTypeWords}.{sectorHint}";
             // Same rule as ClosePosition: a rejection carries its reason, and the reason is the
             // part the user can act on. "Order rejected" alone sends them back to guess.
             _orderStatus = _orderError
@@ -2354,6 +2386,7 @@
             "Stop-Limit"         => OrderType.StopLimit,
             "Take-Profit-Market" => OrderType.TakeProfitMarket,
             "Take-Profit-Limit"  => OrderType.TakeProfitLimit,
+            "TWAP"               => OrderType.Twap,
             _                    => OrderType.Market
         };
         double? price   = NeedsLimit   ? _limitPrice   : (double?)null;
@@ -2399,7 +2432,9 @@
             TimeInForce:    tif,
             ReduceOnly:     Can(ProviderCapabilities.ReduceOnly) && _reduceOnly,
             PostOnly:       NeedsLimit && Can(ProviderCapabilities.PostOnly) && _postOnly,
-            PositionSide:   posSide);
+            PositionSide:   posSide,
+            TwapMinutes:    IsTwap ? _twapMinutes : null,
+            TwapRandomize:  IsTwap && _twapRandomize);
     }
 
     /// <summary>
@@ -2874,7 +2909,7 @@
         string lev = Can(ProviderCapabilities.Leverage) && _leverage > 1
             ? $" {_leverage:0.##} times leverage, your margin about {PriceFormatter.FormatPrice(cost / _leverage)}."
             : "";
-        return $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{lev}{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
+        return $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {OrderTypeWords}.{lev}{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
     }
 
     /// <summary>What the leverage field's hint says, and what a screen reader reads after the

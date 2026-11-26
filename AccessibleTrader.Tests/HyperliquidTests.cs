@@ -1493,5 +1493,262 @@ namespace AccessibleTrader.Tests
             Assert.DoesNotContain(Key, ex.Message);
             Assert.DoesNotContain("0123456789012345", ex.Message);
         }
+
+        // ── 10. TWAP orders (recorded 2026-11-26, Fixtures/Hyperliquid/recorded_twap.json) ──
+
+        private static readonly JObject Twap = JObject.Parse(Fixture("recorded_twap.json"));
+        private static JArray TwapHistory => (JArray)Twap["twapHistory"]!.DeepClone();
+        private static string PerpName(string coin) => coin + "-PERP";
+
+        /// <summary>Info answers for an account whose twapHistory and webData2 are the recorded ones.</summary>
+        private static Func<JObject, string?> TwapInfo(JArray? history = null) => b => b["type"]?.ToString() switch
+        {
+            "twapHistory" => (history ?? TwapHistory).ToString(),
+            "webData2" => new JObject { ["twapStates"] = Twap["webData2_twapStates"]!.DeepClone() }.ToString(),
+            _ => null,
+        };
+
+        [Fact]
+        public void Of_the_recorded_history_only_the_TWAP_with_no_ending_entry_is_running()
+        {
+            // The reply is not in time order and lists each TWAP twice once it has ended.
+            Assert.Equal(new long[] { 2851918 }, HyperliquidProvider.RunningTwapIds(TwapHistory));
+            Assert.Empty(HyperliquidProvider.RunningTwapIds(new JArray(TwapHistory.Skip(1))));
+        }
+
+        [Fact]
+        public void A_running_TWAP_is_an_open_order_saying_how_far_it_has_got()
+        {
+            var o = Assert.Single(HyperliquidProvider.ParseTwapStates((JArray)Twap["webData2_twapStates"]!, PerpName));
+
+            Assert.Equal("twap:2851918", o.Id);
+            Assert.Equal("ETH-PERP", o.Symbol);
+            Assert.Equal(OrderSide.Buy, o.Side);
+            Assert.Equal(OrderType.Twap, o.Type);
+            Assert.Equal(1659.2118, o.Quantity, 9);                  // still to trade
+            Assert.Equal(1688.253261, o.Price, 6);                   // the average of what traded
+            Assert.Equal("TWAP 48.6085 of 1707.8203 done at 1688.253261 average, over 1440 minutes, ends 15:25 UTC", o.Status);
+        }
+
+        [Fact]
+        public void A_TWAP_not_yet_started_has_no_average_and_reduce_only_is_said()
+        {
+            var start = new DateTime(2026, 11, 26, 23, 50, 0, DateTimeKind.Utc);
+            Assert.Equal("TWAP 0 of 2 done, over 30 minutes, ends 00:20 UTC, reduce only",
+                HyperliquidProvider.TwapProgress(2, 0, 0, 30, start, reduceOnly: true));
+        }
+
+        [Theory]
+        [InlineData(2851918, PolledOrderState.Working, 0.0, 1707.8203)]
+        [InlineData(2827524, PolledOrderState.Filled, 64445.81, 0.0)]
+        [InlineData(2833341, PolledOrderState.Cancelled, 15654.3, 63921.78)]       // terminated part-way
+        [InlineData(2815388, PolledOrderState.Cancelled, 1030.01, 3733.0)]         // margin ran out part-way
+        [InlineData(2732029, PolledOrderState.Cancelled, 0.0, 62667.62)]           // stopped before its trigger
+        public void A_TWAP_is_resolved_from_its_ending_entry(long id, PolledOrderState state, double done, double left)
+        {
+            var s = HyperliquidProvider.TwapSnapshot(TwapHistory, id, PerpName)!;
+
+            Assert.Equal(state, s.State);
+            Assert.Equal(done, s.FilledQuantity, 6);
+            Assert.Equal(left, s.RemainingQuantity, 6);
+        }
+
+        [Fact]
+        public void A_TWAP_that_errored_before_trading_anything_is_rejected_and_an_unknown_one_is_nothing()
+        {
+            var history = TwapHistory;
+            foreach (var e in history.Where(e => e["twapId"]!.Value<long>() == 2815388))
+                e["state"]!["executedSz"] = "0.0";
+
+            Assert.Equal(PolledOrderState.Rejected, HyperliquidProvider.TwapSnapshot(history, 2815388, PerpName)!.State);
+            Assert.Null(HyperliquidProvider.TwapSnapshot(history, 1, PerpName));
+            var spcx = HyperliquidProvider.TwapSnapshot(TwapHistory, 2827524, PerpName)!;
+            Assert.Equal("xyz:SPCX-PERP", spcx.Symbol);
+            Assert.Equal(OrderSide.Sell, spcx.Side);
+            Assert.Equal(125.170054, spcx.FilledPrice, 6);
+        }
+
+        [Theory]
+        [InlineData("{\"status\":\"ok\",\"response\":{\"type\":\"twapOrder\",\"data\":{\"status\":{\"running\":{\"twapId\":77738308}}}}}", 77738308L, null)]
+        [InlineData("{\"status\":\"ok\",\"response\":{\"type\":\"twapOrder\",\"data\":{\"status\":{\"error\":\"Invalid TWAP duration: 1 min(s)\"}}}}", null, "Invalid TWAP duration: 1 min(s)")]
+        [InlineData("{\"status\":\"ok\",\"response\":{\"type\":\"twapCancel\",\"data\":{\"status\":\"success\"}}}", null, null)]
+        [InlineData("{\"status\":\"ok\",\"response\":{\"type\":\"twapCancel\",\"data\":{\"status\":{\"error\":\"TWAP was never placed, already canceled, or filled.\"}}}}", null, "TWAP was never placed, already canceled, or filled.")]
+        [InlineData("{\"status\":\"err\",\"response\":\"User or API Wallet does not exist.\"}", null, "User or API Wallet does not exist.")]
+        [InlineData("{\"status\":\"ok\",\"response\":{\"type\":\"twapOrder\",\"data\":{\"status\":{\"queued\":1}}}}", null, "Hyperliquid answered with a status this terminal does not recognise: {\"queued\":1}")]
+        public void Every_TWAP_reply_shape_gives_an_id_a_success_or_the_venues_words(string reply, long? id, string? error)
+        {
+            Assert.Equal((id, error), HyperliquidWire.ParseTwapReply(JObject.Parse(reply)));
+        }
+
+        [Theory]
+        [InlineData("twap:2851918", true, 2851918L)]
+        [InlineData("2851918", false, 0L)]
+        [InlineData("twap:", false, 0L)]
+        [InlineData("twap:-5", false, 0L)]
+        [InlineData(null, false, 0L)]
+        public void Only_a_twap_prefixed_number_is_a_TWAP_id(string? text, bool ok, long id)
+        {
+            Assert.Equal(ok, HyperliquidWire.TryTwapId(text, out long n));
+            Assert.Equal(id, n);
+        }
+
+        private static string TwapRunning(JObject b) => b["action"]?["type"]?.ToString() switch
+        {
+            "twapOrder" => Reply("twapOrder", "{\"status\":{\"running\":{\"twapId\":2851918}}}"),
+            "twapCancel" => Reply("twapCancel", "{\"status\":\"success\"}"),
+            "cancel" => Reply("cancel", "{\"statuses\":[\"success\",\"success\"]}"),
+            _ => null!,
+        };
+
+        [Fact]
+        public async Task A_TWAP_is_one_signed_action_in_the_docs_key_order_with_an_expiry_and_its_id_comes_back()
+        {
+            var h = Armed(exchange: TwapRunning);
+
+            string id = await Provider(h).PlaceOrderAsync(new("ETH-PERP", OrderSide.Sell, 1.23456, OrderType.Twap,
+                ReduceOnly: true, TwapMinutes: 45, TwapRandomize: true));
+
+            Assert.Equal("twap:2851918", id);
+            var body = Single(h);
+            Assert.Equal("""{"type":"twapOrder","twap":{"a":1,"b":false,"s":"1.2345","r":true,"m":45,"t":true}}""",
+                body["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+            Assert.Equal(body["nonce"]!.Value<ulong>() + 60_000UL, body["expiresAfter"]!.Value<ulong>());
+            Assert.DoesNotContain(Exchange(h), b => b["action"]!["type"]!.ToString() == "order");
+        }
+
+        [Fact]
+        public async Task An_opening_TWAP_states_its_leverage_first_like_any_order()
+        {
+            var h = Armed(exchange: TwapRunning);
+
+            await Provider(h).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Twap, Leverage: 3, TwapMinutes: 30));
+
+            Assert.Equal(new[] { "updateLeverage", "twapOrder" }, Exchange(h).Select(b => b["action"]!["type"]!.ToString()));
+            Assert.Equal(3, Exchange(h)[0]["action"]!["leverage"]!.Value<int>());
+        }
+
+        [Theory]
+        [InlineData(null, 44_000.0, null, "a TWAP carries no stop loss or take profit")]
+        [InlineData(30, null, null, "")]                                   // vacuity: the same TWAP is sent
+        [InlineData(null, null, null, "a TWAP needs how many minutes to run over")]
+        [InlineData(0, null, null, "a TWAP needs how many minutes to run over")]
+        [InlineData(30, null, 0.000001, "rounds to zero")]
+        [InlineData(30, null, 0.00005, "Hyperliquid's smallest")]
+        public async Task A_TWAP_the_venue_would_refuse_is_refused_before_anything_is_signed(int? minutes, double? stop, double? size, string refusal)
+        {
+            var h = Armed(exchange: TwapRunning);
+            var signal = new TradeSignal("BTC-PERP", OrderSide.Buy, size ?? 0.5, OrderType.Twap,
+                StopLoss: stop, TwapMinutes: stop != null ? 30 : minutes);
+
+            string r = await Provider(h).PlaceOrderAsync(signal);
+
+            if (refusal == "")
+            {
+                Assert.Equal("twap:2851918", r);
+                return;
+            }
+            Assert.StartsWith("ORDER_FAILED:", r);
+            Assert.Contains(refusal, r);
+            Assert.DoesNotContain(Exchange(h), b => b["action"]!["type"]!.ToString() == "twapOrder");
+        }
+
+        [Fact]
+        public async Task The_venues_refusal_of_a_TWAP_is_said_in_its_words()
+        {
+            var h = Armed(exchange: b => b["action"]?["type"]?.ToString() == "twapOrder"
+                ? Reply("twapOrder", "{\"status\":{\"error\":\"Invalid TWAP duration: 1 min(s)\"}}") : null!);
+
+            Assert.Equal("ORDER_FAILED:Invalid TWAP duration: 1 min(s)",
+                await Provider(h).PlaceOrderAsync(new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Twap, TwapMinutes: 1)));
+        }
+
+        [Fact]
+        public async Task A_running_TWAP_is_listed_with_the_open_orders_and_its_progress_read_only_then()
+        {
+            var h = Armed(info: TwapInfo());
+
+            var open = await Provider(h).GetOpenOrdersAsync();
+
+            Assert.Equal(new[] { "12345", "12346", "twap:2851918" }, open.Select(o => o.Id));
+            Assert.Equal(1, Asked(h, "webData2"));
+            Assert.Equal("twap:2851918", Assert.Single(await Provider(Armed(info: TwapInfo())).GetOpenOrdersAsync("ETH-PERP"),
+                o => o.Type == OrderType.Twap).Id);
+        }
+
+        [Fact]
+        public async Task With_no_TWAP_running_the_heavy_read_is_skipped_and_history_rests_until_the_stream_says_one_changed()
+        {
+            var ended = new JArray(TwapHistory.Skip(1));                  // every TWAP has its ending entry
+            var h = Armed(info: TwapInfo(ended));
+            var p = Provider(h);
+
+            Assert.Equal(2, (await p.GetOpenOrdersAsync()).Count);
+            Assert.Equal(2, (await p.GetOpenOrdersAsync()).Count);
+            Assert.Equal(1, Asked(h, "twapHistory"));                     // the second read rested
+            Assert.Equal(0, Asked(h, "webData2"));
+
+            p.WakeTwapsOn("""{"channel":"userTwapHistory","data":{"user":"0x1","history":[]}}""");
+            await p.GetOpenOrdersAsync();
+            Assert.Equal(2, Asked(h, "twapHistory"));
+            p.WakeTwapsOn("""{"channel":"orderUpdates","data":[]}""");     // vacuity: other frames do not wake it
+            await p.GetOpenOrdersAsync();
+            Assert.Equal(2, Asked(h, "twapHistory"));
+        }
+
+        [Fact]
+        public async Task A_TWAP_is_stopped_by_its_own_action_and_a_venue_refusal_is_false()
+        {
+            var h = Armed(exchange: TwapRunning);
+
+            Assert.True(await Provider(h).CancelOrderAsync("twap:2851918", "ETH-PERP"));
+            Assert.Equal("""{"type":"twapCancel","a":1,"t":2851918}""", Single(h)["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+
+            var refused = Armed(exchange: _ => Reply("twapCancel", "{\"status\":{\"error\":\"TWAP was never placed, already canceled, or filled.\"}}"));
+            Assert.False(await Provider(refused).CancelOrderAsync("twap:2851918", "ETH-PERP"));
+        }
+
+        [Fact]
+        public async Task Cancel_all_stops_running_TWAPs_too_and_counts_them()
+        {
+            var h = Armed(exchange: TwapRunning, info: TwapInfo());
+
+            int n = await Provider(h).CancelAllAsync();
+
+            Assert.Equal(3, n);
+            Assert.Equal(new[] { "twapCancel", "cancel" }, Exchange(h).Select(b => b["action"]!["type"]!.ToString()));
+            Assert.Equal("""{"type":"cancel","cancels":[{"a":0,"o":12345},{"a":1,"o":12346}]}""",
+                Exchange(h)[1]["action"]!.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        [Fact]
+        public async Task A_TWAP_is_never_modified_and_nothing_is_modified_into_one()
+        {
+            var h = Armed();
+            var p = Provider(h);
+
+            Assert.Equal("ORDER_FAILED:a running TWAP cannot be changed; cancel it and place another",
+                await p.ModifyOrderAsync("twap:2851918", new("ETH-PERP", OrderSide.Buy, 1, OrderType.Limit, Price: 1700)));
+            Assert.Equal("ORDER_FAILED:an order cannot be changed into a TWAP; cancel it and place one",
+                await p.ModifyOrderAsync("12345", new("BTC-PERP", OrderSide.Buy, 1, OrderType.Twap, TwapMinutes: 30)));
+            Assert.Empty(Exchange(h));
+        }
+
+        [Fact]
+        public async Task A_TWAPs_status_is_read_from_twapHistory_by_its_id()
+        {
+            var h = Armed(info: TwapInfo());
+            var p = Provider(h);
+
+            Assert.True(p.SupportsOrderStatusQuery);
+            var s = await p.GetOrderStatusAsync("twap:2827524", "xyz:SPCX-PERP");
+
+            Assert.Equal(PolledOrderState.Filled, s!.State);
+            Assert.Equal(64445.81, s.FilledQuantity, 6);
+            Assert.Equal(0, Asked(h, "orderStatus"));
+        }
+
+        [Fact]
+        public void Hyperliquid_declares_TWAP()
+            => Assert.True(new HyperliquidProvider().Capabilities.HasFlag(ProviderCapabilities.Twap));
     }
 }

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid TWAP orders
+
+The ticket's Type list offers **TWAP** where the venue runs one (a new SDK flag,
+`ProviderCapabilities.Twap`; only Hyperliquid declares it), with Minutes and "Randomize slice
+sizes". The order service refuses a TWAP to any other venue, and to paper trading, in words, so
+no provider sees an order type it does not know. Hyperliquid's `twapOrder` is one signed action
+(keys a, b, s, r, m, t in the docs' order) with the 60-second expiry; it is checked first like
+any order (size, $10 at the mid, leverage ceiling, leverage stated) and carries no stop or
+target. A running TWAP is an open order "twap:N" whose status says how much is done, at what
+average and when it ends; `twapHistory` says whether any runs, and only then is `webData2`
+(about 300 KB) read for the progress, otherwise the history rests a minute until the stream's
+new `userTwapHistory` subscription says a TWAP changed. Cancel sends `twapCancel`, cancel-all
+stops TWAPs too, modify refuses. Its start and end are announced through the order stream (the
+first frame, the history, is skipped); "error" with some traded is a cancel carrying the
+venue's reason, with nothing traded a refusal; the poller resolves "twap:N" from `twapHistory`.
+Checked live on 2026-11-26: both actions signed from a throwaway testnet key with no account
+recovered that key's address (and another address with the keys out of order); `twapHistory`,
+`webData2` and the history snapshot frame recorded from a public account running TWAPs
+(`recorded_twap.json`). **Not seen:** a live (non-snapshot) `userTwapHistory` frame, read as the
+snapshot's shape; any real TWAP placed. Slice fills are not in the fills list (they are only in
+`userTwapSliceFills`, capped at 2,000). 32 sabotages across the wire, provider, stream, order service and order log all went red.
+
 ### 2026-11-26: Hyperliquid builders' markets (HIP-3) can be traded
 
 Orders, modifies, cancels and leverage on builders' markets (xyz:TSLA-PERP and the rest) are
