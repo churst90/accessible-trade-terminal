@@ -165,8 +165,8 @@ website opens the terminal without the site's navigation; he passed on adding a 
 
 Open questions from Cody's seven notes (2026-11-22):
 
-- **Arrowing after Home or End:** Left and Right then read one component, not the whole bar. Keep
-  that, or have Home and End keep whole-series reading when you came from PageUp or PageDown?
+- ~~**Arrowing after Home or End**~~: **answered by Cody 2026-11-26**: keep it; Home and End read
+  only the component in focus, not the whole bar. Nothing to change.
 - **The Strategy Lab:** offer its exported strategy list (a JSON) as a download, or leave it in the
   repository only?
 - **Phones:** to try Android, a CI job building an APK (not built yet); for iOS, a Mac with Xcode and
@@ -299,6 +299,11 @@ needed: "don't worry about the custom scripts on the hosted vps".
   Oscillator Matrix) and many free open-source scripts (their free "Smart Money Concepts" is one of
   TradingView's most used). Their paid code is closed; their free scripts are CC BY-NC-SA, so we can
   learn from them but not copy them into this repo; ours are written from the published definitions.
+- [ ] **Social feed and chatter** (Cody, 2026-11-26: a live X/Twitter feed or tag following, "would it
+  be valuable to have a built in social sentiment gauge in realtime? discuss."). Under discussion; see
+  the 11-26 answer: X is pay per post read, so each user's own key; Bluesky's stream is free.
+- [ ] **Other languages** (Cody, 2026-11-26: "what would it take for this to be done correctly?").
+  Under discussion. Today everything is English by design (`CultureInvariantScanTests`).
 - [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:
   1. **Close everything** on one key: cancel every working order and close every position on the
      focused venue (then optionally all venues), after one spoken confirmation that says what it will do
@@ -356,28 +361,31 @@ shapes are in the archive (the 2026-11-21 block at its end).
   again, the exact words and the position are needed.
 - [ ] **Gemini, Binance, Coinbase, Bitstamp, MEXC, Hyperliquid** (2026-11-10): Cody to try a tiny order
   under a minimum (refused in words before anything is sent), 1x after a higher leverage, leverage above
-  a market's maximum (refused, named). **Q:** Gemini's limit_only/post_only markets refuse every order:
-  let a limit (or post-only) through? Binance: a different leverage from an open position is refused:
+  a market's maximum (refused, named). **Gemini's limit_only/post_only markets refuse every order:
+  Cody 2026-11-26, let limits through** (to build: limit orders on limit_only; on post_only, how a
+  limit is sent is asked in the 11-26 discussion). Binance: a different leverage from an open position is refused:
   keep, or change the position's after asking? MEXC futures placement has been "under maintenance" in
   its docs since 2022. Not checked: a market order's minimum value on Coinbase, MEXC spot and Binance
   futures (no price to hand).
 - [ ] **Several tabs and venues, on PAPER** (2026-11-05): move a stop with a take profit set (silent,
   target kept); arm a quick trade, switch tabs, Ctrl+Enter (says where it was armed, places nothing);
-  BTCUSDT on Kraken and Bitstamp, buy on one then the other (refused). **Q: one paper account per
-  venue?** Paper keeps one position per symbol across venues; the recommendation is one per venue, which
-  touches the ledger file, the Positions tab and the status bar, so it waits for a yes.
+  BTCUSDT on Kraken and Bitstamp, buy on one then the other (refused). **Paper accounts per venue:
+  Cody 2026-11-26, no**: one paper balance whatever the venue (it already is one, `PaperAccountHub`).
+  Open: whether a second venue's order for the same symbol should add to the position instead of
+  being refused (asked 11-26). A venue's own practice account (Gemini sandbox, Hyperliquid testnet) is a
+  Paper environment on that venue's profile and is separate.
 - [ ] **Hyperliquid** (2026-11-04, no order ever sent): Cody to make a testnet agent wallet, add a Paper
   profile, place a small limit, cancel it, place a bracket; then I record real replies for the fixtures.
-  **Q (2026-10-25, still open):** as a US resident, live trading breaks Hyperliquid's terms until the
-  Payward/Bitnomial route opens: build for your trading, for users, read-only data only, or wait?
+  **Cody 2026-11-26: build it fully for users outside the US**, though he cannot trade it himself. The
+  remaining work is in `docs/HYPERLIQUID_PROVIDER.md` (Follow-ups, Unverified); a tester outside the US
+  is needed for anything past the testnet.
 - [ ] **Position P&L since you left** has not been read against a live venue; no currency is named.
 
 ## Known limits and smaller open items
 
-- [ ] **The order book is fetched on every indicator pass** (`DataOrchestrationService`), a network
-  round trip, even with no heatmap on the chart; since 2026-11-22 at most one is in flight. Fetch it
-  only when a heatmap is on, or from a stream. **Q for Cody:** should volume bars follow Heikin-Ashi
-  colours? Today (and on TradingView) they are coloured by the market's own candle.
+- Volume bars stay coloured by the market's own candle on Heikin-Ashi charts (Cody 2026-11-26: "if no
+  other platform does it, don't implement it"). The order book is now fetched only with a heatmap on
+  (2ccfc65a).
 - [ ] **The .NET runtime in the WebHost zips is 10.0.11**, older than the Brotli decoder fix in 10.0.14
   (GHSA-p3jp-9v83-76w9, high). No shipped code decompresses untrusted Brotli. Next release: a newer
   10.0.3xx SDK, then check the zips' System.Private.CoreLib.dll version.
