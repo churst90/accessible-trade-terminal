@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Gemini's limit-only and post-only markets take the orders they allow
+
+Cody, 2026-11-26, asked whether a Gemini limit_only market should let limit orders through: "I'd
+say of course". Until now `GeminiProvider.GetSymbolRulesAsync` set `NotTrading` for every status
+but `open`, so closed, cancel_only, limit_only and post_only all refused every order before it was
+sent. Now only closed and cancel_only (and anything unknown) do. The status is kept beside the
+cached rules, and `ModeRefusal` sorts the rest by order type:
+- **limit_only**: a limit order goes out. A market order is refused, because Gemini's market order
+  here is an immediate-or-cancel limit priced through the book, which takes liquidity. A stop-limit
+  is refused too. Both refusals are in words.
+- **post_only**: only a limit with Post-only ticked goes out, as `maker-or-cancel`. Anything else is
+  refused with the advice to tick Post-only.
+
+Kraken already refuses non-limits in both modes (`KrakenPairRules.Refusal`), and Coinbase refuses
+every order on a post-only market. Three tests in `GeminiVenueRulesTests`, and three sabotages went
+red: the old refusal, no mode check, and post-only taking any limit. **Caveat:** these are run
+against the venue's documented statuses on a fake; not tried on a live Gemini market in either mode.
+
 ### 2026-11-26: on paper, a second venue's order adds to the trade instead of being refused
 
 Cody, 2026-11-26, on paper with several tabs and venues: "it should pull from one account balance

@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Gemini: limit orders on limit-only markets.** When Gemini sets a market to limit-only, your
+  limit orders now go through; a market or stop-limit order is refused in words. On a post-only
+  market, a limit order with Post-only ticked goes through. Before, both refused every order.
 - **Paper: one position per symbol, whichever tab you trade from.** With BTCUSDT bought on Kraken,
   a buy from your Bitstamp tab now adds to the Kraken trade at Kraken's price and tells you so.
   Before, it was refused.

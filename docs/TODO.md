@@ -364,9 +364,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
   again, the exact words and the position are needed.
 - [ ] **Gemini, Binance, Coinbase, Bitstamp, MEXC, Hyperliquid** (2026-11-10): Cody to try a tiny order
   under a minimum (refused in words before anything is sent), 1x after a higher leverage, leverage above
-  a market's maximum (refused, named). **Gemini's limit_only/post_only markets refuse every order:
-  Cody 2026-11-26, let limits through** (to build: limit orders on limit_only; on post_only, how a
-  limit is sent is asked in the 11-26 discussion). Binance: a different leverage from an open position is refused:
+  a market's maximum (refused, named). ~~Gemini's limit_only/post_only markets refuse every order~~
+  **DONE 2026-11-26** (Cody: let limits through): a limit order goes out on limit_only; a market or
+  stop-limit is refused in words. post_only takes a limit with Post-only ticked (sent maker-or-cancel,
+  as Kraken and Coinbase also require). Not tried on a live Gemini market in either mode. Binance: a different leverage from an open position is refused:
   keep, or change the position's after asking? MEXC futures placement has been "under maintenance" in
   its docs since 2022. Not checked: a market order's minimum value on Coinbase, MEXC spot and Binance
   futures (no price to hand).

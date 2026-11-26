@@ -4979,7 +4979,8 @@ Gemini, Binance, Coinbase, Bitstamp, MEXC and Hyperliquid work the way Kraken do
 - **Markets that are not trading.** An order on a market the venue has switched off,
   paused or set to cancel-only is refused in words. So is a market order where the
   venue takes only limit orders, and on Coinbase any order on a post-only market. On
-  Gemini, any market that is not fully open refuses every order for now.
+  Gemini, a limit-only market takes limit orders and refuses market and stop-limit orders, and
+  a post-only market takes only a limit order with Post-only ticked.
 - **Leverage.** On Binance, MEXC and Hyperliquid the ticket's field allows only that
   market's own range, for example 2 to 5 on Hyperliquid's TAO and 2 or 3 on KAS.
   Fractions and amounts above the market's highest are refused and the refusal names

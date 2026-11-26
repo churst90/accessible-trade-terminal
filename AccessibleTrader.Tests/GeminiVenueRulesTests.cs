@@ -309,6 +309,61 @@ namespace AccessibleTrader.Tests
             Assert.Empty(SentOrders(h));
         }
 
+        // Cody, 2026-11-26, on Gemini's limit-only markets: "of course" let limits through.
+        // Until then every status but "open" refused every order.
+        private static (GeminiProvider P, FakeHttpMessageHandler H) MarketIn(string status)
+        {
+            var h = new FakeHttpMessageHandler { StrictMode = true };
+            h.Get(@"api\.gemini\.com/v1/symbols/details/btcusd$", BtcUsdDetails.Replace("\"status\":\"open\"", $"\"status\":\"{status}\""));
+            h.Post(@"api\.gemini\.com/v1/order/new$", AcceptedJson);
+            return (Gemini(h, new Clock()), h);
+        }
+
+        [Fact]
+        public async Task A_limit_on_a_limit_only_market_goes_out()
+        {
+            var (p, h) = MarketIn("limit_only");
+
+            string id = await p.PlaceOrderAsync(new TradeSignal("BTCUSD", OrderSide.Buy, 0.01, OrderType.Limit, Price: 95000));
+
+            Assert.Equal("106817811", id);
+            var sent = Assert.Single(SentOrders(h));
+            Assert.Equal("exchange limit", sent["type"]!.ToString());
+            Assert.Null(sent["options"]);
+        }
+
+        [Fact]
+        public async Task A_market_or_stop_order_on_a_limit_only_market_is_refused_in_words()
+        {
+            var (p, h) = MarketIn("limit_only");
+
+            string market = await p.PlaceOrderAsync(new TradeSignal("BTCUSD", OrderSide.Buy, 0.01, OrderType.Market));
+            string stop = await p.PlaceOrderAsync(new TradeSignal("BTCUSD", OrderSide.Sell, 0.01,
+                OrderType.StopLimit, Price: 89000, TriggerPrice: 90000));
+
+            Assert.Equal("ORDER_FAILED:Gemini takes only limit orders on BTC/USD right now (the market is limit only); "
+                       + "a market order would be refused", market);
+            Assert.Equal("ORDER_FAILED:Gemini takes only limit orders on BTC/USD right now (the market is limit only); "
+                       + "a stop-limit order would be refused", stop);
+            Assert.Empty(SentOrders(h));
+        }
+
+        [Fact]
+        public async Task A_post_only_market_takes_a_post_only_limit_as_maker_or_cancel_and_nothing_else()
+        {
+            var (p, h) = MarketIn("post_only");
+
+            string plain = await p.PlaceOrderAsync(new TradeSignal("BTCUSD", OrderSide.Buy, 0.01, OrderType.Limit, Price: 95000));
+            Assert.Equal("ORDER_FAILED:Gemini takes only post-only limit orders on BTC/USD right now (the market is post only); "
+                       + "send a limit order with Post-only ticked", plain);
+            Assert.Empty(SentOrders(h));
+
+            string id = await p.PlaceOrderAsync(new TradeSignal("BTCUSD", OrderSide.Buy, 0.01, OrderType.Limit, Price: 95000, PostOnly: true));
+            Assert.Equal("106817811", id);
+            var sent = Assert.Single(SentOrders(h));
+            Assert.Equal("maker-or-cancel", Assert.Single((JArray)sent["options"]!)!.ToString());
+        }
+
         [Fact]
         public async Task When_the_rules_cannot_be_read_the_order_goes_out_as_before()
         {

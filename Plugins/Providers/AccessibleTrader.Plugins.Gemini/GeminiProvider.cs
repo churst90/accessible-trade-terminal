@@ -71,6 +71,9 @@ namespace AccessibleTrader.Plugins.Gemini
         // them, and the market-order emulation rounds its aggressive price to the
         // quote increment or the order is rejected for precision.
         private readonly Dictionary<string, (DateTime At, SymbolOrderRules Rules)> _symbolRules = new(StringComparer.OrdinalIgnoreCase);
+        // The market's status as last read with its rules ("open", "limit_only", ...), for the
+        // order types a limit-only or post-only market still takes.
+        private readonly Dictionary<string, string> _symbolStatus = new(StringComparer.OrdinalIgnoreCase);
         internal static readonly TimeSpan SymbolRulesTtl = TimeSpan.FromHours(6);
 
         // Account reads are remembered for a few seconds. The dashboard asks for
@@ -408,6 +411,7 @@ namespace AccessibleTrader.Plugins.Gemini
             string? refusal = rules?.Refusal(signal.Quantity,
                 signal.Price is > 0 ? signal.Price : signal.TriggerPrice is > 0 ? signal.TriggerPrice : null);
             if (refusal != null) return $"ORDER_FAILED:{refusal}";
+            if (rules != null && ModeRefusal(symbol, rules.Symbol, signal) is string mode) return $"ORDER_FAILED:{mode}";
 
             var payload = new JObject
             {
@@ -686,14 +690,46 @@ namespace AccessibleTrader.Plugins.Gemini
                 MinQuantity  = SymbolOrderRules.ParseStep(Text(details["min_order_size"])),
                 QuantityStep = SymbolOrderRules.ParseStep(Text(details["tick_size"])),
                 PriceTick    = SymbolOrderRules.ParseStep(Text(details["quote_increment"])),
-                // Gemini's other states (closed, cancel_only, post_only, limit_only) all
-                // refuse some order this terminal can send; the status is named so the
-                // user hears which.
-                NotTrading   = string.Equals(status, "open", StringComparison.OrdinalIgnoreCase) ? null
+                // Closed and cancel-only take no new order; the status is named so the user
+                // hears which. Limit-only and post-only take SOME orders (Cody, 2026-11-26: "let
+                // limits through"), and ModeRefusal sorts those out by order type. Until then all
+                // four refused everything.
+                NotTrading   = status.ToLowerInvariant() is "open" or "limit_only" or "post_only" ? null
                              : $"Gemini is not taking new {spoken} orders (the market is {(status.Length > 0 ? status.Replace('_', ' ') : "not open")})",
             };
-            lock (_symbolRules) _symbolRules[symbol] = (_clock(), rules);
+            lock (_symbolRules) { _symbolRules[symbol] = (_clock(), rules); _symbolStatus[symbol] = status.ToLowerInvariant(); }
             return rules;
+        }
+
+        /// <summary>
+        /// What a limit-only or post-only market will not take, in words, or null. Limit-only:
+        /// a limit order and nothing else. The terminal's market order on Gemini is an
+        /// immediate-or-cancel limit priced through the book, which takes liquidity, so it is
+        /// refused as a market order, and so is a stop-limit. Post-only: a limit marked
+        /// Post-only, which goes out as maker-or-cancel. Kraken refuses the same way
+        /// (<c>KrakenPairRules.Refusal</c>).
+        /// </summary>
+        internal string? ModeRefusal(string symbol, string spoken, TradeSignal signal)
+        {
+            string? status;
+            lock (_symbolRules) _symbolStatus.TryGetValue(symbol, out status);
+            return status switch
+            {
+                "limit_only" when signal.Type != OrderType.Limit =>
+                    $"Gemini takes only limit orders on {spoken} right now (the market is limit only); "
+                    + $"a {Describe(signal.Type)} would be refused",
+                "post_only" when signal.Type != OrderType.Limit || !signal.PostOnly =>
+                    $"Gemini takes only post-only limit orders on {spoken} right now (the market is post only); "
+                    + "send a limit order with Post-only ticked",
+                _ => null,
+            };
+
+            static string Describe(OrderType t) => t switch
+            {
+                OrderType.Market => "market order",
+                OrderType.StopLimit => "stop-limit order",
+                _ => $"{t} order",
+            };
         }
 
         // A JSON number as written, in the invariant culture: JValue.ToString() follows the
