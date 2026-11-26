@@ -79,10 +79,26 @@ namespace AccessibleTrader.Core.Services.Indicators
         // After cache is populated this code path is never hit again for that key.
         private static readonly TimeSpan FirstFetchWaitTimeout = TimeSpan.FromSeconds(5);
 
+        // When each key was last fetched (or last tried), and the refreshes in flight. A read
+        // after one timeframe (at least a minute) has passed starts a fetch of the newest page in
+        // the background and merges it in, so an hourly series keeps arriving; the read itself
+        // returns what is cached and never waits. Before 2026-11-26 a key was fetched once per
+        // session.
+        private readonly ConcurrentDictionary<string, long> _fetchedAt = new();
+        private readonly ConcurrentDictionary<string, Task> _refreshTasks = new();
+        private readonly Func<long> _nowMs;
+
         public CrossSeriesCache(IDataOrchestrator orch)
+            : this(orch, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) { }
+
+        internal CrossSeriesCache(IDataOrchestrator orch, Func<long> nowMs)
         {
             _orch = orch;
+            _nowMs = nowMs;
         }
+
+        internal bool RefreshInFlight(CrossSeriesRequest request) =>
+            _refreshTasks.TryGetValue(request.CacheKey, out var t) && !t.IsCompleted;
 
         public IReadOnlyList<(long Ts, double Value)> GetOrFetch(CrossSeriesRequest request)
         {
@@ -90,7 +106,11 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             // Hot path: cache already populated, return immediately. This is the case for
             // every Calculate after the first one in the session.
-            if (_cache.TryGetValue(key, out var hit)) return hit;
+            if (_cache.TryGetValue(key, out var hit))
+            {
+                RefreshIfDue(request);
+                return hit;
+            }
 
             // Cold path: kick off (or join) the background fetch and synchronously wait.
             var task = _fetchTasks.GetOrAdd(key, _ => Task.Run(() => FetchAsync(request)));
@@ -161,6 +181,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     .ToList();
 
                 _cache[request.CacheKey] = sorted;
+                _fetchedAt[request.CacheKey] = _nowMs();
             }
             catch
             {
@@ -168,6 +189,39 @@ namespace AccessibleTrader.Core.Services.Indicators
                 // Forgetting the task slot allows a future Calculate to retry rather than
                 // permanently caching the failure.
                 _fetchTasks.TryRemove(request.CacheKey, out _);
+            }
+        }
+
+        private void RefreshIfDue(CrossSeriesRequest request)
+        {
+            string key = request.CacheKey;
+            long now = _nowMs();
+            long period = Math.Max(60_000, TimeframeUtility.ToMilliseconds(request.Timeframe));
+            if (!_fetchedAt.TryGetValue(key, out var at) || now - at < period) return;
+            if (RefreshInFlight(request)) return;
+            // Stamped before the fetch, so a failing source is tried once a timeframe, not on
+            // every read.
+            _fetchedAt[key] = now;
+            _refreshTasks[key] = Task.Run(() => RefreshAsync(request));
+        }
+
+        private async Task RefreshAsync(CrossSeriesRequest request)
+        {
+            try
+            {
+                var bars = await _orch.FetchOhlcvAsync(
+                    request.Market, request.Provider, request.Symbol, request.Timeframe,
+                    silent: true).ConfigureAwait(false);
+                if (bars == null || bars.Count == 0) return;
+                if (!_cache.TryGetValue(request.CacheKey, out var old)) return;
+                var merged = new SortedDictionary<long, double>();
+                foreach (var (ts, v) in old) merged[ts] = v;
+                foreach (var b in bars) merged[new DateTimeOffset(b.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()] = b.Close;
+                _cache[request.CacheKey] = merged.Select(kv => (kv.Key, kv.Value)).ToList();
+            }
+            catch
+            {
+                // Same as the first fetch: what is cached stays; the next timeframe tries again.
             }
         }
     }

@@ -98,6 +98,13 @@ the parse loop, and say so in the class doc.
   from the 5-minute metrics file).
 - **Units:** funding is **percent per 8h** (multiplied ×100 at the fetch boundary to
   match `BinanceDerivatives`); OI is **USD value** (`sum_open_interest_value`).
+- **Not on a Hyperliquid chart:** there `FundingRateProvider` asks the Hyperliquid provider
+  itself for `<symbol>_FUNDING` ("BTC-PERP_FUNDING", 1h): the venue's hourly rate times 8 and
+  ×100, so the same percent-per-8h levels apply. Hyperliquid has no open-interest history, so
+  Open Interest and Crowding still read this archive.
+- **Freshness:** `CrossSeriesCache` refetches a key's newest page in the background once its
+  timeframe has passed (at least a minute) and merges it in; before 2026-11-26 a key was fetched
+  once per session.
 - **Caches:** per-symbol in-memory cache; archives are immutable so no expiry. Response
   + decompression sizes are hard-capped (64 MB compressed, 256 MB expanded) with a
   `BoundedReadStream` zip-bomb guard.

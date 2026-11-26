@@ -33,6 +33,28 @@ namespace AccessibleTrader.Tests
             Assert.Equal("8h", req.Timeframe);
         }
 
+        [Theory]
+        [InlineData("Hyperliquid", "BTC-PERP", "BTC-PERP_FUNDING")]
+        [InlineData("hyperliquid", "HYPE-PERP", "HYPE-PERP_FUNDING")]
+        public void FundingRate_on_a_Hyperliquid_chart_reads_Hyperliquids_own_funding(string provider, string symbol, string expected)
+        {
+            // Its symbols have no Binance archive twin ("BTC-PERP" became "BTCPERPUSDT_FUNDING",
+            // which does not exist), and the venue's own rate is the one its trader pays.
+            var req = InvokeBuildFunding(new Dictionary<string, object> { ["__symbol"] = symbol, ["__provider"] = provider });
+            Assert.Equal("Hyperliquid", req.Provider);
+            Assert.Equal(expected, req.Symbol);
+            Assert.Equal("1h", req.Timeframe);
+            Assert.Equal("Derivatives", req.Market);
+        }
+
+        [Fact]
+        public void FundingRate_on_another_venues_chart_still_reads_the_Binance_archive()
+        {
+            var req = InvokeBuildFunding(new Dictionary<string, object> { ["__symbol"] = "BTC/USDT", ["__provider"] = "Kraken" });
+            Assert.Equal("BinanceVision", req.Provider);
+            Assert.Equal("BTCUSDT_FUNDING", req.Symbol);
+        }
+
         [Fact]
         public void FundingRate_NoSymbolHint_FallsBackToBtc()
         {

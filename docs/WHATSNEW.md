@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Funding Rate on Hyperliquid charts.** On a Hyperliquid chart, the Funding Rate indicator now
+  shows Hyperliquid's own funding (it pays every hour; shown times eight, per 8 hours, so the
+  levels read the same as elsewhere). Before, the pane was empty there. Funding, open interest and
+  the other cross-market indicators also keep updating now while the chart stays open; before,
+  they stopped at the hour you opened it.
 - **Hyperliquid: fills heard as they happen.** Fills, partial fills, cancels and refusals on
   Hyperliquid are announced the moment the exchange sends them, including orders you place on its
   website, and a cancel you did not ask for says why. On a unified account your USDC is listed once;

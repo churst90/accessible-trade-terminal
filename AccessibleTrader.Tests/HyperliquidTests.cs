@@ -401,6 +401,52 @@ namespace AccessibleTrader.Tests
             h.CapturedBodies.Count(b => b.Contains("\"type\":\"" + type + "\""));
 
         [Fact]
+        public async Task A_funding_series_is_the_venues_hourly_rate_as_percent_per_8_hours()
+        {
+            var h = Armed(info: b => b["type"]?.ToString() == "fundingHistory" ? Fixture("recorded_fundingHistory.json") : null);
+            const long until = 1795705200000 + 60_000;
+
+            var (bars, _) = await Provider(h).FetchOhlcvAsync(new("Derivatives", "BTC-PERP" + HyperliquidProvider.FundingSuffix, "1h", Until: until));
+
+            Assert.Equal(6, bars.Count);
+            // Recorded 0.0000079468 an hour: 0.0000079468 x 8 x 100 percent per 8 hours.
+            Assert.Equal(0.00635744, bars[0].Close, 12);
+            Assert.Equal(-0.00795456, bars[5].Close, 12);
+            Assert.True(bars.All(b => b.Open == b.Close && b.High == b.Close && b.Low == b.Close));
+            // Stamped 45 ms past the hour; the bar is on the second.
+            Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1795687200000).UtcDateTime, bars[0].Date);
+            Assert.Equal(bars.Select(b => b.Date).OrderBy(d => d), bars.Select(b => b.Date));
+            var ask = JObject.Parse(Assert.Single(h.CapturedBodies, b => b.Contains("fundingHistory")));
+            Assert.Equal("BTC", ask["coin"]!.ToString());
+            Assert.Equal(until, ask["endTime"]!.Value<long>());
+            Assert.Equal(until - 500 * 3_600_000L, ask["startTime"]!.Value<long>());   // one reply holds 500 hours
+            Assert.Equal(0, Asked(h, "candleSnapshot"));
+        }
+
+        [Fact]
+        public void A_funding_rate_after_the_page_end_is_left_for_the_next_page()
+        {
+            var reply = JArray.Parse("[{\"fundingRate\":\"0.00001\",\"time\":1000},{\"fundingRate\":\"0.00002\",\"time\":3600001000},{\"fundingRate\":\"bad\"}]");
+
+            var bars = HyperliquidProvider.ParseFundingHistory(reply, end: 3_600_000_000);
+
+            var only = Assert.Single(bars);
+            Assert.Equal(0.008, only.Close, 12);
+        }
+
+        [Fact]
+        public async Task A_spot_pair_has_no_funding_and_nothing_is_asked()
+        {
+            var h = Armed(info: b => b["type"]?.ToString() == "fundingHistory" ? Fixture("recorded_fundingHistory.json") : null);
+
+            var (bars, _) = await Provider(h).FetchOhlcvAsync(new("Derivatives", "HYPE-USDC" + HyperliquidProvider.FundingSuffix, "1h"));
+
+            Assert.Empty(bars);
+            Assert.Equal(0, Asked(h, "fundingHistory"));
+            Assert.Equal(0, Asked(h, "candleSnapshot"));
+        }
+
+        [Fact]
         public async Task A_unified_account_lists_its_usdc_once_not_again_as_perps_margin()
         {
             var h = Recorded("unified");

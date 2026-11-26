@@ -46,6 +46,16 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static CrossSeriesRequest BuildRequest(Dictionary<string, object> parameters)
         {
+            // On a Hyperliquid chart, Hyperliquid's own hourly funding: its symbols ("BTC-PERP")
+            // have no Binance archive twin, and the venue's rate is the one its trader pays. The
+            // provider answers "<symbol>_FUNDING" in percent per 8 hours, like the archive.
+            if (parameters != null &&
+                parameters.TryGetValue("__provider", out var venue) && venue is string v &&
+                v.Equals("Hyperliquid", StringComparison.OrdinalIgnoreCase) &&
+                parameters.TryGetValue("__symbol", out var hl) && hl is string perp && !string.IsNullOrWhiteSpace(perp))
+                return new CrossSeriesRequest(Market: "Derivatives", Provider: "Hyperliquid",
+                    Symbol: perp + "_FUNDING", Timeframe: "1h", MaxPages: 10);
+
             string sym = DefaultSymbol;
             if (parameters != null &&
                 parameters.TryGetValue("__symbol", out var raw) &&
@@ -82,7 +92,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Category    = "Derivatives",
                 DefaultPane = "Pane_FUNDING",
                 Description = "Perpetual swap funding rate (cross-series). Fetches funding history " +
-                              "from OkxDerivatives and forward-fills onto the active chart by timestamp. " +
+                              "from Binance's public archive (on a Hyperliquid chart, from Hyperliquid, " +
+                              "whose hourly rate is shown times eight) and forward-fills onto the active chart by timestamp. " +
                               "Positive = longs paying shorts (long-crowded). Negative = shorts paying " +
                               "longs (short-crowded). Units are percent per 8h. Extreme readings " +
                               "(±0.05%/8h by default) often coincide with local trend exhaustion.",

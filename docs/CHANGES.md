@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Funding Rate on a Hyperliquid chart is Hyperliquid's own, and keeps arriving
+
+Cody, 2026-11-26: "continue with HL work". On a Hyperliquid chart the Funding Rate indicator asked
+Binance's archive for the chart's symbol with "USDT" added: "BTC-PERP" became "BTCPERPUSDT_FUNDING",
+which does not exist, so the pane stayed empty. Now `FundingRateProvider` asks the Hyperliquid
+provider for "BTC-PERP_FUNDING", which reads the venue's `fundingHistory` (500 hours a page,
+walked back by the cross-series cache). Hyperliquid pays every hour; the rate is shown times eight
+in percent per 8 hours, so the indicator's levels mean what they mean on 8-hour venues. Checked
+live and read-only: 1,500 contiguous hours each for BTC and HYPE, HYPE reading the venue's base
+rate 0.0100. Open Interest and Crowding still read Binance's archive there, because Hyperliquid
+publishes no open-interest history. The indicator's description also named OKX as its source; it
+has been Binance's archive since April.
+- **The cross-series cache now refreshes.** It fetched each series once per session, so any
+  funding, open-interest or other cross-series pane stopped at the hour the chart opened. Once a
+  series' timeframe has passed (at least a minute), a read starts a fetch of the newest page in
+  the background and merges it in, the newer reading of an hour winning; a failed fetch keeps
+  what was there and is tried again a timeframe later. Reads never wait for it.
+Sabotage 10/10. Not seen or heard in the app.
+
 ### 2026-11-26: Hyperliquid fills are pushed, and a unified account's USDC is counted once
 
 Cody, 2026-11-26: "start on hyperliquid's work" (build it fully for users outside the US; he

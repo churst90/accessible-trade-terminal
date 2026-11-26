@@ -397,7 +397,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
   remaining work is in `docs/HYPERLIQUID_PROVIDER.md` (Follow-ups, Unverified); a tester outside the US
   is needed for anything past the testnet. **Done 2026-11-26:** unified-account balances (margin was
   counted twice), the pushed order stream (`orderUpdates` + `userFills`, tested live read-only on a
-  public account), recorded account fixtures. **Still to see:** a triggered stop or target filling
+  public account), recorded account fixtures, Hyperliquid's own funding in the Funding Rate
+  indicator on its charts + the cross-series cache refreshing (it fetched once per session).
+  **Not built:** open interest from Hyperliquid (no history published; current value only).
+  **Still to see:** a triggered stop or target filling
   through the stream ("stop hit" needs the order type from `orderStatus` on that id).
 - [ ] **Position P&L since you left** has not been read against a live venue; no currency is named.
 

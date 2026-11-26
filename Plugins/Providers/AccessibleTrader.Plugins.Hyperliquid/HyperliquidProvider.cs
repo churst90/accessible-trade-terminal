@@ -120,6 +120,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         public override string Name => "Hyperliquid";
 
+        /// <summary>
+        /// Added to a perpetual's symbol ("BTC-PERP_FUNDING") to ask for that market's funding
+        /// history instead of its candles. The Funding Rate indicator asks this way on a
+        /// Hyperliquid chart.
+        /// </summary>
+        public const string FundingSuffix = "_FUNDING";
+
         public override string Description =>
             "Hyperliquid — on-chain perpetuals and spot. Market data is public. Trading uses an agent "
           + "wallet (it cannot withdraw): put your MAIN account address in the API key field and the "
@@ -361,6 +368,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             var vols = new List<(long, double)>();
             try
             {
+                if (request.Symbol.EndsWith(FundingSuffix, StringComparison.OrdinalIgnoreCase))
+                    return await FetchFundingAsync(request).ConfigureAwait(false);
                 var asset = await ResolveAsync(request.Symbol, null).ConfigureAwait(false);
                 if (asset == null)
                 {
@@ -384,6 +393,50 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 if (TransportFailure.IsTransient(ex)) throw;
             }
             return (bars, vols);
+        }
+
+        /// <summary>One <c>fundingHistory</c> reply holds at most this many hourly rates.</summary>
+        private const int FundingPageHours = 500;
+
+        /// <summary>
+        /// Funding history for one perpetual, as bars whose every price is the rate in percent per
+        /// 8 hours. Hyperliquid pays every hour; its hourly rate times eight keeps the Funding Rate
+        /// indicator's levels, set for venues that pay every 8 hours, meaning the same thing. A reply
+        /// starts at startTime and holds at most 500 hours, so one page is the 500 hours up to Until
+        /// and the cross-series cache walks back page by page. A spot pair has none.
+        /// </summary>
+        private async Task<(List<Ohlcv>, List<(long, double)>)> FetchFundingAsync(MarketDataRequest request)
+        {
+            var asset = await ResolveAsync(request.Symbol[..^FundingSuffix.Length], "Futures").ConfigureAwait(false);
+            if (asset == null || asset.IsSpot) return (new List<Ohlcv>(), new List<(long, double)>());
+            long end = request.Until ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            long start = Math.Max(request.Since ?? 0, end - FundingPageHours * 3_600_000L);
+            var reply = await InfoAsync(new JObject
+            {
+                ["type"] = "fundingHistory", ["coin"] = asset.Coin, ["startTime"] = start, ["endTime"] = end,
+            }, _heavyInfoLimiter).ConfigureAwait(false) as JArray;
+            var bars = ParseFundingHistory(reply, end);
+            return (bars, bars.Select(b => (new DateTimeOffset(b.Date, TimeSpan.Zero).ToUnixTimeSeconds(), 0.0)).ToList());
+        }
+
+        /// <summary>
+        /// <c>[{coin, fundingRate, premium, time}]</c>, a fraction per hour, to percent per 8 hours,
+        /// oldest first. The venue stamps each a few milliseconds past the hour; the bar is put on
+        /// the second.
+        /// </summary>
+        internal static List<Ohlcv> ParseFundingHistory(JArray? reply, long end)
+        {
+            var bars = new List<Ohlcv>();
+            if (reply == null) return bars;
+            foreach (var row in reply)
+            {
+                long t = row["time"]?.Type == JTokenType.Integer ? row.Value<long>("time") : -1;
+                if (t < 0 || t > end || row["fundingRate"] == null) continue;
+                double v = HyperliquidWire.D(row["fundingRate"]) * 8 * 100;
+                bars.Add(new Ohlcv(DateTimeOffset.FromUnixTimeMilliseconds(t - t % 1000).UtcDateTime, v, v, v, v, 0));
+            }
+            bars.Sort((a, b) => a.Date.CompareTo(b.Date));
+            return bars;
         }
 
         /// <summary>

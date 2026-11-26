@@ -273,7 +273,9 @@ them, including orders you place on Hyperliquid's own website. A cancel or refus
 ask for says why, for example "it is post-only and would have traded at once". If that stream
 cannot connect, each order you place from the terminal is followed by asking Hyperliquid instead.
 On a unified account, where your perpetuals trade from your spot USDC, the balance lists that
-USDC once.
+USDC once. The Funding Rate indicator (Alt+A, Derivatives) on a Hyperliquid chart reads
+Hyperliquid's own funding. Hyperliquid pays every hour, and the indicator says that hourly rate
+times eight, "per 8 hours", so its levels mean the same as on exchanges that pay every 8 hours.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary
