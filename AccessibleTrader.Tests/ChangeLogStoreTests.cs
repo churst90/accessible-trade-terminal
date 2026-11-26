@@ -15,8 +15,15 @@ public class ChangeLogStoreTests
         public string CacheDirectory { get; }
     }
 
+    // The store drops entries over a week old by ITS clock; on the real clock these entries,
+    // stamped at Now, aged out on 2026-11-25 and every test here went red.
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(Now);
+    }
+
     private static ChangeLogStore NewStore(string dir)
-        => new(new TempPaths(dir), NullLogger<ChangeLogStore>.Instance);
+        => new(new TempPaths(dir), NullLogger<ChangeLogStore>.Instance, new FixedClock());
 
     private static ChangeLogEntry Entry(string key, ChangeLogCategory category = ChangeLogCategory.Money)
         => new(key, Now, category, "BTC/USDT filled.", "BTC/USDT", false);

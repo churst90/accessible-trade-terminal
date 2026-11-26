@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Five change-log tests were a date bomb (CI red on 2aa6922f)
+
+The push of 2aa6922f went red on GitHub: five ChangeLogStore/ChangeLogRecorder tests failed,
+every run, locally too. Their entries are stamped 2026-11-18, but the store drops entries over
+a week old by the REAL clock, so from 2026-11-25 10:00 UTC each entry was pruned as it was
+written. The app was right; the tests now give the store a clock fixed at their own date, as
+the other change-log tests already did. 66 change-log and brief tests pass.
+
 ### 2026-11-26: Funding Rate on a Hyperliquid chart is Hyperliquid's own, and keeps arriving
 
 Cody, 2026-11-26: "continue with HL work". On a Hyperliquid chart the Funding Rate indicator asked

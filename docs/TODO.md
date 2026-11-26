@@ -406,6 +406,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## Known limits and smaller open items
 
+- [ ] **Other tests may be date bombs.** Five change-log tests broke on 2026-11-25 because they stamped
+  entries at a fixed date while the store pruned by the real clock (fixed 2026-11-26). A sweep would
+  run the suite with the clock set a month or a year ahead (`faketime`, not installed here) and give
+  every test that changes a fixed clock.
 - Volume bars stay coloured by the market's own candle on Heikin-Ashi charts (Cody 2026-11-26: "if no
   other platform does it, don't implement it"). The order book is now fetched only with a heatmap on
   (2ccfc65a).
