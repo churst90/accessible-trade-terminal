@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: "entered overbought" on a closed bar follows your lines too
+
+Cody, 2026-11-26: "If I adjust an os/ob level or any level that's customizable in an indicator, that
+level must be correct when read back through speech and sound just as Cipher B." An audit of every
+voice and sound that names a zone found one more that did not: the bar-close narration ("RSI: RSI
+entered overbought.") came from `IndicatorContextAnalyzer`'s fixed table, 70/30 for RSI and ±53 for
+Cipher B's Wave Trend, whatever the lines said. Because those components have a table row, the
+level-cross route that reads the lines stands aside for them, so moving RSI's line to 80 changed the
+arrowing speech, the zone noise and the alerts but not this sentence. Now the analyzer reads the
+component's own overbought and oversold lines through the helper the zone alerts use
+(`AlertZones.Threshold`, so the two can't disagree). The table's numbers are used only for a
+component with neither line (Cipher B's Money Flow Wave answers to its zero line only, and its ±5 is
+the dead band for "bullish"/"bearish"). If one line is deleted, its old number does not come back.
+The lines replace the table only where the table has numbers, so an oscillator without a row is still
+said once, by its line ("crossed above overbought, 80"), not twice.
+
+The rest of the audit: the `{zone}` speech token, Cipher B's waves (8605678a), the zone noise, level
+earcons, level-cross narration, Ctrl+Left/Right, zone alerts and the DSS bar summary all already read
+the lines as set. Five indicators' `GetDetailFact` sentences still compare against fixed numbers (CCI
+±100, DSS 80/20, Fisher ±1.5, and the Skender RSI/Stochastic ones read the parameters), but no key
+speaks them: Alt+Shift+D reads the raw values on purpose (`BarDetailService.FocusedSeriesFact`).
+They are left as they are and reported, not fixed.
+
+Tests: 6 in `ZoneNarrationFollowsTheLevelsTests`, run through the real analyzer and
+`AutoNarrationService`:
+- raised lines leave 75 unnamed and name 85;
+- a raised oversold line names 32;
+- a lowered line names 65;
+- a deleted oversold line does not bring back 30;
+- an RSI with no lines keeps the table's 70 (the floor for the silences);
+- an oscillator without a table row is said once, by its line.
+
+Sabotaged 3 of 3 red: always the table; no table-row guard (a doubled "crossed above overbought, 80.
+RSI entered overbought."); and the deleted side falling back to the table. Not heard by Cody.
+
 ### 2026-11-24: Cipher B's waves say overbought and oversold at the levels you set
 
 Cody, 2026-11-24: "i changed the ob and os levels in cipher b to 60 and 75 and -60 and -75 but it stil

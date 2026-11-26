@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **"Entered overbought" follows your levels.** When a bar closes, RSI and Cipher B's wave now say
+  "entered overbought" and "oversold" at the lines you set in Properties. Before, they used 70/30
+  and 53 there, even after the rest of the app followed your lines.
 - **Cipher B follows your overbought and oversold levels.** Change Trigger 1 and 2 (or the extremes)
   and the waves say "overbought" and "oversold" past YOUR levels. Before, they always used 53.
 - **Indicators update live.** Cipher B, the moving averages and every other indicator now follow the

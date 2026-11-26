@@ -104,6 +104,10 @@ components". Caveats for these are in CHANGES (2.15.0).
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
+- [ ] **Your own overbought and oversold lines** (2026-11-24 and 11-26, not in 2.15.0): on Cipher B,
+  set Trigger 1 and 2 to 60 and -60; a wave at -57 should say just the number, and one past -60
+  "oversold". Then add RSI, move its overbought line to 80 in Properties, and turn narration on: a bar
+  closing at 75 should say nothing about overbought, and one closing past 80 "RSI entered overbought".
 - [ ] **True buy and sell volume** (2026-11-23, not in 2.15.0): on MEXC BTCUSDT 1-minute, add Buy and
   Sell Volume (trades) and Volume Delta (trades) from Alt+A, Volume. The bars before you opened it are
   blank (the detail says since when); after a minute or two the new bars should say *"Buy ..., sell
@@ -299,9 +303,8 @@ needed: "don't worry about the custom scripts on the hosted vps".
   Oscillator Matrix) and many free open-source scripts (their free "Smart Money Concepts" is one of
   TradingView's most used). Their paid code is closed; their free scripts are CC BY-NC-SA, so we can
   learn from them but not copy them into this repo; ours are written from the published definitions.
-- [ ] **Social feed and chatter** (Cody, 2026-11-26: a live X/Twitter feed or tag following, "would it
-  be valuable to have a built in social sentiment gauge in realtime? discuss."). Under discussion; see
-  the 11-26 answer: X is pay per post read, so each user's own key; Bluesky's stream is free.
+- ~~**Social feed and chatter**~~ **DROPPED by Cody 2026-11-26**: "no x or social posting
+  implementation then as it would be expensive and not useful. Headlines may already cover this."
 - [ ] **Other languages** (Cody, 2026-11-26: "what would it take for this to be done correctly?").
   Under discussion. Today everything is English by design (`CultureInvariantScanTests`).
 - [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:

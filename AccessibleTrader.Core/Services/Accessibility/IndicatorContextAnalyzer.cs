@@ -1,3 +1,4 @@
+using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Models;
 
@@ -162,7 +163,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             int lookback = def?.TrendLookbackBars ?? 3;
             var (trend, trendBars) = DetectTrend(data, dataIndex, lookback);
-            ZoneStatus zone = DetermineZone(currentValue, def);
+            var (overbought, oversold) = ZoneThresholds(series, comp, def);
+            ZoneStatus zone = DetermineZone(currentValue, overbought, oversold);
 
             CrossoverStatus crossover = CrossoverStatus.None;
             if (def?.CrossoverComponentA != null && def.CrossoverComponentB != null)
@@ -210,13 +212,41 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return (TrendDirection.Flat, 0);
         }
 
-        private static ZoneStatus DetermineZone(double value, IndicatorContextDefinition? def)
+        /// <summary>
+        /// Where overbought and oversold start for this component: its OWN lines, as edited in
+        /// Properties, read through the helper the zone alerts use — so "RSI entered overbought"
+        /// is said where the alert fires, the zone noise starts and <c>{zone}</c> says
+        /// "overbought". Cody, 2026-11-26: "If I adjust an os/ob level or any level that's
+        /// customizable in an indicator, that level must be correct when read back through
+        /// speech and sound." This table's 70/30 and ±53 were read here whatever the levels said,
+        /// and <see cref="HasZoneThresholds"/> switches the level-cross route off for exactly
+        /// these components, so moving RSI's line to 80 changed every voice but this one.
+        /// <para>
+        /// The table's numbers are only for a component that answers to no overbought or
+        /// oversold line at all — Cipher B's Money Flow Wave answers to its zero line only, and
+        /// its ±5 is the dead band for "bullish"/"bearish", not a level anyone draws. If the
+        /// component has either line, the lines decide both sides: deleting one does not bring
+        /// back the table's number for it.
+        /// </para>
+        /// </summary>
+        private static (double? Overbought, double? Oversold) ZoneThresholds(
+            ChartSeries series, ComponentConfig comp, IndicatorContextDefinition? def)
         {
-            if (def == null) return ZoneStatus.Normal;
+            // Only where the table HAS numbers. Every other component's crossings belong to the
+            // level-cross route ("crossed above overbought, 80"); zoning them here too would say
+            // each one twice.
+            if (def?.OverboughtThreshold == null && def?.OversoldThreshold == null) return (null, null);
+            double? ob = Alerts.AlertZones.Threshold(series.Config, comp.Name, AlertZone.Overbought);
+            double? os = Alerts.AlertZones.Threshold(series.Config, comp.Name, AlertZone.Oversold);
+            if (ob.HasValue || os.HasValue) return (ob, os);
+            return (def?.OverboughtThreshold, def?.OversoldThreshold);
+        }
 
-            if (def.OverboughtThreshold.HasValue && value >= def.OverboughtThreshold.Value)
+        private static ZoneStatus DetermineZone(double value, double? overbought, double? oversold)
+        {
+            if (overbought.HasValue && value >= overbought.Value)
                 return ZoneStatus.Overbought;
-            if (def.OversoldThreshold.HasValue && value <= def.OversoldThreshold.Value)
+            if (oversold.HasValue && value <= oversold.Value)
                 return ZoneStatus.Oversold;
 
             // A Bollinger arm used to sit here — "Upper"/"Lower" by component name, returning
