@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: three CI failures from the Hyperliquid batch fixed
+
+The push of `40d164af` went red in CI on four tests; the session that pushed it ended before the
+result came back. Three were mine: the FUND go-bar command (`SpeakFundingNow`) was missing from
+the keyboard-scope list (it is global: no key, it only speaks); a TWAP progress line formatted
+its end time with the ambient culture (now `ToString("HH:mm", CultureInfo.InvariantCulture)`);
+and `TwapRoutingTests` was enrolled in the credential-bridge collection it never touches (the
+attribute is gone). Each guard had already gone red in CI with the defect present. The fourth,
+`ReconnectingWebSocketBehaviourTests.A_ping_that_gets_through_resets_the_count`, timed out at
+its 20-second ceiling; its code is unchanged since 2026-09-28, it failed in 1 of the last 12
+failed CI runs and passed 15 of 15 times locally, so it is recorded as intermittent, not fixed.
+
 ### 2026-11-26: Hyperliquid vaults and subaccounts
 
 A Hyperliquid profile's third field (Passphrase, which Hyperliquid had no use for; the profile

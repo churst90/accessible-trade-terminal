@@ -1269,7 +1269,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             string N(double v) => v.ToString("0.########", CultureInfo.InvariantCulture);
             string s = $"TWAP {N(done)} of {N(size)} done";
             if (done > 0) s += $" at {N(Math.Round(average, 6))} average";
-            s += $", over {minutes} minutes, ends {startedUtc.AddMinutes(minutes):HH:mm} UTC";
+            s += $", over {minutes} minutes, ends {startedUtc.AddMinutes(minutes).ToString("HH:mm", CultureInfo.InvariantCulture)} UTC";
             return reduceOnly ? s + ", reduce only" : s;
         }
 

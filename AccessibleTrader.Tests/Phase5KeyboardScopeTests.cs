@@ -212,6 +212,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.TypedBuy)]
         [InlineData(SystemCommand.TypedSell)]
         [InlineData(SystemCommand.TypedFlat)]
+        // Go bar FUND — no key binding; it only speaks the chart's funding, so nothing to guard.
+        [InlineData(SystemCommand.SpeakFundingNow)]
         // Data-source change commands (toolbar-driven, no key binding today)
         [InlineData(SystemCommand.ChangeProvider)]
         [InlineData(SystemCommand.ChangeSymbol)]
@@ -319,6 +321,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ToggleChartPatterns, SystemCommand.ToggleHeadlines,
                 SystemCommand.ToggleMarketEvents,
                 SystemCommand.TypedBuy, SystemCommand.TypedSell, SystemCommand.TypedFlat,
+                SystemCommand.SpeakFundingNow,
                 SystemCommand.OpenAssetDossier,
                 SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,
                 SystemCommand.ReplayStepBack, SystemCommand.ReplayPlayPause,

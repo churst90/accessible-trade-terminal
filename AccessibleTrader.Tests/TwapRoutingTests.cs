@@ -16,7 +16,6 @@ namespace AccessibleTrader.Tests
     /// provider declaring <see cref="ProviderCapabilities.Twap"/>; any other, the paper broker
     /// included, is refused in the terminal's words before it sees an order type it does not know.
     /// </summary>
-    [Collection("ProviderCredentialBridge")]
     public class TwapRoutingTests
     {
         private static readonly TradeSignal Twap = new("BTC-PERP", OrderSide.Buy, 0.5, OrderType.Twap, TwapMinutes: 30);

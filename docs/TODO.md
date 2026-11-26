@@ -417,6 +417,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## Known limits and smaller open items
 
+- [ ] **Intermittent: `ReconnectingWebSocketBehaviourTests.A_ping_that_gets_through_resets_the_count`**
+  timed out at 20 s in CI on 2026-11-26 (1 of the last 12 failed runs; 15/15 locally). The heartbeat
+  loop counts only while the socket is Open, so a socket that drops and is slow to reconnect on a
+  loaded runner would never reach the third failure. Not diagnosed; fix if it recurs.
 - [ ] **Other tests may be date bombs.** Five change-log tests broke on 2026-11-25 because they stamped
   entries at a fixed date while the store pruned by the real clock (fixed 2026-11-26). A sweep would
   run the suite with the clock set a month or a year ahead (`faketime`, not installed here) and give
