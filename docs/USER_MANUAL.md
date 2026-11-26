@@ -268,6 +268,12 @@ paste the main wallet's own private key, the profile is refused before anything 
 because that key could withdraw everything. A Paper profile uses Hyperliquid's testnet, a
 separate account with its own test funds. Market data needs no key at all. Trailing stops
 are not offered, because Hyperliquid has none.
+Fills, partial fills, cancels and refusals on Hyperliquid are announced as the exchange sends
+them, including orders you place on Hyperliquid's own website. A cancel or refusal you did not
+ask for says why, for example "it is post-only and would have traded at once". If that stream
+cannot connect, each order you place from the terminal is followed by asking Hyperliquid instead.
+On a unified account, where your perpetuals trade from your spot USDC, the balance lists that
+USDC once.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary

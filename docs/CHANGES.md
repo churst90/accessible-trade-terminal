@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: Hyperliquid fills are pushed, and a unified account's USDC is counted once
+
+Cody, 2026-11-26: "start on hyperliquid's work" (build it fully for users outside the US; he
+cannot trade it himself). Three changes, all tested against replies recorded that day from public
+mainnet addresses, read without a key:
+- **Balances counted the margin twice on a unified account.** Hyperliquid's unified and
+  portfolio-margin accounts trade perpetuals from the spot USDC, and the provider listed both the
+  spot USDC and a `USDC-PERPS` row for the same money (the recorded account: 978.324102 margin used,
+  978.324102 spot USDC on hold). The provider now asks the account's mode (`userAbstraction`, kept
+  ten minutes) and lists the perps row only for a classic split account. If the mode cannot be
+  read, the spot reply tells them apart.
+- **Order events are pushed instead of polled.** A new `HyperliquidOrderStream` subscribes to
+  `orderUpdates` and `userFills` for the account address on its own socket, so fills, partial
+  fills, cancels and refusals are announced as they happen, including orders placed on
+  Hyperliquid's website. The live stream showed that a partial fill sends no order update, a fill
+  can come before its order's "open", and fills come before the "filled" that ends them; the stream
+  tallies fills per order, announces a partial only for an order whose size it knows, holds a
+  "filled" up to 2 s for its fills and otherwise takes the price from the fill history, and reads
+  the order type to say "stop" or "take profit". The history sent on subscribing is not announced.
+  Cancels and refusals the user did not ask for carry the reason in words (25 status names). While
+  the socket is down or unconfirmed, placed orders are polled as before.
+- **Recorded fixtures** for positions, open orders, fills, order status and the order stream.
+  A 60-second read-only run of the real provider against a busy public account gave 3,482 updates
+  and showed a cancel's filled size as 0.0044299999999999895; sizes worked out by subtraction are
+  now rounded to 10 decimals.
+Sabotage: 5/5 balance and fill checks, 8/8 stream checks, all red and restored. Still never sent a
+real order, and no triggered stop or target has been watched filling through the stream.
+
 ### 2026-11-26: the Strategy Lab stays in the repository
 
 Cody, 2026-11-26: "keep it in repository and if users shouldn't download it specifically remove

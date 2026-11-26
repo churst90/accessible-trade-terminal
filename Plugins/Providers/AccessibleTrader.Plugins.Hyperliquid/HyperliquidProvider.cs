@@ -77,6 +77,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private bool _isMainnet = true;   // reads default to mainnet; trading needs a configured credential
         private bool _configured;
         private long _lastNonce;
+        // The account's mode as userAbstraction last said, and when: see PoolsSpotCollateralAsync.
+        private (string Account, string Mode, DateTime At)? _accountMode;
+        private static readonly TimeSpan AccountModeTtl = TimeSpan.FromMinutes(10);
 
         // Metadata cache: perps and spot pairs, rebuilt when a symbol misses.
         private readonly SemaphoreSlim _assetLock = new(1, 1);
@@ -96,11 +99,21 @@ namespace AccessibleTrader.Plugins.Hyperliquid
         private readonly object _wsLock = new();
         private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, CancellationTokenSource> _keyedSubscriptions = new();
 
+        // The account's order stream: a socket of its own, opened when the order service subscribes.
+        private readonly HyperliquidOrderStream _orderStream;
+        private readonly object _accountWsLock = new();
+        private readonly object _emitLock = new();
+        private ReconnectingWebSocket? _accountWs;
+        private string? _accountWsUser;
+        private bool _orderStreamWanted;
+
         public HyperliquidProvider()
         {
             _http = PluginHostServices.CreateHttpClient(
                 providerId:   "Hyperliquid",
                 allowedHosts: new[] { "api.hyperliquid.xyz", "api.hyperliquid-testnet.xyz" });
+            _orderStream = new HyperliquidOrderStream(DisplayForCoin, OrderTypeAsync, RestFillsAsync,
+                u => { lock (_emitLock) _orderUpdates.OnNext(u); }, TimeSpan.FromSeconds(2));
         }
 
         // ── IProviderPlugin ───────────────────────────────────────────────────
@@ -163,7 +176,9 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
             _account = address;
             _agentKey = secret;
+            _accountMode = null;
             _keyRefusal = CheckCredential(address, secret);
+            if (_orderStreamWanted) StartAccountStream();   // another account or venue: follow it
         }
 
         /// <summary>
@@ -702,6 +717,14 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             }
             if (ws != null) { await ws.DisconnectAsync().ConfigureAwait(false); ws.Dispose(); }
 
+            ReconnectingWebSocket? accountWs;
+            lock (_accountWsLock)
+            {
+                accountWs = _accountWs; _accountWs = null; _accountWsUser = null;
+                _orderStream.Reset();
+            }
+            if (accountWs != null) await CloseQuietlyAsync(accountWs).ConfigureAwait(false);
+
             ScrubCredentials(() => _agentKey = "", () => _account = "");
             _keyRefusal = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
@@ -711,15 +734,115 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         public bool IsConnected => CanSign;
         public override double MaxLeverage => 50.0;
-        public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates.AsObservable();
+        /// <summary>
+        /// The account's order events, from its own socket (see <see cref="HyperliquidOrderStream"/>).
+        /// Subscribing opens it: the order service subscribes for a venue it trades on, and the
+        /// chart may be showing another venue, so waiting for <see cref="EnsureConnectedAsync"/>
+        /// would leave the fills of an order sent from another chart unheard.
+        /// </summary>
+        public IObservable<OrderUpdate> OrderUpdateStream => Observable.Defer(() =>
+        {
+            _orderStreamWanted = true;
+            StartAccountStream();
+            return _orderUpdates.AsObservable();
+        });
+
+        public bool ProvidesOrderStream => true;
 
         /// <summary>
-        /// No order push channel is wired yet. Hyperliquid has one (the <c>orderUpdates</c> and
-        /// <c>userFills</c> subscriptions) and it is a follow-up; until then fills are resolved by
-        /// the order-status poller through <see cref="GetOrderStatusAsync"/>.
+        /// True while the account socket is open and the venue has confirmed both subscriptions on
+        /// it. False before that, after a drop, and with no account address: then a placed order is
+        /// followed by the order-status poller instead.
         /// </summary>
-        public bool ProvidesOrderStream => false;
-        public bool SupportsOrderEventStreaming => false;
+        public bool SupportsOrderEventStreaming
+        {
+            get
+            {
+                lock (_accountWsLock)
+                    return _accountWs?.IsConnected == true && _accountWsUser == _account && _orderStream.Subscribed;
+            }
+        }
+
+        /// <summary>
+        /// Opens the account socket for the configured address, or moves it to a new one. Reading
+        /// the stream needs the address only, so a user who has not made an agent key still hears
+        /// fills of orders placed on the website.
+        /// </summary>
+        private void StartAccountStream()
+        {
+            ReconnectingWebSocket? old = null, ws = null;
+            string user = _account;
+            lock (_accountWsLock)
+            {
+                bool valid = AddressShape.IsMatch(user);
+                if (_accountWs != null && _accountWsUser == user && valid) return;
+                old = _accountWs; _accountWs = null; _accountWsUser = null;
+                _orderStream.Reset();
+                if (valid)
+                {
+                    ws = new ReconnectingWebSocket(WsUrl, heartbeatInterval: TimeSpan.FromSeconds(30))
+                        .WithHeartbeatMessage("{\"method\":\"ping\"}")
+                        .OnError(err => _errorStream.OnNext($"Hyperliquid order stream: {err}"))
+                        .OnConnected(async w =>
+                        {
+                            _orderStream.Reset();
+                            await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("orderUpdates", user)).ConfigureAwait(false);
+                            await w.SendAsync(HyperliquidOrderStream.SubscribeMessage("userFills", user)).ConfigureAwait(false);
+                        })
+                        .OnDisconnected(() => _orderStream.Reset())
+                        .OnMessage(msg => _ = _orderStream.OnMessageAsync(msg));
+                    _accountWs = ws; _accountWsUser = user;
+                }
+            }
+            if (old != null) _ = CloseQuietlyAsync(old);
+            if (ws != null)
+            {
+                var opening = ws;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await EnsureAssetsAsync().ConfigureAwait(false);   // coin names for the symbols
+                        await opening.ConnectAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _errorStream.OnNext($"Hyperliquid order stream did not open ({ex.GetType().Name}); placed orders are followed by polling instead.");
+                    }
+                });
+            }
+        }
+
+        private static async Task CloseQuietlyAsync(ReconnectingWebSocket ws)
+        {
+            try { await ws.DisconnectAsync().ConfigureAwait(false); } catch (Exception) { }
+            ws.Dispose();
+        }
+
+        private async Task<string?> OrderTypeAsync(long oid)
+        {
+            var reply = await InfoAsync(new JObject { ["type"] = "orderStatus", ["user"] = _account, ["oid"] = oid }, _lightInfoLimiter)
+                .ConfigureAwait(false);
+            return reply["order"]?["order"]?["orderType"]?.ToString();
+        }
+
+        private async Task<(double Qty, double Price)> RestFillsAsync(long oid)
+        {
+            var fills = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = _account }, _heavyInfoLimiter)
+                .ConfigureAwait(false) as JArray ?? new JArray();
+            return FillAverage(fills, oid.ToString(CultureInfo.InvariantCulture));
+        }
+
+        internal static (double Qty, double Price) FillAverage(JArray fills, string orderId)
+        {
+            double qty = 0, notional = 0;
+            foreach (var f in fills.Where(f => f["oid"]?.ToString() == orderId))
+            {
+                double sz = HyperliquidWire.D(f["sz"]);
+                qty += sz; notional += sz * HyperliquidWire.D(f["px"]);
+            }
+            return (qty, qty > 0 ? notional / qty : 0);
+        }
 
         /// <summary>The testnet is a real practice venue: a Paper credential signs against it.</summary>
         public bool HasPracticeEnvironment => true;
@@ -731,6 +854,20 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             RequireAccount();
             var list = new List<Balance>();
 
+            var spot = await InfoAsync(new JObject { ["type"] = "spotClearinghouseState", ["user"] = _account }, _lightInfoLimiter)
+                .ConfigureAwait(false) as JObject;
+            foreach (var b in spot?["balances"] as JArray ?? new JArray())
+            {
+                double total = HyperliquidWire.D(b["total"]), hold = HyperliquidWire.D(b["hold"]);
+                if (total > 0) list.Add(new Balance(b["coin"]?.ToString() ?? "", total - hold, hold));
+            }
+
+            // A unified (or portfolio-margin) account trades perps from its spot balance, so the
+            // perps side is the same money already listed above. Recorded 2026-11-26 from a public
+            // unified account: perps margin used 978.32, spot USDC on hold 978.32. Listing both
+            // counted it twice in the equity the quick trade sizes from.
+            if (await PoolsSpotCollateralAsync(spot).ConfigureAwait(false)) return list;
+
             var perp = await InfoAsync(new JObject { ["type"] = "clearinghouseState", ["user"] = _account }, _lightInfoLimiter)
                 .ConfigureAwait(false) as JObject;
             if (perp != null)
@@ -741,16 +878,40 @@ namespace AccessibleTrader.Plugins.Hyperliquid
                 // matched spot's would let the two be summed or confused.
                 if (withdrawable > 0 || used > 0) list.Add(new Balance("USDC-PERPS", withdrawable, used));
             }
-
-            var spot = await InfoAsync(new JObject { ["type"] = "spotClearinghouseState", ["user"] = _account }, _lightInfoLimiter)
-                .ConfigureAwait(false) as JObject;
-            foreach (var b in spot?["balances"] as JArray ?? new JArray())
-            {
-                double total = HyperliquidWire.D(b["total"]), hold = HyperliquidWire.D(b["hold"]);
-                if (total > 0) list.Add(new Balance(b["coin"]?.ToString() ?? "", total - hold, hold));
-            }
             return list;
         }
+
+        /// <summary>
+        /// True when the account's perps draw on its spot balance: <c>userAbstraction</c> says
+        /// "unifiedAccount" or "portfolioMargin" ("disabled" is the classic split, recorded
+        /// 2026-11-26 from a public sub-account). Remembered for ten minutes. When the mode cannot
+        /// be read, the spot reply is the clue: only a unified account's carries
+        /// <c>tokenToAvailableAfterMaintenance</c> (also recorded 2026-11-26).
+        /// </summary>
+        private async Task<bool> PoolsSpotCollateralAsync(JObject? spot)
+        {
+            var kept = _accountMode;
+            string? mode = kept is { } k && k.Account == _account && DateTime.UtcNow - k.At < AccountModeTtl ? k.Mode : null;
+            if (mode == null)
+            {
+                try
+                {
+                    var reply = await InfoAsync(new JObject { ["type"] = "userAbstraction", ["user"] = _account }, _lightInfoLimiter)
+                        .ConfigureAwait(false);
+                    if (reply.Type == JTokenType.String) mode = reply.ToString();
+                }
+                catch (Exception)
+                {
+                    // Not remembered, so the next read asks again; the balances themselves were read.
+                }
+                if (mode == null) return spot?["tokenToAvailableAfterMaintenance"] != null;
+                _accountMode = (_account, mode, DateTime.UtcNow);
+            }
+            return PoolsSpotCollateral(mode);
+        }
+
+        internal static bool PoolsSpotCollateral(string mode) =>
+            mode is "unifiedAccount" or "portfolioMargin";
 
         public async Task<List<Position>> GetPositionsAsync()
         {
@@ -872,15 +1033,8 @@ namespace AccessibleTrader.Plugins.Hyperliquid
             if (snapshot is null || snapshot.FilledQuantity <= 0 || snapshot.FilledPrice > 0) return snapshot;
 
             // The status reply carries sizes, not the average fill price; the fills do.
-            var fills = await InfoAsync(new JObject { ["type"] = "userFills", ["user"] = _account }, _heavyInfoLimiter)
-                .ConfigureAwait(false) as JArray ?? new JArray();
-            double qty = 0, notional = 0;
-            foreach (var f in fills.Where(f => f["oid"]?.ToString() == orderId))
-            {
-                double sz = HyperliquidWire.D(f["sz"]);
-                qty += sz; notional += sz * HyperliquidWire.D(f["px"]);
-            }
-            return qty > 0 ? snapshot with { FilledPrice = notional / qty } : snapshot;
+            var (qty, price) = await RestFillsAsync(oid).ConfigureAwait(false);
+            return qty > 0 ? snapshot with { FilledPrice = price } : snapshot;
         }
 
         internal static OrderStatusSnapshot? ParseOrderStatus(JObject? reply, Func<string, string> display)

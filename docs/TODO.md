@@ -395,7 +395,10 @@ shapes are in the archive (the 2026-11-21 block at its end).
   profile, place a small limit, cancel it, place a bracket; then I record real replies for the fixtures.
   **Cody 2026-11-26: build it fully for users outside the US**, though he cannot trade it himself. The
   remaining work is in `docs/HYPERLIQUID_PROVIDER.md` (Follow-ups, Unverified); a tester outside the US
-  is needed for anything past the testnet.
+  is needed for anything past the testnet. **Done 2026-11-26:** unified-account balances (margin was
+  counted twice), the pushed order stream (`orderUpdates` + `userFills`, tested live read-only on a
+  public account), recorded account fixtures. **Still to see:** a triggered stop or target filling
+  through the stream ("stop hit" needs the order type from `orderStatus` on that id).
 - [ ] **Position P&L since you left** has not been read against a live venue; no currency is named.
 
 ## Known limits and smaller open items

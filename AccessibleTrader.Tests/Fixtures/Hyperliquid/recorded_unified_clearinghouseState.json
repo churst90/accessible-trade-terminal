@@ -1,0 +1,88 @@
+{
+ "marginSummary": {
+  "accountValue": "979.31159",
+  "totalNtlPos": "8013.403684",
+  "totalRawUsd": "-1396.235358",
+  "totalMarginUsed": "978.324102"
+ },
+ "crossMarginSummary": {
+  "accountValue": "979.31159",
+  "totalNtlPos": "8013.403684",
+  "totalRawUsd": "-1396.235358",
+  "totalMarginUsed": "978.324102"
+ },
+ "crossMaintenanceMarginUsed": "433.610911",
+ "withdrawable": "0.987488",
+ "assetPositions": [
+  {
+   "type": "oneWay",
+   "position": {
+    "coin": "BTC",
+    "szi": "0.02312",
+    "leverage": {
+     "type": "cross",
+     "value": 10
+    },
+    "entryPx": "60742.8",
+    "positionValue": "1404.63248",
+    "unrealizedPnl": "0.25854",
+    "returnOnEquity": "0.0018409627",
+    "liquidationPx": "36031.8979457755",
+    "marginUsed": "140.463248",
+    "maxLeverage": 40,
+    "cumFunding": {
+     "allTime": "-0.815831",
+     "sinceOpen": "-0.014295",
+     "sinceChange": "0.0"
+    }
+   }
+  },
+  {
+   "type": "oneWay",
+   "position": {
+    "coin": "kPEPE",
+    "szi": "-136109.0",
+    "leverage": {
+     "type": "cross",
+     "value": 10
+    },
+    "entryPx": "0.003418",
+    "positionValue": "477.062045",
+    "unrealizedPnl": "-11.760411",
+    "returnOnEquity": "-0.2527481131",
+    "liquidationPx": "0.0074544279",
+    "marginUsed": "47.706204",
+    "maxLeverage": 10,
+    "cumFunding": {
+     "allTime": "-0.034442",
+     "sinceOpen": "-0.034442",
+     "sinceChange": "0.0"
+    }
+   }
+  },
+  {
+   "type": "oneWay",
+   "position": {
+    "coin": "TRX",
+    "szi": "1714.0",
+    "leverage": {
+     "type": "cross",
+     "value": 10
+    },
+    "entryPx": "0.303454",
+    "positionValue": "519.87334",
+    "unrealizedPnl": "-0.2475",
+    "returnOnEquity": "-0.0047585096",
+    "liquidationPx": null,
+    "marginUsed": "51.987334",
+    "maxLeverage": 10,
+    "cumFunding": {
+     "allTime": "-0.070693",
+     "sinceOpen": "-0.126394",
+     "sinceChange": "-0.082532"
+    }
+   }
+  }
+ ],
+ "time": 1795703951086
+}

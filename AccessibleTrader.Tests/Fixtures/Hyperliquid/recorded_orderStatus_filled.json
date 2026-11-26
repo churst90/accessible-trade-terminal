@@ -1,0 +1,25 @@
+{
+ "status": "order",
+ "order": {
+  "order": {
+   "coin": "HYPE",
+   "side": "B",
+   "limitPx": "63.894",
+   "sz": "0.0",
+   "oid": 617297418761,
+   "timestamp": 1795703936506,
+   "triggerCondition": "N/A",
+   "isTrigger": false,
+   "triggerPx": "0.0",
+   "children": [],
+   "isPositionTpsl": false,
+   "reduceOnly": true,
+   "orderType": "Limit",
+   "origSz": "0.32",
+   "tif": "Ioc",
+   "cloid": "0xc9606a1fd893678bd4e3bfe67a41baa0"
+  },
+  "status": "filled",
+  "statusTimestamp": 1795703936506
+ }
+}

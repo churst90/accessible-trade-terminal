@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Hyperliquid: fills heard as they happen.** Fills, partial fills, cancels and refusals on
+  Hyperliquid are announced the moment the exchange sends them, including orders you place on its
+  website, and a cancel you did not ask for says why. On a unified account your USDC is listed once;
+  before, your perpetuals margin was listed again beside it. Not tried with a real order yet.
 - **Gemini: limit orders on limit-only markets.** When Gemini sets a market to limit-only, your
   limit orders now go through; a market or stop-limit order is refused in words. On a post-only
   market, a limit order with Post-only ticked goes through. Before, both refused every order.

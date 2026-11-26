@@ -16,7 +16,9 @@ namespace AccessibleTrader.Tests
     /// 2026-11-04). The rest pins the request shapes, rounding, asset ids and reply parsing against
     /// small fixtures: meta, spotMeta and candleSnapshot are TRIMMED COPIES OF LIVE REPLIES taken
     /// 2026-11-04; clearinghouseState and frontendOpenOrders are written from the documented shape
-    /// and were NOT recorded from an account (each says so in its "_note").
+    /// and were NOT recorded from an account (each says so in its "_note"). The recorded_* files
+    /// ARE recorded: account replies from two public mainnet addresses, read without a key on
+    /// 2026-11-26 and trimmed, which the parsers and the balance read are checked against too.
     /// No test touches the network.
     /// </summary>
     [Collection("ProviderCredentialBridge")]
@@ -285,6 +287,169 @@ namespace AccessibleTrader.Tests
             Assert.Equal(OrderSide.Sell, list[1].Side);
             Assert.Equal(OrderType.StopMarket, list[1].Type);
             Assert.Equal(2900.0, list[1].Price);               // a stop market shows its trigger
+        }
+
+        // ---- Replies recorded 2026-11-26 from two public mainnet accounts (any address can be
+        // read without a key). "unified" is a unifiedAccount with 14 positions and venue stop
+        // orders; "classic" is a market-making sub-account in the split mode ("disabled").
+        // Trimmed to a few rows each; the values are as the venue sent them.
+
+        [Fact]
+        public void Recorded_positions_read_size_sign_entry_and_a_null_liquidation_price()
+        {
+            var list = HyperliquidProvider.ParsePositions(
+                JObject.Parse(Fixture("recorded_unified_clearinghouseState.json")), new Dictionary<string, AssetInfo>());
+
+            Assert.Equal(new[] { "BTC-PERP", "kPEPE-PERP", "TRX-PERP" }, list.Select(p => p.Symbol));
+            var btc = list[0];
+            Assert.Equal(0.02312, btc.Quantity);
+            Assert.Equal(60742.8, btc.AveragePrice);
+            Assert.Equal(1404.63248, btc.MarketValue);
+            Assert.Equal(0.25854, btc.UnrealizedPnL);
+            Assert.Equal(36031.8979457755, btc.LiquidationPrice);
+            Assert.Equal(MarginMode.Cross, btc.MarginMode);
+            Assert.Equal(10.0, btc.Leverage);
+            var pepe = list[1];
+            Assert.Equal(-136109.0, pepe.Quantity);
+            Assert.Equal(-477.062045, pepe.MarketValue);
+            Assert.Equal(-11.760411, pepe.UnrealizedPnL);
+            Assert.Equal(0.0, list[2].LiquidationPrice);   // the venue sent null
+        }
+
+        [Fact]
+        public void Recorded_open_orders_show_a_stop_markets_trigger_and_a_post_only_limits_price()
+        {
+            var list = HyperliquidProvider.ParseOpenOrders(JArray.Parse(Fixture("recorded_frontendOpenOrders.json")), c => c + "-PERP");
+
+            Assert.Equal(3, list.Count);
+            var stop = list[0];
+            Assert.Equal("617297411678", stop.Id);
+            Assert.Equal("kPEPE-PERP", stop.Symbol);
+            Assert.Equal(OrderSide.Buy, stop.Side);
+            Assert.Equal(OrderType.StopMarket, stop.Type);
+            Assert.Equal(0.007979, stop.Price);              // the trigger, not the 0.008778 slippage limit
+            Assert.Equal(136109.0, stop.Quantity);
+            Assert.Equal(OrderSide.Sell, list[1].Side);
+            Assert.Equal(33894.0, list[1].Price);
+            var alo = list[2];
+            Assert.Equal(OrderType.Limit, alo.Type);
+            Assert.Equal(60755.0, alo.Price);
+            Assert.Equal(0.0003, alo.Quantity);
+        }
+
+        [Fact]
+        public void Recorded_fills_keep_the_venues_fee_with_the_builder_share_and_a_makers_rebate()
+        {
+            var list = HyperliquidProvider.ParseFills(JArray.Parse(Fixture("recorded_userFills.json")), c => c + "-PERP");
+
+            Assert.Equal(3, list.Count);
+            var hype = list[0];
+            Assert.Equal("446310266686802", hype.Id);
+            Assert.Equal("HYPE-PERP", hype.Symbol);
+            Assert.Equal(OrderSide.Buy, hype.Side);
+            Assert.Equal(0.32, hype.Quantity);
+            Assert.Equal(60.837, hype.Price);
+            // "fee" already holds the builder's 0.007787 (the fill lists it again as builderFee);
+            // adding builderFee on top would charge it twice.
+            Assert.Equal(0.016197, hype.Fee);
+            Assert.Equal(-0.973568, hype.RealizedPnL);
+            Assert.Equal("617297418761", hype.OrderId);
+            Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1795703936506).UtcDateTime, hype.FilledAt);
+            Assert.Equal(-0.006072, list[2].Fee);            // a post-only maker is paid
+        }
+
+        [Fact]
+        public void Recorded_order_status_open_trigger_and_filled()
+        {
+            var open = HyperliquidProvider.ParseOrderStatus(JObject.Parse(Fixture("recorded_orderStatus_open_trigger.json")), c => c + "-PERP");
+            Assert.Equal(PolledOrderState.Working, open!.State);
+            Assert.Equal("kPEPE-PERP", open.Symbol);
+            Assert.Equal(0.0, open.FilledQuantity);
+
+            var filled = HyperliquidProvider.ParseOrderStatus(JObject.Parse(Fixture("recorded_orderStatus_filled.json")), c => c + "-PERP");
+            Assert.Equal(PolledOrderState.Filled, filled!.State);
+            Assert.Equal(OrderSide.Buy, filled.Side);
+            Assert.Equal(0.32, filled.FilledQuantity);
+            Assert.Equal(0.0, filled.RemainingQuantity);
+        }
+
+        [Fact]
+        public async Task A_recorded_filled_order_takes_its_price_from_the_recorded_fills()
+        {
+            var p = Provider(Recorded("unified"));
+
+            var snap = await p.GetOrderStatusAsync("617297418761");
+
+            Assert.Equal(PolledOrderState.Filled, snap!.State);
+            Assert.Equal(60.837, snap.FilledPrice);
+        }
+
+        /// <summary>A handler serving one recorded account, with its mode from userAbstraction.</summary>
+        private static FakeHttpMessageHandler Recorded(string account, Func<JObject, string?>? abstraction = null) =>
+            Armed(info: body => body["type"]?.ToString() switch
+            {
+                "clearinghouseState" => Fixture($"recorded_{account}_clearinghouseState.json"),
+                "spotClearinghouseState" => Fixture($"recorded_{account}_spotClearinghouseState.json"),
+                "frontendOpenOrders" => Fixture("recorded_frontendOpenOrders.json"),
+                "userFills" => Fixture("recorded_userFills.json"),
+                "orderStatus" => Fixture("recorded_orderStatus_filled.json"),
+                "userAbstraction" => abstraction != null ? abstraction(body) : account == "unified" ? "\"unifiedAccount\"" : "\"disabled\"",
+                _ => null,
+            });
+
+        private static int Asked(FakeHttpMessageHandler h, string type) =>
+            h.CapturedBodies.Count(b => b.Contains("\"type\":\"" + type + "\""));
+
+        [Fact]
+        public async Task A_unified_account_lists_its_usdc_once_not_again_as_perps_margin()
+        {
+            var h = Recorded("unified");
+
+            var list = await Provider(h).GetBalancesAsync();
+
+            // Perps margin used 978.324102 IS the spot USDC on hold 978.324102: one balance.
+            var usdc = Assert.Single(list);
+            Assert.Equal("USDC", usdc.Asset);
+            Assert.Equal(998.041223 - 978.324102, usdc.Free, 9);
+            Assert.Equal(978.324102, usdc.Locked);
+            Assert.Equal(1, Asked(h, "userAbstraction"));
+        }
+
+        [Fact]
+        public async Task A_classic_account_keeps_its_perps_margin_as_its_own_row()
+        {
+            var list = await Provider(Recorded("classic")).GetBalancesAsync();
+
+            var perps = Assert.Single(list, b => b.Asset == "USDC-PERPS");
+            Assert.Equal(505327.643628, perps.Free);
+            Assert.Equal(204368.436533, perps.Locked);
+            Assert.Equal(0.509772, Assert.Single(list, b => b.Asset == "USDC").Free);
+        }
+
+        [Fact]
+        public async Task When_the_mode_cannot_be_read_the_spot_reply_tells_unified_from_classic()
+        {
+            Func<JObject, string?> odd = _ => "{\"unexpected\":true}";
+
+            var unified = await Provider(Recorded("unified", odd)).GetBalancesAsync();
+            var classic = await Provider(Recorded("classic", odd)).GetBalancesAsync();
+
+            Assert.DoesNotContain(unified, b => b.Asset == "USDC-PERPS");
+            Assert.Contains(classic, b => b.Asset == "USDC-PERPS");
+        }
+
+        [Fact]
+        public async Task The_account_mode_is_asked_once_not_on_every_balance_read()
+        {
+            var h = Recorded("unified");
+            var p = Provider(h);
+
+            await p.GetBalancesAsync();
+            await p.GetBalancesAsync();
+            await p.GetBalancesAsync();
+
+            Assert.Equal(1, Asked(h, "userAbstraction"));
+            Assert.Equal(3, Asked(h, "spotClearinghouseState"));
         }
 
         [Fact]
