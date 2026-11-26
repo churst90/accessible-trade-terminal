@@ -311,7 +311,9 @@ needed: "don't worry about the custom scripts on the hosted vps".
   implementation then as it would be expensive and not useful. Headlines may already cover this."
 - [ ] **Other languages** (Cody, 2026-11-26: "what would it take for this to be done correctly?").
   Under discussion. Today everything is English by design (`CultureInvariantScanTests`).
-- [ ] **Kill switch** (Cody, 2026-11-20). Design to agree with Cody before building:
+- [ ] **Kill switch** (Cody, 2026-11-20). The dead-man's switch half was built 2026-11-26 for
+  Hyperliquid only (Settings > General > Trading; see CHANGES); still to hear and to try once on
+  testnet, and no other venue offers one through its API yet. Design to agree with Cody before building:
   1. **Close everything** on one key: cancel every working order and close every position on the
      focused venue (then optionally all venues), after one spoken confirmation that says what it will do
      ("Close 3 positions and cancel 5 orders on MEXC?"), then read back what each venue answered.

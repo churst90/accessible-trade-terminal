@@ -1350,6 +1350,31 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Schedule_cancel_sends_the_time_in_milliseconds_and_a_clear_sends_none()
+        {
+            var h = Armed(_ => "{\"status\":\"ok\",\"response\":{\"type\":\"default\"}}");
+            var p = Provider(h);
+            Assert.True(((IDeadMansSwitch)p).CanScheduleCancel);
+            var at = DateTimeOffset.UtcNow.AddSeconds(60);
+            Assert.Null(await p.ScheduleCancelAsync(at));
+            Assert.Null(await p.ScheduleCancelAsync(null));
+            var sent = Exchange(h);
+            Assert.Equal(2, sent.Count);
+            Assert.Equal("scheduleCancel", sent[0]["action"]!["type"]!.ToString());
+            Assert.Equal(at.ToUnixTimeMilliseconds(), sent[0]["action"]!["time"]!.Value<long>());
+            Assert.Null(sent[1]["action"]!["time"]);
+        }
+
+        [Fact]
+        public async Task Schedule_cancel_needs_the_agent_key_and_a_refusal_comes_back_in_words()
+        {
+            Assert.False(((IDeadMansSwitch)Provider(Armed(), key: "")).CanScheduleCancel);
+            var h = Armed(_ => "{\"status\":\"err\",\"response\":\"Too many scheduled cancels today\"}");
+            Assert.Equal("Too many scheduled cancels today",
+                await Provider(h).ScheduleCancelAsync(DateTimeOffset.UtcNow.AddSeconds(60)));
+        }
+
+        [Fact]
         public async Task Max_leverage_comes_from_meta_per_asset()
         {
             var p = Provider(Armed());

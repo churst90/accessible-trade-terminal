@@ -257,6 +257,16 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public const string QuickTradeSizingMode = "trading.quickTradeSizingMode";
 
+        /// <summary>
+        /// The dead-man's switch (Cody 2026-11-26): off by default. On, every venue that offers
+        /// one (<see cref="AccessibleTrader.Sdk.Interfaces.IDeadMansSwitch"/>, Hyperliquid today) is asked to
+        /// cancel the account's open orders if the terminal stops checking in for
+        /// <see cref="DeadMansSwitchSeconds"/>; a normal close clears it, so orders stay.
+        /// </summary>
+        public const string DeadMansSwitch        = "trading.deadMansSwitch";
+        /// <summary>Seconds of silence before the venue cancels; default 60, 30 to 3600.</summary>
+        public const string DeadMansSwitchSeconds = "trading.deadMansSwitchSeconds";
+
         // ── Workspace ────────────────────────────────────────────────────────
         public const string BackgroundMonitoring = "workspace.backgroundMonitoring";
         public const string MonitorPollSeconds   = "workspace.monitorPollSeconds";

@@ -821,6 +821,9 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
             // Go bar FUND: reads the chart's venue each time, keeps nothing.
             services.AddSingleton<AccessibleTrader.Core.Services.Feeds.FundingNowService>();
+            // The dead-man's switch: one per process, renewing while the terminal runs; App's
+            // window Destroying clears it, so a normal quit keeps the user's orders.
+            services.AddSingleton<AccessibleTrader.Core.Services.Trading.DeadMansSwitchService>();
             // Alt+G. The registry and matcher are static; the service owns the close-then-
             // dispatch sequence and reads the live shortcut profile for the key it says.
             services.AddSingleton<AccessibleTrader.Core.Services.GoBar.GoBarService>();

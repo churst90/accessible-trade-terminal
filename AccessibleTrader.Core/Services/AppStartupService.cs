@@ -201,6 +201,10 @@ namespace AccessibleTrader.Core.Services
             // the others, and must not stop startup.
             await ArmLiveOrderStreamsAsync().ConfigureAwait(false);
 
+            // 1a'. The dead-man's switch renews from here on (it does nothing while its setting
+            //      is off). Resolved here or never run, like the live notices below.
+            _services.GetService<Trading.DeadMansSwitchService>()?.Start();
+
             // The providers are known from here on; anything that asked a provider-shaped
             // question earlier (the toolbar's Deposit / Withdraw / Order book gates) asks again.
             _services.GetService<IEventBus>()?.Publish(new Models.ProvidersReadyEvent());

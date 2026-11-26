@@ -64,7 +64,7 @@ Hyperliquid does not serve United States persons, and Ontario, Canada is also re
 
 - Builders' markets: no real order has been sent; the exchange's wording for an order on a builder with no margin was not seen (the terminal refuses first on a classic account). Moving USDC to a builder (`perpDexClassTransfer`) is deliberately not built. A builder margined in another stablecoin is not traded.
 - TWAP: no real TWAP has been placed; a live (non-snapshot) `userTwapHistory` frame was never seen and is read as the snapshot's shape; slice fills are only in `userTwapSliceFills` (capped at 2,000 per account), so they are not in the fills list and a long TWAP's fills could not all be read back anyway; a TWAP waiting for a trigger shows no trigger price (the ticket sends none).
-- Wiring dead-man's switch (`ScheduleCancelAsync` exists and is tested, but nothing calls it).
+- Dead-man's switch (wired 2026-11-26, `DeadMansSwitchService`, off by default): never sent to the real exchange. Unknown from the docs and not seen: whether `scheduleCancel` also removes TP/SL trigger orders (the setting's text assumes it may), whether a new time replaces the old (assumed, as the SDK's comment implies), and the exact reply on success (read as `status: ok`) and after the 10-a-day limit.
 - Open interest: Hyperliquid publishes only the current value (`metaAndAssetCtxs`), no history, so the Open Interest and Crowding indicators on a Hyperliquid chart still read Binance's archive for the same coin's USDT perpetual. The current values are spoken by Go bar `FUND` (see above).
 - The funding indicator through the app (cache, store, chart) has not been seen or heard; only the provider and the request were checked live.
 - Vaults and subaccounts: an agent signing for one has not been tried live; the account the order stream subscribes for has no test.
@@ -75,6 +75,6 @@ Hyperliquid does not serve United States persons, and Ontario, Canada is also re
 
 CHANGES: Added a Hyperliquid provider (perps and spot): candles paged past the venue's 5,000 cap, depth, funding and open interest, websocket streaming, and trading through an agent wallet with in-process signing proven byte-exact against the Python SDK's vectors. Trailing stops are not offered because the venue has none. Never tested with a real order.
 
-TODO: Send the first testnet order and record real clearinghouseState and frontendOpenOrders replies; dead-man's-switch wiring.
+TODO: Send the first testnet order and record real clearinghouseState and frontendOpenOrders replies; one real dead-man's-switch set and clear.
 
 USER_MANUAL: Hyperliquid needs an agent wallet. Create one at app.hyperliquid.xyz under More, API, approve it, then enter your main wallet address as the key and the agent's private key as the secret. Never enter your main wallet's own key; it is refused. Paper uses the testnet. Hyperliquid is not available to United States persons or in Ontario.

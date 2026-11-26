@@ -306,6 +306,17 @@ has the main account's agent sign for the subaccount or vault. Balances, positio
 and announced fills are then that subaccount's or vault's. An entry that is not an address, or is
 your main address, stops the profile before anything is sent. For two accounts at once, make two
 profiles.
+Hyperliquid also offers a **dead-man's switch**, off unless you turn it on: in Settings (F12),
+General tab, Trading, tick "Dead-man's switch", set "Dead-man's switch seconds" (30 to 3600,
+60 by default) and Save. While the terminal runs it tells Hyperliquid every 20 seconds to cancel your open orders that many seconds from now, so the time
+never comes. If the terminal crashes, the computer is forced off or the connection drops for
+that long, Hyperliquid cancels every open order on the account, which may include your stops and
+targets. Positions stay open. **Closing the terminal normally keeps your orders**, and so does
+turning the switch off; both are heard ("Dead-man's switch off for Hyperliquid. Your open orders
+there stay until you cancel them."). Turning it on is heard too, and if Hyperliquid cannot be
+reached the terminal says so with the time the last setting still fires. Hyperliquid allows ten
+firings a day. It is not on the website's terminal, which never trades real money. Not tried
+against Hyperliquid itself yet.
 
 **Kalshi** takes its **Key ID** in API Key and the whole **private key file** it gave you
 in API Secret; Paper is Kalshi's demo venue. **Coinbase futures** use your ordinary

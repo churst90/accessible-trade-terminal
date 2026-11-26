@@ -152,6 +152,27 @@
                         </div>
                         <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are filled against live prices; no money moves.</p>
 
+                        @* The dead-man's switch (Cody 2026-11-26): off by default, because his rule is that
+                           orders stay until he cancels them. The unit is in the label itself, so the
+                           number field's name says "seconds"; what it does is in the shared hint. *@
+                        <div class="modal-row">
+                            <label for="s-dead-mans-switch">Dead-man's switch</label>
+                            <input id="s-dead-mans-switch" type="checkbox"
+                                   aria-describedby="s-dead-mans-switch-hint"
+                                   checked="@_deadMansSwitch"
+                                   @onchange="e => _deadMansSwitch = e.Value is bool b && b" />
+                        </div>
+                        <div class="modal-row">
+                            <label for="s-dead-mans-seconds">Dead-man's switch seconds</label>
+                            <input id="s-dead-mans-seconds" type="number"
+                                   min="@AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MinSeconds"
+                                   max="@AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.MaxSeconds" step="10"
+                                   aria-describedby="s-dead-mans-switch-hint"
+                                   value="@_deadMansSeconds"
+                                   @onchange="OnDeadMansSecondsChanged" />
+                        </div>
+                        <p id="s-dead-mans-switch-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Cancels your orders if the terminal stops. Hyperliquid only for now. If the terminal crashes, the computer is forced off or the connection drops for this long (30 to 3600 seconds), the venue cancels all your open orders there, which may include stops and targets. Positions stay open. Closing the terminal normally keeps your orders.</p>
+
                     }
                     @* Two established, genuinely different ways to size a trade. The terminal
                        supported only one of them while calling it "percent", which is ambiguous
@@ -1904,6 +1925,8 @@
 
     private bool _toolbarCaptions;
     private bool _paperTradingMode;
+    private bool _deadMansSwitch;
+    private int  _deadMansSeconds = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.DefaultSeconds;
     private int _quickSizingMode;
 
     // Staged copies of three controls that used to dispatch straight into the store the moment
@@ -2086,6 +2109,12 @@
 
     private void OnLiveBgTabsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _liveBgTabs = e.Value is bool b && b;
+
+    private void OnDeadMansSecondsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
+        _deadMansSeconds = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.ClampSeconds(seconds);
+    }
 
     private void OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
@@ -2271,6 +2300,10 @@
         _marketEventKalshiStatus = NoKalshiStatus();
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
+        _deadMansSwitch = Settings.GetSetting(SettingsKeys.DeadMansSwitch)?.ToObject<bool>() ?? false;
+        _deadMansSeconds = AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.ClampSeconds(
+            Settings.GetSetting(SettingsKeys.DeadMansSwitchSeconds)?.ToObject<int>()
+            ?? AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.DefaultSeconds);
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
         _liveBgTabs    = App.LiveBackgroundTabs;
@@ -2659,6 +2692,8 @@
 
         App.PaperTradingMode = _paperTradingMode;
         Settings.SetSetting(SettingsKeys.QuickTradeSizingMode, Newtonsoft.Json.Linq.JToken.FromObject(_quickSizingMode));
+        Settings.SetSetting(SettingsKeys.DeadMansSwitch, Newtonsoft.Json.Linq.JToken.FromObject(_deadMansSwitch));
+        Settings.SetSetting(SettingsKeys.DeadMansSwitchSeconds, Newtonsoft.Json.Linq.JToken.FromObject(_deadMansSeconds));
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
         App.ChartEarconsEnabled     = _chartEarcons;
@@ -2701,6 +2736,10 @@
         EventBus.Publish(new TouchNavBarModeChangedEvent(_touchNavMode));
         Monitoring.Reconcile();
         TabFeeds.Reconcile();
+        // Arms, re-times or clears the dead-man's switch now rather than at its next renewal; it
+        // speaks the result itself. Optional: a head that does not register it has no switch.
+        (ServiceProvider.GetService(typeof(AccessibleTrader.Core.Services.Trading.DeadMansSwitchService))
+            as AccessibleTrader.Core.Services.Trading.DeadMansSwitchService)?.Reconcile();
         ApplySpeechOutputMode();
 
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));

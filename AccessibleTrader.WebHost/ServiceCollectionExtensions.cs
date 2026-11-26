@@ -800,6 +800,9 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.MarketPulse.MorningBriefService>();
             // Go bar FUND: reads the chart's venue each time, keeps nothing.
             services.AddScoped<AccessibleTrader.Core.Services.Feeds.FundingNowService>();
+            // The dead-man's switch: per circuit, like the order streams it sits beside. The
+            // circuit's scope disposing (tab closed, server stopped normally) clears it.
+            services.AddScoped<AccessibleTrader.Core.Services.Trading.DeadMansSwitchService>();
             // Alt+G. Scoped with the rest of one circuit's accessibility pipeline; the modal
             // stack and the shortcut profile it reads are scoped per signed-in user too.
             services.AddScoped<AccessibleTrader.Core.Services.GoBar.GoBarService>();

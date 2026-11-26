@@ -6,18 +6,21 @@ public partial class App : Application
     private readonly AccessibleTrader.Core.Services.ISettingsManager _settings;
     private readonly AccessibleTrader.Core.Services.Notifications.WindowVisibilityPresence _presence;
     private readonly AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService _changeLog;
+    private readonly AccessibleTrader.Core.Services.Trading.DeadMansSwitchService _deadMansSwitch;
 
 	public App(
         MainPage mainPage,
         AccessibleTrader.Core.Services.ISettingsManager settings,
         AccessibleTrader.Core.Services.Notifications.WindowVisibilityPresence presence,
-        AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService changeLog)
+        AccessibleTrader.Core.Services.ChangeLog.ChangeLogCatchUpService changeLog,
+        AccessibleTrader.Core.Services.Trading.DeadMansSwitchService deadMansSwitch)
 	{
 		InitializeComponent();
         _mainPage = mainPage;
         _settings = settings;
         _presence = presence;
         _changeLog = changeLog;
+        _deadMansSwitch = deadMansSwitch;
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)
@@ -25,6 +28,12 @@ public partial class App : Application
 		var window = new Window(_mainPage) { Title = "Accessible Trade Terminal" };
         window.Destroying += (s, e) => {
             MarkAway();
+            // A normal quit keeps the user's orders: clear the dead-man's switch before the
+            // process goes (bounded, so a dead network cannot hold the exit). Only a crash or a
+            // forced shutdown skips this, which is what the switch is for.
+            try { Task.Run(() => _deadMansSwitch.ClearAsync(AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.CloseLimit))
+                      .Wait(AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.CloseLimit + TimeSpan.FromSeconds(1)); }
+            catch { /* the close must not throw */ }
             Application.Current?.Quit();
         };
         // MAUI's own lifecycle gives foreground/background without a new hook: Resumed offers

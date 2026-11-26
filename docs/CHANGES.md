@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-26: the dead-man's switch (Hyperliquid), off by default
+
+Cody asked for it, with his rule that orders stay until he cancels them. So it is off by default,
+and a normal close or switching it off clears it; only a crash, a forced shutdown or a lost
+connection lets it fire. Settings (F12) > General > Trading has "Dead-man's switch" and "Dead-man's switch seconds" (30 to
+3600, 60 by default; Cody's choice), with what it does in the hint both are described by; both are
+in Settings search and hidden where live trading is off.
+
+- `IDeadMansSwitch` (SDK): a venue that cancels open orders at a time unless it is pushed further
+  ahead. Hyperliquid implements it with its existing `ScheduleCancelAsync` (`scheduleCancel`, signed
+  as before; a vault or subaccount profile sends it for that account).
+- `DeadMansSwitchService` (Core) renews it every 20 seconds on every venue with an active trading key
+  that offers it (never a withdrawal profile), so with the shortest wait one missed renewal still does
+  not fire it. Saving Settings applies it at once. It is heard on: "Dead-man's switch on for
+  Hyperliquid: if the terminal stops for 60 seconds, Hyperliquid cancels your open orders there, which
+  may include stops and targets. Positions stay open. Closing the terminal normally keeps your
+  orders." Off: "...Your open orders there stay until you cancel them." A failed renewal is said once
+  per failure streak on the Critical channel, with the UTC time the last good setting still fires; the
+  recovery is said once.
+- Cleared on a normal close: the desktop window's Destroying handler waits up to 3 seconds for it (a
+  dead network cannot hold the exit); on the WebHost the circuit's scope disposing does it. It is
+  never armed where live trading is off (the hosted terminal). Paper mode does not disarm it: the
+  venue's orders are real either way.
+- Tests: `DeadMansSwitchServiceTests` (11) against a fake venue and a fixed clock, and 2 provider
+  tests (the time goes in milliseconds and a clear sends none; no agent key means no switch, and a
+  refusal comes back in Hyperliquid's words). Sabotages: 12 of 12 red (on by default, armed when hosted, a close that keeps it, no clamp, a repeated failure, off leaving it armed, ignoring the agent key, using a withdrawal profile, no recovery word, renewing after close, seconds for milliseconds, a switch without a key).
+
+Caveats: never sent to Hyperliquid (Cody is in the US; no order has ever been sent). From the docs
+alone it is unknown whether `scheduleCancel` also removes TP/SL trigger orders (the setting's text
+says it may), whether a new time replaces the old one (assumed, as the SDK implies), and what the
+reply looks like after the 10-a-day limit. On the WebHost two open tabs each renew it, and closing
+one clears it until the other's next renewal (up to 20 seconds). The desktop's Destroying wiring
+(MAUI) cannot be built here on Linux; CI's Windows-head job is the first to compile it. Nothing was
+seen or heard in the app.
+
 ### 2026-11-26: three CI failures from the Hyperliquid batch fixed
 
 The push of `40d164af` went red in CI on four tests; the session that pushed it ended before the

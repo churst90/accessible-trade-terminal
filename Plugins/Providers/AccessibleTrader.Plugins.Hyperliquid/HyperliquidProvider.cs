@@ -39,7 +39,7 @@ namespace AccessibleTrader.Plugins.Hyperliquid
     /// its own agent approval. Anything not explicitly Live is testnet.
     /// </para>
     /// </summary>
-    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider, ITradeStreamProvider, IPerpetualContextProvider
+    public class HyperliquidProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, ISymbolLeverageProvider, ITradeStreamProvider, IPerpetualContextProvider, IDeadMansSwitch
     {
         private const string MainnetRest = "https://api.hyperliquid.xyz";
         private const string TestnetRest = "https://api.hyperliquid-testnet.xyz";
@@ -1778,10 +1778,13 @@ namespace AccessibleTrader.Plugins.Hyperliquid
 
         /// <summary>
         /// The dead-man's switch. Asks Hyperliquid to cancel every open order at the given time
-        /// (at least 5 seconds ahead; 10 uses a day), or clears it with null. Nothing calls this
-        /// yet: wiring a heartbeat that keeps pushing it forward while the terminal runs, and
-        /// speaking when it fires, is the safety-layer follow-up. Returns an error text or null.
+        /// (at least 5 seconds ahead; 10 uses a day), or clears it with null. The terminal's
+        /// <c>DeadMansSwitchService</c> keeps pushing it forward while the setting is on.
+        /// Returns an error text or null. For a vault or subaccount profile the action carries
+        /// its <c>vaultAddress</c> like any other, so the switch is that account's.
         /// </summary>
+        public bool CanScheduleCancel => CanSign;
+
         public async Task<string?> ScheduleCancelAsync(DateTimeOffset? at)
         {
             if (!CanSign) return "no Hyperliquid agent wallet configured";

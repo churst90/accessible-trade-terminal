@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **Dead-man's switch on Hyperliquid (off unless you turn it on).** Settings (F12), General,
+  Trading: if the terminal crashes, the computer is forced off or the connection drops for the
+  seconds you choose (60 by default), Hyperliquid cancels your open orders there, which may
+  include stops and targets. Positions stay open, and closing the terminal normally keeps your
+  orders. Not tried against Hyperliquid itself yet.
 - **Hyperliquid subaccounts and vaults.** Put a subaccount's or vault's address in the profile's
   "Vault or subaccount" field to trade it with your usual agent key; balances, positions and orders
   are then its own.

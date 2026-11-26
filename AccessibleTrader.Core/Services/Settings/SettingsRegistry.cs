@@ -47,6 +47,8 @@ namespace AccessibleTrader.Core.Services.Settings
         public static IReadOnlyList<SettingEntry> All { get; } = new List<SettingEntry>
         {
             new("Paper trading", "General", "s-paper-trading", "simulated practice demo"),
+            new("Dead-man's switch", "General", "s-dead-mans-switch", "dead man kill cancel orders crash heartbeat hyperliquid"),
+            new("Dead-man's switch seconds", "General", "s-dead-mans-seconds", "dead man timeout wait cancel orders"),
             new("Quick trade sizing", "General", "s-quick-sizing", "position size risk percent notional allocation stop"),
             new("Reset paper account", "General", "s-paper-reset", "balance restart"),
             new("Reset all settings to defaults", "General", "s-factory-reset", "factory reset defaults erase wipe personalization start over clean"),
@@ -130,6 +132,7 @@ namespace AccessibleTrader.Core.Services.Settings
         public static bool IsAvailable(string controlId, SettingsHost host) => controlId switch
         {
             "s-paper-trading"  => host.AllowLiveTrading,
+            "s-dead-mans-switch" or "s-dead-mans-seconds" => host.AllowLiveTrading,
             "s-bg-monitor" or "s-bg-poll" or "s-bg-live-tabs" => host.AllowBackgroundMonitoring,
             "s-bg-local"       => host.AllowBackgroundMonitoring && host.IsBrowserHost && !host.IsDemo && !host.IsHosted,
             "s-minimize-to-tray" => !host.IsBrowserHost && host.IsWindows,
