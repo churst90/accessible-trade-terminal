@@ -2,6 +2,7 @@
 @using AccessibleTrader.Core.Services.Charts
 @inherits ModalBase
 @inject IWorkspaceStore Store
+@inject IServiceProvider Services
 
 @if (_isVisible)
 {
@@ -27,7 +28,7 @@
                            min="@LineBreakBuilder.MinLines"
                            max="@LineBreakBuilder.MaxLines"
                            step="1"
-                           @bind="_linesText" @bind:event="oninput"
+                           @bind="_linesText" @bind:event="oninput" @bind:after='() => Edited("line-break-lines")'
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
@@ -80,7 +81,7 @@
                            min="1"
                            max="200"
                            step="1"
-                           @bind="_atrLengthText" @bind:event="oninput"
+                           @bind="_atrLengthText" @bind:event="oninput" @bind:after='() => Edited("renko-atr-length")'
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
@@ -94,7 +95,7 @@
                            min="0"
                            max="100"
                            step="any"
-                           @bind="_percentText" @bind:event="oninput"
+                           @bind="_percentText" @bind:event="oninput" @bind:after='() => Edited("kagi-reversal-percent")'
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
@@ -112,7 +113,7 @@
                            type="number"
                            min="0"
                            step="any"
-                           @bind="_boxSizeText" @bind:event="oninput"
+                           @bind="_boxSizeText" @bind:event="oninput" @bind:after='() => Edited("renko-box-size")'
                            @onkeydown="OnKeyDown"
                            style="width: 10em;" />
                 </div>
@@ -122,8 +123,9 @@
                  || (_mode == RenkoBoxMode.Percent && _style == PriceChartStyle.PointAndFigure))
             {
                 @* No role=status: it changes on every keystroke, so a live region read the
-                   box over and over while typing (a11y review 2026-11-27). It sits by the field. *@
-                <p id="renko-box-preview" style="margin-top: 8px; font-size: 0.9rem;">
+                   box over and over while typing (a11y review 2026-11-27). Instead it describes
+                   the field it follows and is said once typing pauses (Edited). *@
+                <p id="@PreviewId" style="margin-top: 8px; font-size: 0.9rem;">
                     @BoxPreview()
                 </p>
             }
@@ -137,7 +139,7 @@
                            min="@PointFigureBuilder.MinReversal"
                            max="@PointFigureBuilder.MaxReversal"
                            step="1"
-                           @bind="_reversalText" @bind:event="oninput"
+                           @bind="_reversalText" @bind:event="oninput" @bind:after='() => Edited("pnf-reversal")'
                            @onkeydown="OnKeyDown"
                            style="width: 8em;" />
                 </div>
@@ -217,7 +219,48 @@
     private string? _errorField;
 
     internal const string ErrorId = "chart-type-error";
-    private string? DescribedBy(string field) => _errorField == field ? ErrorId : null;
+    internal const string PreviewId = "renko-box-preview";
+    private PausedTypingReader? _previewReader;
+
+    /// <summary>The field whose entry the box preview follows, or null when no preview shows
+    /// (the same condition as the markup's).</summary>
+    private string? PreviewField =>
+        _mode == RenkoBoxMode.Atr ? "renko-atr-length"
+        : _mode == RenkoBoxMode.Percent && _style == PriceChartStyle.PointAndFigure ? "kagi-reversal-percent"
+        : null;
+
+    private string? DescribedBy(string field)
+    {
+        var ids = new List<string>(2);
+        if (_errorField == field) ids.Add(ErrorId);
+        if (PreviewField == field) ids.Add(PreviewId);
+        return ids.Count == 0 ? null : string.Join(' ', ids);
+    }
+
+    /// <summary>After each keystroke in a field: a correction clears that field's error mark
+    /// (it was left "invalid" with the old message until the next Apply), and the box preview
+    /// is said once typing pauses, as the live region did before it was removed, but once.</summary>
+    private void Edited(string field)
+    {
+        if (_errorField == field)
+        {
+            _errorField = null;
+            _statusMessage = null;
+            _isError = false;
+        }
+        if (PreviewField == field)
+        {
+            _previewReader ??= new PausedTypingReader(EventBus,
+                Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System, InvokeAsync);
+            _previewReader.Restart(() => _isVisible && PreviewField == field ? BoxPreview() : null);
+        }
+    }
+
+    public override void Dispose()
+    {
+        _previewReader?.Dispose();
+        base.Dispose();
+    }
 
     protected override void OnInitialized()
     {

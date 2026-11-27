@@ -249,6 +249,21 @@ public class AccessibilityReviewRound3And4Tests
         Assert.Equal("No matching settings.", cut.Find("#s-search-count").TextContent.Trim());
     }
 
+    [Fact]
+    public void A_search_count_is_not_said_after_the_dialog_closes()
+    {
+        var (h, cut, _) = OpenSettings();
+        using var _h = h;
+        var spoken = new List<AnnouncementEvent>();
+        h.EventBus.Subscribe<AnnouncementEvent>(e => { lock (spoken) spoken.Add(e); });
+
+        cut.Find("#s-search").Input("theme");
+        cut.Find("#settings-close").Click();     // inside the pause
+
+        Thread.Sleep(PausedTypingReader.Pause * 3);
+        lock (spoken) Assert.DoesNotContain(spoken, e => e.Message.Contains("matching setting"));
+    }
+
     [Theory]
     [InlineData(0, "No matching settings.")]
     [InlineData(1, "1 matching setting.")]
@@ -322,7 +337,9 @@ public class AccessibilityReviewRound3And4Tests
         h.WaitForFocus("s-theme-delete-confirm");
         library.DidNotReceive().Remove(Arg.Any<string>());
         Assert.Contains(said, e => e.Message!.StartsWith("Delete the theme Mine?"));
-        Assert.Contains("cannot be undone", cut.Find("#s-theme-delete-confirm").GetAttribute("aria-label"));
+        Assert.Contains(said, e => e.Message!.Contains("cannot be undone"));
+        // The question is spoken; a long aria-label on the button it focuses said it all again.
+        Assert.Null(cut.Find("#s-theme-delete-confirm").GetAttribute("aria-label"));
 
         cut.Find("button#s-theme-delete-confirm").Click();
         library.Received(1).Remove(mine.Id);
@@ -450,7 +467,7 @@ public class AccessibilityReviewRound3And4Tests
         h.EventBus.Publish(new OpenChartTypeSettingsEvent());
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#renko-atr-length")));
         Assert.Equal("false", cut.Find("#renko-atr-length").GetAttribute("aria-invalid"));
-        Assert.Null(cut.Find("#renko-atr-length").GetAttribute("aria-describedby"));
+        Assert.Equal(ChartTypeSettingsModal.PreviewId, cut.Find("#renko-atr-length").GetAttribute("aria-describedby"));
         // The preview changes on every keystroke: a live region read it over and over.
         Assert.Null(cut.Find("#renko-box-preview").GetAttribute("role"));
 
@@ -459,12 +476,46 @@ public class AccessibilityReviewRound3And4Tests
 
         cut.WaitForAssertion(() =>
             Assert.Equal("true", cut.Find("#renko-atr-length").GetAttribute("aria-invalid")));
-        Assert.Equal(ChartTypeSettingsModal.ErrorId, cut.Find("#renko-atr-length").GetAttribute("aria-describedby"));
+        Assert.Equal($"{ChartTypeSettingsModal.ErrorId} {ChartTypeSettingsModal.PreviewId}",
+            cut.Find("#renko-atr-length").GetAttribute("aria-describedby"));
         var error = cut.Find("#" + ChartTypeSettingsModal.ErrorId);
         Assert.Contains("Renko needs at least 202 bars", error.TextContent);
         // Refuse speaks it; a role=status on the paragraph said it a second time.
         Assert.Null(error.GetAttribute("role"));
         Assert.Single(said, e => e.Message.Contains("Renko needs at least 202 bars"));
+
+        // Correcting it clears the mark and the old message; it was left "invalid" till Apply.
+        cut.Find("#renko-atr-length").Input("14");
+        Assert.Equal("false", cut.Find("#renko-atr-length").GetAttribute("aria-invalid"));
+        Assert.Equal(ChartTypeSettingsModal.PreviewId, cut.Find("#renko-atr-length").GetAttribute("aria-describedby"));
+        Assert.Empty(cut.FindAll("#" + ChartTypeSettingsModal.ErrorId));
+    }
+
+    [Fact]
+    public void The_box_preview_is_said_once_typing_pauses()
+    {
+        using var h = new BlazorTestHarness();
+        h.WorkspaceStore.State.Returns(_ => Chart(PriceChartStyle.Renko));
+        h.Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
+        var spoken = new List<AnnouncementEvent>();
+        h.EventBus.Subscribe<AnnouncementEvent>(e => { lock (spoken) spoken.Add(e); });
+
+        var cut = h.Ctx.RenderComponent<ChartTypeSettingsModal>();
+        h.EventBus.Publish(new OpenChartTypeSettingsEvent());
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#renko-atr-length")));
+
+        cut.Find("#renko-atr-length").Input("1");
+        cut.Find("#renko-atr-length").Input("14");   // inside the pause
+
+        Assert.True(Said(spoken, e => e.Message.StartsWith("Resolved")), "the preview was never said");
+        Thread.Sleep(PausedTypingReader.Pause * 2);
+        var preview = cut.Find("#" + ChartTypeSettingsModal.PreviewId).TextContent.Trim();
+        lock (spoken)
+        {
+            var one = Assert.Single(spoken, e => e.Message.StartsWith("Resolved") || e.Message.StartsWith("ATR "));
+            Assert.Equal(preview, one.Message);
+            Assert.False(one.Interrupt);
+        }
     }
 
     // ── 11: Help names what is really there ─────────────────────────────────────────────────

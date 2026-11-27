@@ -1138,7 +1138,6 @@
                             {
                                 <button type="button" id="s-theme-delete-confirm"
                                         style="color:#c00; font-weight:700;"
-                                        aria-label="Confirm delete. Deletes the theme @sel.Name now. This cannot be undone."
                                         @onclick="ConfirmDeleteTheme">Confirm delete</button>
                                 <button type="button" id="s-theme-delete-cancel"
                                         aria-label="Cancel, keep the theme @sel.Name"
@@ -1687,7 +1686,8 @@
         _searchReader ??= new PausedTypingReader(EventBus,
             ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System, InvokeAsync);
         // Said once typing pauses; nothing for an emptied box (the results list is gone).
-        _searchReader.Restart(() => string.IsNullOrWhiteSpace(_searchQuery) ? null : SearchCountSentence(_searchResults.Count));
+        // Nothing once the dialog has closed: Cancel, Save and Escape inside the pause.
+        _searchReader.Restart(() => !_isVisible || string.IsNullOrWhiteSpace(_searchQuery) ? null : SearchCountSentence(_searchResults.Count));
         _searchQuery = e.Value?.ToString() ?? string.Empty;
         var q = _searchQuery.Trim();
         _searchResults = string.IsNullOrEmpty(q)
@@ -1907,8 +1907,8 @@
     /// by Save, so a sentence saying the window now hides was wrong after a Cancel (a11y
     /// review 2026-11-27).</summary>
     internal static string MinimizeToTraySentence(bool on) => on
-        ? "Minimize to tray on when you save. Closing the window will then hide the terminal to the notification area, where it keeps running and sends alerts, order fills and bar closes as notifications. Quit from the tray menu."
-        : "Minimize to tray off when you save. Closing the window will then quit the terminal, and nothing is watched after that.";
+        ? "Minimize to tray will be on after you save. Closing the window will then hide the terminal to the notification area, where it keeps running and sends alerts, order fills and bar closes as notifications. Quit from the tray menu."
+        : "Minimize to tray will be off after you save. Closing the window will then quit the terminal, and nothing is watched after that.";
 
     private void OnMinimizeToTrayChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
