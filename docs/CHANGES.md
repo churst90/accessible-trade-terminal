@@ -4,6 +4,86 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-27: eleven fixes from accessibility review rounds 3 and 4
+
+Rounds 3 and 4 covered the rest of Settings, Help, the toolbar, the Go bar and the chart-type
+settings dialog. I checked each finding against the code before passing it on; Cody agreed to
+all eleven ("yes, proceed to address these items 1-11").
+
+1. **Brick settings works in the public demo.** The dialog sat inside MainLayout's
+   `Demo.AllowWorkspaceSaveLoad` block, so the demo offered Renko, Kagi and the rest and showed
+   the settings button, and the button did nothing and said nothing. The dialog saves nothing
+   (it changes the chart in memory), so it is now ungated.
+2. **Settings, General, "Check every (seconds)".** The unit is in the label (it was a span beside
+   the box, never read with it) and in the Settings search row. An entry outside 10 to 600 is set
+   to the nearest end and said ("Background check seconds must be 10 to 600. Set to 10."); an
+   entry that is not a number keeps the old one and says so. The message stays beside the field
+   and in its description until a good entry, as for the dead-man's switch seconds. The hint is
+   "10 to 600."
+3. **Find symbol (toolbar, long symbol lists) says its match count** half a second after you stop
+   typing, politely, on the interface channel. The count was only in the box's description,
+   which is read when focus arrives, not while typing. Each keystroke restarts the wait, so only
+   the count for what you stopped on is said. New `PausedTypingReader` does this.
+4. **Settings search says its count the same way** ("3 matching settings."; "No matching
+   settings."), and its count line is no longer a live region created already filled (often not
+   read at all). **Export CSV says its result** ("Export complete.", "Nothing exported: no chart
+   data loaded.", "Export failed: ..."), and a failure is shown as an error, not in green.
+5. **Minimize to tray says it applies when you save** ("Minimize to tray will be off after you
+   save. Closing the window will then quit the terminal..."); it said it as if it were already so.
+6. **Delete theme asks first.** It now speaks "Delete the theme Mine? It cannot be undone, and
+   Cancel in Settings does not bring it back. Confirm delete, or cancel." and moves focus to
+   **Confirm delete** (named just that: the question has already been said); **Cancel** or Escape keeps the theme ("Cancelled. Mine was not deleted.")
+   and puts focus back on Delete theme. Escape backs out of the question, not the dialog, as the
+   paper and factory resets do. Choosing another theme, Cancel or Save drops the question.
+7. **Dialogs are spoken by their heading.** `ModalStateChangedEvent` has a `SpokenName`, and
+   MainLayout says "{SpokenName} dialog opened" when it has one. The ModalName stays the key the
+   modal stack, Escape and the Go bar match. So: "Go dialog opened" (was "GoBar"), "Switching to
+   analytics dialog opened" (was "ShapeChangeWarning"), and the chart-type dialog is "Kagi
+   settings", "Range bar settings", "Line break settings", "Point and figure settings" or "Brick
+   settings" after the chart (always "Brick settings" before, while its heading said Kagi). The
+   toolbar's settings button has the same name.
+8. **Fourteen Settings hints are linked to their fields** with aria-describedby (resume session,
+   keep watching other tabs, live-stream other tabs, minimize to tray, touch toolbar, magnet snap,
+   swing snap, where the time is read, date on every bar, 12-hour time, speech output, sound theme,
+   braille, theme), so each is read with its field. The sound theme's aria-label, which hid its
+   visible label, is gone. The trade status bar's two fields both pointed at one hint, read twice
+   in a row when tabbing from one to the other; "Each trade shows" has its own ("The percent is of
+   the margin put up.").
+9. **The timeframe quick picks** say which one is in use (aria-pressed), compared case by case, so
+   "1m" (a minute) and "1M" (a month) are not both pressed.
+10. **The chart-type dialog's error is tied to its field.** A refused entry marks its field
+    invalid and describes it with the error, so going back to it says what is wrong; typing in
+    that field again clears the mark and the message. The error paragraph and the box preview
+    are no longer live regions: Refuse already speaks the error, so it was said twice, and the
+    preview changes on every keystroke, so it was read over and over while typing. The preview
+    now describes the field it follows (ATR length, or Point and Figure's box percentage) and is
+    said once, half a second after you stop typing ("Resolved box: 2.5.").
+11. **Help.** It named a "Watch" button (the button is **Watch lists**) and an "Indicators button
+    in the toolbar" (there is none; it is **Add indicator to chart** on the indicator bar). The
+    Alt+C row listed seven of the fifteen chart types; it lists all fifteen and their Go bar codes.
+
+Tests: `AccessibilityReviewRound3And4Tests` (new), plus the spoken name in
+`ToolbarShapeChangeDialogTests`, the two-step delete in `SettingsModalTests` and "when you save"
+in `MinimizeToTraySettingTests`. The Help chart-type test compares the toolbar's real options with
+the Help row, so a sixteenth chart type fails it until Help names it. 26 sabotages, one per fix
+and side (the dialog back in the demo gate, the key spoken instead of the heading, the reader
+that never cancels or that interrupts, 1m pressing 1M, the live regions put back, Help's seven
+chart types, and so on), all turned a test red; the files were restored identical and the run
+after was green.
+
+A second accessibility-lead review of the finished change found five things, all fixed: the box
+preview had gone silent (above); a corrected field stayed marked invalid; Confirm delete's long
+name repeated the spoken question; a search count could be said after Settings closed (Cancel or
+Escape inside the half second); and "Minimize to tray on when you save" could be heard as "on
+only when you save". Not changed: the quick picks' pressed state follows the timeframe shown in
+the toolbar's lists, which can be one not loaded yet (it matches what the lists say); the poll
+hint "10 to 600." does not repeat "seconds", which is in the label. The five have 7 sabotages of their own, all red.
+
+Not checked: any of it in a real browser with a screen reader. The paused reads are timed in real
+time in the tests (half a second), not with a fake clock. Two findings from the reviews were not
+confirmed and are in TODO: Up and Down in the Go bar may move the caret as well as the
+suggestion, and Help's section headings sit inside `<summary>` where NVDA's H may not reach them.
+
 ### 2026-11-26: five fixes from the accessibility review of the new trading fields
 
 The accessibility agents were registered on 2026-11-26, and their first review covered the

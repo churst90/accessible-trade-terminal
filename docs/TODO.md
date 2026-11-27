@@ -419,10 +419,18 @@ shapes are in the archive (the 2026-11-21 block at its end).
 
 ## Known limits and smaller open items
 
-- [ ] **Accessibility review, rounds 3 and 4** (agents registered 2026-11-26). Round 1 (dead-man's
-  switch fields) and round 2 (trading ticket TWAP fields, the vault field) are done; see CHANGES
-  2026-11-26. Next: the rest of Settings, then Help, the toolbar, the Go bar and chart-type
-  settings. Left from round 2 on purpose (Cody agreed fixes 1 to 5 only): speaking "Minutes and
+- [ ] **Left from accessibility review rounds 3 and 4** (the eleven fixes are done; see CHANGES
+  2026-11-27). Not confirmed, check before fixing: Up and Down in the Go bar may move the text
+  caret as well as the suggestion (test in a real browser); Help's section headings are inside
+  `<summary>`, where NVDA's H and 3 may not reach them. Small, not fixed: em dashes in some
+  Settings options and search results (read as "dash" by some voices); the chart and drawing
+  context menus are announced as "ChartContextMenu dialog opened" and "DrawingContextMenu dialog
+  opened" (ChartContextMenu.razor:220, DrawingContextMenu.razor:191) and want a SpokenName like the
+  Go bar's.
+  A timeframe quick pick shows as pressed for the timeframe selected in the toolbar, which may
+  not be loaded yet (second review; left, it matches the lists). None of the eleven fixes, nor
+  the five from the second review, has been heard in a real browser.
+- [ ] **Accessibility review, rounds 1 and 2: what is left.** Left from round 2 on purpose (Cody agreed fixes 1 to 5 only): speaking "Minutes and
   Randomize fields added" when TWAP is picked, and a fieldset around the two dead-man's switch
   fields. Not checked in a real browser: that the seconds field shows the corrected number after
   an out-of-range entry (bUnit cannot show it; the fix renders the raw entry once first).

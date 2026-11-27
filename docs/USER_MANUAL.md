@@ -373,7 +373,8 @@ the screener), **Levels** (the respect report), **Market events**, **Trade journ
 connected exchange offers them); then save and load workspace and the indicator
 templates; then settings and help. After those come the controls that change how the
 chart is shown: pan left and right, zoom in and out, the **Chart type** list (candles,
-Heikin Ashi, line, Renko and the rest), **Brick settings** on a brick chart, the **Price
+Heikin Ashi, line, Renko and the rest), the settings button for a brick chart (named after
+it: **Brick settings** on Renko, **Kagi settings** on Kagi, and so on), the **Price
 scale** list (regular, logarithmic, percent, indexed to 100), and **Replay**, a pressed-state toggle your
 screen reader announces as on or off. The things you put *on* a chart — **Add indicator**,
 **Drawing tools** and **Scripts** — sit on the bar under the chart instead. Every
@@ -447,7 +448,11 @@ closes up around it.
 The **Symbol** list is a standard dropdown rather than a search box. Open it and
 type the first letters of a ticker to jump to it — typing "B" then "T" walks you
 toward BTC pairs, for instance — exactly as you would in any list your screen
-reader knows. This is also where a missing credential surfaces: if the provider you
+reader knows. A list too long to hold whole (Alpaca's US stocks, over 14,000) has a
+**Find symbol** box before it instead: type part of a ticker and, once you stop typing for
+half a second, the terminal says how many match ("4 matches..."); the matches are then in
+the Symbol list. Past the Load button, the **timeframe quick picks** set the timeframe
+in one press, and the one in use is announced as pressed. This is also where a missing credential surfaces: if the provider you
 picked requires a key you have not configured, the Symbol list contains a single
 entry reading "⚠ API key required — open API Keys (Alt+K)", and the Load button
 stays disabled until you go back and add one. That sentinel is the terminal's way
@@ -842,7 +847,9 @@ on it from anywhere; the Go bar's `HA` switches Heikin Ashi on or off directly.
   last one's end. A move of less than a box draws nothing. The box is the ATR (14 by default), a
   fixed size, or a **percentage of the last price** (TradingView's "Percentage (LTP)"), each
   frozen as a price when you choose it, like Renko's. **Point and figure settings** opens the same
-  dialog with "Box" (ATR, Fixed or Percentage of the last price, with a "Resolved box" preview),
+  dialog with "Box" (ATR, Fixed or Percentage of the last price, with a "Resolved box" preview
+  that is read with the field and said half a second after you stop typing, in every chart type's
+  ATR setting too),
   a **Reversal** field (1 to 20 boxes) and a **Source**: **Close**, or **High and low**, where a
   bar's high carries an X column on and its low an O column, and only when it does not carry the
   column on can the other side turn it. The Go bar's `PNF 500` sets a fixed box, `PNF ATR 20`
@@ -5633,7 +5640,8 @@ sonification bed belong to the focused chart only.
 By default only the chart on screen is live; switch from a Bitcoin tab to a gold tab and the
 Bitcoin alerts and strategies go quiet until you switch back. Settings (F12) → General →
 **"Keep watching other tabs"** lifts that. Every other open tab is then re-fetched on a
-polling cadence (every 30 seconds by default, adjustable, floor 10), its indicators
+polling cadence (every 30 seconds by default; **Check every (seconds)** takes 10 to 600, and a
+number outside that is set to the nearest end and said, as is an entry that is not a number), its indicators
 recomputed, and its symbol-scoped alerts and running strategies evaluated on the fresh bars.
 **"Live-stream other tabs"** keeps up to eight background tabs on real streaming data instead
 of the poll where the exchange allows it. It is off by default because it spends your
@@ -5729,7 +5737,8 @@ The Windows app has no browser to close, so its equivalent is the window. Closin
 X or Alt+F4 **minimises to the notification area by default** and a notification confirms the
 terminal is still running; from then on every event, including the focused chart's bar close,
 arrives as a notification because nothing is being read aloud on screen. Restore or Quit from
-the tray icon. Settings → General → **Minimize to tray on exit** turns this off. This path is
+the tray icon. Settings → General → **Minimize to tray on exit** turns this off, from when you
+save Settings. This path is
 built and tested in code but has not yet been run on a Windows machine.
 
 The native apps have **no headless monitor**: with the window open they watch the focused
@@ -5924,6 +5933,11 @@ other, the editor **says so inline and leaves them alone**; it never quietly cor
 choice. **Reset all** returns to the base theme, and **Save and use** keeps your version as a
 named theme of your own, which saves and loads as text you can send to someone else.
 
+**Delete theme**, beside the picker while one of your own themes is chosen, asks first: it
+says *"Delete the theme Mine? It cannot be undone, and Cancel in Settings does not bring it
+back. Confirm delete, or cancel."* and moves you to **Confirm delete**. **Cancel** beside it, or
+Escape, keeps the theme and puts you back on Delete theme.
+
 Every colour belongs to a theme: to change one, Clone the theme you use and set it in the
 editor.
 
@@ -5964,7 +5978,8 @@ interface text throughout the terminal — browser zoom still works on top of it
 at the top of the whole dialog there is a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
-never need to remember which of the tabs holds a setting.
+never need to remember which of the tabs holds a setting. Once you stop typing for half a
+second, the number of matches is said ("3 matching settings.").
 
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled

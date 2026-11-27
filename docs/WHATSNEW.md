@@ -8,6 +8,15 @@
 
 ## Unreleased
 
+- **Settings, the toolbar and Help read better (from an accessibility review).** Brick settings
+  works in the online demo. Dialogs are announced by their heading: "Go", "Kagi settings",
+  "Switching to analytics". Find symbol and the Settings search say how many match once you stop
+  typing. Delete theme asks before deleting. "Check every (seconds)" says when it corrects a
+  number. Export CSV says whether it worked. Fourteen Settings hints are now read with their
+  fields. The timeframe quick pick in use is announced as pressed. A refused entry in the
+  chart-type settings is marked and described at its field, and the resolved box is said once
+  you stop typing. Help names the real buttons and all
+  fifteen chart types.
 - **Clearer trading fields (from an accessibility review).** Hyperliquid's "Vault or subaccount"
   field is now plain text you can read back, with a hint, and a bad address is refused at Save. The
   dead-man's switch seconds field says when it corrects a number, and its hint is short and its
