@@ -54,7 +54,7 @@ namespace AccessibleTrader.Core.Services.Settings
             new("Reset all settings to defaults", "General", "s-factory-reset", "factory reset defaults erase wipe personalization start over clean"),
             new("Resume last session at startup", "General", "s-resume-session", "autosave restore workspace"),
             new("Keep watching other tabs", "General", "s-bg-monitor", "background monitoring alerts strategies"),
-            new("Check every", "General", "s-bg-poll", "background poll seconds interval refresh"),
+            new("Check every (seconds)", "General", "s-bg-poll", "background poll seconds interval refresh"),
             new("Live-stream other tabs", "General", "s-bg-live-tabs", "background streaming tick fresh"),
             new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
             new("Minimize to tray on exit", "General", "s-minimize-to-tray", "window close tray notification area quit background keep running"),

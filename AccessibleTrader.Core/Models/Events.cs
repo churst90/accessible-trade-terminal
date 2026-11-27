@@ -414,8 +414,15 @@ namespace AccessibleTrader.Core.Models
     /// opened") rather than only the focus-moved heading. Legacy call sites
     /// that haven't been updated yet use the one-arg constructor and pass null.
     /// </para>
+    /// <para>
+    /// <paramref name="SpokenName"/>, when set, is what MainLayout says instead of
+    /// <paramref name="ModalName"/>. ModalName is a key that the modal stack, Escape and the
+    /// Go bar match on ("GoBar", "ShapeChangeWarning", "Brick settings"), so it cannot change;
+    /// the spoken name is the dialog's heading, so the user hears "Go dialog opened", not
+    /// "GoBar dialog opened" (accessibility review 2026-11-27).
+    /// </para>
     /// </summary>
-    public record ModalStateChangedEvent(bool IsOpen, string? ModalName = null);
+    public record ModalStateChangedEvent(bool IsOpen, string? ModalName = null, string? SpokenName = null);
 
     /// <summary>
     /// Published by <see cref="Services.Input.CommandDispatcher"/> when the user presses Escape with

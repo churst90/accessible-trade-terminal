@@ -154,6 +154,8 @@ public class MinimizeToTraySettingTests
         Assert.NotNull(spoken);
         Assert.Contains("Minimize to tray on", spoken);
         Assert.Contains("keeps running", spoken);
+        // Staged until Save, and said so: Cancel after ticking it must not have been told a lie.
+        Assert.Contains("when you save", spoken);
         // There is always a way out that does not need the window, and the user is told it.
         Assert.Contains("Quit", spoken);
     }
@@ -174,7 +176,8 @@ public class MinimizeToTraySettingTests
         var spoken = spokenLines.Last();
         Assert.NotNull(spoken);
         Assert.Contains("Minimize to tray off", spoken);
-        Assert.Contains("quits", spoken);
+        Assert.Contains("quit the terminal", spoken);
+        Assert.Contains("when you save", spoken);
     }
 
     /// <summary>

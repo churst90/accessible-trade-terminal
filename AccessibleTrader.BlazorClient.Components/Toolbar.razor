@@ -259,7 +259,7 @@
                 </select>
                 @if (Store.State.ChartStyle.IsBrickStyle())
                 {
-                    <ToolbarIconButton Icon="settings" Label="Brick settings" Variant="data"
+                    <ToolbarIconButton Icon="settings" Label="@ChartTypeSettingsModal.TitleFor(Store.State.ChartStyle)" Variant="data"
                                       ElementId="brick-settings-button"
                                       Tooltip="@BuiltChartSettingsTooltip"
                                       OnClick="() => EventBus.Publish(new OpenChartTypeSettingsEvent())" />
@@ -472,7 +472,10 @@
             <div role="group" aria-label="Timeframe quick picks" style="display:inline-flex; flex-wrap:wrap; gap:2px;">
                 @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
                 {
+                    @* aria-pressed on the one selected now, so a screen reader says which it
+                       is (a11y review 2026-11-27). Ordinal: "1m" is a minute, "1M" a month. *@
                     <button style="padding:1px 4px; font-size:0.75rem; line-height:1.3;"
+                            aria-pressed="@(string.Equals(MarketOrchestrator.SelectedTimeframe, tf, StringComparison.Ordinal) ? "true" : "false")"
                             aria-label="Set timeframe to @tf"
                             title="Set timeframe to @tf"
                             @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
@@ -509,7 +512,7 @@
                 border-radius:6px; z-index:9999; max-width:480px; box-shadow:0 4px 20px rgba(0,0,0,0.6);">
         @* tabindex="-1" so the heading can take programmatic focus — that is what makes a
            screen reader read the dialog's name and, via aria-describedby, what it is about. *@
-        <h3 id="switchWarnTitle" tabindex="-1" style="margin-top:0; color:#ff8c00;">Switching to analytics</h3>
+        <h3 id="switchWarnTitle" tabindex="-1" style="margin-top:0; color:#ff8c00;">@ShapeChangeWarningTitle</h3>
         <p id="switchWarnBody" style="margin:8px 0;">
             This provider returns scalar metric data, not OHLCV. Loading it on the current
             tab will remove @_stripCount indicator(s) and drawing(s). Trading-mode tools
@@ -846,7 +849,17 @@
     // ── Find box for a long symbol list ─────────────────────────────────
     private string _symbolFind = "";
 
-    private void OnSymbolFindInput(ChangeEventArgs e) => _symbolFind = e.Value?.ToString() ?? "";
+    private PausedTypingReader? _symbolFindReader;
+
+    /// <summary>Filters the Symbol list and, once typing pauses, says how many match: the
+    /// count's span is only a description, read when focus arrives, never while typing.</summary>
+    private void OnSymbolFindInput(ChangeEventArgs e)
+    {
+        _symbolFind = e.Value?.ToString() ?? "";
+        _symbolFindReader ??= new PausedTypingReader(EventBus,
+            Services.GetService<TimeProvider>() ?? TimeProvider.System, InvokeAsync);
+        _symbolFindReader.Restart(() => string.IsNullOrWhiteSpace(_symbolFind) ? null : SymbolFindHelp);
+    }
 
     private string SymbolFindHelp
     {
@@ -910,6 +923,10 @@
             PriceChartStyle.PointAndFigure => "pnf",
             _ => "candles",
         });
+
+    /// <summary>The shape-change dialog's heading, also what is spoken when it opens and
+    /// closes (its modal-stack key stays "ShapeChangeWarning").</summary>
+    private const string ShapeChangeWarningTitle = "Switching to analytics";
 
     private string BuiltChartSettingsTooltip => Store.State.ChartStyle switch
     {
@@ -1126,7 +1143,7 @@
                 _showSwitchWarning = true;
                 // Pushes this dialog onto CommandDispatcher's modal stack (so Escape targets
                 // it), arms MainLayout's Tab trap, and on MAUI hides the SkiaSharp canvas.
-                EventBus.Publish(new ModalStateChangedEvent(true, "ShapeChangeWarning"));
+                EventBus.Publish(new ModalStateChangedEvent(true, "ShapeChangeWarning", ShapeChangeWarningTitle));
                 StateHasChanged();
                 await Task.Yield();
                 // Best-effort exactly as in ModalBase.ShowModalAsync — a JS failure must not
@@ -1179,7 +1196,7 @@
     private async Task CloseSwitchWarningAsync()
     {
         _showSwitchWarning = false;
-        EventBus.Publish(new ModalStateChangedEvent(false, "ShapeChangeWarning"));
+        EventBus.Publish(new ModalStateChangedEvent(false, "ShapeChangeWarning", ShapeChangeWarningTitle));
         StateHasChanged();
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "toolbar-load-btn"); }
@@ -1209,6 +1226,7 @@
     private Task CancelSwitch() => CloseSwitchWarningAsync();
 
     public void Dispose() {
+        _symbolFindReader?.Dispose();
         _pipelineSub?.Dispose();
         _loadChartSub?.Dispose();
         _stateSub?.Dispose();

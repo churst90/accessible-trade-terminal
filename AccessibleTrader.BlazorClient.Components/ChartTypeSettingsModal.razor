@@ -22,7 +22,7 @@
                 </p>
                 <div class="modal-row" style="margin-top: 12px;">
                     <label for="line-break-lines">Lines:</label>
-                    <input id="line-break-lines"
+                    <input id="line-break-lines" aria-invalid="@(_errorField == "line-break-lines" ? "true" : "false")" aria-describedby="@DescribedBy("line-break-lines")"
                            type="number"
                            min="@LineBreakBuilder.MinLines"
                            max="@LineBreakBuilder.MaxLines"
@@ -75,7 +75,7 @@
                     <label for="renko-atr-length">ATR length:</label>
                     @* Bound on input, not change: the browser sends Enter's keydown BEFORE the
                        change event, so a change binding made Enter apply the previous value. *@
-                    <input id="renko-atr-length"
+                    <input id="renko-atr-length" aria-invalid="@(_errorField == "renko-atr-length" ? "true" : "false")" aria-describedby="@DescribedBy("renko-atr-length")"
                            type="number"
                            min="1"
                            max="200"
@@ -89,7 +89,7 @@
             {
                 <div class="modal-row" style="margin-top: 12px;">
                     <label for="kagi-reversal-percent">@(_style == PriceChartStyle.PointAndFigure ? "Box percentage:" : "Reversal percentage:")</label>
-                    <input id="kagi-reversal-percent"
+                    <input id="kagi-reversal-percent" aria-invalid="@(_errorField == "kagi-reversal-percent" ? "true" : "false")" aria-describedby="@DescribedBy("kagi-reversal-percent")"
                            type="number"
                            min="0"
                            max="100"
@@ -108,7 +108,7 @@
                         PriceChartStyle.Kagi => "Reversal amount:",
                         _ => "Box size:",
                     })</label>
-                    <input id="renko-box-size"
+                    <input id="renko-box-size" aria-invalid="@(_errorField == "renko-box-size" ? "true" : "false")" aria-describedby="@DescribedBy("renko-box-size")"
                            type="number"
                            min="0"
                            step="any"
@@ -121,7 +121,9 @@
             @if (_mode == RenkoBoxMode.Atr
                  || (_mode == RenkoBoxMode.Percent && _style == PriceChartStyle.PointAndFigure))
             {
-                <p id="renko-box-preview" role="status" style="margin-top: 8px; font-size: 0.9rem;">
+                @* No role=status: it changes on every keystroke, so a live region read the
+                   box over and over while typing (a11y review 2026-11-27). It sits by the field. *@
+                <p id="renko-box-preview" style="margin-top: 8px; font-size: 0.9rem;">
                     @BoxPreview()
                 </p>
             }
@@ -130,7 +132,7 @@
             {
                 <div class="modal-row" style="margin-top: 12px;">
                     <label for="pnf-reversal">Reversal (boxes):</label>
-                    <input id="pnf-reversal"
+                    <input id="pnf-reversal" aria-invalid="@(_errorField == "pnf-reversal" ? "true" : "false")" aria-describedby="@DescribedBy("pnf-reversal")"
                            type="number"
                            min="@PointFigureBuilder.MinReversal"
                            max="@PointFigureBuilder.MaxReversal"
@@ -160,7 +162,10 @@
 
             @if (!string.IsNullOrEmpty(_statusMessage))
             {
-                <p role="status" style="margin-top: 8px; color: @(_isError ? "#f44" : "#4f4"); font-size: 0.9rem;">@_statusMessage</p>
+                @* Linked to the refused field (aria-invalid + aria-describedby) and not a live
+                   region: Refuse already speaks the sentence, so role=status read it twice
+                   (a11y review 2026-11-27). *@
+                <p id="@ErrorId" style="margin-top: 8px; color: @(_isError ? "#f44" : "#4f4"); font-size: 0.9rem;">@_statusMessage</p>
             }
 
             <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
@@ -183,8 +188,12 @@
 
     /// <summary>One dialog for the five charts built off the clock; it shows the settings of
     /// the type on screen. Its modal name stays "Brick settings" so the modal stack and the
-    /// keyboard scope know it as before.</summary>
-    private string Title => _style switch
+    /// keyboard scope know it as before; what is SPOKEN is this title.</summary>
+    private string Title => TitleFor(_style);
+
+    /// <summary>The dialog's heading for a chart type; the toolbar button carries the same
+    /// words, so the button you press and the dialog you hear match.</summary>
+    internal static string TitleFor(PriceChartStyle style) => style switch
     {
         PriceChartStyle.RangeBars => "Range bar settings",
         PriceChartStyle.LineBreak => "Line break settings",
@@ -203,6 +212,12 @@
     };
     private string? _statusMessage;
     private bool _isError;
+    /// <summary>The field the last refusal was about: it is marked invalid and described by
+    /// the error, so returning to it says what is wrong.</summary>
+    private string? _errorField;
+
+    internal const string ErrorId = "chart-type-error";
+    private string? DescribedBy(string field) => _errorField == field ? ErrorId : null;
 
     protected override void OnInitialized()
     {
@@ -211,6 +226,8 @@
     }
 
     protected override string ModalName => "Brick settings";
+    // Heard as its heading: "Kagi settings dialog opened", not "Brick settings" on a Kagi chart.
+    protected override string? SpokenModalName => Title;
 
     private async Task ShowAsync()
     {
@@ -236,6 +253,7 @@
         _highLow = state.Renko.PnfHighLow;
         _statusMessage = null;
         _isError = false;
+        _errorField = null;
         await ShowModalAsync("chart-type-settings-title");
     }
 
@@ -244,6 +262,7 @@
         _mode = mode;
         _statusMessage = null;
         _isError = false;
+        _errorField = null;
     }
 
     /// <summary>What the ATR setting would freeze right now, from the tab's real bars.</summary>
@@ -376,6 +395,7 @@
     {
         _statusMessage = sentence;
         _isError = true;
+        _errorField = focusElementId;
         EventBus.Publish(new AnnouncementEvent(sentence,
             Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();

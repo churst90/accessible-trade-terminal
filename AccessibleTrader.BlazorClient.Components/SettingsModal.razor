@@ -60,8 +60,11 @@
             {
                 <div role="region" aria-label="Setting search results"
                      style="border:1px solid var(--border-color); border-radius:4px; padding:6px 10px; margin-bottom:12px;">
-                    <p id="s-search-count" role="status" style="margin:2px 0; font-size:0.85rem; color:var(--text-muted);">
-                        @_searchResults.Count matching setting@(_searchResults.Count == 1 ? "" : "s").
+                    @* Not role=status: it is created already filled with the region, which a
+                       screen reader often does not read, so the count is SPOKEN once typing
+                       pauses (SearchCountSentence); this stays as the box's description. *@
+                    <p id="s-search-count" style="margin:2px 0; font-size:0.85rem; color:var(--text-muted);">
+                        @SearchCountSentence(_searchResults.Count)
                     </p>
                     @foreach (var r in _searchResults)
                     {
@@ -256,11 +259,11 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Workspace</legend>
                     <div class="modal-row">
                         <label for="s-resume-session">Resume last session at startup</label>
-                        <input id="s-resume-session" type="checkbox"
+                        <input id="s-resume-session" aria-describedby="s-resume-session-hint" type="checkbox"
                                checked="@_resumeSession"
                                @onchange="OnResumeSessionChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Reopens the same charts, tabs and indicators; saved every 30 seconds and on close.</p>
+                    <p id="s-resume-session-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Reopens the same charts, tabs and indicators; saved every 30 seconds and on close.</p>
 
                 </fieldset>
 
@@ -315,28 +318,35 @@
                         <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Background monitoring</legend>
                         <div class="modal-row">
                             <label for="s-bg-monitor">Keep watching other tabs</label>
-                            <input id="s-bg-monitor" type="checkbox"
+                            <input id="s-bg-monitor" aria-describedby="s-bg-monitor-hint" type="checkbox"
                                    checked="@_bgMonitoring"
                                    @onchange="OnBgMonitoringChanged" />
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts and strategies keep running on tabs you are not looking at.</p>
+                        <p id="s-bg-monitor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts and strategies keep running on tabs you are not looking at.</p>
 
+                        @* The unit is in the label: in a span beside the box it was never read
+                           with the field. Corrected entries are said, as for the dead-man's
+                           seconds (a11y review 2026-11-27: 5 or 900 became 10 or 600 silently). *@
                         <div class="modal-row">
-                            <label for="s-bg-poll">Check every</label>
-                            <input id="s-bg-poll" type="number" min="10" max="600" step="5"
-                                   value="@_bgPollSeconds"
+                            <label for="s-bg-poll">Check every (seconds)</label>
+                            <input id="s-bg-poll" type="number" min="@BgPollMin" max="@BgPollMax" step="5"
+                                   aria-describedby="@(_bgPollError != null ? "s-bg-poll-err s-bg-poll-hint" : "s-bg-poll-hint")"
+                                   value="@(_bgPollShown ?? _bgPollSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture))"
                                    @onchange="OnBgPollChanged" />
-                            <span style="color:var(--text-muted);">seconds</span>
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Minimum 10 seconds.</p>
+                        @if (_bgPollError != null)
+                        {
+                            <p id="s-bg-poll-err" class="field-error" style="margin:-8px 0 4px;">@_bgPollError</p>
+                        }
+                        <p id="s-bg-poll-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">10 to 600.</p>
 
                         <div class="modal-row">
                             <label for="s-bg-live-tabs">Live-stream other tabs</label>
-                            <input id="s-bg-live-tabs" type="checkbox"
+                            <input id="s-bg-live-tabs" aria-describedby="s-bg-live-tabs-hint" type="checkbox"
                                    checked="@_liveBgTabs"
                                    @onchange="OnLiveBgTabsChanged" />
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        <p id="s-bg-live-tabs-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
                             Other tabs stay up to the second and announce their bar closes (the first
                             @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs, on exchanges that support it).
                         </p>
@@ -374,11 +384,11 @@
                         <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Window</legend>
                         <div class="modal-row">
                             <label for="s-minimize-to-tray">Minimize to tray on exit</label>
-                            <input id="s-minimize-to-tray" type="checkbox"
+                            <input id="s-minimize-to-tray" aria-describedby="s-minimize-to-tray-hint" type="checkbox"
                                    checked="@_minimizeToTray"
                                    @onchange="OnMinimizeToTrayChanged" />
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        <p id="s-minimize-to-tray-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
                             Closing the window hides the terminal in the tray, where alerts and fills
                             keep arriving; the tray menu (Shift+F10) has Restore and Quit.
                         </p>
@@ -390,7 +400,7 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
                     <div class="modal-row">
                         <label for="s-touch-nav">Touch toolbar</label>
-                        <select id="s-touch-nav"
+                        <select id="s-touch-nav" aria-describedby="s-touch-nav-hint"
                                 value="@_touchNavMode"
                                 @onchange="OnTouchNavModeChanged"
                                 aria-label="Touch toolbar visibility">
@@ -398,7 +408,7 @@
                             <option value="show">Always show</option>
                             <option value="hide">Never show</option>
                         </select>
-                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for touch.</p>
+                    <p id="s-touch-nav-hint" style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for touch.</p>
                     </div>
                 </fieldset>
 
@@ -440,18 +450,18 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Drawing</legend>
                     <div class="modal-row">
                         <label for="s-magnet-snap">Magnet snap</label>
-                        <input id="s-magnet-snap" type="checkbox"
+                        <input id="s-magnet-snap" aria-describedby="s-magnet-snap-hint" type="checkbox"
                                checked="@_magnetSnap"
                                @onchange="OnMagnetSnapChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing points snap to the nearest open, high, low or close.</p>
+                    <p id="s-magnet-snap-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Drawing points snap to the nearest open, high, low or close.</p>
                     <div class="modal-row">
                         <label for="s-swing-snap">Snap swing points to the wick</label>
-                        <input id="s-swing-snap" type="checkbox"
+                        <input id="s-swing-snap" aria-describedby="s-swing-snap-hint" type="checkbox"
                                checked="@_swingSnap"
                                @onchange="OnSwingSnapChanged" />
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A fib, pitchfork or pattern point lands on the bar's high or low, whichever the swing needs.</p>
+                    <p id="s-swing-snap-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A fib, pitchfork or pattern point lands on the bar's high or low, whichever the swing needs.</p>
 
                 </fieldset>
 
@@ -480,9 +490,11 @@
                         <span style="flex:1; font-size:0.9rem;">Export visible chart data (OHLCV + indicators) to CSV</span>
                         <button @onclick="ExportDataAsync" aria-label="Export CSV of the chart data">Export CSV</button>
                     </div>
+                    @* Spoken by ExportDataAsync (a role=status created already filled was often
+                       not read); this line keeps the result on screen, red when it failed. *@
                     @if (!string.IsNullOrEmpty(_exportStatus))
                     {
-                        <p role="status" style="color:#4c8; font-size:0.85rem; margin-top:6px;">@_exportStatus</p>
+                        <p class="@(_exportFailed ? "field-error" : null)" style="@(_exportFailed ? "font-size:0.85rem; margin-top:6px;" : "color:#4c8; font-size:0.85rem; margin-top:6px;")">@_exportStatus</p>
                     }
                 </fieldset>
 
@@ -512,7 +524,7 @@
 
                     <div class="modal-row">
                         <label for="s-timestamp-where">Speak the time</label>
-                        <select id="s-timestamp-where" value="@_timestampWhere"
+                        <select id="s-timestamp-where" aria-describedby="s-timestamp-where-hint" value="@_timestampWhere"
                                 @onchange="OnTimestampWhereChanged">
                             <option value="Always">On every reading</option>
                             <option value="Along X Axis">Only when moving through time</option>
@@ -520,17 +532,17 @@
                             <option value="None">Never</option>
                         </select>
                     </div>
-                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-timestamp-where-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         The time is the longest part of a reading; leaving it out makes scanning quicker.
                     </p>
 
                     <div class="modal-row">
                         <label for="s-date-every-bar">Speak the date on every bar</label>
-                        <input id="s-date-every-bar" type="checkbox"
+                        <input id="s-date-every-bar" aria-describedby="s-date-every-bar-hint" type="checkbox"
                                checked="@Store.State.SpeakDateOnEveryBar"
                                @onchange="e => _dateEveryBar = e.Value is bool b ? b : Store.State.SpeakDateOnEveryBar" />
                     </div>
-                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-date-every-bar-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         Off, an intraday bar reads its time alone and the date is spoken only when
                         you cross into a new day.
                     </p>
@@ -550,11 +562,11 @@
 
                     <div class="modal-row">
                         <label for="s-twelve-hour">12-hour clock with AM and PM</label>
-                        <input id="s-twelve-hour" type="checkbox"
+                        <input id="s-twelve-hour" aria-describedby="s-twelve-hour-hint" type="checkbox"
                                checked="@_twelveHour"
                                @onchange="e => _twelveHour = e.Value is bool b && b" />
                     </div>
-                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-twelve-hour-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
                         "2:30 PM" instead of "14:30".
                     </p>
 
@@ -615,14 +627,14 @@
                     {
                         <div class="modal-row">
                             <label for="s-speech-output">Speech output on this device</label>
-                            <select id="s-speech-output" value="@_speechOutputMode"
+                            <select id="s-speech-output" aria-describedby="s-speech-output-hint" value="@_speechOutputMode"
                                     @onchange="OnSpeechOutputChanged">
                                 <option value="sr">My screen reader does the talking</option>
                                 <option value="tts">Browser voice reads everything</option>
                                 <option value="both">Both together</option>
                             </select>
                         </div>
-                        <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        <p id="s-speech-output-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                             Remembered per browser: a screen reader can't be detected, so say which
                             voice talks here.
                         </p>
@@ -966,17 +978,16 @@
 
                     <div class="modal-row">
                         <label for="s-sound-theme">Sound theme</label>
-                        <select id="s-sound-theme"
+                        <select id="s-sound-theme" aria-describedby="s-sound-theme-hint"
                                 value="@_soundTheme"
-                                @onchange="OnSoundThemeChanged"
-                                aria-label="Sound theme: which instrument family each indicator uses">
+                                @onchange="OnSoundThemeChanged">
                             @foreach (var t in Core.Services.Audio.SoundThemes.All)
                             {
                                 <option value="@t.Id">@t.Name</option>
                             }
                         </select>
                     </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-sound-theme-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         One instrument per indicator family, for indicators you add from now on.
                     </p>
                 </fieldset>
@@ -1040,11 +1051,11 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Braille / Tactile Display</legend>
                     <div class="modal-row">
                         <label for="s-braille-enabled">Braille display</label>
-                        <input id="s-braille-enabled" type="checkbox"
+                        <input id="s-braille-enabled" aria-describedby="s-braille-enabled-hint" type="checkbox"
                                checked="@_brailleEnabled"
                                @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
                     </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-braille-enabled-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         Looks for a Dot Pad (any model) and says when one connects or disconnects;
                         Windows only.
                     </p>
@@ -1084,7 +1095,7 @@
 
                     <div class="modal-row">
                         <label for="s-theme">Theme</label>
-                        <select id="s-theme"
+                        <select id="s-theme" aria-describedby="s-theme-hint"
                                 value="@_selectedTheme"
                                 @onchange="OnThemeChanged">
                             <option value="SteelGray">Steel Gray</option>
@@ -1118,13 +1129,29 @@
                                 title="Copy @SelectedThemeName into a theme of your own">Clone theme</button>
                         <GatedButton ElementId="s-theme-edit" OnClick="EditTheme" Gate="EditThemeGate"
                                      title="@($"Change {SelectedThemeName} in place")">Edit theme</GatedButton>
+                        @* Two steps, like the paper reset: Delete is not staged for Save, so Cancel
+                           never brought a theme back, and one keypress erased it (a11y review
+                           2026-11-27). *@
                         @if (SelectedCustomTheme is { } sel)
                         {
-                            <button type="button" id="s-theme-delete" @onclick="DeleteTheme"
-                                    aria-label="Delete theme @sel.Name">Delete theme</button>
+                            @if (_pendingThemeDelete == sel.Id)
+                            {
+                                <button type="button" id="s-theme-delete-confirm"
+                                        style="color:#c00; font-weight:700;"
+                                        aria-label="Confirm delete. Deletes the theme @sel.Name now. This cannot be undone."
+                                        @onclick="ConfirmDeleteTheme">Confirm delete</button>
+                                <button type="button" id="s-theme-delete-cancel"
+                                        aria-label="Cancel, keep the theme @sel.Name"
+                                        @onclick="CancelDeleteTheme">Cancel</button>
+                            }
+                            else
+                            {
+                                <button type="button" id="s-theme-delete" @onclick="ArmDeleteTheme"
+                                        aria-label="Delete theme @sel.Name. Asks for confirmation first.">Delete theme</button>
+                            }
                         }
                     </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-theme-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         Colours the whole window; every colour can be changed in the editor.
                     </p>
                 </fieldset>
@@ -1270,7 +1297,7 @@
                         <select id="s-trade-status-figure"
                                 value="@_tradeStatusFigure"
                                 @onchange="OnTradeStatusFigureChanged"
-                                aria-describedby="s-trade-status-bar-hint">
+                                aria-describedby="s-trade-status-figure-hint">
                             <option value="percent">Percent (default)</option>
                             <option value="amount">Amount</option>
                             <option value="both">Percent and amount</option>
@@ -1279,7 +1306,12 @@
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-trade-status-bar-hint" style="font-size:0.85rem;color:var(--text-muted);">
                             Each open position under the indicator bar, green when up and red when down,
-                            such as "BTCUSDT Kraken Futures isolated 1x long, up 14.3%"; the percent is of the margin put up.
+                            such as "BTCUSDT Kraken Futures isolated 1x long, up 14.3%".
+                        </span>
+                        @* Its own hint: both selects pointed at the one above, so Tab from the
+                           first to the second read it twice (a11y review 2026-11-27). *@
+                        <span id="s-trade-status-figure-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            The percent is of the margin put up.
                         </span>
                     </div>
                 </fieldset>
@@ -1641,8 +1673,21 @@
     private string _searchQuery = string.Empty;
     private List<SettingEntry> _searchResults = new();
 
+    private PausedTypingReader? _searchReader;
+
+    internal static string SearchCountSentence(int count) => count switch
+    {
+        0 => "No matching settings.",
+        1 => "1 matching setting.",
+        var n => $"{n} matching settings.",
+    };
+
     private void OnSearchInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
+        _searchReader ??= new PausedTypingReader(EventBus,
+            ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System, InvokeAsync);
+        // Said once typing pauses; nothing for an emptied box (the results list is gone).
+        _searchReader.Restart(() => string.IsNullOrWhiteSpace(_searchQuery) ? null : SearchCountSentence(_searchResults.Count));
         _searchQuery = e.Value?.ToString() ?? string.Empty;
         var q = _searchQuery.Trim();
         _searchResults = string.IsNullOrEmpty(q)
@@ -1727,6 +1772,7 @@
             // ApiKeysModal's armed removal.
             if (_pendingPaperReset) InvokeAsync(CancelPaperReset);
             else if (_pendingFactoryReset) InvokeAsync(CancelFactoryReset);
+            else if (_pendingThemeDelete != null) InvokeAsync(CancelDeleteTheme);
             else InvokeAsync(Cancel);
         });
         ThemeService.ThemeChanged += OnThemeServiceChanged;
@@ -1762,6 +1808,7 @@
     private void OnThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _selectedTheme = e.Value?.ToString() ?? _selectedTheme;
+        _pendingThemeDelete = null;   // a question about the theme no longer selected
 
         // "custom:{id}" selects one of the user's own; anything else is a built-in enum name.
         ApplySelectedTheme();
@@ -1856,13 +1903,18 @@
     /// <para>ON by default since 2026-09-11, which makes the announcement below matter more,
     /// not less: it is now the OFF direction that changes what the close button does.</para>
     /// </summary>
+    /// <summary>What ticking the box says. "When you save": the choice is staged and committed
+    /// by Save, so a sentence saying the window now hides was wrong after a Cancel (a11y
+    /// review 2026-11-27).</summary>
+    internal static string MinimizeToTraySentence(bool on) => on
+        ? "Minimize to tray on when you save. Closing the window will then hide the terminal to the notification area, where it keeps running and sends alerts, order fills and bar closes as notifications. Quit from the tray menu."
+        : "Minimize to tray off when you save. Closing the window will then quit the terminal, and nothing is watched after that.";
+
     private void OnMinimizeToTrayChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _minimizeToTray = e.Value is bool b && b;
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _minimizeToTray
-                ? "Minimize to tray on. Closing the window hides the terminal to the notification area and it keeps running, sending alerts, order fills and bar closes as notifications. Quit from the tray menu."
-                : "Minimize to tray off. Closing the window quits the terminal, and nothing is watched after that.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, MinimizeToTraySentence(_minimizeToTray),
+            true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void OnVisualEarconsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -2084,14 +2136,50 @@
             EventBus.Publish(new OpenThemeEditorEvent(preset.Id, ThemeEditorMode.Edit));
     }
 
+    /// <summary>The id of the custom theme whose deletion is asked and not yet answered;
+    /// cleared on open, Save, Cancel, Escape and a change of theme, like the paper reset.</summary>
+    private string? _pendingThemeDelete;
+
+    /// <summary>Asks first. Nothing is deleted here.</summary>
+    private async Task ArmDeleteTheme()
+    {
+        if (SelectedCustomTheme is not { } preset) return;
+        _pendingThemeDelete = preset.Id;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Delete the theme {preset.Name}? It cannot be undone, and Cancel in Settings does not bring it back. "
+          + "Confirm delete, or cancel.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-theme-delete-confirm"); }
+        catch { /* best-effort; both buttons are one Tab away */ }
+    }
+
+    /// <summary>Answers "no", from the Cancel button or Escape; focus returns to Delete theme.</summary>
+    private async Task CancelDeleteTheme()
+    {
+        string name = SelectedCustomTheme?.Name ?? "The theme";
+        _pendingThemeDelete = null;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Cancelled. {name} was not deleted.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-theme-delete"); }
+        catch { }
+    }
+
     /// <summary>
     /// The Delete button is rendered only while a custom theme is selected, so the element under
     /// the user's finger disappears on the render this causes and focus would fall to
     /// <c>&lt;body&gt;</c>, outside the dialog — the ObjectTree Delete defect in a new place.
     /// Focus goes to the picker, which now shows the theme that took over.
     /// </summary>
-    private async Task DeleteTheme()
+    private async Task ConfirmDeleteTheme()
     {
+        _pendingThemeDelete = null;
         if (SelectedCustomTheme is not { } preset) return;
 
         Themes.Remove(preset.Id);
@@ -2162,10 +2250,43 @@
         return (seconds, null);
     }
 
-    private void OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    internal const int BgPollMin = 10, BgPollMax = 600;
+    private string? _bgPollError;
+    private string? _bgPollShown;   // the raw entry, for one render only
+
+    /// <summary>Same rule and same one-render echo as <see cref="OnDeadMansSecondsChanged"/>.</summary>
+    private async Task OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
-        if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
-        _bgPollSeconds = Math.Clamp(seconds, 10, 600);
+        var (value, message) = BgPollEntry(e.Value?.ToString(), _bgPollSeconds);
+        if (message != null)
+        {
+            _bgPollShown = e.Value?.ToString() ?? "";
+            StateHasChanged();
+            await Task.Yield();
+            _bgPollShown = null;
+        }
+        _bgPollSeconds = value;
+        _bgPollError = message;
+        if (message != null)
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, message));
+    }
+
+    internal static (int Value, string? Message) BgPollEntry(string? entry, int current) =>
+        SecondsEntry(entry, current, BgPollMin, BgPollMax, "Background check seconds");
+
+    /// <summary>A whole number of seconds from min to max: a number outside is clamped, no
+    /// number keeps the current one, and either way the message says what happened.</summary>
+    private static (int Value, string? Message) SecondsEntry(string? entry, int current, int min, int max, string what)
+    {
+        if (!int.TryParse(entry?.Trim(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int seconds))
+            return (current, $"{what} needs a number from {min} to {max}. Kept at {current}.");
+        if (seconds < min || seconds > max)
+        {
+            int clamped = Math.Clamp(seconds, min, max);
+            return (clamped, $"{what} must be {min} to {max}. Set to {clamped}.");
+        }
+        return (seconds, null);
     }
 
     private void OnQuickSizingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
@@ -2353,6 +2474,7 @@
             ?? AccessibleTrader.Core.Services.Trading.DeadMansSwitchService.DefaultSeconds);
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
+        _bgPollError = null;
         _liveBgTabs    = App.LiveBackgroundTabs;
         // AppSettings-backed rather than WorkspaceState-backed: they gate one service's
         // unprompted speech and nothing pure needs to read them, so the state record (and the
@@ -2431,6 +2553,7 @@
         // reopens: the next visitor would find "Confirm reset" under the cursor where "Reset
         // paper account" belongs, and one keypress would answer a question they never heard.
         _pendingPaperReset = false;
+        _pendingThemeDelete = null;
 
         // A shortcut that names a destination lands on it. An unknown or unavailable name —
         // "Braille" on the browser host, a stale name from an older build — falls back to the
@@ -2566,6 +2689,7 @@
         // dialog opened, one keypress from erasing an account nobody asked about.
         _pendingPaperReset = false;
         _pendingFactoryReset = false;
+        _pendingThemeDelete = null;
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -2812,6 +2936,7 @@
 
         _pendingPaperReset = false;   // see Cancel: an armed question must never outlive the dialog
         _pendingFactoryReset = false;
+        _pendingThemeDelete = null;
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         StateHasChanged();
@@ -2842,6 +2967,7 @@
     // ── Data Export ──────────────────────────────────────────────────────────
 
     private string _exportStatus = "";
+    private bool _exportFailed;
 
     private async Task ExportDataAsync()
     {
@@ -2850,24 +2976,34 @@
             var state = Store.State;
             if (state.Data == null || !state.Data.Any())
             {
-                _exportStatus = "No chart data loaded.";
+                ExportResult("Nothing exported: no chart data loaded.", failed: true);
                 return;
             }
             string csv = await DataExporter.ExportToCsvAsync(
                 state.Data, state.ViewportStartIndex, state.ViewportLength, state.ActiveSeries);
             if (string.IsNullOrEmpty(csv))
             {
-                _exportStatus = "No data in viewport.";
+                ExportResult("Nothing exported: no data in view.", failed: true);
                 return;
             }
             await JSRuntime.InvokeVoidAsync("accessibleTrader.downloadCsv",
                 $"chart_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv", csv);
-            _exportStatus = "Export complete.";
+            ExportResult("Export complete.", failed: false);
         }
         catch (Exception ex)
         {
-            _exportStatus = $"Export failed: {ex.Message}";
+            ExportResult($"Export failed: {ex.Message}", failed: true);
         }
+    }
+
+    /// <summary>Shows AND says the export's result. It was only written into a role=status
+    /// created at that moment, which is often not read, and a failure was the same green as
+    /// success (a11y review 2026-11-27).</summary>
+    private void ExportResult(string message, bool failed)
+    {
+        _exportStatus = message;
+        _exportFailed = failed;
+        EventBus.Publish(new FeedbackRequestEvent(failed ? FeedbackType.Error : FeedbackType.Info, message));
     }
 
     // ── Keyboard Rebinding ───────────────────────────────────────────────────
@@ -2986,6 +3122,7 @@
         // swallowed and its callback failing. Fire-and-forget: Dispose cannot await.
         if (_capturingCommand != null) _ = DisarmJsCaptureAsync();
         _dotNetRef?.Dispose();
+        _searchReader?.Dispose();
         _eventSub?.Dispose();
         _closeSub?.Dispose();
         ThemeService.ThemeChanged -= OnThemeServiceChanged;

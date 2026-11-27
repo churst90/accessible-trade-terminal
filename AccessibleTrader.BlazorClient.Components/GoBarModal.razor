@@ -98,6 +98,9 @@
     private TimeProvider Clock
         => _clock ??= Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
 
+    // ModalName stays "GoBar" (GoBarService and the modal stack match on it); heard as its heading.
+    protected override string? SpokenModalName => "Go";
+
     protected override void OnInitialized()
     {
         base.OnInitialized();

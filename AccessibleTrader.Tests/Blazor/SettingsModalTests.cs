@@ -429,7 +429,8 @@ public class SettingsModalTests
         SelectCustomTheme(h);
         var cut = OpenSettings(h);
 
-        cut.Find("button#s-theme-delete").Click();
+        cut.Find("button#s-theme-delete").Click();          // asks first (2026-11-27)
+        cut.WaitForElement("button#s-theme-delete-confirm").Click();
 
         h.WaitForFocus("s-theme");
     }

@@ -88,7 +88,7 @@ namespace AccessibleTrader.BlazorClient.Components
         {
             ArmCloseRequestSubscription(); // no-op when already armed via OnInitialized
             _isVisible = true;
-            EventBus.Publish(new ModalStateChangedEvent(true, ModalName));
+            EventBus.Publish(new ModalStateChangedEvent(true, ModalName, SpokenModalName));
             StateHasChanged();
             await Task.Yield();
             try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", headingElementId); }
@@ -158,7 +158,7 @@ namespace AccessibleTrader.BlazorClient.Components
         protected void CloseModal()
         {
             _isVisible = false;
-            EventBus.Publish(new ModalStateChangedEvent(false, ModalName));
+            EventBus.Publish(new ModalStateChangedEvent(false, ModalName, SpokenModalName));
             StateHasChanged();
         }
 
@@ -178,6 +178,12 @@ namespace AccessibleTrader.BlazorClient.Components
                     : name;
             }
         }
+
+        /// <summary>
+        /// What the user hears on open and close, when it differs from <see cref="ModalName"/>
+        /// (a key the modal stack matches on). Null means say ModalName.
+        /// </summary>
+        protected virtual string? SpokenModalName => null;
 
         /// <summary>
         /// Disposes the base event subscription. Override in concrete classes that have

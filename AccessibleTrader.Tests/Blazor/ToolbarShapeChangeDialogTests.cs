@@ -78,6 +78,8 @@ public sealed class ToolbarShapeChangeDialogTests
         var opened = Assert.Single(modal);
         Assert.True(opened.IsOpen);
         Assert.Equal("ShapeChangeWarning", opened.ModalName);
+        // Spoken by its heading, not its key: "ShapeChangeWarning dialog opened" until 2026-11-27.
+        Assert.Equal(cut.Find("#switchWarnTitle").TextContent.Trim(), opened.SpokenName);
 
         Assert.Contains(h.Ctx.JSInterop.Invocations["accessibleTrader.focusElement"],
                         i => (string?)i.Arguments[0] == "switchWarnTitle");
@@ -103,6 +105,7 @@ public sealed class ToolbarShapeChangeDialogTests
         var closed = Assert.Single(modal);
         Assert.False(closed.IsOpen);
         Assert.Equal("ShapeChangeWarning", closed.ModalName);
+        Assert.Equal("Switching to analytics", closed.SpokenName);
 
         // Escape is the non-destructive branch. A dialog that warns about discarding the
         // user's indicators must not read "get me out of here" as consent to discard them.

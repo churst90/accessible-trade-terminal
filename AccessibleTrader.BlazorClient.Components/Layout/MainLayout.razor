@@ -153,8 +153,12 @@
     {
         <SaveWorkspaceModal /> <LoadWorkspaceModal />
         <SaveIndicatorTemplateModal /> <ApplyIndicatorTemplateModal />
-        <ChartTypeSettingsModal />
     }
+    @* Brick settings: NOT gated. The demo offers Renko, Kagi and the rest in the Chart type
+       list and shows the settings button for them; this dialog only changes the chart in
+       memory (SetRenkoSettingsAction), it saves nothing. It sat in the save/load block above
+       until 2026-11-27, so in the demo the button did nothing and said nothing. *@
+    <ChartTypeSettingsModal />
     @* My Data import — hidden in the shared public demo (no per-visitor persistence). *@
     @if (!Demo.IsDemo)               { <MyDataModal /> }
     @* Market watch (Alt+M) — watchlists + screener. Hidden in the shared public demo for
@@ -350,11 +354,19 @@
                 // for browser-voice-only users, so they heard nothing on modal open/close.
                 // Speak() applies ShouldEnableLiveRegion: browser voice → browser TTS,
                 // server backends → their sink, browser-hop → the live region (exactly one).
-                var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
-                SpeechManager.Speak(phrase);
+                SpeechManager.Speak(ModalPhrase(evt));
             });
 
         await base.OnInitializedAsync();
+    }
+
+    /// <summary>"Kagi settings dialog opened": the dialog's spoken name (its visible heading)
+    /// when it has one, else its ModalName. The ModalName is a key ("GoBar",
+    /// "ShapeChangeWarning") and was read out as it stood until 2026-11-27.</summary>
+    internal static string ModalPhrase(ModalStateChangedEvent evt)
+    {
+        var spoken = string.IsNullOrEmpty(evt.SpokenName) ? evt.ModalName : evt.SpokenName;
+        return evt.IsOpen ? $"{spoken} dialog opened" : $"{spoken} dialog closed";
     }
 
     private void OnModalStackChanged(AccessibleTrader.Core.Services.Input.ModalStackChange change)
