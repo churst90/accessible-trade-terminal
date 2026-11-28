@@ -17,7 +17,11 @@
 
        release.yml passes PinShippedRuntime=true on every publish that bundles
        a runtime (the WebHost zips and the Mac app), which asks NuGet for this
-       version's runtime packs instead. It is not set for ordinary builds: a
+       version's runtime packs instead (Directory.Build.targets does it, by
+       raising the SDK's own entries for .NET and ASP.NET Core; setting
+       RuntimeFrameworkVersion instead also re-versions Apple's and Android's
+       runtime packs, which do not exist at 10.0.x, and the Mac build fails to
+       restore). It is not set for ordinary builds: a
        framework-dependent build would then demand this runtime on the machine
        running it, and the test runners and the Windows app (which uses the
        user's installed .NET) do not have to have it.
@@ -28,7 +32,6 @@
        the release job warns when a newer one exists. -->
   <PropertyGroup>
     <ShippedRuntimeVersion>10.0.15</ShippedRuntimeVersion>
-    <RuntimeFrameworkVersion Condition="'$(PinShippedRuntime)' == 'true'">$(ShippedRuntimeVersion)</RuntimeFrameworkVersion>
   </PropertyGroup>
 
   <!-- ── Commit stamp ──────────────────────────────────────────────────────

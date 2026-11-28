@@ -1,0 +1,20 @@
+<Project>
+  <!-- PinShippedRuntime=true (release.yml, on the publishes that bundle a
+       runtime): bundle ShippedRuntimeVersion from Directory.Build.props instead
+       of the runtime this SDK band shipped with. See the comment there.
+
+       These are the SDK's own entries (Microsoft.NETCoreSdk.BundledVersions.props),
+       raised for net10.0 only: the CoreCLR runtime and ASP.NET Core packs the
+       WebHost bundles, and the Mono pack the Mac app bundles. A self-contained
+       publish takes LatestRuntimeFrameworkVersion. Apple's and Android's own
+       packs (Microsoft.MacCatalyst.Runtime.*, Microsoft.Android.Runtime.*) are
+       other items with their own version numbers and are left alone. -->
+  <ItemGroup Condition="'$(PinShippedRuntime)' == 'true'">
+    <KnownFrameworkReference Update="Microsoft.NETCore.App;Microsoft.AspNetCore.App">
+      <LatestRuntimeFrameworkVersion Condition="'%(TargetFramework)' == 'net10.0'">$(ShippedRuntimeVersion)</LatestRuntimeFrameworkVersion>
+    </KnownFrameworkReference>
+    <KnownRuntimePack Update="Microsoft.NETCore.App">
+      <LatestRuntimeFrameworkVersion Condition="'%(TargetFramework)' == 'net10.0'">$(ShippedRuntimeVersion)</LatestRuntimeFrameworkVersion>
+    </KnownRuntimePack>
+  </ItemGroup>
+</Project>
