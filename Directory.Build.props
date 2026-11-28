@@ -8,6 +8,29 @@
     <Version>2.16.0</Version>
   </PropertyGroup>
 
+  <!-- ── The .NET runtime the downloads carry ──────────────────────────────
+       A self-contained publish bundles the runtime its SDK band knows about,
+       not the newest one. global.json holds the SDK at 10.0.3xx (for rzc), and
+       that band stopped at 10.0.303, so 2.16.0's WebHost zips carried runtime
+       10.0.11 and missed the Brotli fix in 10.0.14 (GHSA-p3jp-9v83-76w9); the
+       Mac app, built with SDK 10.0.100 for Xcode 26.0, carried 10.0.0.
+
+       release.yml passes PinShippedRuntime=true on every publish that bundles
+       a runtime (the WebHost zips and the Mac app), which asks NuGet for this
+       version's runtime packs instead. It is not set for ordinary builds: a
+       framework-dependent build would then demand this runtime on the machine
+       running it, and the test runners and the Windows app (which uses the
+       user's installed .NET) do not have to have it.
+
+       scripts/verify_release_payloads.py reads this value and refuses a release
+       whose zips carry any other runtime. Raise it to the newest 10.0.x patch
+       before each release (nuget.org, Microsoft.NETCore.App.Runtime.linux-x64);
+       the release job warns when a newer one exists. -->
+  <PropertyGroup>
+    <ShippedRuntimeVersion>10.0.15</ShippedRuntimeVersion>
+    <RuntimeFrameworkVersion Condition="'$(PinShippedRuntime)' == 'true'">$(ShippedRuntimeVersion)</RuntimeFrameworkVersion>
+  </PropertyGroup>
+
   <!-- ── Commit stamp ──────────────────────────────────────────────────────
        Most builds of this project are NOT releases; they are commits. Between
        tags the version number alone cannot answer the only question that

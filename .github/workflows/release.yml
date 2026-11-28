@@ -36,6 +36,14 @@ on:
         description: 'Tag / version to build and release (e.g. v0.0.1-test)'
         required: true
         type: string
+      publish:
+        # false builds every download and runs every check on them, then stops short of the
+        # GitHub Release: no tag, no pre-release on the releases page. The assets stay as the
+        # run's artifacts for 7 days. A tag push always publishes.
+        description: 'Publish the GitHub Release (false = build and verify only)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write          # required to create the GitHub Release
@@ -114,6 +122,7 @@ jobs:
             --self-contained true \
             -p:Version=${{ needs.meta.outputs.version }} \
             -p:ServerPublish=true \
+            -p:PinShippedRuntime=true \
             -p:PublishSingleFile=false \
             -p:PublishTrimmed=false \
             --output "publish/${{ matrix.rid }}"
@@ -382,6 +391,7 @@ jobs:
               --framework net10.0-maccatalyst \
               --configuration Release \
               -p:ReleasePublish=true \
+              -p:PinShippedRuntime=true \
               -p:CreatePackage=false \
               -p:Version=${{ needs.meta.outputs.version }} \
               -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} 2>&1 | tee /tmp/pub.log
@@ -506,6 +516,7 @@ jobs:
         run: python3 src/scripts/verify_release_payloads.py release
 
       - name: Publish GitHub Release
+        if: ${{ github.event_name == 'push' || inputs.publish }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.meta.outputs.tag }}

@@ -78,6 +78,13 @@ plugin count and the test count against the code, and it is the same script CI r
 
 ## Cutting a release
 
+**First, the .NET runtime.** The WebHost zips and the Mac app carry their own .NET runtime, and it
+is the one `ShippedRuntimeVersion` in `Directory.Build.props` names, not the one the SDK happens to
+bundle (2.16.0 shipped 10.0.11 and 10.0.0 that way, without the Brotli fix in 10.0.14). Raise it to
+the newest 10.0.x patch on nuget.org (`Microsoft.NETCore.App.Runtime.linux-x64`) before tagging.
+The release job refuses zips carrying any other runtime, and warns when a newer patch is out. The
+hosted server is framework-dependent: install the same runtime on the VPS when deploying.
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
@@ -101,6 +108,13 @@ a throwaway pre-release tag before the first real release:
 ```bash
 gh workflow run release.yml -f tag=v0.0.1-test
 # ...or push a real tag: git tag v0.0.1-test && git push origin v0.0.1-test
+```
+
+To build and check every download without publishing anything (no tag, nothing on the releases
+page), run it on a branch with `publish` off; the assets stay as the run's artifacts for 7 days:
+
+```bash
+gh workflow run release.yml --ref <branch> -f tag=v2.16.1-rc1 -f publish=false
 ```
 
 Watch it with `gh run watch`. If a MAUI job fails on the "Locate + zip" step,

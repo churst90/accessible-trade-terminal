@@ -201,7 +201,14 @@
         "RoslynScriptingService.CreateDefaultLauncher returns RefusingScriptWorkerLauncher",
         "(\"macCatalyst\"), so there is no external exe to stage. No NVDA or Dot Pad payload",
         "either — both are Windows-only."
-      ]
+      ],
+      "runtime": {
+        "files": [
+          ".xamarin/maccatalyst-arm64/System.Private.CoreLib.dll",
+          ".xamarin/maccatalyst-x64/System.Private.CoreLib.dll"
+        ],
+        "why": "The bundled .NET runtime must be the version Directory.Build.props pins (ShippedRuntimeVersion). 2.16.0 shipped runtime 10.0.11 in the WebHost zips and 10.0.0 in the Mac app, both older than the Brotli decoder fix in 10.0.14, because a self-contained publish bundles its SDK band's runtime unless PinShippedRuntime=true asks for another."
+      }
     },
     {
       "id": "webhost",
@@ -237,7 +244,14 @@
           "stagedAs": "AccessibleTrader.ScriptWorker",
           "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
         }
-      ]
+      ],
+      "runtime": {
+        "files": [
+          "System.Private.CoreLib.dll",
+          "Microsoft.AspNetCore.dll"
+        ],
+        "why": "The bundled .NET runtime must be the version Directory.Build.props pins (ShippedRuntimeVersion). 2.16.0 shipped runtime 10.0.11 in the WebHost zips and 10.0.0 in the Mac app, both older than the Brotli decoder fix in 10.0.14, because a self-contained publish bundles its SDK band's runtime unless PinShippedRuntime=true asks for another."
+      }
     },
     {
       "id": "webhost-windows-package",
