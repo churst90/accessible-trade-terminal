@@ -457,14 +457,25 @@ shapes are in the archive (the 2026-11-21 block at its end).
 - Volume bars stay coloured by the market's own candle on Heikin-Ashi charts (Cody 2026-11-26: "if no
   other platform does it, don't implement it"). The order book is now fetched only with a heatmap on
   (2ccfc65a).
-- [ ] **The .NET runtime in the WebHost zips is 10.0.11**, older than the Brotli decoder fix in 10.0.14
-  (GHSA-p3jp-9v83-76w9, high). No shipped code decompresses untrusted Brotli. 2.16.0 shipped on it
-  (checked 2026-11-28): the 10.0.3xx SDK band `global.json` pins (for rzc) ended at 10.0.303, which
-  carries 10.0.11; the fix is only in 10.0.403/10.0.404 and 10.0.114/10.0.115 (runtime 10.0.15).
-  Two ways out, each to be tried on a throwaway tag first: (1) keep SDK 10.0.30x and publish with
-  `-p:RuntimeFrameworkVersion=10.0.15` (plus the ASP.NET Core runtime pack, which ships its own
-  version), then check the zips' System.Private.CoreLib.dll; (2) re-test rzc on 10.0.404 against
-  WebHost (the race in the `global.json` comment) and lift the pin if it holds.
+- [x] **The .NET runtime in the downloads** (fixed 2026-11-28, ships in the next release). 2.16.0's
+  WebHost zips carried runtime 10.0.11 and the Mac app 10.0.0, older than the Brotli decoder fix in
+  10.0.14 (GHSA-p3jp-9v83-76w9) and 10.0.15's other security fixes. They now carry
+  `ShippedRuntimeVersion` from `Directory.Build.props` (10.0.15), and the release job refuses any
+  other. Proven on a build-only release run (46165186221, all seven downloads): every runtime file in
+  the WebHost zips and the Mac app is 10.0.15. The SDK did not move, so rzc is as before.
+  Caveats: the NuGet packages the app references keep their own versions (MAUI's Blazor WebView
+  10.0.0, Microsoft.Extensions 10.0.5 and others); the Windows app is not part of this, it runs on
+  the user's installed .NET 10 Desktop Runtime, and its runtimeconfig still accepts 10.0.0.
+- [ ] **Install runtime 10.0.15 on the VPS, at the next release.** The hosted demo and terminal run
+  framework-dependent on the server's own .NET, which is 10.0.9: behind 10.0.10 to 10.0.15's
+  security fixes. Install it beside 10.0.9 from Microsoft's tarball (sha512 from
+  `release-metadata/10.0/releases.json`), restart both services, and confirm with
+  `dotnet --list-runtimes` and the usual gates.
+- [ ] **Raise `ShippedRuntimeVersion` before each release** to the newest 10.0.x patch
+  (RELEASING.md says how). The release job warns when it is behind.
+- [ ] **Should the Windows app require a patched .NET?** Its runtimeconfig accepts any 10.0.x the user
+  has. Raising it to 10.0.15 would make Windows refuse to start it on an older runtime, with
+  Microsoft's "download .NET" message box. Cody's call.
 - [ ] **Unsigned Windows setup and exe** (SmartScreen warns; signing needs a certificate). An upgrade
   empties `app\` (a Strategies drop-in put there by hand would go; the documented place is under
   `%LocalAppData%`).
