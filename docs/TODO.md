@@ -265,7 +265,8 @@ needed: "don't worry about the custom scripts on the hosted vps".
   templates do not carry it (it is a way of looking at one tab, not a
   layout); the status line does not name it (it does not name log scale either). Chart pattern names do not turn over with it (Cody 2026-11-28, "leave patterns as they are"): the formation drawings flip with the pane, the names stay the market's. A whole-chart "mirror the market" mode was offered and declined the same day; not to be filed. The braille chart turns over
   too (Cody 2026-11-23: "Yes, the braille chart should also invert"), built the same day.
-- [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
+- [x] **A larger indicator library** (all six groups built 2026-11-22 and 11-23, heard by Cody
+  2026-11-28: "the new indicators work good"; shipped in 2.16.0) (Cody, 2026-11-22: "I really want to expand our indicator library
   and make it super robust"; then "work through these, adding all of the ones you listed to the
   inventory that are missing", and for SMC "test and report on the value provided"). Each group is
   checked against the suite first so nothing is added twice. We have about 50 classic studies (Skender) and 30 of our own. The gaps
