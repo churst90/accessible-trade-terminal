@@ -77,29 +77,29 @@ components". Caveats for these are in CHANGES (2.15.0).
   moves, arrow again. The values should have changed without switching tabs. CPU should stay calm on
   a busy market (passes are capped at four a second). Buy and Sell Volume (trades) should also grow
   live; that one was not probed.
-- [ ] **Invert the price pane, `I`** (2026-11-22, not in 2.15.0): press `I` on a chart. It should
+- [x] **Invert the price pane, `I`** (2026-11-22, not in 2.15.0): press `I` on a chart. It should
   say "Price pane inverted..." and arrowing should sound a rising market FALLING in pitch, while the
   words still say the real prices and "up". An RSI pane below should sound as before. `I` again says
   "Price pane upright". Ctrl+Alt+Shift+Y (the chart layout) names it; switch tabs and back, it stays per tab; save and reopen
   the workspace, it comes back. A line or alert placed with the mouse on the inverted pane should
   land on the price you clicked. If a Dot Pad is ever connected, `I` should turn the candles over on the pins
-  (the top half when candles are focused) and leave an indicator pane's half as it was.
-- [ ] **Supertrend, ZigZag, Williams Fractals, Pivot Points High/Low** (2026-11-22, not in 2.15.0):
+  (the top half when candles are focused) and leave an indicator pane's half as it was. **Heard, Cody 2026-11-28:** "inverted price pane works." Pattern names stay the market's when inverted (his call, same day).
+- [x] **Supertrend, ZigZag, Williams Fractals, Pivot Points High/Low** (2026-11-22, not in 2.15.0):
   add each from Alt+A, Overlays, on your BTC 4h chart and arrow along it. Supertrend should say
   "Supertrend up, support ..." and ping at each flip; ZigZag should say the leg ("falling leg, ...
   down 6.2%") and "still moving, not confirmed" on the last one; the fractal and pivot marks should
-  say their price. Do the tones sit apart from Market Structure's on the same chart?
-- [ ] **Smart money overlays** (2026-11-23, not in 2.15.0): add Fair Value Gaps, Order Blocks,
+  say their price. Do the tones sit apart from Market Structure's on the same chart? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
+- [x] **Smart money overlays** (2026-11-23, not in 2.15.0): add Fair Value Gaps, Order Blocks,
   Liquidity and Premium and Discount from Alt+A, Overlays, on BTC 4h. Arrowing over a gap band
   should say "Open gap up, ... to ...", and a new gap should ping on its third bar. A sweep should
   say "Swept the high ..., closed back below". Premium and Discount's middle line should say
   "Equilibrium ..., price in premium". Six marker tones on one chart: can you tell them apart?
-  In the strategy builder, none of them should be offered.
-- [ ] **Volume flow indicators** (2026-11-23, not in 2.15.0): add Cumulative Volume Delta, Klinger,
+  In the strategy builder, none of them should be offered. **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
+- [x] **Volume flow indicators** (2026-11-23, not in 2.15.0): add Cumulative Volume Delta, Klinger,
   Price Volume Trend and Relative Volume at Time from Alt+A, Volume, on BTC 1h or 4h. The delta
   should say "Volume delta plus ..., buyers ahead" and start again at zero each day; Klinger should
   ping when it crosses its signal; relative volume should sit near 1 most of the time and sound when
-  it crosses 2. Are four more panes too many to arrow through, or should some share one?
+  it crosses 2. Are four more panes too many to arrow through, or should some share one? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
 - [ ] **Live values at the bar close** (2026-11-23, not in 2.15.0): on a busy 1-minute chart with
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
@@ -116,24 +116,24 @@ components". Caveats for these are in CHANGES (2.15.0).
 - [ ] **Day separators** (2026-11-23, not in 2.15.0; for a sighted helper, nothing is spoken): Settings →
   Appearance → Draw day separators. On a 1-hour chart a dotted line should stand at each midnight on
   your clock, where the time axis changes date, in every pane; on a daily chart, none. Off again, gone.
-- [ ] **Auto Fib and auto trend lines** (2026-11-23, not in 2.15.0): add Auto Fib Retracement
+- [x] **Auto Fib and auto trend lines** (2026-11-23, not in 2.15.0): add Auto Fib Retracement
   (Reference Level) and Auto Trend Lines (Overlays). Arrow near a Fib line or a trend line and hear
   "Near support at ..., Fib 61.8" or "..., trend line resistance"; hear the mark when a new swing
   redraws the Fibs and when a close breaks a trend line; read the detail (D) on each. Check that the
-  lines start where the swing or second pivot became known, not back at the pivot itself.
-- [ ] **Session levels** (2026-11-23, not in 2.15.0): add Previous Day, Week and Month Levels and
+  lines start where the swing or second pivot became known, not back at the pivot itself. **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
+- [x] **Session levels** (2026-11-23, not in 2.15.0): add Previous Day, Week and Month Levels and
   Session High, Low and Opening Range from Alt+A, Reference Level, on BTC 15m. Arrowing near
   yesterday's high should say "Near resistance at ..., previous day high"; the detail should give
   yesterday's high, low and close and where the close is; the opening range should appear 30 minutes
-  into the UTC day. Try Session "New York" on a stock: nothing outside 9:30 to 16:00.
-- [ ] **Five trend overlays** (2026-11-23, not in 2.15.0): add the regression channel, Chande Kroll Stop,
+  into the UTC day. Try Session "New York" on a stock: nothing outside 9:30 to 16:00. **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
+- [x] **Five trend overlays** (2026-11-23, not in 2.15.0): add the regression channel, Chande Kroll Stop,
   McGinley Dynamic, Envelopes and the ribbon from Alt+A, Overlays. The regression channel's detail
   should give the centre, slope, fit R and how many deviations the close is from the centre; the
-  ribbon's should name its order from the top and where the close sits. Too much in one detail?
-- [ ] **Eight oscillators** (2026-11-23, not in 2.15.0): add Elder-Ray, Fisher, Coppock, KST, Relative
+  ribbon's should name its order from the top and where the close sits. Too much in one detail? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
+- [x] **Eight oscillators** (2026-11-23, not in 2.15.0): add Elder-Ray, Fisher, Coppock, KST, Relative
   Vigor, SMI Ergodic, Awesome and Accelerator from Alt+A, Oscillators. Elder-Ray's detail should say
   where the high and the low were against the average; Fisher should say "stretched high" past 1.5;
-  the signal-line ones should ping on each cross. Can you tell the cross tones from the zero-line tone?
+  the signal-line ones should ping on each cross. Can you tell the cross tones from the zero-line tone? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
 - [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
@@ -261,7 +261,7 @@ needed: "don't worry about the custom scripts on the hosted vps".
 - [x] **Invert chart on `I`**: built 2026-11-22, see CHANGES and "To hear". Left out on purpose:
   the picture the AI analyst is sent stays upright (it is read as the market, not as the screen);
   templates do not carry it (it is a way of looking at one tab, not a
-  layout); the status line does not name it (it does not name log scale either). The braille chart turns over
+  layout); the status line does not name it (it does not name log scale either). Chart pattern names do not turn over with it (Cody 2026-11-28, "leave patterns as they are"): the formation drawings flip with the pane, the names stay the market's. A whole-chart "mirror the market" mode was offered and declined the same day; not to be filed. The braille chart turns over
   too (Cody 2026-11-23: "Yes, the braille chart should also invert"), built the same day.
 - [ ] **A larger indicator library** (Cody, 2026-11-22: "I really want to expand our indicator library
   and make it super robust"; then "work through these, adding all of the ones you listed to the

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 2026-11-28: invert and the new indicators heard; pattern names stay the market's
+
+Cody, 2026-11-28: "inverted price pane works" and "the new indicators work good". Asked whether
+chart patterns should turn over with the inverted pane: "leave patterns as they are". So the
+formation drawings flip with the pane (`ChartFormationLayer`, through `RenderContext.IsInverted`)
+and their names, like every other word, describe the real market. A whole-chart "mirror the
+market" mode (names, directions and colours all flipped, trading off) was offered and declined;
+it is not filed. Caveat: "the new indicators" was said of them together; the per-group questions
+in TODO (tones apart, too many panes, too much in one detail) were not answered one by one.
+No code changed.
+
 ### 2026-11-27: eleven fixes from accessibility review rounds 3 and 4
 
 Rounds 3 and 4 covered the rest of Settings, Help, the toolbar, the Go bar and the chart-type
