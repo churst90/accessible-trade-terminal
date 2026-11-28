@@ -72,11 +72,11 @@ components". Caveats for these are in CHANGES (2.15.0).
 
 - [ ] **Cipher B levels in speech** (2026-11-24, not in 2.15.0): set Trigger 1/2 to 60/-60, arrow the fast
   wave to a bar between -53 and -60. It should say the number alone; past -60, "oversold".
-- [ ] **Indicators update live** (2026-11-23, not in 2.15.0; restart the server on main first): leave
+- [x] **Indicators update live** (2026-11-23, not in 2.15.0; restart the server on main first): leave
   a chart with Cipher B and an EMA open, arrow to the last bar of each, wait a minute while the price
   moves, arrow again. The values should have changed without switching tabs. CPU should stay calm on
   a busy market (passes are capped at four a second). Buy and Sell Volume (trades) should also grow
-  live; that one was not probed.
+  live; that one was not probed. **Heard and confirmed, Cody 2026-11-28.**
 - [x] **Invert the price pane, `I`** (2026-11-22, not in 2.15.0): press `I` on a chart. It should
   say "Price pane inverted..." and arrowing should sound a rising market FALLING in pitch, while the
   words still say the real prices and "up". An RSI pane below should sound as before. `I` again says
@@ -108,11 +108,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   set Trigger 1 and 2 to 60 and -60; a wave at -57 should say just the number, and one past -60
   "oversold". Then add RSI, move its overbought line to 80 in Properties, and turn narration on: a bar
   closing at 75 should say nothing about overbought, and one closing past 80 "RSI entered overbought".
-- [ ] **True buy and sell volume** (2026-11-23, not in 2.15.0): on MEXC BTCUSDT 1-minute, add Buy and
+- [x] **True buy and sell volume** (2026-11-23, not in 2.15.0): on MEXC BTCUSDT 1-minute, add Buy and
   Sell Volume (trades) and Volume Delta (trades) from Alt+A, Volume. The bars before you opened it are
   blank (the detail says since when); after a minute or two the new bars should say *"Buy ..., sell
   ...: buyers took N percent."* and the two should add up to the Volume pane's bar. Try MEXC futures
-  too, and Bitstamp BTC/USD. Is a minute's wait before the first count acceptable?
+  too, and Bitstamp BTC/USD. Is a minute's wait before the first count acceptable? **Heard and confirmed, Cody 2026-11-28.**
 - [ ] **Day separators** (2026-11-23, not in 2.15.0; for a sighted helper, nothing is spoken): Settings →
   Appearance → Draw day separators. On a 1-hour chart a dotted line should stand at each midnight on
   your clock, where the time axis changes date, in every pane; on a daily chart, none. Off again, gone.
@@ -134,17 +134,17 @@ components". Caveats for these are in CHANGES (2.15.0).
   Vigor, SMI Ergodic, Awesome and Accelerator from Alt+A, Oscillators. Elder-Ray's detail should say
   where the high and the low were against the average; Fisher should say "stretched high" past 1.5;
   the signal-line ones should ping on each cross. Can you tell the cross tones from the zero-line tone? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
-- [ ] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
+- [x] **Alerts on the chart they were set on** (2026-11-22, not in 2.15.0): your six BTCUSDT tabs,
   background monitoring on, a "price touches" alert set on the 4h tab at a price only the daily
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
   Switch tabs back and forth with an RSI "crosses" alert set: nothing should fire. Old alerts with no
-  timeframe still fire on every tab of their symbol; set them again.
+  timeframe still fire on every tab of their symbol; set them again. **Heard and confirmed, Cody 2026-11-28.**
 - [ ] **Volume on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were said red
   should now sound down AND say "down", matching their red paint. Every pane below the price pane
   reads the market's candle; the price pane reads Heikin-Ashi.
-- [ ] **Indicators live on a busy market** (2026-11-22): Cipher B on your 15m chart, leave it a few
+- [x] **Indicators live on a busy market** (2026-11-22): Cipher B on your 15m chart, leave it a few
   minutes without switching tabs; the waves and money flow at the newest bar should keep changing
-  with the price. Before this, every tick was cancelled by the next one while the price moved fast.
+  with the price. Before this, every tick was cancelled by the next one while the price moved fast. **Heard and confirmed, Cody 2026-11-28** (the same check as "Indicators update live").
 - [ ] **The 9-13 against TradingView** (it reads right, Cody 2026-11-22): put a community
   "Sequential" script on the same chart and compare where the 9s and 13s land; the 9s should match
   any of them, the 13s only one using the same published recycle. **Q:** should narration as a bar

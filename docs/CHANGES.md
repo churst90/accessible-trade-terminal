@@ -13,7 +13,9 @@ and their names, like every other word, describe the real market. A whole-chart 
 market" mode (names, directions and colours all flipped, trading off) was offered and declined;
 it is not filed. Caveat: "the new indicators" was said of them together; the per-group questions
 in TODO (tones apart, too many panes, too much in one detail) were not answered one by one.
-No code changed.
+Later the same day, Cody heard and confirmed the three release checks: indicators updating
+live on a busy chart, alerts firing only on the chart they were set on, and true buy and sell
+volume on MEXC. No code changed.
 
 ### 2026-11-27: eleven fixes from accessibility review rounds 3 and 4
 
