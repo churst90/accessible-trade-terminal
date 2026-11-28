@@ -28,6 +28,8 @@ all eleven ("yes, proceed to address these items 1-11").
    settings."), and its count line is no longer a live region created already filled (often not
    read at all). **Export CSV says its result** ("Export complete.", "Nothing exported: no chart
    data loaded.", "Export failed: ..."), and a failure is shown as an error, not in green.
+   (As first pushed, "Export complete." named no speech channel, so F2, the chart's mute,
+   silenced it; CI's channel guard caught it and it is now on the interface channel.)
 5. **Minimize to tray says it applies when you save** ("Minimize to tray will be off after you
    save. Closing the window will then quit the terminal..."); it said it as if it were already so.
 6. **Delete theme asks first.** It now speaks "Delete the theme Mine? It cannot be undone, and

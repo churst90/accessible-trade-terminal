@@ -3003,7 +3003,8 @@
     {
         _exportStatus = message;
         _exportFailed = failed;
-        EventBus.Publish(new FeedbackRequestEvent(failed ? FeedbackType.Error : FeedbackType.Info, message));
+        EventBus.Publish(new FeedbackRequestEvent(failed ? FeedbackType.Error : FeedbackType.Info, message,
+            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     // ── Keyboard Rebinding ───────────────────────────────────────────────────
