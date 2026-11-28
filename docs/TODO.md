@@ -33,7 +33,9 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
   it should go straight to your terminal (untested with a real session). Then read /status, the home
   page and Download with your screen reader and say what jars. /status must be updated at each release.
 - **Turn on the website's email list.** It is live (the "Get the news by email" box) and saves signups,
-  but sends nothing until:
+  but sends nothing until the steps below are done. **One person is waiting** (checked 2026-11-28): they
+  signed up on 2026-11-22 from an Android phone and have had no confirmation email, because none can
+  be sent yet. The steps:
   1. **A Brevo API key**: app.brevo.com, the menu under your name, **SMTP & API**, **API keys**,
      **Generate a new API key**, named `accessibletrader-site`. Copy it at once (shown once; starts
      `xkeysib-`). Not the SMTP key the terminal's password emails use.
@@ -72,7 +74,11 @@ settings ("looks good on the short text"), the Donate tab (its BNB Smart Chain r
 Ethereum, Arbitrum and Base, as he asked), the 9-13 sequential ("reads good") and Cipher B's "9
 components". Caveats for these are in CHANGES (2.15.0).
 
-- [ ] **Cipher B levels in speech** (2026-11-24, not in 2.15.0): set Trigger 1/2 to 60/-60, arrow the fast
+**Cody, 2026-11-28: "all of the hearing parts I've tested like cipher be os/ob levels set by hand".** Every
+item below that is heard is ticked. Still open, because they are not heard: day separators (drawn only),
+the 9-13 against TradingView (a side-by-side check), and the manual read as a newcomer.
+
+- [x] **Cipher B levels in speech** (2026-11-24, not in 2.15.0): set Trigger 1/2 to 60/-60, arrow the fast
   wave to a bar between -53 and -60. It should say the number alone; past -60, "oversold".
 - [x] **Indicators update live** (2026-11-23, not in 2.15.0; restart the server on main first): leave
   a chart with Cipher B and an EMA open, arrow to the last bar of each, wait a minute while the price
@@ -102,11 +108,11 @@ components". Caveats for these are in CHANGES (2.15.0).
   should say "Volume delta plus ..., buyers ahead" and start again at zero each day; Klinger should
   ping when it crosses its signal; relative volume should sit near 1 most of the time and sound when
   it crosses 2. Are four more panes too many to arrow through, or should some share one? **Heard, Cody 2026-11-28:** "the new indicators work good" (said of the new indicators together; the questions in this item were not answered one by one).
-- [ ] **Live values at the bar close** (2026-11-23, not in 2.15.0): on a busy 1-minute chart with
+- [x] **Live values at the bar close** (2026-11-23, not in 2.15.0): on a busy 1-minute chart with
   DBSI, let a few bars close while you arrow the newest ones, then switch tabs and back. The bars
   should read the same before and after. Your local server was 12 commits behind main; pull and
   restart it first, or you will hear the old bug.
-- [ ] **Your own overbought and oversold lines** (2026-11-24 and 11-26, not in 2.15.0): on Cipher B,
+- [x] **Your own overbought and oversold lines** (2026-11-24 and 11-26, not in 2.15.0): on Cipher B,
   set Trigger 1 and 2 to 60 and -60; a wave at -57 should say just the number, and one past -60
   "oversold". Then add RSI, move its overbought line to 80 in Properties, and turn narration on: a bar
   closing at 75 should say nothing about overbought, and one closing past 80 "RSI entered overbought".
@@ -141,7 +147,7 @@ components". Caveats for these are in CHANGES (2.15.0).
   candle reaches. It should stay silent; one at a price the 4h candle reaches should fire once.
   Switch tabs back and forth with an RSI "crosses" alert set: nothing should fire. Old alerts with no
   timeframe still fire on every tab of their symbol; set them again. **Heard and confirmed, Cody 2026-11-28.**
-- [ ] **Volume on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were said red
+- [x] **Volume on Heikin-Ashi** (2026-11-22): the two BTC 4h bars that sounded up but were said red
   should now sound down AND say "down", matching their red paint. Every pane below the price pane
   reads the market's candle; the price pane reads Heikin-Ashi.
 - [x] **Indicators live on a busy market** (2026-11-22): Cipher B on your 15m chart, leave it a few
@@ -151,18 +157,18 @@ components". Caveats for these are in CHANGES (2.15.0).
   "Sequential" script on the same chart and compare where the 9s and 13s land; the 9s should match
   any of them, the 13s only one using the same published recycle. **Q:** should narration as a bar
   closes say "perfected" too (needs a template word)?
-- [ ] **Announce nearby levels while navigating** (Settings, Speech): off, no "Near resistance".
-- [ ] **The three workspace audit fixes** (2026-11-22): a stock or currency balance priced on a
+- [x] **Announce nearby levels while navigating** (Settings, Speech): off, no "Near resistance".
+- [x] **The three workspace audit fixes** (2026-11-22): a stock or currency balance priced on a
   broker; the heatmap's history on an hour or day chart; a strategy saying a level source failed.
-- [ ] **Near support and resistance on every level** (pivots, Cipher A pivots, profile levels, your
+- [x] **Near support and resistance on every level** (pivots, Cipher A pivots, profile levels, your
   lines, price alerts), each named after the price.
-- [ ] **No candle pattern said unprompted on line-style charts.**
-- [ ] **"Marker" wording, the heatmap under Add Indicator.**
-- [ ] **The audit-tail fixes you can hear:** Shift+F12 with nothing focused; a tab key with nowhere
+- [x] **No candle pattern said unprompted on line-style charts.**
+- [x] **"Marker" wording, the heatmap under Add Indicator.**
+- [x] **The audit-tail fixes you can hear:** Shift+F12 with nothing focused; a tab key with nowhere
   to go (1 to 9 past the last tab, Delete on the only tab, Home on the first) in the tab bar, whose
   key handling has no test; Pulse's Alt+Shift+D on its first bars; a quick trade on a euro pair.
 - [ ] **The manual:** read a chapter or two as a newcomer would; say what still assumes too much.
-- [ ] **Headlines from Finnhub only** (2026-11-22): with the Finnhub key, stock and
+- [x] **Headlines from Finnhub only** (2026-11-22): with the Finnhub key, stock and
   coin stories still said; the Alpaca checkbox gone from Settings → Narration; the dossier's Recent
   news footnote names Finnhub alone.
 
