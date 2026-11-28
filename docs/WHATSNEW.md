@@ -6,7 +6,11 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
-## Unreleased
+## 2.16.0: a larger indicator library, true buy and sell volume, invert with I, and Hyperliquid trading tools
+
+Released 2026-11-28. Cody has heard the new indicators, the upside-down price pane, indicators
+updating live, alerts staying on their own chart and true buy and sell volume. Trading on
+Hyperliquid (the dead-man's switch, TWAP, vaults) has not been tried against Hyperliquid itself.
 
 - **Settings, the toolbar and Help read better (from an accessibility review).** Brick settings
   works in the online demo. Dialogs are announced by their heading: "Go", "Kagi settings",
@@ -134,52 +138,3 @@
   switches whenever prices ticked faster than the order book could be fetched (about three times a
   second): each tick cancelled the one before it. Now one update runs at a time and the next one
   always uses the newest prices.
-
-## 2.15.0: the chart's fixes from Cody's notes, the 9-13 sequential, and nearby levels you can switch off
-
-A smaller release after 2.14's news desk. Cody has heard the shorter settings, the Donate tab, the
-9-13's reading and Cipher B's "9 components"; the rest has not been heard yet, and none of it has
-been tried with money. What 2.14 added (the news desk, fifteen chart types, indicator templates and
-the rest) is in [CHANGES.md](CHANGES.md) and on the
-[2.14.1 release page](https://github.com/churst90/accessible-trade-terminal/releases/tag/v2.14.1).
-
-- **The date under the mouse pointer** no longer sits beside half of a date on the time axis
-  ("Oc"): the date it would cut is hidden while the pointer is there.
-- **Cipher A's symbols over the highest candles are drawn whole**, below the chart's status lines,
-  instead of cut off under them. The chart keeps just enough room above the candles while such a
-  symbol is on screen.
-- **Donate:** Ethereum, Arbitrum, Base and BNB Smart Chain share one address, so they are one row.
-
-- **Headlines come from Finnhub only.** The optional Alpaca news wire is gone: Finnhub's free key
-  covers the same stocks sooner, and coins too. Alpaca as a trading venue is unchanged.
-- **Moving onto an indicator counts every component** you can reach with Up and Down, muted ones
-  too: Cipher B says "9 components".
-- **The Android and iOS apps are not ready yet**, and the manual says so plainly. On a phone or
-  tablet, use the website's terminal in the browser.
-- **The 9-13 sequential** (Add Indicator, Reversal): a setup counts 1 to 9, then a countdown 1 to
-  13, each count a numbered marker you hear as you arrow ("Buy setup 7."). The 9 and the 13 ring
-  their own bells; focused on a 9 you hear whether it is perfected. Not yet checked against
-  TradingView's version. A new setup restarts the countdown only when it is about as large as the
-  one the countdown counts from (at least as large, under 1.618 times), as in the published method.
-- **"Near resistance" covers every level on the chart**: pivots, Cipher A's pivots, a volume
-  profile's levels, your own horizontal lines and your price alerts, each named after the price
-  ("Near resistance at 95,200.00, pivot R1."). Turn it off with **Announce nearby levels while
-  navigating** on the Speech tab of Settings.
-- **The portfolio values stocks and currencies** on a broker, not only coins.
-- **The heatmap keeps its history on every timeframe**, not only one-minute charts.
-- **A strategy says when a level source fails** and costs it a setup, instead of quietly never
-  trading.
-- **Line-style charts no longer name candle patterns** as bars close or form, since no candle is
-  drawn; ask with Alt+Shift+D and it still tells you.
-- **Settings say less**, with clearer names: "Announce other markers on the bar while navigating"
-  and the rest. A **Donate** tab holds the ways to support the project.
-- **The heatmap is an indicator** (Add Indicator, Order Flow, or `HEAT` in the Go bar); the toolbar
-  button and Alt+H are gone.
-- **Keys that can do nothing now say why**: Shift+F12 with no series focused ("No series
-  focused."), and a tab key with nowhere to go ("Already on tab 1", "No tab 5. 2 tabs open.", "The
-  last tab stays open.").
-- **Pulse's detail no longer says "NaN"** while it warms up, and Vol Regime's detail uses your own
-  thresholds.
-- **Quick trade on a euro pair says euros** ("45,700.00 EUR"), not "$45,700.00 EUR".
-- **The user manual** reads as a manual: no version history, the new features in, and a longer
-  glossary for anyone new to trading terms.

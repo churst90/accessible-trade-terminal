@@ -13,7 +13,7 @@ Diagrams of all of this — architecture, hosting topology, the data/order/feedb
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.15.0**, 2026-11-22: the 9-13 sequential, nearby-level speech you can switch off, headlines from Finnhub only and fixes from Cody's notes, on top of 2.14's news desk: market events, earnings and Fed decisions on the bars they happened on, SEC filings and news wires as headlines, the market pulse, what changed while you were away (Alt+U), a morning brief and a Go bar; fifteen chart types and four price scales that are heard as well as drawn; indicator templates; dialogs that fit the window; hosted accounts with a leaderboard. Venue trading is still untried with money) and [`RELEASE_2.4.0_VERIFICATION.md`](archive/RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.16.0**, 2026-11-28: a larger indicator library (Supertrend, ZigZag, smart money overlays, volume flow, session levels, auto Fib and trend lines, eight oscillators), true buy and sell volume from the trades, the price pane upside down with I, indicators that update live, alerts that fire only on their own chart, and Hyperliquid TWAP orders, vaults and a dead-man's switch, on top of 2.15's 9-13 sequential and 2.14's news desk. Venue trading is still untried with money) and [`RELEASE_2.4.0_VERIFICATION.md`](archive/RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -106,9 +106,15 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status (2026-11-22)
+## Current Status (2026-11-28)
 
-The latest release is **2.15.0** (2026-11-22): Cody's notes of 2026-11-21 and 11-22 (the 9-13
+The latest release is **2.16.0** (2026-11-28): a larger indicator library (Supertrend, ZigZag,
+Fractals, Pivot Points High/Low, four smart money overlays, four volume flow studies, session
+levels, auto Fib and trend lines, five trend overlays, eight oscillators), true buy and sell volume
+from each venue's trades, invert on `I`, live indicators, per-chart alerts, day separators and
+Hyperliquid TWAP, vaults and a dead-man's switch. Cody heard the indicators, invert, live
+indicators, per-chart alerts and true volume before the cut; Hyperliquid's additions are untried
+against Hyperliquid. Before it, **2.15.0** (2026-11-22): Cody's notes of 2026-11-21 and 11-22 (the 9-13
 sequential, near support and resistance on every level with a switch to turn it off, shorter
 settings and a Donate tab, headlines from Finnhub only, indicators counting all their components,
 the hover date and Cipher A's symbols over the top candles fixed); `WHATSNEW.md` lists them and

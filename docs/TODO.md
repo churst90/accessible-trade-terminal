@@ -54,7 +54,7 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 - **Screen-reader pass of the Windows setup** (NVDA or JAWS). The runner installs, upgrades and
   uninstalls it silently and checks every file; nobody has gone through its screens.
 
-- **Try 2.15.0** (released 2026-11-22; the VPS runs the same build): the Windows setup or zip from
+- **Try 2.16.0** (released 2026-11-28; the VPS runs the same build): the Windows setup or zip from
   the download page. What is not yet heard is listed under "To hear".
 - **Look at the chart's two 2.15.0 fixes** (Cody's 2026-11-22 screenshot): the date under the mouse
   pointer no longer sits beside half a date ("Oc"), and Cipher A's symbols over the highest candles
@@ -449,8 +449,13 @@ shapes are in the archive (the 2026-11-21 block at its end).
   other platform does it, don't implement it"). The order book is now fetched only with a heatmap on
   (2ccfc65a).
 - [ ] **The .NET runtime in the WebHost zips is 10.0.11**, older than the Brotli decoder fix in 10.0.14
-  (GHSA-p3jp-9v83-76w9, high). No shipped code decompresses untrusted Brotli. Next release: a newer
-  10.0.3xx SDK, then check the zips' System.Private.CoreLib.dll version.
+  (GHSA-p3jp-9v83-76w9, high). No shipped code decompresses untrusted Brotli. 2.16.0 shipped on it
+  (checked 2026-11-28): the 10.0.3xx SDK band `global.json` pins (for rzc) ended at 10.0.303, which
+  carries 10.0.11; the fix is only in 10.0.403/10.0.404 and 10.0.114/10.0.115 (runtime 10.0.15).
+  Two ways out, each to be tried on a throwaway tag first: (1) keep SDK 10.0.30x and publish with
+  `-p:RuntimeFrameworkVersion=10.0.15` (plus the ASP.NET Core runtime pack, which ships its own
+  version), then check the zips' System.Private.CoreLib.dll; (2) re-test rzc on 10.0.404 against
+  WebHost (the race in the `global.json` comment) and lift the pin if it holds.
 - [ ] **Unsigned Windows setup and exe** (SmartScreen warns; signing needs a certificate). An upgrade
   empties `app\` (a Strategies drop-in put there by hand would go; the documented place is under
   `%LocalAppData%`).

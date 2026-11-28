@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.16.0] — 2026-11-28
+
+Cody, 2026-11-28: "yes cut 2.16.0". Everything below down to 2.15.0 is in it. Heard by Cody before
+the cut: the new indicator groups, invert on `I`, indicators updating live, alerts on the chart
+they were set on, and true buy and sell volume on MEXC. Not heard: the rest of TODO's "To hear"
+(Cipher B levels, day separators, the closed-bar settle, your own overbought and oversold lines).
+Not tried against a venue: Hyperliquid's dead-man's switch, TWAP, vaults and subaccounts.
+**Caveat, the bundled .NET runtime is still 10.0.11**, older than the Brotli decoder fix in 10.0.14
+(GHSA-p3jp-9v83-76w9). The 10.0.3xx SDK band this repo is pinned to (`global.json`, for rzc) ended
+at 10.0.303, which carries 10.0.11; no 3xx SDK has the fix. No shipped code decompresses untrusted
+Brotli. The way out is in TODO.
+
 ### 2026-11-28: invert and the new indicators heard; pattern names stay the market's
 
 Cody, 2026-11-28: "inverted price pane works" and "the new indicators work good". Asked whether
