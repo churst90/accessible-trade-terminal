@@ -16,9 +16,26 @@ All notable changes to this project will be documented in this file.
   the zips and fails the release on any other version; it warns when nuget.org has a newer patch.
   Proven red on the real 2.16.0 Linux and Mac downloads, green on a build-only release run
   (46165186221, all seven downloads, every runtime file 10.0.15). release.yml gained a `publish`
-  input (false = build and verify, no release). **Caveats:** the Windows app is unchanged (it uses
-  the user's installed .NET); referenced NuGet packages keep their own versions; the VPS is still
-  on 10.0.9 until the next release installs 10.0.15 there.
+  input (false = build and verify, no release). **Caveats:** referenced NuGet packages keep their own
+  versions; the VPS is still on 10.0.9 until the next release installs 10.0.15 there. The Windows
+  app, which carries no runtime, is the next entry.
+- **The Windows app asks for .NET 10.0.15 or later (2026-11-28).** Cody: "yes". It is
+  framework-dependent, and its runtimeconfig.json accepted any 10.0.x, so it ran on whatever
+  unpatched .NET 10 the user had. `PinShippedRuntime=true` now also sets
+  `TargetLatestRuntimePatch`, and the Desktop Runtime joins the raised entries, so its
+  runtimeconfig names `ShippedRuntimeVersion` for .NET and the Desktop Runtime; Windows then
+  refuses to start it on an older one and shows Microsoft's download message. release.yml passes
+  the flag on the Windows publish and installs the pinned Desktop Runtime on the runner, because
+  `package.ps1` starts the app to prove the launcher works. `package.ps1` reads the version from
+  the app's own runtimeconfig and hands it to the README ("{RUNTIME} or later") and the installer,
+  whose check now wants that patch or later instead of any 10.* folder, and whose message says
+  "or has an older version". `verify_release_payloads.py` has a `runtimeconfig` rule: red on the
+  rc1 Windows zip (10.0.0), green on a copy set to 10.0.15. Build-only run 46169446615: all seven
+  downloads green, the Windows app asks for 10.0.15, the runner had it installed, and the launcher
+  and install/upgrade/uninstall trials passed. README and QUICKSTART say "10.0.15 or
+  later". **Caveats:** a user on an older .NET 10 now has to update it before the app starts
+  (Windows Update usually has); the installer's check looks only in Program Files\dotnet, where
+  Microsoft's installer puts it.
 - **The rest of the hearing list heard (2026-11-28).** Cody: "all of the hearing parts I've tested like cipher be os/ob levels set by hand". Ticked in TODO: Cipher B levels in speech, live values at the bar close, your own overbought and oversold lines, volume on Heikin-Ashi, the nearby-levels switch, the three workspace audit fixes, near support and resistance on every level, no candle pattern on line charts, the "Marker" wording, the audit-tail fixes and Finnhub-only headlines. Not heard, still open: day separators (drawn only), the 9-13 against TradingView, the manual as a newcomer reads it.
 - **2.16.0 released, the hosted terminal and the website moved to it, and downloads are counted (2026-11-28).** Tag `v2.16.0` = `b3467c7d`, after CI passed all three workflows on that commit. The release workflow published all seven downloads plus `plugins_trusted.manifest` and `SHA256SUMS.txt`. The VPS audit read every zip: 35 plugins and a manifest in each, and the screen reader and braille libraries in the Windows app only. The release notes say what was heard, that Hyperliquid's TWAP, vaults and dead-man's switch are untried, and that the packages carry .NET runtime 10.0.11. Both VPS services run `2.16.0+b3467c7d` (06:28 UTC; capabilities unchanged, every gate passed, rollback 1128-062807). On the website: the download page is on 2.16.0 with sizes from the release; /status says 2.16.0 and lists Hyperliquid's new tools as untried; the features page says "Backtest tab" and "Strategies and backtesting" in place of the Strategy Lab; the docs, llms.txt, llms-full.txt and the sitemap dates are updated. **Downloads are counted two ways** (Cody: "track how many downloads are hit through gotacounter"). (1) Each Download button carries `data-goatcounter-click="download-<file name without the version>"`, so the site's self-hosted GoatCounter (/stats) counts clicks per package across releases. Caveat: it counts only visitors with JavaScript on who click from the site. A test click from a browser on the VPS proved an event reaches the database; that one Linux click at 06:00 UTC on 11-28 is the test, not a person. (2) GitHub's own `download_count` per file counts every download from any link, robots included. The audit's range reads did not add to it: 2.16.0 started at 0. `~/bin/att-downloads.sh` on the VPS prints both.
 

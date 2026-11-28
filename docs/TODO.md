@@ -473,9 +473,9 @@ shapes are in the archive (the 2026-11-21 block at its end).
   `dotnet --list-runtimes` and the usual gates.
 - [ ] **Raise `ShippedRuntimeVersion` before each release** to the newest 10.0.x patch
   (RELEASING.md says how). The release job warns when it is behind.
-- [ ] **Should the Windows app require a patched .NET?** Its runtimeconfig accepts any 10.0.x the user
-  has. Raising it to 10.0.15 would make Windows refuse to start it on an older runtime, with
-  Microsoft's "download .NET" message box. Cody's call.
+- [x] **The Windows app requires the patched .NET** (Cody 2026-11-28: yes). Its runtimeconfig asks
+  for 10.0.15 or a later patch, its installer checks for that, and the release job refuses a build
+  that asks for less. Proven on build-only run 46169446615 (see CHANGES).
 - [ ] **Unsigned Windows setup and exe** (SmartScreen warns; signing needs a certificate). An upgrade
   empties `app\` (a Strategies drop-in put there by hand would go; the documented place is under
   `%LocalAppData%`).

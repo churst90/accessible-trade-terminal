@@ -55,8 +55,8 @@ prompt. The Windows desktop app comes two ways: `AccessibleTrader-<version>-Wind
 installs it for you alone, with no administrator prompt, a Start menu entry and an uninstaller; or
 unzip `AccessibleTrader-Windows-<version>-win-x64.zip` anywhere and run **Accessible Trader.exe** in
 the folder it makes. Either way it needs Microsoft's
-[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64); the setup checks
-for it and offers the download.
+[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64), 10.0.15 or later;
+the setup checks for it and offers the download.
 
 From source:
 

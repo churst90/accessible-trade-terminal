@@ -82,8 +82,13 @@ plugin count and the test count against the code, and it is the same script CI r
 is the one `ShippedRuntimeVersion` in `Directory.Build.props` names, not the one the SDK happens to
 bundle (2.16.0 shipped 10.0.11 and 10.0.0 that way, without the Brotli fix in 10.0.14). Raise it to
 the newest 10.0.x patch on nuget.org (`Microsoft.NETCore.App.Runtime.linux-x64`) before tagging.
-The release job refuses zips carrying any other runtime, and warns when a newer patch is out. The
-hosted server is framework-dependent: install the same runtime on the VPS when deploying.
+The Windows app carries no runtime; its runtimeconfig.json asks for that same version or a later
+patch, so Windows will not start it on an older one, and its installer checks for it. The release
+job refuses zips carrying or asking for any other runtime, and warns when a newer patch is out. The
+hosted server is framework-dependent: install the same runtime on the VPS when deploying. When the
+pin rises, the README's and QUICKSTART's "10.0.15 or later" rise with it. On the VPS, publish with
+`-p:PinShippedRuntime=true` too, after installing that runtime: its runtimeconfig then asks for it,
+so the services cannot quietly start on an older one.
 
 ```bash
 git tag v1.0.0

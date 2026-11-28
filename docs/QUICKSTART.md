@@ -39,8 +39,8 @@ bells for events. The terminal calls this the Hybrid Voice model. You can run ei
 **Starting it on Windows.** If you ran the setup, it is **Accessible Trader** in the Start menu.
 If you took the zip, unzip it and run **Accessible Trader.exe** in the folder it makes; the
 program is in the `app` folder beside it, which stays where it is. The Windows app needs Microsoft's
-.NET 10 Desktop Runtime (x64); the setup checks for it and offers the download, and the app says so
-if it is missing.
+.NET 10 Desktop Runtime (x64), 10.0.15 or later; the setup checks for it and offers the download, and
+Windows says so if it is missing or older when you start the app.
 
 **Starting the web host** (any of Windows, Linux or macOS, nothing to install). Its zip unzips to
 one folder, `AccessibleTrader-WebHost-<version>`. Run **Accessible Trader.exe** in it on Windows,
