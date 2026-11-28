@@ -56,6 +56,8 @@ never in the main checkout under a running server; the DBSI study is closed (Cod
 
 - **Try 2.16.0** (released 2026-11-28; the VPS runs the same build): the Windows setup or zip from
   the download page. What is not yet heard is listed under "To hear".
+- **Downloads** (since 2026-11-28): `~/bin/att-downloads.sh` on the VPS prints GitHub's count per
+  release file and the site's GoatCounter Download clicks. Subtract the one Linux test click from 11-28.
 - **Look at the chart's two 2.15.0 fixes** (Cody's 2026-11-22 screenshot): the date under the mouse
   pointer no longer sits beside half a date ("Oc"), and Cipher A's symbols over the highest candles
   are drawn whole below the legend. Neither has been seen by Cody.
@@ -340,15 +342,15 @@ needed: "don't worry about the custom scripts on the hosted vps".
   included.
 - [ ] **Profiles**: the buying/selling split is by bar direction; true delta needs lower-timeframe or
   tick data.
-- [ ] **Website, at the next release (Strategy Lab, Cody 2026-11-26: "keep it in repository and ...
+- [x] **Website, at the next release (Strategy Lab, Cody 2026-11-26: "keep it in repository and ...
   remove mention from the website")**: `includes/features.php` on the server says two false things.
   Line 166, "test it on years of history in the Strategy Lab", becomes "test it on years of history
   in the Strategy Manager's Backtest tab". The table row at line 234, "Strategies and the Strategy
   Lab" (Yes for the download), becomes "Strategies and backtesting". The manual's "The Strategy Lab"
   section was cut to one sentence (Cody 11-26); the site's /docs and llms-full.txt pick it up when
   synced at the release. Cody 11-26: the catalogue's strategies are NOT shipped in the terminal.
-  Not changed on the server: website edits wait for the
-  release.
+  **Done at 2.16.0 (2026-11-28):** both lines changed on the server, docs and llms-full.txt synced
+  from the tag.
 - [ ] **Website**: redo "Take the audio tour" to show the different kinds of data (Cody: later). On a
   phone the leaderboard's caption scrolls off with the table. The terminal does not listen (speech
   input), so the site says keyboard or touchscreen in.
