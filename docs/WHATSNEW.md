@@ -6,7 +6,16 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
-## 2.16.0: a larger indicator library, true buy and sell volume, invert with I, and Hyperliquid trading tools
+## 2.16.1: 2.16.0 on a patched .NET
+
+**2.16.1 is 2.16.0 with .NET's security fixes; the app itself has not changed.** The browser
+downloads and the Mac app now carry .NET 10.0.15. 2.16.0 carried 10.0.11 and 10.0.0, without the
+Brotli fix in 10.0.14 and the other fixes since. The Windows app asks for the .NET 10 Desktop
+Runtime 10.0.15 or later: if yours is older, Windows says so when you start it and offers
+Microsoft's download, and the setup checks for it too. The hosted terminal runs on 10.0.15.
+Everything below arrived in 2.16.0.
+
+### 2.16.0: a larger indicator library, true buy and sell volume, invert with I, and Hyperliquid trading tools
 
 Released 2026-11-28. Cody has heard the new indicators, the upside-down price pane, indicators
 updating live, alerts staying on their own chart and true buy and sell volume. Trading on

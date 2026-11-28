@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.16.1] — 2026-11-28
+
+Cody, 2026-11-28: "yes to both" (cut 2.16.1 for the runtime, and have the Windows app require it).
+2.16.0's app on .NET 10.0.15: the WebHost zips and the Mac app carry it, the Windows app asks for
+it, and the VPS is moved to it in the same sitting. No app code changed since 2.16.0.
+
 - **The downloads carry .NET runtime 10.0.15 (2026-11-28).** 2.16.0's WebHost zips carried 10.0.11
   and its Mac app 10.0.0 (the 2.16.0 caveat below named only the WebHost), both without the Brotli
   decoder fix in 10.0.14 (GHSA-p3jp-9v83-76w9) and the rest of 10.0.14 and 10.0.15's security

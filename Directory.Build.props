@@ -5,7 +5,7 @@
        assembly version, and Settings > About via the assembly informational
        version read at runtime. Bump ONLY here on release. -->
   <PropertyGroup>
-    <Version>2.16.0</Version>
+    <Version>2.16.1</Version>
   </PropertyGroup>
 
   <!-- ── The .NET runtime the downloads carry ──────────────────────────────
