@@ -307,9 +307,27 @@ jobs:
             --framework net10.0-windows10.0.19041.0 `
             --configuration Release `
             -p:ReleasePublish=true `
+            -p:PinShippedRuntime=true `
             -p:Version=${{ needs.meta.outputs.version }} `
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} `
             --output publish/maui-win
+
+      # PinShippedRuntime makes the app's runtimeconfig.json ask for the Desktop Runtime named in
+      # Directory.Build.props, so Windows will not start it on an older one. package.ps1 starts it
+      # to prove the launcher works, and the SDK set up above carries an older runtime, so put the
+      # pinned one beside it, where the app's exe looks.
+      - name: Install the pinned .NET Desktop Runtime for the package trials
+        shell: pwsh
+        run: |
+          $v = (Select-Xml -Path Directory.Build.props -XPath '//ShippedRuntimeVersion').Node.InnerText.Trim()
+          $dir = if ($env:DOTNET_ROOT) { $env:DOTNET_ROOT } else { Join-Path $env:ProgramFiles 'dotnet' }
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile (Join-Path $env:RUNNER_TEMP 'dotnet-install.ps1')
+          & (Join-Path $env:RUNNER_TEMP 'dotnet-install.ps1') -Runtime windowsdesktop -Version $v -Architecture x64 -InstallDir $dir
+          $have = & (Join-Path $dir 'dotnet.exe') --list-runtimes
+          $have
+          foreach ($fw in 'Microsoft.NETCore.App', 'Microsoft.WindowsDesktop.App') {
+            if (-not ($have | Select-String -SimpleMatch "$fw $v ")) { throw "$fw $v is not in $dir after the install." }
+          }
 
       # The publish is about 1,070 files, 480 loose beside the exe. package.ps1 puts them in an
       # app\ folder under "Accessible Trader <version>\", with the launcher "Accessible Trader.exe"

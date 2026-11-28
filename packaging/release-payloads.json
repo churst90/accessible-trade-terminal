@@ -151,6 +151,13 @@
           "the shipped bytes actually carry a ManagedNativeHeader."
         ],
         "severity": "warn"
+      },
+      "runtimeconfig": {
+        "files": [
+          "AccessibleTrader.BlazorClient.runtimeconfig.json",
+          "AccessibleTrader.ScriptWorker.runtimeconfig.json"
+        ],
+        "why": "the Windows app runs on the user's installed .NET; a runtimeconfig that accepts 10.0.0 starts it on an unpatched runtime (2.16.0 did). Cody 2026-11-28: require the pinned patch. PinShippedRuntime=true on the Windows publish sets it."
       }
     },
     {

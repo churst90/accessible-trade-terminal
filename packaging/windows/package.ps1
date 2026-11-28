@@ -65,6 +65,17 @@ if ($LASTEXITCODE -ne 0) { throw "The launcher did not publish (exit $LASTEXITCO
 $launcherExe = Join-Path $launcherOut 'AccessibleTrader.Launcher.exe'
 if (-not (Test-Path $launcherExe)) { throw "The launcher published, but $launcherExe is not there." }
 
+# The Desktop Runtime the app asks for, from its own runtimeconfig.json: 10.0.15 in a release
+# (PinShippedRuntime, Directory.Build.props), 10.0.0 in a build that does not pin. The README and
+# the installer's check name this, so they say what the app itself will demand.
+$rcPath = Join-Path $PublishDir 'AccessibleTrader.BlazorClient.runtimeconfig.json'
+$rc = (Get-Content $rcPath -Raw | ConvertFrom-Json).runtimeOptions
+$desktop = @($rc.frameworks) | Where-Object { $_.name -eq 'Microsoft.WindowsDesktop.App' }
+if (-not $desktop) { throw "$rcPath names no Microsoft.WindowsDesktop.App framework." }
+$minRuntime = $desktop.version
+if ($minRuntime -notmatch '^10\.0\.\d+$') { throw "The app asks for Desktop Runtime '$minRuntime'; the installer's check reads only 10.0.<patch>." }
+Write-Host "The app asks for .NET Desktop Runtime $minRuntime or later."
+
 # ── Stage ───────────────────────────────────────────────────────────────────────────────────
 $top   = "Accessible Trader $Version"
 $stage = Join-Path (Join-Path $work 'stage') $top
@@ -72,7 +83,7 @@ $app   = Join-Path $stage 'app'
 New-Item -ItemType Directory -Force -Path $app | Out-Null
 Copy-Item -Path (Join-Path $PublishDir '*') -Destination $app -Recurse -Force
 Copy-Item $launcherExe (Join-Path $stage 'Accessible Trader.exe')
-(Get-Content (Join-Path $PSScriptRoot 'README.txt') -Raw).Replace('{VERSION}', $Version) |
+(Get-Content (Join-Path $PSScriptRoot 'README.txt') -Raw).Replace('{VERSION}', $Version).Replace('{RUNTIME}', $minRuntime) |
     Set-Content (Join-Path $stage 'README.txt') -NoNewline -Encoding utf8
 
 $published = @(Get-ChildItem $PublishDir -Recurse -File).Count
@@ -96,7 +107,7 @@ if (-not (Test-Path $iscc)) {
 $setupBase = "AccessibleTrader-$Version-Windows-Setup"
 $isccArgs = @(
     "/DAppVersion=$Version", "/DNumericVersion=$NumericVersion",
-    "/DSourceDir=$stage", "/DOutputBaseName=$setupBase", "/O$OutDir")
+    "/DSourceDir=$stage", "/DOutputBaseName=$setupBase", "/DMinRuntime=$minRuntime", "/O$OutDir")
 if ($ico) { $isccArgs += "/DSetupIcon=$($ico.FullName)" }
 & $iscc @isccArgs (Join-Path $PSScriptRoot 'AccessibleTrader.iss')
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed (exit $LASTEXITCODE)." }

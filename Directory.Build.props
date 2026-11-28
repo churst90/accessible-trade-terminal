@@ -21,10 +21,15 @@
        raising the SDK's own entries for .NET and ASP.NET Core; setting
        RuntimeFrameworkVersion instead also re-versions Apple's and Android's
        runtime packs, which do not exist at 10.0.x, and the Mac build fails to
-       restore). It is not set for ordinary builds: a
-       framework-dependent build would then demand this runtime on the machine
-       running it, and the test runners and the Windows app (which uses the
-       user's installed .NET) do not have to have it.
+       restore).
+
+       The Windows app is framework-dependent: it runs on the user's installed
+       .NET 10 Desktop Runtime. There the same flag, through
+       TargetLatestRuntimePatch below, writes this version into its
+       runtimeconfig.json, so Windows refuses to start it on an older runtime
+       and offers Microsoft's download instead (Cody, 2026-11-28: yes). The
+       installer checks for it too. It is not set for ordinary builds, because
+       the test runners and developers' machines need not have this runtime.
 
        scripts/verify_release_payloads.py reads this value and refuses a release
        whose zips carry any other runtime. Raise it to the newest 10.0.x patch
@@ -32,6 +37,7 @@
        the release job warns when a newer one exists. -->
   <PropertyGroup>
     <ShippedRuntimeVersion>10.0.15</ShippedRuntimeVersion>
+    <TargetLatestRuntimePatch Condition="'$(PinShippedRuntime)' == 'true'">true</TargetLatestRuntimePatch>
   </PropertyGroup>
 
   <!-- ── Commit stamp ──────────────────────────────────────────────────────

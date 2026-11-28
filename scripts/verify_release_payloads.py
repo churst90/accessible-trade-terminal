@@ -38,6 +38,10 @@ WebHost zips, the Mac app) and fails unless it is ShippedRuntimeVersion from Dir
 2.16.0 shipped 10.0.11 and 10.0.0, older than a high-severity Brotli fix, because a self-contained
 publish takes its SDK band's runtime unless told otherwise. A newer patch on nuget.org than the pin
 is a ::warning:: only, so a tag already pushed is never stranded by Patch Tuesday.
+
+The `runtimeconfig` rule is its counterpart for the Windows app, which carries no runtime and runs
+on the user's installed one: every framework its runtimeconfig.json names must ask for the pinned
+version, so Windows refuses to start it on an older, unpatched .NET and offers the download.
 """
 
 from __future__ import annotations
@@ -266,6 +270,22 @@ def check_asset(path: Path, spec: dict, runtime: str = "") -> tuple[list[str], l
                         f"{asm} is runtime {', '.join(sorted(found)) or 'unstamped'}, not the pinned "
                         f"{runtime} — {rt['why']}")
 
+        rc = spec.get("runtimeconfig")
+        if rc:
+            for cfg in rc["files"]:
+                real = lower.get(cfg.lower())
+                if real is None:
+                    failures.append(f"MISSING {cfg}, so the runtime it asks for cannot be read — {rc['why']}")
+                    continue
+                member = next(n for n in raw_names if n.endswith(real))
+                opts = json.loads(zf.read(member).decode("utf-8-sig")).get("runtimeOptions", {})
+                frameworks = opts.get("frameworks") or [opts.get("framework") or {}]
+                for fw in frameworks:
+                    if fw.get("version") != runtime:
+                        failures.append(
+                            f"{cfg} asks for {fw.get('name', 'no framework')} {fw.get('version', '(none)')}, "
+                            f"not the pinned {runtime} — {rc['why']}")
+
     return failures, advisories
 
 
@@ -312,7 +332,8 @@ def main(argv: list[str]) -> int:
                     print(f"::error file={asset.name}::{p}")
             else:
                 n = (len(spec["required"]) + len(spec.get("readyToRun", {}).get("assemblies", []))
-                     + len(spec.get("runtime", {}).get("files", [])))
+                     + len(spec.get("runtime", {}).get("files", []))
+                     + len(spec.get("runtimeconfig", {}).get("files", [])))
                 print(f"ok   {asset.name}  [{spec['head']}] — {n} checks")
 
             for a in advisories:

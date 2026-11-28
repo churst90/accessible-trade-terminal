@@ -6,11 +6,14 @@
        These are the SDK's own entries (Microsoft.NETCoreSdk.BundledVersions.props),
        raised for net10.0 only: the CoreCLR runtime and ASP.NET Core packs the
        WebHost bundles, and the Mono pack the Mac app bundles. A self-contained
-       publish takes LatestRuntimeFrameworkVersion. Apple's and Android's own
+       publish takes LatestRuntimeFrameworkVersion; so does a framework-dependent
+       one with TargetLatestRuntimePatch (the props set it), which is how the
+       Windows app's runtimeconfig.json comes to name this version for .NET and
+       the Desktop Runtime. Apple's and Android's own
        packs (Microsoft.MacCatalyst.Runtime.*, Microsoft.Android.Runtime.*) are
        other items with their own version numbers and are left alone. -->
   <ItemGroup Condition="'$(PinShippedRuntime)' == 'true'">
-    <KnownFrameworkReference Update="Microsoft.NETCore.App;Microsoft.AspNetCore.App">
+    <KnownFrameworkReference Update="Microsoft.NETCore.App;Microsoft.AspNetCore.App;Microsoft.WindowsDesktop.App">
       <LatestRuntimeFrameworkVersion Condition="'%(TargetFramework)' == 'net10.0'">$(ShippedRuntimeVersion)</LatestRuntimeFrameworkVersion>
     </KnownFrameworkReference>
     <KnownRuntimePack Update="Microsoft.NETCore.App">

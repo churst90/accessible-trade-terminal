@@ -19,9 +19,13 @@
 ;   SourceDir       the staged folder above
 ;   OutputBaseName  AccessibleTrader-<version>-Windows-Setup
 ;   SetupIcon       optional, the app's .ico
+;   MinRuntime      the Desktop Runtime the app's runtimeconfig.json asks for, e.g. 10.0.15
 
 #ifndef AppVersion
   #error Pass /DAppVersion=<version>
+#endif
+#ifndef MinRuntime
+  #error Pass /DMinRuntime=<10.0.patch from the app's runtimeconfig.json>
 #endif
 #ifndef NumericVersion
   #define NumericVersion AppVersion
@@ -95,15 +99,33 @@ Filename: "{app}\{#AppExe}"; WorkingDir: "{app}\app"; Description: "{cm:LaunchPr
 Type: filesandordirs; Name: "{app}\app"
 
 [Code]
-// The runtime's own installer puts each version in a folder of this name. A false "missing" only
-// costs a message; the app's exe would say the same when started.
+// The patch number of a "10.0.<patch>" folder name, or -1 for anything else (a preview, say).
+function RuntimePatch(Name: String): Integer;
+begin
+  Result := -1;
+  if Copy(Name, 1, 5) = '10.0.' then
+    Result := StrToIntDef(Copy(Name, 6, Length(Name) - 5), -1);
+end;
+
+// The runtime's own installer puts each version in a folder of this name. The app asks for
+// {#MinRuntime} or a later 10.0 patch (its runtimeconfig.json), so an older one counts as missing.
+// A false "missing" only costs a message; the app's exe would say the same when started.
 function DesktopRuntimeInstalled(): Boolean;
 var
   F: TFindRec;
+  Need: Integer;
 begin
-  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.*'), F);
-  if Result then
-    FindClose(F);
+  Result := False;
+  Need := RuntimePatch('{#MinRuntime}');
+  if FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.0.*'), F) then
+    try
+      repeat
+        if RuntimePatch(F.Name) >= Need then
+          Result := True;
+      until Result or not FindNext(F);
+    finally
+      FindClose(F);
+    end;
 end;
 
 function InitializeSetup(): Boolean;
@@ -114,8 +136,8 @@ begin
   // Silent installs (/SUPPRESSMSGBOXES) take No: nothing opens on its own.
   if not DesktopRuntimeInstalled() then
     if SuppressibleMsgBox(
-         'Accessible Trader needs Microsoft''s .NET 10 Desktop Runtime for Windows x64, and it is not '
-         + 'installed on this computer.' + #13#10#13#10
+         'Accessible Trader needs Microsoft''s .NET Desktop Runtime {#MinRuntime} or later for Windows '
+         + 'x64. This computer does not have it, or has an older version.' + #13#10#13#10
          + 'Setup will go on and install Accessible Trader, but it will not start until the runtime is '
          + 'installed.' + #13#10#13#10
          + 'Open Microsoft''s download page now? On it, choose .NET Desktop Runtime 10, Windows, x64.',
